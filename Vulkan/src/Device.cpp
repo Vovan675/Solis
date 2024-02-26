@@ -87,9 +87,22 @@ void Device::CreateLogicalDevice()
 	info.enabledExtensionCount = extensions.size();
 	info.ppEnabledExtensionNames = extensions.data();
 
-	VkPhysicalDeviceFeatures enabledFeatures{};
-	enabledFeatures.samplerAnisotropy = true;
-	info.pEnabledFeatures = &enabledFeatures;
+	// Enable dynamic rendering
+	VkPhysicalDeviceVulkan13Features features13{};
+	features13.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
+	features13.dynamicRendering = true;
+	/*
+	VkPhysicalDeviceDynamicRenderingFeaturesKHR dynamic_rendering_feature{};
+	dynamic_rendering_feature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES_KHR;
+	dynamic_rendering_feature.dynamicRendering = true;
+	info.pNext = &dynamic_rendering_feature;
+	*/
+
+	VkPhysicalDeviceFeatures2 enabledFeatures{};
+	enabledFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+	enabledFeatures.features.samplerAnisotropy = true;
+	enabledFeatures.pNext = &features13;
+	info.pNext = &enabledFeatures;
 
 	CHECK_ERROR(vkCreateDevice(physicalHandle, &info, nullptr, &logicalHandle));
 

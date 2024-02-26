@@ -17,20 +17,16 @@ public:
 	void Run();
 private:
 	void UpdateUniformBuffer(uint32_t currentImage);
-	void RecordCommandBuffer(CommandBuffer& commandBuffer, uint32_t imageIndex);
+	void RecordCommandBuffer(CommandBuffer& command_buffer, uint32_t image_index);
 	void Cleanup();
 	void CleanupSwapchain();
 
 	void RecreateSwapchain();
 
-	void InitSwapchain();
-	void InitRenderpass();
 	void InitShaders();
 	void InitDescriptorLayout();
 	void InitPipeline();
-	void InitFramebuffers();
 	void InitMesh();
-	void InitColor();
 	void InitDepth();
 	void InitTextureImage();
 	void InitUniformBuffer();
@@ -43,21 +39,16 @@ private:
 	std::shared_ptr<Shader> vertShader;
 	std::shared_ptr<Shader> fragShader;
 
-	VkRenderPass renderpass;
 	VkDescriptorSetLayout descriptorSetLayout;
 	VkPipelineLayout pipelineLayout;
 	VkPipeline pipeline;
 
-	std::vector<VkFramebuffer> swapchainFramebuffers;
+	std::vector<std::shared_ptr<Texture>> depthStencilImages;
 
 	std::vector<VkSemaphore> imageAvailableSemaphores;
 	std::vector<VkSemaphore> renderFinishedSemaphores;
 	int currentFrame = 0;
 
-	VkSampleCountFlagBits sampleCount = VK_SAMPLE_COUNT_8_BIT;
-
-	std::shared_ptr<Texture> colorImage;
-	std::shared_ptr<Texture> depthStencilImage;
 	std::shared_ptr<Texture> image;
 
 	std::shared_ptr<Engine::Mesh> modelMesh;
