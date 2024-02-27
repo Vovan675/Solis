@@ -1,11 +1,12 @@
 #pragma once
-#include "Log.h"
-#include "Device.h"
 #include "Buffer.h"
+#include "Device.h"
+#include "Log.h"
+#include "Mesh.h"
+#include "Pipeline.h"
 #include "Shader.h"
 #include "Swapchain.h"
 #include "Texture.h"
-#include "Mesh.h"
 #include "VkWrapper.h"
 
 class Application
@@ -18,7 +19,7 @@ public:
 private:
 	void UpdateUniformBuffer(uint32_t currentImage);
 	void RecordCommandBuffer(CommandBuffer& command_buffer, uint32_t image_index);
-	void Cleanup();
+	void cleanup();
 	void CleanupSwapchain();
 
 	void RecreateSwapchain();
@@ -39,9 +40,8 @@ private:
 	std::shared_ptr<Shader> vertShader;
 	std::shared_ptr<Shader> fragShader;
 
+	std::shared_ptr<Pipeline> pipeline;
 	VkDescriptorSetLayout descriptorSetLayout;
-	VkPipelineLayout pipelineLayout;
-	VkPipeline pipeline;
 
 	std::vector<std::shared_ptr<Texture>> depthStencilImages;
 

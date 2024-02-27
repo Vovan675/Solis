@@ -27,7 +27,7 @@ void VkWrapper::init(GLFWwindow *window)
 	swapchain = std::make_shared<Swapchain>(surface);
 	int width, height;
 	glfwGetWindowSize(window, &width, &height);
-	swapchain->Create(width, height);
+	swapchain->create(width, height);
 }
 
 void VkWrapper::cleanup()

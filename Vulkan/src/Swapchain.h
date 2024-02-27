@@ -14,8 +14,8 @@ public:
 public:
 	Swapchain(VkSurfaceKHR surface);
 	virtual ~Swapchain();
-	void Cleanup();
-	void Create(int width, int height);
+	void cleanup();
+	void create(int width, int height);
 
 private:
 	void CreateSwapchain(int width, int height);

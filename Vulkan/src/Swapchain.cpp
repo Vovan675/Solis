@@ -11,11 +11,11 @@ Swapchain::Swapchain(VkSurfaceKHR surface)
 
 Swapchain::~Swapchain()
 {
-	Cleanup();
+	cleanup();
 	vkDestroySurfaceKHR(VkWrapper::instance, surface, nullptr);
 }
 
-void Swapchain::Cleanup()
+void Swapchain::cleanup()
 {
 	if (swapchainImageViews.size() != 0)
 	{
@@ -33,9 +33,9 @@ void Swapchain::Cleanup()
 	}
 }
 
-void Swapchain::Create(int width, int height)
+void Swapchain::create(int width, int height)
 {
-	Cleanup();
+	cleanup();
 	CreateSwapchain(width, height);
 	CreateImageViews();
 }
