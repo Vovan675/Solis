@@ -21,6 +21,7 @@ IncludeDir["Vulkan"] = "vendor/Vulkan/include"
 IncludeDir["SpdLog"] = "vendor/SpdLog/include"
 IncludeDir["Assimp"] = "vendor/Assimp/assimp/include"
 IncludeDir["STB_IMAGE"] = "vendor/stb"
+IncludeDir["ImGui"] = "vendor/imgui"
 
 LibDir = {}
 LibDir["Vulkan"] = "../vendor/Vulkan/Lib"
@@ -28,6 +29,7 @@ LibDir["Vulkan"] = "../vendor/Vulkan/Lib"
 group "Dependencies"
 include "vendor/GLFW"
 include "vendor/Assimp"
+include "vendor/ImGui"
 group ""
 
 project "Vulkan"
@@ -57,7 +59,8 @@ project "Vulkan"
 		"%{IncludeDir.Vulkan}",
 		"%{IncludeDir.SpdLog}",
 		"%{IncludeDir.Assimp}",
-		"%{IncludeDir.STB_IMAGE}"
+		"%{IncludeDir.STB_IMAGE}",
+		"%{IncludeDir.ImGui}"
 	}
 
 	links
@@ -65,7 +68,8 @@ project "Vulkan"
 		"GLFW",
 		"%{LibDir.Vulkan}/vulkan-1.lib",
 		"%{LibDir.Vulkan}/shaderc_shared.lib",
-		"Assimp"
+		"Assimp",
+		"ImGui"
 	}
 
 	filter "system:windows"

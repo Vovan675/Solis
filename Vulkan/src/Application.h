@@ -24,6 +24,7 @@ private:
 
 	void RecreateSwapchain();
 
+	void InitImgui();
 	void InitShaders();
 	void InitDescriptorLayout();
 	void InitPipeline();
@@ -57,4 +58,6 @@ private:
 
 	VkDescriptorPool descriptorPool;
 	std::vector<VkDescriptorSet> descriptorSets;
+
+	VkDescriptorPool imgui_pool;
 };

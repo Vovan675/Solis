@@ -12,6 +12,9 @@
 #include "assimp/postprocess.h"
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
+#include "imgui.h"
+#include "imgui/imgui_impl_glfw.h"
+#include "imgui/imgui_impl_vulkan.h"
 
 static std::vector<const char *> s_ValidationLayers = {
 		"VK_LAYER_KHRONOS_validation"
@@ -53,6 +56,7 @@ Application::Application()
 	InitDescriptorPool();
 	InitDescriptorSet();
 	InitSyncObjects();
+	InitImgui();
 }
 
 void Application::Run()
@@ -72,6 +76,16 @@ void Application::Run()
 			CORE_CRITICAL("Failed to acquire next image");
 		}
 
+
+		// Init Imgui
+		ImGui_ImplVulkan_NewFrame();
+		ImGui_ImplGlfw_NewFrame();
+		ImGui::NewFrame();
+
+		// Draw Imgui Windows
+		ImGui::ShowDemoWindow();
+
+		// Render Loop
 		RecordCommandBuffer(VkWrapper::command_buffers[currentFrame], imageIndex);
 
 		UpdateUniformBuffer(currentFrame);
@@ -110,7 +124,7 @@ void Application::Run()
 		{
 			CORE_CRITICAL("Failed to present swap chain image");
 		}
-		//vkQueueWaitIdle(presentQueue);
+		//vkQueueWaitIdle(VkWrapper::device->presentQueue);
 
 		currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 	}
@@ -237,6 +251,12 @@ void Application::RecordCommandBuffer(CommandBuffer& command_buffer, uint32_t im
 	vkCmdBindIndexBuffer(command_buffer.get_buffer(), modelMesh->indexBuffer->bufferHandle, 0, VK_INDEX_TYPE_UINT32);
 	vkCmdDrawIndexed(command_buffer.get_buffer(), modelMesh->indices.size(), 1, 0, 0, 0);
 
+	// Render imgui
+	// This is very fast integration
+	// TODO: Think about do this in separate vkCmdBeginRendering and blit image
+	ImGui::Render();
+	ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), command_buffer.get_buffer());
+
 	vkCmdEndRendering(command_buffer.get_buffer());
 
 	// Set swapchain color image layout for presenting
@@ -271,6 +291,10 @@ void Application::cleanup()
 
 	vkDestroyDescriptorPool(VkWrapper::device->logicalHandle, descriptorPool, nullptr);
 	vkDestroyDescriptorSetLayout(VkWrapper::device->logicalHandle, descriptorSetLayout, nullptr);
+
+	vkDestroyDescriptorPool(VkWrapper::device->logicalHandle, imgui_pool, nullptr);
+	ImGui_ImplGlfw_Shutdown();
+	ImGui_ImplVulkan_Shutdown();
 
 	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
@@ -310,6 +334,61 @@ void Application::RecreateSwapchain()
 
 	VkWrapper::swapchain->create(width, height);
 	InitDepth();
+}
+
+void Application::InitImgui()
+{
+	// create descriptor pool for IMGUI
+	VkDescriptorPoolSize pool_sizes[] = {{ VK_DESCRIPTOR_TYPE_SAMPLER, 1000 },
+		{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000 },
+		{ VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000 },
+		{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000 },
+		{ VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000 },
+		{ VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000 },
+		{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000 },
+		{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000 },
+		{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000 },
+		{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000 },
+		{ VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000 }};
+
+	VkDescriptorPoolCreateInfo pool_info = {};
+	pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+	pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+	pool_info.maxSets = 1000;
+	pool_info.poolSizeCount = (uint32_t)std::size(pool_sizes);
+	pool_info.pPoolSizes = pool_sizes;
+
+	vkCreateDescriptorPool(VkWrapper::device->logicalHandle, &pool_info, nullptr, &imgui_pool);
+
+	ImGui::CreateContext();
+
+	ImGui_ImplGlfw_InitForVulkan(window, true);
+	ImGui_ImplVulkan_InitInfo init_info = {};
+	init_info.Instance = VkWrapper::instance;
+	init_info.PhysicalDevice = VkWrapper::device->physicalHandle;
+	init_info.Device = VkWrapper::device->logicalHandle;
+	init_info.QueueFamily = VkWrapper::device->queueFamily.graphicsFamily.value();
+	init_info.Queue = VkWrapper::device->graphicsQueue;
+	//init_info.PipelineCache = g_PipelineCache;
+	init_info.DescriptorPool = imgui_pool;
+	//init_info.RenderPass = wd->RenderPass;
+	//init_info.Subpass = 0;
+	init_info.MinImageCount = 3;
+	init_info.ImageCount = 3;
+	init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+	init_info.UseDynamicRendering = true;
+
+	VkPipelineRenderingCreateInfo pipeline_rendering_create_info{};
+	pipeline_rendering_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
+	pipeline_rendering_create_info.colorAttachmentCount = 1;
+	pipeline_rendering_create_info.pColorAttachmentFormats = &VkWrapper::swapchain->surfaceFormat.format;
+	pipeline_rendering_create_info.depthAttachmentFormat = VK_FORMAT_D32_SFLOAT_S8_UINT;
+	init_info.PipelineRenderingCreateInfo = pipeline_rendering_create_info;
+	//init_info.Allocator = g_Allocator;
+	//init_info.CheckVkResultFn = check_vk_result;
+	ImGui_ImplVulkan_Init(&init_info);
+
+	//ImGui_ImplVulkan_CreateFontsTexture();
 }
 
 void Application::InitShaders()
