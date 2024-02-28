@@ -64,6 +64,9 @@ void Application::Run()
 	while (!glfwWindowShouldClose(window))
 	{
 		glfwPollEvents();
+		
+		VkWrapper::command_buffers[currentFrame].waitFence();
+
 		uint32_t imageIndex;
 		VkResult result = vkAcquireNextImageKHR(VkWrapper::device->logicalHandle, VkWrapper::swapchain->swapchainHandle, UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
 		if (result == VK_ERROR_OUT_OF_DATE_KHR)
@@ -192,7 +195,7 @@ void Application::RecordCommandBuffer(CommandBuffer& command_buffer, uint32_t im
 	image_memory_barrier.subresourceRange.levelCount = 1;
 	image_memory_barrier.subresourceRange.baseArrayLayer = 0;
 	image_memory_barrier.subresourceRange.layerCount = 1;
-	vkCmdPipelineBarrier(command_buffer.get_buffer(), VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+	vkCmdPipelineBarrier(command_buffer.get_buffer(), VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
 						 VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0,
 						 0, nullptr,
 						 0, nullptr,

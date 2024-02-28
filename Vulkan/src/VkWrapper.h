@@ -37,12 +37,16 @@ public:
 		vkDestroyFence(device, in_flight_fence, nullptr);
 	}
 
+	void waitFence()
+	{
+		vkWaitForFences(device, 1, &in_flight_fence, VK_TRUE, UINT64_MAX);
+	}
+
 	void open()
 	{
 		if (is_open)
 			return;
 
-		vkWaitForFences(device, 1, &in_flight_fence, VK_TRUE, UINT64_MAX);
 		vkResetFences(device, 1, &in_flight_fence);
 
 		VkCommandBufferBeginInfo info{};
