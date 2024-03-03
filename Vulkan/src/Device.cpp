@@ -91,6 +91,7 @@ void Device::CreateLogicalDevice()
 	VkPhysicalDeviceVulkan13Features features13{};
 	features13.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
 	features13.dynamicRendering = true;
+	features13.synchronization2 = true;
 	/*
 	VkPhysicalDeviceDynamicRenderingFeaturesKHR dynamic_rendering_feature{};
 	dynamic_rendering_feature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES_KHR;

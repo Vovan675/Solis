@@ -65,8 +65,10 @@ void Application::Run()
 	{
 		glfwPollEvents();
 		
+		// Wait when queue for this frame is completed (device -> host sync)
 		VkWrapper::command_buffers[currentFrame].waitFence();
 
+		// Acquire image and trigger semaphore
 		uint32_t imageIndex;
 		VkResult result = vkAcquireNextImageKHR(VkWrapper::device->logicalHandle, VkWrapper::swapchain->swapchainHandle, UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
 		if (result == VK_ERROR_OUT_OF_DATE_KHR)
@@ -88,14 +90,16 @@ void Application::Run()
 		// Draw Imgui Windows
 		ImGui::ShowDemoWindow();
 
-		// Render Loop
+		// Record commands
 		RecordCommandBuffer(VkWrapper::command_buffers[currentFrame], imageIndex);
 
+		// Update uniforms
 		UpdateUniformBuffer(currentFrame);
 
 		VkSubmitInfo submitInfo{};
 		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 		
+		// Wait when semaphore when image will get acquired
 		VkSemaphore waitSemaphores[] = { imageAvailableSemaphores[currentFrame] };
 		VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
 		submitInfo.waitSemaphoreCount = 1;
@@ -104,14 +108,17 @@ void Application::Run()
 		submitInfo.commandBufferCount = 1;
 		VkCommandBuffer command_buffer = VkWrapper::command_buffers[currentFrame].get_buffer();
 		submitInfo.pCommandBuffers = &command_buffer;
+		// Signal semaphore when queue submitted
 		VkSemaphore signalSemaphores[] = { renderFinishedSemaphores[currentFrame] };
 		submitInfo.signalSemaphoreCount = 1;
 		submitInfo.pSignalSemaphores = signalSemaphores;
+		// Also trigger fence when queue completed to work with this 'currentFrame'
 		CHECK_ERROR(vkQueueSubmit(VkWrapper::device->graphicsQueue, 1, &submitInfo, VkWrapper::command_buffers[currentFrame].get_fence()));
 
 		VkPresentInfoKHR presentInfo{};
 		presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 		presentInfo.waitSemaphoreCount = 1;
+		// Wait until queue submitted before present it
 		presentInfo.pWaitSemaphores = signalSemaphores;
 		VkSwapchainKHR swapChains[] = { VkWrapper::swapchain->swapchainHandle };
 		presentInfo.swapchainCount = 1;
@@ -183,23 +190,30 @@ void Application::RecordCommandBuffer(CommandBuffer& command_buffer, uint32_t im
 {
 	command_buffer.open();
 
-	// Set swapchain color image layout for writing
-	VkImageMemoryBarrier image_memory_barrier{};
-	image_memory_barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-	image_memory_barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-	image_memory_barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	image_memory_barrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-	image_memory_barrier.image = VkWrapper::swapchain->swapchainImages[image_index];
-	image_memory_barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	image_memory_barrier.subresourceRange.baseMipLevel = 0;
-	image_memory_barrier.subresourceRange.levelCount = 1;
-	image_memory_barrier.subresourceRange.baseArrayLayer = 0;
-	image_memory_barrier.subresourceRange.layerCount = 1;
-	vkCmdPipelineBarrier(command_buffer.get_buffer(), VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-						 VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0,
-						 0, nullptr,
-						 0, nullptr,
-						 1, &image_memory_barrier);
+	{
+		// Set swapchain color image layout for writing
+		VkImageMemoryBarrier2 image_memory_barrier{};
+		image_memory_barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
+		image_memory_barrier.srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+		image_memory_barrier.srcAccessMask = 0;
+		image_memory_barrier.dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+		image_memory_barrier.dstAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
+		image_memory_barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		image_memory_barrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		image_memory_barrier.image = VkWrapper::swapchain->swapchainImages[image_index];
+		image_memory_barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		image_memory_barrier.subresourceRange.baseMipLevel = 0;
+		image_memory_barrier.subresourceRange.levelCount = 1;
+		image_memory_barrier.subresourceRange.baseArrayLayer = 0;
+		image_memory_barrier.subresourceRange.layerCount = 1;
+
+		VkDependencyInfo dependency_info{};
+		dependency_info.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+		dependency_info.imageMemoryBarrierCount = 1;
+		dependency_info.pImageMemoryBarriers = &image_memory_barrier;
+
+		vkCmdPipelineBarrier2(command_buffer.get_buffer(), &dependency_info);
+	}
 
 
 	// Begin dynamic rendering
@@ -262,23 +276,31 @@ void Application::RecordCommandBuffer(CommandBuffer& command_buffer, uint32_t im
 
 	vkCmdEndRendering(command_buffer.get_buffer());
 
-	// Set swapchain color image layout for presenting
-	image_memory_barrier = {};
-	image_memory_barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-	image_memory_barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-	image_memory_barrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-	image_memory_barrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-	image_memory_barrier.image = VkWrapper::swapchain->swapchainImages[image_index];
-	image_memory_barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	image_memory_barrier.subresourceRange.baseMipLevel = 0;
-	image_memory_barrier.subresourceRange.levelCount = 1;
-	image_memory_barrier.subresourceRange.baseArrayLayer = 0;
-	image_memory_barrier.subresourceRange.layerCount = 1;
-	vkCmdPipelineBarrier(command_buffer.get_buffer(), VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 
-						 VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0,
-						 0, nullptr,
-						 0, nullptr,
-						 1, &image_memory_barrier);
+	{
+		// Set swapchain color image layout for presenting
+		VkImageMemoryBarrier2 image_memory_barrier{};
+		image_memory_barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
+		image_memory_barrier.srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+		image_memory_barrier.srcAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
+		image_memory_barrier.dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+		image_memory_barrier.dstAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT;
+		image_memory_barrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		image_memory_barrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+		image_memory_barrier.image = VkWrapper::swapchain->swapchainImages[image_index];
+		image_memory_barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		image_memory_barrier.subresourceRange.baseMipLevel = 0;
+		image_memory_barrier.subresourceRange.levelCount = 1;
+		image_memory_barrier.subresourceRange.baseArrayLayer = 0;
+		image_memory_barrier.subresourceRange.layerCount = 1;
+
+		VkDependencyInfo dependency_info{};
+		dependency_info.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+		dependency_info.imageMemoryBarrierCount = 1;
+		dependency_info.pImageMemoryBarriers = &image_memory_barrier;
+
+		vkCmdPipelineBarrier2(command_buffer.get_buffer(), &dependency_info);
+	}
+
 	command_buffer.close();
 }
 
