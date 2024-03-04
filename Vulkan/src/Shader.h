@@ -14,8 +14,8 @@ public:
 	virtual ~Shader();
 
 private:
-	std::string ReadFile(const std::string& fileName) const;
-	std::vector<uint32_t> CompileGLSL(const std::string& glslSource, ShaderType type, const std::string debugName) const;
+	std::string read_file(const std::string& fileName) const;
+	std::vector<uint32_t> compile_glsl(const std::string& glslSource, ShaderType type, const std::string debugName) const;
 private:
 	const VkDevice& m_DeviceHandle;
 };

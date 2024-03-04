@@ -8,6 +8,7 @@
 #include "Swapchain.h"
 #include "Texture.h"
 #include "VkWrapper.h"
+#include "renderers/MeshRenderer.h"
 
 class Application
 {
@@ -25,24 +26,10 @@ private:
 	void RecreateSwapchain();
 
 	void InitImgui();
-	void InitShaders();
-	void InitDescriptorLayout();
-	void InitPipeline();
-	void InitMesh();
 	void InitDepth();
-	void InitTextureImage();
-	void InitUniformBuffer();
-	void InitDescriptorPool();
-	void InitDescriptorSet();
 	void InitSyncObjects();
 private:
 	GLFWwindow* window;
-
-	std::shared_ptr<Shader> vertShader;
-	std::shared_ptr<Shader> fragShader;
-
-	std::shared_ptr<Pipeline> pipeline;
-	VkDescriptorSetLayout descriptorSetLayout;
 
 	std::vector<std::shared_ptr<Texture>> depthStencilImages;
 
@@ -50,14 +37,7 @@ private:
 	std::vector<VkSemaphore> renderFinishedSemaphores;
 	int currentFrame = 0;
 
-	std::shared_ptr<Texture> image;
-
-	std::shared_ptr<Engine::Mesh> modelMesh;
-	std::vector<std::shared_ptr<Buffer>> uniformBuffers;
-	std::vector<void*> uniform_buffer_mapped;
-
-	VkDescriptorPool descriptorPool;
-	std::vector<VkDescriptorSet> descriptorSets;
+	std::shared_ptr<MeshRenderer> mesh_renderer;
 
 	VkDescriptorPool imgui_pool;
 };

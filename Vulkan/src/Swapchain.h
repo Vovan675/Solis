@@ -18,8 +18,8 @@ public:
 	void create(int width, int height);
 
 private:
-	void CreateSwapchain(int width, int height);
-	void CreateImageViews();
+	void create_swapchain(int width, int height);
+	void create_image_views();
 private:
 };
 

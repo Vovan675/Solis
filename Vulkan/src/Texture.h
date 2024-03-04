@@ -24,14 +24,15 @@ public:
 public:
 	Texture(TextureDescription description);
 	virtual ~Texture();
-	void Fill();
-	void Fill(const void* sourceData);
+	void fill();
+	void fill(const void* sourceData);
+	void load(const char* path);
 private:
-	void GenerateMipmaps();
-	void TransitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
-	void CopyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
-	void CreateImageView();
-	void CreateSampler();
+	void generate_mipmaps();
+	void transition_image_layout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
+	void copy_buffer_to_image(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
+	void create_image_view();
+	void create_sampler();
 private:
 	TextureDescription m_Description;
 };

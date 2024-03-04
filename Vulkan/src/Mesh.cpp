@@ -18,7 +18,7 @@ namespace Engine
 		vertexDesc.bufferUsageFlags = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
 
 		vertexBuffer = std::make_shared<Buffer>(vertexDesc);
-		vertexBuffer->Fill(vertices.data());
+		vertexBuffer->fill(vertices.data());
 		
 		// Create Index buffer
 		BufferDescription indexDesc;
@@ -27,7 +27,7 @@ namespace Engine
 		indexDesc.bufferUsageFlags = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
 
 		indexBuffer = std::make_shared<Buffer>(indexDesc);
-		indexBuffer->Fill(indices.data());
+		indexBuffer->fill(indices.data());
 	}
 
 	Mesh::~Mesh()

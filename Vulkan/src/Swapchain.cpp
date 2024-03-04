@@ -36,11 +36,11 @@ void Swapchain::cleanup()
 void Swapchain::create(int width, int height)
 {
 	cleanup();
-	CreateSwapchain(width, height);
-	CreateImageViews();
+	create_swapchain(width, height);
+	create_image_views();
 }
 
-void Swapchain::CreateSwapchain(int width, int height)
+void Swapchain::create_swapchain(int width, int height)
 {
 	VkBool32 surfaceSupport;
 	CHECK_ERROR(vkGetPhysicalDeviceSurfaceSupportKHR(VkWrapper::device->physicalHandle, VkWrapper::device->queueFamily.graphicsFamily.value(), surface, &surfaceSupport));
@@ -127,7 +127,7 @@ void Swapchain::CreateSwapchain(int width, int height)
 	vkGetSwapchainImagesKHR(VkWrapper::device->logicalHandle, swapchainHandle, &imagesCount, swapchainImages.data());
 }
 
-void Swapchain::CreateImageViews()
+void Swapchain::create_image_views()
 {
 	swapchainImageViews.resize(swapchainImages.size());
 	for (size_t i = 0; i < swapchainImages.size(); i++)

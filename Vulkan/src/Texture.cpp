@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "Texture.h"
 #include "VkWrapper.h"
+#include "stb_image.h"
 
 Texture::Texture(TextureDescription description)
 	: m_Description(description)
@@ -19,7 +20,7 @@ Texture::~Texture()
 	vkFreeMemory(VkWrapper::device->logicalHandle, memoryHandle, nullptr);
 }
 
-void Texture::Fill()
+void Texture::fill()
 {
 	VkDeviceSize imageSize = m_Description.width * m_Description.height * 4;
 	VkImageCreateInfo imageInfo{};
@@ -49,11 +50,11 @@ void Texture::Fill()
 	CHECK_ERROR(vkAllocateMemory(VkWrapper::device->logicalHandle, &allocInfo, nullptr, &memoryHandle));
 
 	vkBindImageMemory(VkWrapper::device->logicalHandle, imageHandle, memoryHandle, 0);
-	CreateImageView();
+	create_image_view();
 }
 
 
-void Texture::Fill(const void* sourceData)
+void Texture::fill(const void* sourceData)
 {
 	VkDeviceSize imageSize = m_Description.width * m_Description.height * 4;
 	VkImageCreateInfo imageInfo{};
@@ -96,20 +97,40 @@ void Texture::Fill(const void* sourceData)
 	vkUnmapMemory(VkWrapper::device->logicalHandle, stagingBufferMemory);
 
 	// Copy staging to image
-	TransitionImageLayout(imageHandle, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-	CopyBufferToImage(stagingBuffer, imageHandle, m_Description.width, m_Description.height);
+	transition_image_layout(imageHandle, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+	copy_buffer_to_image(stagingBuffer, imageHandle, m_Description.width, m_Description.height);
 	//TransitionImageLayout(imageHandle, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 	vkDestroyBuffer(VkWrapper::device->logicalHandle, stagingBuffer, nullptr);
 	vkFreeMemory(VkWrapper::device->logicalHandle, stagingBufferMemory, nullptr);
 
-	GenerateMipmaps();
+	generate_mipmaps();
 
-	CreateImageView();
-	CreateSampler();
+	create_image_view();
+	create_sampler();
 }
 
-void Texture::GenerateMipmaps() {
+void Texture::load(const char *path)
+{
+	int texWidth, texHeight, texChannels;
+	stbi_set_flip_vertically_on_load(1);
+	stbi_uc *pixels = stbi_load("assets/albedo2.png", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+
+	if (!pixels)
+	{
+		CORE_ERROR("Loading texture error");
+	}
+
+	TextureDescription tex_description;
+	m_Description.width = texWidth;
+	m_Description.height= texHeight;
+	m_Description.mipLevels = std::floor(std::log2(std::max(texWidth, texHeight))) + 1;
+	fill(pixels);
+
+	stbi_image_free(pixels);
+}
+
+void Texture::generate_mipmaps() {
 	VkCommandBuffer commandBuffer = VkWrapper::beginSingleTimeCommands();
 
 	VkImageMemoryBarrier barrier{};
@@ -187,7 +208,7 @@ void Texture::GenerateMipmaps() {
 	VkWrapper::endSingleTimeCommands(commandBuffer);
 }
 
-void Texture::TransitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout) {
+void Texture::transition_image_layout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout) {
 	VkCommandBuffer commandBuffer = VkWrapper::beginSingleTimeCommands();
 
 	VkImageMemoryBarrier barrier{};
@@ -236,7 +257,7 @@ void Texture::TransitionImageLayout(VkImage image, VkFormat format, VkImageLayou
 	VkWrapper::endSingleTimeCommands(commandBuffer);
 }
 
-void Texture::CopyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height) {
+void Texture::copy_buffer_to_image(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height) {
 	VkCommandBuffer commandBuffer = VkWrapper::beginSingleTimeCommands();
 
 	VkBufferImageCopy region{};
@@ -260,7 +281,7 @@ void Texture::CopyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, 
 }
 
 
-void Texture::CreateImageView()
+void Texture::create_image_view()
 {
 	VkImageViewCreateInfo viewInfo{};
 	viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -276,7 +297,7 @@ void Texture::CreateImageView()
 
 }
 
-void Texture::CreateSampler()
+void Texture::create_sampler()
 {
 	VkSamplerCreateInfo samplerInfo{};
 	samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;

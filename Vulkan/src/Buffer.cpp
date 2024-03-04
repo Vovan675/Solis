@@ -2,7 +2,7 @@
 #include "Buffer.h"
 #include "VkWrapper.h"
 
-Buffer::Buffer( BufferDescription description)
+Buffer::Buffer(BufferDescription description)
 	: m_Description(description)
 {
 	VkDeviceSize bufferSize = description.size;
@@ -28,7 +28,7 @@ Buffer::~Buffer()
 	vkFreeMemory(VkWrapper::device->logicalHandle, memoryHandle, nullptr);
 }
 
-void Buffer::Fill(const void* sourceData)
+void Buffer::fill(const void* sourceData)
 {
 	VkDeviceSize bufferSize = m_Description.size;
 
@@ -62,7 +62,7 @@ void Buffer::Fill(const void* sourceData)
 	}
 }
 
-void Buffer::Map(void **data)
+void Buffer::map(void **data)
 {
 	// Map buffer memory to CPU accessible memory
 	vkMapMemory(VkWrapper::device->logicalHandle, memoryHandle, 0, m_Description.size, 0, data);

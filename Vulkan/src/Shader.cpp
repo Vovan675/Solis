@@ -5,8 +5,8 @@
 
 Shader::Shader(const VkDevice& device, const std::string& path, ShaderType type): m_DeviceHandle(device)
 {
-	std::string source = ReadFile(path);
-	std::vector<uint32_t> spirvBinary = CompileGLSL(source, type, path);
+	std::string source = read_file(path);
+	std::vector<uint32_t> spirvBinary = compile_glsl(source, type, path);
 
 	VkShaderModuleCreateInfo vertShaderModuleCreateInfo{};
 	vertShaderModuleCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
@@ -21,7 +21,7 @@ Shader::~Shader()
 	vkDestroyShaderModule(m_DeviceHandle, handle, nullptr);
 }
 
-std::string Shader::ReadFile(const std::string& fileName) const
+std::string Shader::read_file(const std::string& fileName) const
 {
 	std::ifstream file(fileName, std::ios::binary | std::ios::ate);
 	if (!file.is_open())
@@ -36,7 +36,7 @@ std::string Shader::ReadFile(const std::string& fileName) const
 	return std::string(binary.data(), size);
 }
 
-std::vector<uint32_t> Shader::CompileGLSL(const std::string& glslSource, ShaderType type, const std::string debugName) const
+std::vector<uint32_t> Shader::compile_glsl(const std::string& glslSource, ShaderType type, const std::string debugName) const
 {
 	// Create compiler
 	shaderc::Compiler compiler;

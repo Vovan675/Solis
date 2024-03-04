@@ -17,10 +17,10 @@ public:
 public:
 	Buffer(BufferDescription description);
 	virtual ~Buffer();
-	void Fill(const void* sourceData);
+	void fill(const void* sourceData);
 
 	// Used for persistent mapping
-	void Map(void** data);
+	void map(void** data);
 private:
 	BufferDescription m_Description;
 };

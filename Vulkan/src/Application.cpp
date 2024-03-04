@@ -2,11 +2,6 @@
 #include "Application.h"
 #include "VkWrapper.h"
 
-#define GLM_FORCE_RADIANS
-#define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE
-#include "glm/glm.hpp"
-#include "glm/gtc/matrix_transform.hpp"
 #include "assimp/Importer.hpp"
 #include "assimp/scene.h"
 #include "assimp/postprocess.h"
@@ -46,17 +41,11 @@ Application::Application()
 	Log::Init();
 	VkWrapper::init(window);
 
-	InitShaders();
-	InitDescriptorLayout();
-	InitPipeline(); 
 	InitDepth();
-	InitTextureImage();
-	InitMesh();
-	InitUniformBuffer();
-	InitDescriptorPool();
-	InitDescriptorSet();
 	InitSyncObjects();
 	InitImgui();
+
+	mesh_renderer = std::make_shared<MeshRenderer>();
 }
 
 void Application::Run()
@@ -144,18 +133,7 @@ void Application::Run()
 
 void Application::UpdateUniformBuffer(uint32_t currentImage)
 {
-	static auto startTime = std::chrono::high_resolution_clock::now();
-	auto currentTime = std::chrono::high_resolution_clock::now();
-	float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
-
-	UniformBufferObject ubo{};
-	ubo.model = /*glm::rotate(glm::mat4(1), time * glm::radians(45.0f), glm::vec3(0, 1, 0)) **/ glm::rotate(glm::mat4(1), glm::radians(90.0f), glm::vec3(1, 0, 0)) * glm::translate(glm::mat4(1), glm::vec3(0, 0, 0));
-	ubo.view = glm::lookAt(glm::vec3(2, -2, 4), glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
-	ubo.proj = glm::perspective(glm::radians(45.0f), VkWrapper::swapchain->swapExtent.width / (float)VkWrapper::swapchain->swapExtent.height, 0.1f, 60.0f);
-	//ubo.proj[1][1] *= -1;
-	//ubo.proj = glm::mat4(1);
-	//ubo.view = glm::mat4(1);
-	memcpy(uniform_buffer_mapped[currentImage], &ubo, sizeof(ubo));
+	mesh_renderer->updateUniformBuffer(currentImage);
 }
 
 static void CmdImageMemoryBarrier(CommandBuffer& command_buffer, VkImage image,
@@ -244,8 +222,6 @@ void Application::RecordCommandBuffer(CommandBuffer& command_buffer, uint32_t im
 
 	vkCmdBeginRendering(command_buffer.get_buffer(), &rendering_info);
 
-	vkCmdBindPipeline(command_buffer.get_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);
-	
 	VkViewport viewport{};
 	viewport.x = 0.0f;
 	viewport.y = 0.0f;
@@ -260,13 +236,8 @@ void Application::RecordCommandBuffer(CommandBuffer& command_buffer, uint32_t im
 	scissor.extent = VkWrapper::swapchain->swapExtent;
 	vkCmdSetScissor(command_buffer.get_buffer(), 0, 1, &scissor);
 
-	vkCmdBindDescriptorSets(command_buffer.get_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline_layout, 0, 1, &descriptorSets[currentFrame], 0, nullptr);
-
-	VkBuffer vertexBuffers[] = { modelMesh->vertexBuffer->bufferHandle };
-	VkDeviceSize offsets[] = { 0 };
-	vkCmdBindVertexBuffers(command_buffer.get_buffer(), 0, 1, vertexBuffers, offsets);
-	vkCmdBindIndexBuffer(command_buffer.get_buffer(), modelMesh->indexBuffer->bufferHandle, 0, VK_INDEX_TYPE_UINT32);
-	vkCmdDrawIndexed(command_buffer.get_buffer(), modelMesh->indices.size(), 1, 0, 0, 0);
+	// Render mesh
+	mesh_renderer->fillCommandBuffer(command_buffer, image_index);
 
 	// Render imgui
 	// This is very fast integration
@@ -309,13 +280,8 @@ void Application::cleanup()
 	vkDeviceWaitIdle(VkWrapper::device->logicalHandle);
 	VkWrapper::cleanup();
 	depthStencilImages.clear();
-	image = nullptr;
-	modelMesh = nullptr;
-	uniformBuffers.clear();
+	mesh_renderer = nullptr;
 	CleanupSwapchain();
-
-	vkDestroyDescriptorPool(VkWrapper::device->logicalHandle, descriptorPool, nullptr);
-	vkDestroyDescriptorSetLayout(VkWrapper::device->logicalHandle, descriptorSetLayout, nullptr);
 
 	vkDestroyDescriptorPool(VkWrapper::device->logicalHandle, imgui_pool, nullptr);
 	ImGui_ImplGlfw_Shutdown();
@@ -327,8 +293,6 @@ void Application::cleanup()
 		vkDestroySemaphore(VkWrapper::device->logicalHandle, renderFinishedSemaphores[i], nullptr);
 	}
 	VkWrapper::command_buffers.clear();
-
-	pipeline = nullptr;
 
 	VkWrapper::device = nullptr;
 	//vkDestroySurfaceKHR(VkWrapper::instance, VkWrapper::swapchain->m_Surface, nullptr);
@@ -416,56 +380,6 @@ void Application::InitImgui()
 	//ImGui_ImplVulkan_CreateFontsTexture();
 }
 
-void Application::InitShaders()
-{
-	vertShader = std::make_shared<Shader>(VkWrapper::device->logicalHandle , "shaders/simple.vert", Shader::VERTEX_SHADER);
-	fragShader = std::make_shared<Shader>(VkWrapper::device->logicalHandle, "shaders/simple.frag", Shader::FRAGMENT_SHADER);
-}
-
-void Application::InitDescriptorLayout()
-{
-	VkDescriptorSetLayoutBinding samplerLayoutBinding{};
-	samplerLayoutBinding.binding = 1;
-	samplerLayoutBinding.descriptorCount = 1;
-	samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	samplerLayoutBinding.pImmutableSamplers = nullptr;
-	samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-
-	VkDescriptorSetLayoutBinding uboLayoutBinding{};
-	uboLayoutBinding.binding = 0;
-	uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	uboLayoutBinding.descriptorCount = 1;
-	uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-	uboLayoutBinding.pImmutableSamplers = nullptr;
-
-	std::vector<VkDescriptorSetLayoutBinding> bindings = std::vector<VkDescriptorSetLayoutBinding> { samplerLayoutBinding, uboLayoutBinding };
-	VkDescriptorSetLayoutCreateInfo info{};
-	info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-	info.bindingCount = bindings.size();
-	info.pBindings = bindings.data();
-
-	CHECK_ERROR(vkCreateDescriptorSetLayout(VkWrapper::device->logicalHandle, &info, nullptr, &descriptorSetLayout));
-}
-
-void Application::InitPipeline()
-{
-	PipelineDescription description{};
-	description.vertex_shader = vertShader;
-	description.fragment_shader = fragShader;
-	description.descriptor_set_layout = &descriptorSetLayout;
-
-	pipeline = std::make_shared<Pipeline>();
-	pipeline->create(description);
-
-	vertShader = nullptr;
-	fragShader = nullptr;
-}
-
-void Application::InitMesh()
-{
-	modelMesh = std::make_shared<Engine::Mesh>("assets/model2.obj");
-}
-
 void Application::InitDepth()
 {
 	depthStencilImages.resize(VkWrapper::swapchain->swapchainImages.size());
@@ -480,117 +394,7 @@ void Application::InitDepth()
 		description.imageAspectFlags = VK_IMAGE_ASPECT_DEPTH_BIT;
 		description.imageUsageFlags = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
 		depthStencilImages[i] = std::make_shared<Texture>(description);
-		depthStencilImages[i]->Fill();
-	}
-}
-
-void Application::InitTextureImage()
-{
-	int texWidth, texHeight, texChannels;
-	stbi_set_flip_vertically_on_load(1);
-	stbi_uc* pixels = stbi_load("assets/albedo2.png", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
-	
-	if (!pixels)
-	{
-		CORE_ERROR("Loading texture error");
-	}
-
-	TextureDescription description;
-	description.width = texWidth;
-	description.height = texHeight;
-	description.mipLevels = std::floor(std::log2(std::max(texWidth, texHeight))) + 1;
-	description.imageFormat = VK_FORMAT_R8G8B8A8_SRGB;
-	description.imageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
-	description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-	image = std::make_shared<Texture>(description);
-	image->Fill(pixels);
-
-	stbi_image_free(pixels);
-}
-
-void Application::InitUniformBuffer()
-{
-	VkDeviceSize bufferSize = sizeof(UniformBufferObject);
-
-	uniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
-	uniform_buffer_mapped.resize(MAX_FRAMES_IN_FLIGHT);
-
-	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-	{
-		BufferDescription desc;
-		desc.size = bufferSize;
-		desc.useStagingBuffer = false;
-		desc.bufferUsageFlags = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-
-		uniformBuffers[i] = std::make_shared<Buffer>(desc);
-
-		// Map gpu memory on cpu memory
-		uniformBuffers[i]->Map(&uniform_buffer_mapped[i]);
-	}
-}
-
-void Application::InitDescriptorPool()
-{
-	std::array<VkDescriptorPoolSize, 2> poolSizes{};
-	poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	poolSizes[0].descriptorCount = MAX_FRAMES_IN_FLIGHT;
-	poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	poolSizes[1].descriptorCount = MAX_FRAMES_IN_FLIGHT;
-
-	VkDescriptorPoolCreateInfo poolInfo{};
-	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-	poolInfo.poolSizeCount = poolSizes.size();
-	poolInfo.pPoolSizes = poolSizes.data();
-	poolInfo.maxSets = MAX_FRAMES_IN_FLIGHT;
-	CHECK_ERROR(vkCreateDescriptorPool(VkWrapper::device->logicalHandle, &poolInfo, nullptr, &descriptorPool));
-}
-
-void Application::InitDescriptorSet()
-{
-	std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, descriptorSetLayout);
-	VkDescriptorSetAllocateInfo allocInfo{};
-	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-	allocInfo.descriptorPool = descriptorPool;
-	allocInfo.descriptorSetCount = MAX_FRAMES_IN_FLIGHT;
-	allocInfo.pSetLayouts = layouts.data();
-	
-	descriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
-	CHECK_ERROR(vkAllocateDescriptorSets(VkWrapper::device->logicalHandle, &allocInfo, descriptorSets.data()));
-
-	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-	{
-		VkDescriptorBufferInfo bufferInfo{};
-		bufferInfo.buffer = uniformBuffers[i]->bufferHandle;
-		bufferInfo.offset = 0;
-		bufferInfo.range = sizeof(UniformBufferObject);
-
-		VkDescriptorImageInfo imageInfo{};
-		imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		imageInfo.imageView = image->imageView;
-		imageInfo.sampler = image->sampler;
-
-		std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
-		descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		descriptorWrites[0].dstSet = descriptorSets[i];
-		descriptorWrites[0].dstBinding = 0;
-		descriptorWrites[0].dstArrayElement = 0;
-		descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		descriptorWrites[0].descriptorCount = 1;
-		descriptorWrites[0].pBufferInfo = &bufferInfo;
-		descriptorWrites[0].pImageInfo = nullptr;
-		descriptorWrites[0].pTexelBufferView = nullptr;
-
-		descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		descriptorWrites[1].dstSet = descriptorSets[i];
-		descriptorWrites[1].dstBinding = 1;
-		descriptorWrites[1].dstArrayElement = 0;
-		descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		descriptorWrites[1].descriptorCount = 1;
-		descriptorWrites[1].pBufferInfo = nullptr;
-		descriptorWrites[1].pImageInfo = &imageInfo;
-		descriptorWrites[1].pTexelBufferView = nullptr;
-
-		vkUpdateDescriptorSets(VkWrapper::device->logicalHandle, descriptorWrites.size(), descriptorWrites.data(), 0, nullptr);
+		depthStencilImages[i]->fill();
 	}
 }
 
