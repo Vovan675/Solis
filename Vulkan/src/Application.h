@@ -9,6 +9,7 @@
 #include "Texture.h"
 #include "VkWrapper.h"
 #include "renderers/MeshRenderer.h"
+#include "renderers/ImGuiRenderer.h"
 
 class Application
 {
@@ -25,7 +26,6 @@ private:
 
 	void RecreateSwapchain();
 
-	void InitImgui();
 	void InitDepth();
 	void InitSyncObjects();
 private:
@@ -38,6 +38,5 @@ private:
 	int currentFrame = 0;
 
 	std::shared_ptr<MeshRenderer> mesh_renderer;
-
-	VkDescriptorPool imgui_pool;
+	std::shared_ptr<ImGuiRenderer> imgui_renderer;
 };

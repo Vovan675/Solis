@@ -9,74 +9,12 @@ static struct UniformBufferObject
 	alignas(16) glm::mat4 proj;
 };
 
-static VkDescriptorSetLayoutBinding descriptorSetLayoutBinding(uint32_t binding, VkDescriptorType descriptor_type, VkShaderStageFlags stage_flags, uint32_t count = 1)
-{
-	VkDescriptorSetLayoutBinding layout_binding{};
-	layout_binding.binding = binding;
-	layout_binding.descriptorCount = count;
-	layout_binding.descriptorType = descriptor_type;
-	layout_binding.pImmutableSamplers = nullptr;
-	layout_binding.stageFlags = stage_flags;
-	return layout_binding;
-}
-
-static VkDescriptorPool createDescriptorPool(uint32_t uniform_buffers_count, uint32_t samplers_count)
-{
-	VkDescriptorPool descriptor_pool;
-	std::vector<VkDescriptorPoolSize> poolSizes{};
-
-	if (uniform_buffers_count != 0)
-		poolSizes.push_back({VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, uniform_buffers_count});
-
-	if (samplers_count != 0)
-		poolSizes.push_back({VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, samplers_count});
-
-	VkDescriptorPoolCreateInfo poolInfo{};
-	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-	poolInfo.poolSizeCount = poolSizes.size();
-	poolInfo.pPoolSizes = poolSizes.data();
-	poolInfo.maxSets = MAX_FRAMES_IN_FLIGHT;
-	CHECK_ERROR(vkCreateDescriptorPool(VkWrapper::device->logicalHandle, &poolInfo, nullptr, &descriptor_pool));
-	return descriptor_pool;
-}
-
-static VkWriteDescriptorSet bufferWriteDescriptorSet(VkDescriptorSet set, uint32_t binding, VkDescriptorType descriptor_type, VkDescriptorBufferInfo *descriptor_buffer_info, uint32_t descriptor_count = 1)
-{
-	VkWriteDescriptorSet write_descriptor_set{};
-	write_descriptor_set.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-	write_descriptor_set.dstSet = set;
-	write_descriptor_set.dstBinding = binding;
-	write_descriptor_set.dstArrayElement = 0;
-	write_descriptor_set.descriptorType = descriptor_type;
-	write_descriptor_set.descriptorCount = descriptor_count;
-	write_descriptor_set.pBufferInfo = descriptor_buffer_info;
-	write_descriptor_set.pImageInfo = nullptr;
-	write_descriptor_set.pTexelBufferView = nullptr;
-	return write_descriptor_set;
-}
-
-static VkWriteDescriptorSet imageWriteDescriptorSet(VkDescriptorSet set, uint32_t binding, VkDescriptorImageInfo *descriptor_image_info, uint32_t descriptor_count = 1)
-{
-	VkWriteDescriptorSet write_descriptor_set{};
-	write_descriptor_set.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-	write_descriptor_set.dstSet = set;
-	write_descriptor_set.dstBinding = binding;
-	write_descriptor_set.dstArrayElement = 0;
-	write_descriptor_set.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	write_descriptor_set.descriptorCount = descriptor_count;
-	write_descriptor_set.pBufferInfo = nullptr;
-	write_descriptor_set.pImageInfo = descriptor_image_info;
-	write_descriptor_set.pTexelBufferView = nullptr;
-	return write_descriptor_set;
-}
-
-
 MeshRenderer::MeshRenderer() : RendererBase()
 {
 	// Create descriptor set layout
 	std::vector<VkDescriptorSetLayoutBinding> bindings = {
-		descriptorSetLayoutBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT),
-		descriptorSetLayoutBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT),
+		VkWrapper::descriptorSetLayoutBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT),
+		VkWrapper::descriptorSetLayoutBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT),
 	};
 	VkDescriptorSetLayoutCreateInfo info{};
 	info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -84,7 +22,6 @@ MeshRenderer::MeshRenderer() : RendererBase()
 	info.pBindings = bindings.data();
 
 	CHECK_ERROR(vkCreateDescriptorSetLayout(VkWrapper::device->logicalHandle, &info, nullptr, &descriptor_set_layout));
-
 
 	// Create pipeline
 	auto vertShader = std::make_shared<Shader>(VkWrapper::device->logicalHandle, "shaders/simple.vert", Shader::VERTEX_SHADER);
@@ -97,7 +34,6 @@ MeshRenderer::MeshRenderer() : RendererBase()
 
 	pipeline = std::make_shared<Pipeline>();
 	pipeline->create(description);
-
 
 	// Create uniform buffers
 	VkDeviceSize bufferSize = sizeof(UniformBufferObject);
@@ -127,7 +63,7 @@ MeshRenderer::MeshRenderer() : RendererBase()
 	texture->load("assets/albedo2.png");
 
 	// Create descriptor pool
-	descriptor_pool = createDescriptorPool(MAX_FRAMES_IN_FLIGHT, MAX_FRAMES_IN_FLIGHT);
+	descriptor_pool = VkWrapper::createDescriptorPool(MAX_FRAMES_IN_FLIGHT, MAX_FRAMES_IN_FLIGHT);
 
 	// Create descriptor set
 	std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, descriptor_set_layout);
@@ -153,8 +89,8 @@ MeshRenderer::MeshRenderer() : RendererBase()
 		image_info.sampler = texture->sampler;
 
 		std::vector<VkWriteDescriptorSet> descriptorWrites = {
-			bufferWriteDescriptorSet(image_descriptor_sets[i], 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &buffer_info),
-			imageWriteDescriptorSet(image_descriptor_sets[i], 1, &image_info),
+			VkWrapper::bufferWriteDescriptorSet(image_descriptor_sets[i], 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &buffer_info),
+			VkWrapper::imageWriteDescriptorSet(image_descriptor_sets[i], 1, &image_info),
 		};
 
 		vkUpdateDescriptorSets(VkWrapper::device->logicalHandle, descriptorWrites.size(), descriptorWrites.data(), 0, nullptr);

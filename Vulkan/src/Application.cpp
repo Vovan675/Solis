@@ -8,8 +8,6 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 #include "imgui.h"
-#include "imgui/imgui_impl_glfw.h"
-#include "imgui/imgui_impl_vulkan.h"
 
 static std::vector<const char *> s_ValidationLayers = {
 		"VK_LAYER_KHRONOS_validation"
@@ -43,9 +41,9 @@ Application::Application()
 
 	InitDepth();
 	InitSyncObjects();
-	InitImgui();
 
 	mesh_renderer = std::make_shared<MeshRenderer>();
+	imgui_renderer = std::make_shared<ImGuiRenderer>(window);
 }
 
 void Application::Run()
@@ -71,10 +69,7 @@ void Application::Run()
 		}
 
 
-		// Init Imgui
-		ImGui_ImplVulkan_NewFrame();
-		ImGui_ImplGlfw_NewFrame();
-		ImGui::NewFrame();
+		imgui_renderer->begin();
 
 		// Draw Imgui Windows
 		ImGui::ShowDemoWindow();
@@ -238,12 +233,9 @@ void Application::RecordCommandBuffer(CommandBuffer& command_buffer, uint32_t im
 
 	// Render mesh
 	mesh_renderer->fillCommandBuffer(command_buffer, image_index);
-
+	
 	// Render imgui
-	// This is very fast integration
-	// TODO: Think about do this in separate vkCmdBeginRendering and blit image
-	ImGui::Render();
-	ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), command_buffer.get_buffer());
+	imgui_renderer->fillCommandBuffer(command_buffer, image_index);
 
 	vkCmdEndRendering(command_buffer.get_buffer());
 
@@ -281,11 +273,9 @@ void Application::cleanup()
 	VkWrapper::cleanup();
 	depthStencilImages.clear();
 	mesh_renderer = nullptr;
-	CleanupSwapchain();
+	imgui_renderer = nullptr;
 
-	vkDestroyDescriptorPool(VkWrapper::device->logicalHandle, imgui_pool, nullptr);
-	ImGui_ImplGlfw_Shutdown();
-	ImGui_ImplVulkan_Shutdown();
+	CleanupSwapchain();
 
 	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
@@ -295,7 +285,6 @@ void Application::cleanup()
 	VkWrapper::command_buffers.clear();
 
 	VkWrapper::device = nullptr;
-	//vkDestroySurfaceKHR(VkWrapper::instance, VkWrapper::swapchain->m_Surface, nullptr);
 	vkDestroyInstance(VkWrapper::instance, nullptr);
 
 	glfwDestroyWindow(window);
@@ -323,61 +312,6 @@ void Application::RecreateSwapchain()
 
 	VkWrapper::swapchain->create(width, height);
 	InitDepth();
-}
-
-void Application::InitImgui()
-{
-	// create descriptor pool for IMGUI
-	VkDescriptorPoolSize pool_sizes[] = {{ VK_DESCRIPTOR_TYPE_SAMPLER, 1000 },
-		{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000 },
-		{ VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000 },
-		{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000 },
-		{ VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000 },
-		{ VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000 },
-		{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000 },
-		{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000 },
-		{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000 },
-		{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000 },
-		{ VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000 }};
-
-	VkDescriptorPoolCreateInfo pool_info = {};
-	pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-	pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-	pool_info.maxSets = 1000;
-	pool_info.poolSizeCount = (uint32_t)std::size(pool_sizes);
-	pool_info.pPoolSizes = pool_sizes;
-
-	vkCreateDescriptorPool(VkWrapper::device->logicalHandle, &pool_info, nullptr, &imgui_pool);
-
-	ImGui::CreateContext();
-
-	ImGui_ImplGlfw_InitForVulkan(window, true);
-	ImGui_ImplVulkan_InitInfo init_info = {};
-	init_info.Instance = VkWrapper::instance;
-	init_info.PhysicalDevice = VkWrapper::device->physicalHandle;
-	init_info.Device = VkWrapper::device->logicalHandle;
-	init_info.QueueFamily = VkWrapper::device->queueFamily.graphicsFamily.value();
-	init_info.Queue = VkWrapper::device->graphicsQueue;
-	//init_info.PipelineCache = g_PipelineCache;
-	init_info.DescriptorPool = imgui_pool;
-	//init_info.RenderPass = wd->RenderPass;
-	//init_info.Subpass = 0;
-	init_info.MinImageCount = 3;
-	init_info.ImageCount = 3;
-	init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
-	init_info.UseDynamicRendering = true;
-
-	VkPipelineRenderingCreateInfo pipeline_rendering_create_info{};
-	pipeline_rendering_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
-	pipeline_rendering_create_info.colorAttachmentCount = 1;
-	pipeline_rendering_create_info.pColorAttachmentFormats = &VkWrapper::swapchain->surfaceFormat.format;
-	pipeline_rendering_create_info.depthAttachmentFormat = VK_FORMAT_D32_SFLOAT_S8_UINT;
-	init_info.PipelineRenderingCreateInfo = pipeline_rendering_create_info;
-	//init_info.Allocator = g_Allocator;
-	//init_info.CheckVkResultFn = check_vk_result;
-	ImGui_ImplVulkan_Init(&init_info);
-
-	//ImGui_ImplVulkan_CreateFontsTexture();
 }
 
 void Application::InitDepth()
