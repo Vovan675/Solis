@@ -9,7 +9,7 @@ class Camera
 public:
 	Camera() 
 	{
-		position = glm::vec3(2, -2, 4);
+		position = glm::vec3(1, -1, 2);
 		pitch = 0;
 		yaw = 0;
 		updateMatrices();
@@ -51,9 +51,11 @@ public:
 	{
 		orientation = glm::quat(glm::vec3(pitch, yaw, 0));
 		view = glm::inverse(glm::translate(glm::mat4(1.0f), position) * glm::toMat4(orientation));
+		proj = glm::perspectiveRH(glm::radians(45.0f), VkWrapper::swapchain->swapExtent.width / (float)VkWrapper::swapchain->swapExtent.height, 0.1f, 60.0f);
 	}
 
-	const glm::mat4& getView() const { return view; }
+	const glm::mat4 &getView() const { return view; }
+	const glm::mat4 &getProj() const { return proj; }
 
 	struct Inputs
 	{
@@ -66,6 +68,7 @@ public:
 private:
 	glm::vec3 position;
 	glm::mat4 view;
+	glm::mat4 proj;
 	glm::quat orientation;
 	float pitch, yaw;
 

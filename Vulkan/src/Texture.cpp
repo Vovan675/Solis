@@ -56,78 +56,154 @@ void Texture::fill()
 
 void Texture::fill(const void* sourceData)
 {
-	VkDeviceSize imageSize = m_Description.width * m_Description.height * 4;
-	VkImageCreateInfo imageInfo{};
-	imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-	imageInfo.imageType = VK_IMAGE_TYPE_2D;
-	imageInfo.extent.width = m_Description.width;
-	imageInfo.extent.height = m_Description.height;
-	imageInfo.extent.depth = 1;
-	imageInfo.mipLevels = m_Description.mipLevels;
-	imageInfo.arrayLayers = 1;
-	imageInfo.format = m_Description.imageFormat;
-	imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-	imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | m_Description.imageUsageFlags;
-	imageInfo.samples = m_Description.numSamples;
-	imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-	CHECK_ERROR(vkCreateImage(VkWrapper::device->logicalHandle, &imageInfo, nullptr, &imageHandle));
+	if (m_Description.is_cube == false)
+	{
+		VkDeviceSize imageSize = m_Description.width * m_Description.height * 4;
+		VkImageCreateInfo imageInfo{};
+		imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+		imageInfo.imageType = VK_IMAGE_TYPE_2D;
+		imageInfo.extent.width = m_Description.width;
+		imageInfo.extent.height = m_Description.height;
+		imageInfo.extent.depth = 1;
+		imageInfo.mipLevels = m_Description.mipLevels;
+		imageInfo.arrayLayers = 1;
+		imageInfo.format = m_Description.imageFormat;
+		imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+		imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | m_Description.imageUsageFlags;
+		imageInfo.samples = m_Description.numSamples;
+		imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+		CHECK_ERROR(vkCreateImage(VkWrapper::device->logicalHandle, &imageInfo, nullptr, &imageHandle));
 
-	VkMemoryRequirements memRequirements;
-	vkGetImageMemoryRequirements(VkWrapper::device->logicalHandle, imageHandle, &memRequirements);
+		VkMemoryRequirements memRequirements;
+		vkGetImageMemoryRequirements(VkWrapper::device->logicalHandle, imageHandle, &memRequirements);
 
-	VkMemoryAllocateInfo allocInfo{};
-	allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-	allocInfo.allocationSize = memRequirements.size;
-	allocInfo.memoryTypeIndex = VkWrapper::findMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		VkMemoryAllocateInfo allocInfo{};
+		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+		allocInfo.allocationSize = memRequirements.size;
+		allocInfo.memoryTypeIndex = VkWrapper::findMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-	CHECK_ERROR(vkAllocateMemory(VkWrapper::device->logicalHandle, &allocInfo, nullptr, &memoryHandle));
+		CHECK_ERROR(vkAllocateMemory(VkWrapper::device->logicalHandle, &allocInfo, nullptr, &memoryHandle));
 
-	vkBindImageMemory(VkWrapper::device->logicalHandle, imageHandle, memoryHandle, 0);
+		vkBindImageMemory(VkWrapper::device->logicalHandle, imageHandle, memoryHandle, 0);
 
-	// Create staging buffer
-	VkBuffer stagingBuffer;
-	VkDeviceMemory stagingBufferMemory;
-	VkWrapper::createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+		// Create staging buffer
+		VkBuffer stagingBuffer;
+		VkDeviceMemory stagingBufferMemory;
+		VkWrapper::createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
 
-	// Copy data to staging
-	void* data;
-	vkMapMemory(VkWrapper::device->logicalHandle, stagingBufferMemory, 0, imageSize, 0, &data);
-	memcpy(data, sourceData, static_cast<size_t>(imageSize));
-	vkUnmapMemory(VkWrapper::device->logicalHandle, stagingBufferMemory);
+		// Copy data to staging
+		void* data;
+		vkMapMemory(VkWrapper::device->logicalHandle, stagingBufferMemory, 0, imageSize, 0, &data);
+		memcpy(data, sourceData, static_cast<size_t>(imageSize));
+		vkUnmapMemory(VkWrapper::device->logicalHandle, stagingBufferMemory);
 
-	// Copy staging to image
-	transition_image_layout(imageHandle, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-	copy_buffer_to_image(stagingBuffer, imageHandle, m_Description.width, m_Description.height);
-	//TransitionImageLayout(imageHandle, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		// Copy staging to image
+		transition_image_layout(imageHandle, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+		copy_buffer_to_image(stagingBuffer, imageHandle, m_Description.width, m_Description.height);
+		//TransitionImageLayout(imageHandle, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
-	vkDestroyBuffer(VkWrapper::device->logicalHandle, stagingBuffer, nullptr);
-	vkFreeMemory(VkWrapper::device->logicalHandle, stagingBufferMemory, nullptr);
+		vkDestroyBuffer(VkWrapper::device->logicalHandle, stagingBuffer, nullptr);
+		vkFreeMemory(VkWrapper::device->logicalHandle, stagingBufferMemory, nullptr);
 
-	generate_mipmaps();
+		generate_mipmaps();
 
-	create_image_view();
-	create_sampler();
+		create_image_view();
+		create_sampler();
+	} else
+	{
+		VkDeviceSize imageSize = m_Description.width * m_Description.height * 4 * 6;
+		VkImageCreateInfo imageInfo{};
+		imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+		imageInfo.imageType = VK_IMAGE_TYPE_2D;
+		imageInfo.extent.width = m_Description.width;
+		imageInfo.extent.height = m_Description.height;
+		imageInfo.extent.depth = 1;
+		imageInfo.mipLevels = m_Description.mipLevels;
+		imageInfo.arrayLayers = 6; // 6 faces
+		imageInfo.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
+		imageInfo.format = m_Description.imageFormat;
+		imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+		imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | m_Description.imageUsageFlags;
+		imageInfo.samples = m_Description.numSamples;
+		imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+		CHECK_ERROR(vkCreateImage(VkWrapper::device->logicalHandle, &imageInfo, nullptr, &imageHandle));
+
+		VkMemoryRequirements memRequirements;
+		vkGetImageMemoryRequirements(VkWrapper::device->logicalHandle, imageHandle, &memRequirements);
+
+		VkMemoryAllocateInfo allocInfo{};
+		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+		allocInfo.allocationSize = memRequirements.size;
+		allocInfo.memoryTypeIndex = VkWrapper::findMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+		CHECK_ERROR(vkAllocateMemory(VkWrapper::device->logicalHandle, &allocInfo, nullptr, &memoryHandle));
+
+		vkBindImageMemory(VkWrapper::device->logicalHandle, imageHandle, memoryHandle, 0);
+
+		// Create staging buffer
+		VkBuffer stagingBuffer;
+		VkDeviceMemory stagingBufferMemory;
+		VkWrapper::createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+
+		// Copy data to staging
+		void *data;
+		vkMapMemory(VkWrapper::device->logicalHandle, stagingBufferMemory, 0, imageSize, 0, &data);
+		memcpy(data, sourceData, static_cast<size_t>(imageSize));
+		vkUnmapMemory(VkWrapper::device->logicalHandle, stagingBufferMemory);
+
+		// Copy staging to image
+		transition_image_layout(imageHandle, VK_FORMAT_R32G32B32_SFLOAT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+		copy_buffer_to_image(stagingBuffer, imageHandle, m_Description.width, m_Description.height);
+		//TransitionImageLayout(imageHandle, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+		vkDestroyBuffer(VkWrapper::device->logicalHandle, stagingBuffer, nullptr);
+		vkFreeMemory(VkWrapper::device->logicalHandle, stagingBufferMemory, nullptr);
+
+		generate_mipmaps();
+
+		create_image_view();
+		create_sampler();
+	}
 }
 
 void Texture::load(const char *path)
 {
 	int texWidth, texHeight, texChannels;
 	stbi_set_flip_vertically_on_load(1);
-	stbi_uc *pixels = stbi_load("assets/albedo2.png", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
 
-	if (!pixels)
+	if (m_Description.is_cube == false)
 	{
-		CORE_ERROR("Loading texture error");
+		stbi_uc *pixels = stbi_load(path, &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+
+		if (!pixels)
+		{
+			CORE_ERROR("Loading texture error");
+		}
+
+		m_Description.width = texWidth;
+		m_Description.height= texHeight;
+		m_Description.mipLevels = std::floor(std::log2(std::max(texWidth, texHeight))) + 1;
+		fill(pixels);
+
+		stbi_image_free(pixels);
+	} else
+	{
+		float *pixels = stbi_loadf(path, &texWidth, &texHeight, &texChannels, STBI_rgb);
+
+		if (!pixels)
+		{
+			CORE_ERROR("Loading texture error");
+		}
+
+		m_Description.width = texWidth;
+		m_Description.height = texHeight;
+		m_Description.mipLevels = 1;
+		fill(pixels);
+
+		stbi_image_free(pixels);
 	}
-
-	TextureDescription tex_description;
-	m_Description.width = texWidth;
-	m_Description.height= texHeight;
-	m_Description.mipLevels = std::floor(std::log2(std::max(texWidth, texHeight))) + 1;
-	fill(pixels);
-
-	stbi_image_free(pixels);
 }
 
 void Texture::generate_mipmaps() {
@@ -293,7 +369,15 @@ void Texture::create_image_view()
 	viewInfo.subresourceRange.levelCount = 1;
 	viewInfo.subresourceRange.baseArrayLayer = 0;
 	viewInfo.subresourceRange.layerCount = 1;
+	
+	if (m_Description.is_cube)
+	{
+		viewInfo.viewType = VK_IMAGE_VIEW_TYPE_CUBE;
+		viewInfo.subresourceRange.layerCount = 6;
+	}
+
 	CHECK_ERROR(vkCreateImageView(VkWrapper::device->logicalHandle, &viewInfo, nullptr, &imageView));
+
 
 }
 

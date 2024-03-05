@@ -8,39 +8,27 @@
 #include "Swapchain.h"
 #include "Texture.h"
 #include "VkWrapper.h"
+#include "renderers/CubeMapRenderer.h"
 #include "renderers/MeshRenderer.h"
 #include "renderers/ImGuiRenderer.h"
+#include "VulkanApp.h"
 
-class Application
+class Application : public VulkanApp
 {
 public:
-	bool framebufferResized = false;
-public:
 	Application();
-	void Run();
+protected:
+	void update(float delta_time) override;
+	void updateBuffers(float delta_time, uint32_t image_index) override;
+	void recordCommands(CommandBuffer &command_buffer, uint32_t image_index) override;
+	virtual void cleanupResources();
 private:
-	void UpdateUniformBuffer(uint32_t currentImage);
-	void RecordCommandBuffer(CommandBuffer& command_buffer, uint32_t image_index);
-	void cleanup();
-	void CleanupSwapchain();
-
-	void RecreateSwapchain();
-
-	void InitDepth();
-	void InitSyncObjects();
-private:
-	void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods);
+	void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods) override;
 
 private:
-	GLFWwindow* window;
-
-	std::vector<std::shared_ptr<Texture>> depthStencilImages;
-
-	std::vector<VkSemaphore> imageAvailableSemaphores;
-	std::vector<VkSemaphore> renderFinishedSemaphores;
-	int currentFrame = 0;
-
+	std::shared_ptr<CubeMapRenderer> cubemap_renderer;
 	std::shared_ptr<MeshRenderer> mesh_renderer;
+	std::shared_ptr<MeshRenderer> mesh_renderer2;
 	std::shared_ptr<ImGuiRenderer> imgui_renderer;
 
 	std::shared_ptr<Camera> camera;

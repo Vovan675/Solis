@@ -1,6 +1,5 @@
 #include "pch.h"
-#include "MeshRenderer.h"
-#include <stb_image.h>
+#include "CubeMapRenderer.h"
 
 static struct UniformBufferObject
 {
@@ -9,13 +8,9 @@ static struct UniformBufferObject
 	alignas(16) glm::mat4 proj;
 };
 
-MeshRenderer::MeshRenderer(std::shared_ptr<Camera> cam, std::shared_ptr<Engine::Mesh> mesh, std::shared_ptr<Texture> texture) : RendererBase()
+CubeMapRenderer::CubeMapRenderer(std::shared_ptr<Camera> cam): RendererBase()
 {
 	camera = cam;
-	rotation = glm::rotate(glm::quat(), glm::vec3(glm::radians(90.0f), 0, 0));
-	scale = glm::vec3(1.0f, 1.0f, 1.0f);
-	this->mesh = mesh;
-	this->texture = texture;
 
 	// Create descriptor set layout
 	std::vector<VkDescriptorSetLayoutBinding> bindings = {
@@ -60,6 +55,15 @@ MeshRenderer::MeshRenderer(std::shared_ptr<Camera> cam, std::shared_ptr<Engine::
 		image_uniform_buffers[i]->map(&image_uniform_buffers_mapped[i]);
 	}
 
+	// Load image
+	TextureDescription tex_description;
+	tex_description.is_cube = true;
+	tex_description.imageFormat = VK_FORMAT_R32G32B32_SFLOAT;
+	tex_description.imageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
+	tex_description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+	texture = std::make_shared<Texture>(tex_description);
+	texture->load("assets/piazza_bologni_1k.hdr");
+
 	// Create descriptor pool
 	descriptor_pool = VkWrapper::createDescriptorPool(MAX_FRAMES_IN_FLIGHT, MAX_FRAMES_IN_FLIGHT);
 
@@ -95,30 +99,29 @@ MeshRenderer::MeshRenderer(std::shared_ptr<Camera> cam, std::shared_ptr<Engine::
 	}
 }
 
-MeshRenderer::~MeshRenderer()
+CubeMapRenderer::~CubeMapRenderer()
 {
 	vkDestroyDescriptorPool(VkWrapper::device->logicalHandle, descriptor_pool, nullptr);
 	vkDestroyDescriptorSetLayout(VkWrapper::device->logicalHandle, descriptor_set_layout, nullptr);
 }
 
-void MeshRenderer::fillCommandBuffer(CommandBuffer & command_buffer, uint32_t image_index)
+void CubeMapRenderer::fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index)
 {
 	vkCmdBindPipeline(command_buffer.get_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);
 	vkCmdBindDescriptorSets(command_buffer.get_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline_layout, 0, 1, &image_descriptor_sets[image_index], 0, nullptr);
 
-	// Render mesh
-	VkBuffer vertexBuffers[] = {mesh->vertexBuffer->bufferHandle};
-	VkDeviceSize offsets[] = {0};
-	vkCmdBindVertexBuffers(command_buffer.get_buffer(), 0, 1, vertexBuffers, offsets);
-	vkCmdBindIndexBuffer(command_buffer.get_buffer(), mesh->indexBuffer->bufferHandle, 0, VK_INDEX_TYPE_UINT32);
-	vkCmdDrawIndexed(command_buffer.get_buffer(), mesh->indices.size(), 1, 0, 0, 0);
+	vkCmdDrawIndexed(command_buffer.get_buffer(), 36, 1, 0, 0, 0);
 }
 
-void MeshRenderer::updateUniformBuffer(uint32_t image_index)
+void CubeMapRenderer::updateUniformBuffer(uint32_t image_index)
 {
+	static auto startTime = std::chrono::high_resolution_clock::now();
+	auto currentTime = std::chrono::high_resolution_clock::now();
+	float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+
 	UniformBufferObject ubo{};
-	ubo.model = glm::scale(glm::mat4(1.0f), scale) * glm::mat4_cast(rotation) * glm::translate(glm::mat4(1.0f), position);
+	ubo.model = glm::rotate(glm::mat4(1), glm::radians(90.0f), glm::vec3(1, 0, 0)) * glm::translate(glm::mat4(1), glm::vec3(0, 0, 0));
 	ubo.view = camera->getView();
-	ubo.proj = camera->getProj();
+	ubo.proj = glm::perspective(glm::radians(45.0f), VkWrapper::swapchain->swapExtent.width / (float)VkWrapper::swapchain->swapExtent.height, 0.1f, 60.0f);
 	memcpy(image_uniform_buffers_mapped[image_index], &ubo, sizeof(ubo));
 }
