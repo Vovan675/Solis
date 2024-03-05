@@ -36,22 +36,36 @@ Application::Application()
 	glfwSetWindowUserPointer(window, this);
 	glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
 
+	glfwSetKeyCallback(window, [](GLFWwindow *window, int key, int scancode, int action, int mods)
+	{
+		static_cast<Application *>(glfwGetWindowUserPointer(window))->key_callback(window, key, scancode, action, mods);
+	});
+
 	Log::Init();
 	VkWrapper::init(window);
 
 	InitDepth();
 	InitSyncObjects();
 
-	mesh_renderer = std::make_shared<MeshRenderer>();
+	camera = std::make_shared<Camera>();
+
+	mesh_renderer = std::make_shared<MeshRenderer>(camera);
 	imgui_renderer = std::make_shared<ImGuiRenderer>(window);
 }
 
 void Application::Run()
 {
+	double prev_time = glfwGetTime();
+	float delta_seconds = 0.0f;
+
 	while (!glfwWindowShouldClose(window))
 	{
 		glfwPollEvents();
 		
+		double mouse_x, mouse_y;
+		glfwGetCursorPos(window, &mouse_x, &mouse_y);
+		camera->update(delta_seconds, glm::vec2(mouse_x, mouse_y), glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_1) == GLFW_PRESS);
+
 		// Wait when queue for this frame is completed (device -> host sync)
 		VkWrapper::command_buffers[currentFrame].waitFence();
 
@@ -121,6 +135,9 @@ void Application::Run()
 		//vkQueueWaitIdle(VkWrapper::device->presentQueue);
 
 		currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+
+		delta_seconds = prev_time - glfwGetTime();
+		prev_time = glfwGetTime();
 	}
 
 	cleanup();
@@ -129,34 +146,6 @@ void Application::Run()
 void Application::UpdateUniformBuffer(uint32_t currentImage)
 {
 	mesh_renderer->updateUniformBuffer(currentImage);
-}
-
-static void CmdImageMemoryBarrier(CommandBuffer& command_buffer, VkImage image,
-								  VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask,
-								  VkImageLayout oldLayout, VkImageLayout newLayout,
-								  VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask
-								  )
-{
-	VkImageMemoryBarrier image_memory_barrier{};
-	image_memory_barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-
-	// Can be resolved by layout (hard-coded)
-	image_memory_barrier.srcAccessMask = srcAccessMask; 
-	image_memory_barrier.dstAccessMask = dstAccessMask;
-	
-	image_memory_barrier.oldLayout = oldLayout; // Could be saved in struct
-	image_memory_barrier.newLayout = newLayout;
-	image_memory_barrier.image = image;
-	image_memory_barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	image_memory_barrier.subresourceRange.baseMipLevel = 0;
-	image_memory_barrier.subresourceRange.levelCount = 1;
-	image_memory_barrier.subresourceRange.baseArrayLayer = 0;
-	image_memory_barrier.subresourceRange.layerCount = 1;
-	vkCmdPipelineBarrier(command_buffer.get_buffer(), srcStageMask,
-						 dstStageMask, 0,
-						 0, nullptr,
-						 0, nullptr,
-						 1, &image_memory_barrier);
 }
 
 void Application::RecordCommandBuffer(CommandBuffer& command_buffer, uint32_t image_index)
@@ -350,5 +339,18 @@ void Application::InitSyncObjects()
 		CHECK_ERROR(vkCreateSemaphore(VkWrapper::device->logicalHandle, &semaphoreInfo, nullptr, &imageAvailableSemaphores[i]));
 		CHECK_ERROR(vkCreateSemaphore(VkWrapper::device->logicalHandle, &semaphoreInfo, nullptr, &renderFinishedSemaphores[i]));
 	}
+}
+
+void Application::key_callback(GLFWwindow *window, int key, int scancode, int action, int mods)
+{
+	bool is_pressed = action != GLFW_RELEASE;
+	if (key == GLFW_KEY_W)
+		camera->inputs.forward = is_pressed;
+	if (key == GLFW_KEY_S)
+		camera->inputs.backward = is_pressed;
+	if (key == GLFW_KEY_A)
+		camera->inputs.left = is_pressed;
+	if (key == GLFW_KEY_D)
+		camera->inputs.right = is_pressed;
 }
 

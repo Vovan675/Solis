@@ -29,6 +29,9 @@ private:
 	void InitDepth();
 	void InitSyncObjects();
 private:
+	void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods);
+
+private:
 	GLFWwindow* window;
 
 	std::vector<std::shared_ptr<Texture>> depthStencilImages;
@@ -39,4 +42,6 @@ private:
 
 	std::shared_ptr<MeshRenderer> mesh_renderer;
 	std::shared_ptr<ImGuiRenderer> imgui_renderer;
+
+	std::shared_ptr<Camera> camera;
 };

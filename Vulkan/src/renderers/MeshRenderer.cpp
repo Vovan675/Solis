@@ -9,8 +9,10 @@ static struct UniformBufferObject
 	alignas(16) glm::mat4 proj;
 };
 
-MeshRenderer::MeshRenderer() : RendererBase()
+MeshRenderer::MeshRenderer(std::shared_ptr<Camera> cam) : RendererBase()
 {
+	camera = cam;
+
 	// Create descriptor set layout
 	std::vector<VkDescriptorSetLayoutBinding> bindings = {
 		VkWrapper::descriptorSetLayoutBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT),
@@ -127,7 +129,7 @@ void MeshRenderer::updateUniformBuffer(uint32_t image_index)
 
 	UniformBufferObject ubo{};
 	ubo.model = /*glm::rotate(glm::mat4(1), time * glm::radians(45.0f), glm::vec3(0, 1, 0)) **/ glm::rotate(glm::mat4(1), glm::radians(90.0f), glm::vec3(1, 0, 0)) * glm::translate(glm::mat4(1), glm::vec3(0, 0, 0));
-	ubo.view = glm::lookAt(glm::vec3(2, -2, 4), glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
+	ubo.view = camera->getView();
 	ubo.proj = glm::perspective(glm::radians(45.0f), VkWrapper::swapchain->swapExtent.width / (float)VkWrapper::swapchain->swapExtent.height, 0.1f, 60.0f);
 	//ubo.proj[1][1] *= -1;
 	//ubo.proj = glm::mat4(1);
