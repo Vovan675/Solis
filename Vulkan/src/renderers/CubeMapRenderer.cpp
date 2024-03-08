@@ -31,7 +31,7 @@ CubeMapRenderer::CubeMapRenderer(std::shared_ptr<Camera> cam): RendererBase()
 	PipelineDescription description{};
 	description.vertex_shader = vertShader;
 	description.fragment_shader = fragShader;
-	description.descriptor_set_layout = &descriptor_set_layout;
+	description.descriptor_set_layout = descriptor_set_layout;
 
 	pipeline = std::make_shared<Pipeline>();
 	pipeline->create(description);

@@ -1,10 +1,12 @@
 #include "pch.h"
 #include "VkWrapper.h"
+#include "BindlessResources.h"
 
 VkInstance VkWrapper::instance;
 std::shared_ptr<Device> VkWrapper::device;
 std::vector<CommandBuffer> VkWrapper::command_buffers;
 std::shared_ptr<Swapchain> VkWrapper::swapchain;
+std::shared_ptr<DescriptorAllocator> VkWrapper::global_descriptor_allocator;
 
 namespace 
 {
@@ -28,11 +30,16 @@ void VkWrapper::init(GLFWwindow *window)
 	int width, height;
 	glfwGetWindowSize(window, &width, &height);
 	swapchain->create(width, height);
+
+	global_descriptor_allocator = std::make_shared<DescriptorAllocator>();
+	BindlessResources::init();
 }
 
 void VkWrapper::cleanup()
 {
+	BindlessResources::cleanup();
 	vkDestroyCommandPool(device->logicalHandle, command_pool, nullptr);
+	global_descriptor_allocator->cleanup();
 }
 
 void VkWrapper::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size)

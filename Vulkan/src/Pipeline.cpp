@@ -2,6 +2,7 @@
 #include "Mesh.h"
 #include "Pipeline.h"
 #include "VkWrapper.h"
+#include "BindlessResources.h"
 
 Pipeline::~Pipeline()
 {
@@ -143,10 +144,14 @@ void Pipeline::create(const PipelineDescription &description)
 	dynamicState.pDynamicStates = dynamicStates;
 
 	// Pipeline layout state (aka uniform values)
+	std::array<VkDescriptorSetLayout, 2> descriptor_set_layouts = {
+		description.descriptor_set_layout, // One descriptor set should be enough
+		*BindlessResources::getDescriptorLayout() // Add bindless layout to every pipeline
+	};
 	VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-	pipelineLayoutInfo.setLayoutCount = 1;
-	pipelineLayoutInfo.pSetLayouts = description.descriptor_set_layout;
+	pipelineLayoutInfo.setLayoutCount = descriptor_set_layouts.size();
+	pipelineLayoutInfo.pSetLayouts = descriptor_set_layouts.data();
 	pipelineLayoutInfo.pushConstantRangeCount = 0;
 	pipelineLayoutInfo.pPushConstantRanges = nullptr;
 	CHECK_ERROR(vkCreatePipelineLayout(VkWrapper::device->logicalHandle, &pipelineLayoutInfo, nullptr, &pipeline_layout));

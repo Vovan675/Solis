@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "MeshRenderer.h"
+#include "BindlessResources.h"
 #include <stb_image.h>
 
 static struct UniformBufferObject
@@ -9,37 +10,13 @@ static struct UniformBufferObject
 	alignas(16) glm::mat4 proj;
 };
 
-MeshRenderer::MeshRenderer(std::shared_ptr<Camera> cam, std::shared_ptr<Engine::Mesh> mesh, std::shared_ptr<Texture> texture) : RendererBase()
+MeshRenderer::MeshRenderer(std::shared_ptr<Camera> cam, std::shared_ptr<Engine::Mesh> mesh) : RendererBase()
 {
 	camera = cam;
 	rotation = glm::rotate(glm::quat(), glm::vec3(glm::radians(90.0f), 0, 0));
 	scale = glm::vec3(1.0f, 1.0f, 1.0f);
 	this->mesh = mesh;
 	this->texture = texture;
-
-	// Create descriptor set layout
-	std::vector<VkDescriptorSetLayoutBinding> bindings = {
-		VkWrapper::descriptorSetLayoutBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT),
-		VkWrapper::descriptorSetLayoutBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT),
-	};
-	VkDescriptorSetLayoutCreateInfo info{};
-	info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-	info.bindingCount = bindings.size();
-	info.pBindings = bindings.data();
-
-	CHECK_ERROR(vkCreateDescriptorSetLayout(VkWrapper::device->logicalHandle, &info, nullptr, &descriptor_set_layout));
-
-	// Create pipeline
-	auto vertShader = std::make_shared<Shader>(VkWrapper::device->logicalHandle, "shaders/simple.vert", Shader::VERTEX_SHADER);
-	auto fragShader = std::make_shared<Shader>(VkWrapper::device->logicalHandle, "shaders/simple.frag", Shader::FRAGMENT_SHADER);
-
-	PipelineDescription description{};
-	description.vertex_shader = vertShader;
-	description.fragment_shader = fragShader;
-	description.descriptor_set_layout = &descriptor_set_layout;
-
-	pipeline = std::make_shared<Pipeline>();
-	pipeline->create(description);
 
 	// Create uniform buffers
 	VkDeviceSize bufferSize = sizeof(UniformBufferObject);
@@ -60,50 +37,55 @@ MeshRenderer::MeshRenderer(std::shared_ptr<Camera> cam, std::shared_ptr<Engine::
 		image_uniform_buffers[i]->map(&image_uniform_buffers_mapped[i]);
 	}
 
-	// Create descriptor pool
-	descriptor_pool = VkWrapper::createDescriptorPool(MAX_FRAMES_IN_FLIGHT, MAX_FRAMES_IN_FLIGHT);
+	// Create descriptor set layout
+	DescriptorLayoutBuilder layout_builder;
+	layout_builder.clear();
+	layout_builder.add_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+	descriptor_set_layout = layout_builder.build(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
 
 	// Create descriptor set
 	std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, descriptor_set_layout);
-	VkDescriptorSetAllocateInfo allocInfo{};
-	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-	allocInfo.descriptorPool = descriptor_pool;
-	allocInfo.descriptorSetCount = MAX_FRAMES_IN_FLIGHT;
-	allocInfo.pSetLayouts = layouts.data();
-
 	image_descriptor_sets.resize(MAX_FRAMES_IN_FLIGHT);
-	CHECK_ERROR(vkAllocateDescriptorSets(VkWrapper::device->logicalHandle, &allocInfo, image_descriptor_sets.data()));
+	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+	{
+		image_descriptor_sets[i] = VkWrapper::global_descriptor_allocator->allocate(layouts[i]);
+	}
 
+	// Update descriptor set
 	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
-		VkDescriptorBufferInfo buffer_info{};
-		buffer_info.buffer = image_uniform_buffers[i]->bufferHandle;
-		buffer_info.offset = 0;
-		buffer_info.range = sizeof(UniformBufferObject);
-
-		VkDescriptorImageInfo image_info{};
-		image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		image_info.imageView = texture->imageView;
-		image_info.sampler = texture->sampler;
-
-		std::vector<VkWriteDescriptorSet> descriptorWrites = {
-			VkWrapper::bufferWriteDescriptorSet(image_descriptor_sets[i], 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &buffer_info),
-			VkWrapper::imageWriteDescriptorSet(image_descriptor_sets[i], 1, &image_info),
-		};
-
-		vkUpdateDescriptorSets(VkWrapper::device->logicalHandle, descriptorWrites.size(), descriptorWrites.data(), 0, nullptr);
+		DescriptorWriter writer;
+		writer.writeBuffer(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, image_uniform_buffers[i]->bufferHandle, sizeof(UniformBufferObject));
+		writer.updateSet(image_descriptor_sets[i]);
 	}
+
+	// Create pipeline
+	auto vertShader = std::make_shared<Shader>(VkWrapper::device->logicalHandle, "shaders/simple.vert", Shader::VERTEX_SHADER);
+	auto fragShader = std::make_shared<Shader>(VkWrapper::device->logicalHandle, "shaders/simple.frag", Shader::FRAGMENT_SHADER);
+
+	PipelineDescription description{};
+	description.vertex_shader = vertShader;
+	description.fragment_shader = fragShader;
+
+	description.descriptor_set_layout = descriptor_set_layout;
+
+	pipeline = std::make_shared<Pipeline>();
+	pipeline->create(description);
 }
 
 MeshRenderer::~MeshRenderer()
 {
-	vkDestroyDescriptorPool(VkWrapper::device->logicalHandle, descriptor_pool, nullptr);
 	vkDestroyDescriptorSetLayout(VkWrapper::device->logicalHandle, descriptor_set_layout, nullptr);
 }
 
 void MeshRenderer::fillCommandBuffer(CommandBuffer & command_buffer, uint32_t image_index)
 {
 	vkCmdBindPipeline(command_buffer.get_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);
+
+	// Bindless
+	vkCmdBindDescriptorSets(command_buffer.get_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline_layout, 1, 1, BindlessResources::getDescriptorSet(), 0, nullptr);
+
+	// Uniforms
 	vkCmdBindDescriptorSets(command_buffer.get_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline_layout, 0, 1, &image_descriptor_sets[image_index], 0, nullptr);
 
 	// Render mesh

@@ -3,7 +3,9 @@
 #include <vector>
 #include "Log.h"
 #include "Device.h"
-#include <Swapchain.h>
+#include "Swapchain.h"
+#include "Descriptors.h"
+
 static const int MAX_FRAMES_IN_FLIGHT = 2;
 
 class CommandBuffer
@@ -161,6 +163,24 @@ public:
 		return descriptor_pool;
 	}
 
+	static VkDescriptorPool createBindlessDescriptorPool(uint32_t bindless_samplers_count)
+	{
+		VkDescriptorPool descriptor_pool;
+		std::vector<VkDescriptorPoolSize> poolSizes{};
+
+		if (bindless_samplers_count != 0)
+			poolSizes.push_back({VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, bindless_samplers_count});
+
+		VkDescriptorPoolCreateInfo poolInfo{};
+		poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+		poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT; // flag needed for bindless
+		poolInfo.poolSizeCount = poolSizes.size();
+		poolInfo.pPoolSizes = poolSizes.data();
+		poolInfo.maxSets = bindless_samplers_count;
+		CHECK_ERROR(vkCreateDescriptorPool(VkWrapper::device->logicalHandle, &poolInfo, nullptr, &descriptor_pool));
+		return descriptor_pool;
+	}
+
 	static VkWriteDescriptorSet bufferWriteDescriptorSet(VkDescriptorSet set, uint32_t binding, VkDescriptorType descriptor_type, VkDescriptorBufferInfo *descriptor_buffer_info, uint32_t descriptor_count = 1)
 	{
 		VkWriteDescriptorSet write_descriptor_set{};
@@ -191,6 +211,25 @@ public:
 		return write_descriptor_set;
 	}
 
+	static VkWriteDescriptorSet imageWriteBindlessDescriptorSet(VkDescriptorSet set,
+																uint32_t binding,
+																VkDescriptorImageInfo *descriptor_image_info,
+																uint32_t array_element,
+																uint32_t descriptor_count = 1)
+	{
+		VkWriteDescriptorSet write_descriptor_set{};
+		write_descriptor_set.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		write_descriptor_set.dstSet = set;
+		write_descriptor_set.dstBinding = binding;
+		write_descriptor_set.dstArrayElement = array_element;
+		write_descriptor_set.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		write_descriptor_set.descriptorCount = descriptor_count;
+		write_descriptor_set.pBufferInfo = nullptr;
+		write_descriptor_set.pImageInfo = descriptor_image_info;
+		write_descriptor_set.pTexelBufferView = nullptr;
+		return write_descriptor_set;
+	}
+
 private:
 	static void init_instance();
 	static void init_command_buffers();
@@ -199,4 +238,5 @@ public:
 	static std::shared_ptr<Device> device;
 	static std::vector<CommandBuffer> command_buffers;
 	static std::shared_ptr<Swapchain> swapchain;
+	static std::shared_ptr<DescriptorAllocator> global_descriptor_allocator;
 };

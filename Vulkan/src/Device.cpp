@@ -87,17 +87,26 @@ void Device::CreateLogicalDevice()
 	info.enabledExtensionCount = extensions.size();
 	info.ppEnabledExtensionNames = extensions.data();
 
+
+	VkPhysicalDeviceVulkan12Features features12{};
+	features12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
+	// TODO: enable bindless
+	//features12.bufferDeviceAddress = true;
+	//features12.descriptorIndexing = true;
+	features12.descriptorBindingPartiallyBound = true;
+	features12.descriptorBindingVariableDescriptorCount = true;
+	features12.descriptorBindingSampledImageUpdateAfterBind = true;
+	//features12.runtimeDescriptorArray = true;
+
 	// Enable dynamic rendering
 	VkPhysicalDeviceVulkan13Features features13{};
 	features13.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
 	features13.dynamicRendering = true;
 	features13.synchronization2 = true;
-	/*
-	VkPhysicalDeviceDynamicRenderingFeaturesKHR dynamic_rendering_feature{};
-	dynamic_rendering_feature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES_KHR;
-	dynamic_rendering_feature.dynamicRendering = true;
-	info.pNext = &dynamic_rendering_feature;
-	*/
+	features13.pNext = &features12;
+
+
+
 
 	VkPhysicalDeviceFeatures2 enabledFeatures{};
 	enabledFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;

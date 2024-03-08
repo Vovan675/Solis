@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "Application.h"
 #include "VkWrapper.h"
+#include "BindlessResources.h"
 
 #include "assimp/Importer.hpp"
 #include "assimp/scene.h"
@@ -18,19 +19,34 @@ Application::Application()
 	tex_description.imageFormat = VK_FORMAT_R8G8B8A8_SRGB;
 	tex_description.imageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
 	tex_description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-	auto texture = std::make_shared<Texture>(tex_description);
-	texture->load("assets/albedo2.png");
-	auto texture2 = std::make_shared<Texture>(tex_description);
-	texture2->load("assets/albedo.png");
 
 	// Load mesh
 	auto mesh = std::make_shared<Engine::Mesh>("assets/model2.obj");
 	auto mesh2 = std::make_shared<Engine::Mesh>("assets/model.fbx");
 
 	//cubemap_renderer = std::make_shared<CubeMapRenderer>(camera);
-	mesh_renderer = std::make_shared<MeshRenderer>(camera, mesh, texture);
-	mesh_renderer2 = std::make_shared<MeshRenderer>(camera, mesh2, texture2);
+	mesh_renderer = std::make_shared<MeshRenderer>(camera, mesh);
+	mesh_renderer2 = std::make_shared<MeshRenderer>(camera, mesh2);
 	imgui_renderer = std::make_shared<ImGuiRenderer>(window);
+
+	// Load Textures
+	//upload (do this when textures array dirty)
+	{
+		// For example I have textures
+		TextureDescription tex_description;
+		tex_description.imageFormat = VK_FORMAT_R8G8B8A8_SRGB;
+		tex_description.imageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
+		tex_description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+
+		auto tex = new Texture(tex_description);
+		tex->load("assets/albedo2.png");
+		auto tex2 = new Texture(tex_description);
+		tex2->load("assets/albedo.png");
+
+		BindlessResources::setTexture(0, tex);
+		BindlessResources::setTexture(1, tex2);
+		BindlessResources::updateSets();
+	}
 }
 
 void Application::update(float delta_time)

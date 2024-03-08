@@ -5,7 +5,7 @@ struct PipelineDescription
 {
 	std::shared_ptr<Shader> vertex_shader;
 	std::shared_ptr<Shader> fragment_shader;
-	VkDescriptorSetLayout *descriptor_set_layout;
+	VkDescriptorSetLayout descriptor_set_layout;
 };
 
 class Pipeline

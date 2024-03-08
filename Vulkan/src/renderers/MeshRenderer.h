@@ -5,11 +5,12 @@
 #include "Mesh.h"
 #include "Texture.h"
 #include "Camera.h"
+#include "Descriptors.h"
 
 class MeshRenderer : public RendererBase
 {
 public:
-	MeshRenderer(std::shared_ptr<Camera> cam, std::shared_ptr<Engine::Mesh> mesh, std::shared_ptr<Texture> texture);
+	MeshRenderer(std::shared_ptr<Camera> cam, std::shared_ptr<Engine::Mesh> mesh);
 	virtual ~MeshRenderer();
 
 	void fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index) override;
@@ -20,7 +21,6 @@ public:
 	void updateUniformBuffer(uint32_t image_index) override;
 private:
 	VkDescriptorSetLayout descriptor_set_layout;
-	VkDescriptorPool descriptor_pool;
 
 	std::shared_ptr<Pipeline> pipeline;
 	std::vector<VkDescriptorSet> image_descriptor_sets;
