@@ -58,7 +58,14 @@ void Application::update(float delta_time)
 	imgui_renderer->begin();
 
 	// Draw Imgui Windows
-	ImGui::ShowDemoWindow();
+	//ImGui::ShowDemoWindow();
+	if (ImGui::Button("Recompile shaders") || ImGui::IsKeyReleased(ImGuiKey_R))
+	{
+		// Wait for all operations complete
+		vkDeviceWaitIdle(VkWrapper::device->logicalHandle);
+		mesh_renderer->recreatePipeline();
+		mesh_renderer2->recreatePipeline();
+	}
 }
 
 void Application::updateBuffers(float delta_time, uint32_t image_index)
@@ -70,6 +77,13 @@ void Application::updateBuffers(float delta_time, uint32_t image_index)
 	mesh_renderer2->setScale(glm::vec3(0.2f, 0.2f, 0.2f));
 	mesh_renderer2->updateUniformBuffer(image_index);
 	//cubemap_renderer->updateUniformBuffer(image_index);
+
+	Material mat1;
+	mat1.albedo_tex_id = 0;
+	Material mat2;
+	mat2.albedo_tex_id = 1;
+	mesh_renderer->setMaterial(mat1);
+	mesh_renderer2->setMaterial(mat2);
 }
 
 void Application::recordCommands(CommandBuffer & command_buffer, uint32_t image_index)

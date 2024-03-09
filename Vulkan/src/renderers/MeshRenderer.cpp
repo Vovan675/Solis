@@ -37,10 +37,29 @@ MeshRenderer::MeshRenderer(std::shared_ptr<Camera> cam, std::shared_ptr<Engine::
 		image_uniform_buffers[i]->map(&image_uniform_buffers_mapped[i]);
 	}
 
+	bufferSize = sizeof(Material);
+
+	material_uniform_buffers.resize(MAX_FRAMES_IN_FLIGHT);
+	material_uniform_buffers_mapped.resize(MAX_FRAMES_IN_FLIGHT);
+
+	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+	{
+		BufferDescription desc;
+		desc.size = bufferSize;
+		desc.useStagingBuffer = false;
+		desc.bufferUsageFlags = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+
+		material_uniform_buffers[i] = std::make_shared<Buffer>(desc);
+
+		// Map gpu memory on cpu memory
+		material_uniform_buffers[i]->map(&material_uniform_buffers_mapped[i]);
+	}
+
 	// Create descriptor set layout
 	DescriptorLayoutBuilder layout_builder;
 	layout_builder.clear();
 	layout_builder.add_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+	layout_builder.add_binding(1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 	descriptor_set_layout = layout_builder.build(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
 
 	// Create descriptor set
@@ -56,9 +75,20 @@ MeshRenderer::MeshRenderer(std::shared_ptr<Camera> cam, std::shared_ptr<Engine::
 	{
 		DescriptorWriter writer;
 		writer.writeBuffer(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, image_uniform_buffers[i]->bufferHandle, sizeof(UniformBufferObject));
+		writer.writeBuffer(1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, material_uniform_buffers[i]->bufferHandle, sizeof(Material));
 		writer.updateSet(image_descriptor_sets[i]);
 	}
 
+	recreatePipeline();
+}
+
+MeshRenderer::~MeshRenderer()
+{
+	vkDestroyDescriptorSetLayout(VkWrapper::device->logicalHandle, descriptor_set_layout, nullptr);
+}
+
+void MeshRenderer::recreatePipeline()
+{
 	// Create pipeline
 	auto vertShader = std::make_shared<Shader>(VkWrapper::device->logicalHandle, "shaders/simple.vert", Shader::VERTEX_SHADER);
 	auto fragShader = std::make_shared<Shader>(VkWrapper::device->logicalHandle, "shaders/simple.frag", Shader::FRAGMENT_SHADER);
@@ -71,11 +101,6 @@ MeshRenderer::MeshRenderer(std::shared_ptr<Camera> cam, std::shared_ptr<Engine::
 
 	pipeline = std::make_shared<Pipeline>();
 	pipeline->create(description);
-}
-
-MeshRenderer::~MeshRenderer()
-{
-	vkDestroyDescriptorSetLayout(VkWrapper::device->logicalHandle, descriptor_set_layout, nullptr);
 }
 
 void MeshRenderer::fillCommandBuffer(CommandBuffer & command_buffer, uint32_t image_index)
@@ -103,4 +128,6 @@ void MeshRenderer::updateUniformBuffer(uint32_t image_index)
 	ubo.view = camera->getView();
 	ubo.proj = camera->getProj();
 	memcpy(image_uniform_buffers_mapped[image_index], &ubo, sizeof(ubo));
+
+	memcpy(material_uniform_buffers_mapped[image_index], &mat, sizeof(mat));
 }

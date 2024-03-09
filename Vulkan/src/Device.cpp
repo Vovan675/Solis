@@ -96,7 +96,7 @@ void Device::CreateLogicalDevice()
 	features12.descriptorBindingPartiallyBound = true;
 	features12.descriptorBindingVariableDescriptorCount = true;
 	features12.descriptorBindingSampledImageUpdateAfterBind = true;
-	//features12.runtimeDescriptorArray = true;
+	features12.runtimeDescriptorArray = true; // for GL_EXT_nonuniform_qualifier extension
 
 	// Enable dynamic rendering
 	VkPhysicalDeviceVulkan13Features features13{};
