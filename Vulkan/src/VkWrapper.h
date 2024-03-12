@@ -5,6 +5,7 @@
 #include "Device.h"
 #include "Swapchain.h"
 #include "Descriptors.h"
+#include "Texture.h"
 
 static const int MAX_FRAMES_IN_FLIGHT = 2;
 
@@ -229,6 +230,14 @@ public:
 		write_descriptor_set.pTexelBufferView = nullptr;
 		return write_descriptor_set;
 	}
+
+	static void cmdImageMemoryBarrier(CommandBuffer &command_buffer,
+		VkPipelineStageFlags2 src_stage_mask, VkAccessFlags2 src_access_mask,
+		VkPipelineStageFlags2 dst_stage_mask, VkAccessFlags2 dst_access_mask,
+		VkImageLayout old_layout, VkImageLayout new_layout,
+		VkImage image, VkImageAspectFlags aspect_mask);
+	static void cmdBeginRendering(CommandBuffer &command_buffer, const std::vector<std::shared_ptr<Texture>> &color_attachments, std::shared_ptr<Texture> depth_attachment);
+	static void cmdEndRendering(CommandBuffer &command_buffer);
 
 private:
 	static void init_instance();

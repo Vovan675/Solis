@@ -60,6 +60,7 @@ namespace Engine
 
 		std::shared_ptr<Buffer> vertexBuffer;
 		std::shared_ptr<Buffer> indexBuffer;
+		glm::mat4 root_transform;
 	public:
 		Mesh() = delete;
 		Mesh(const std::string& path);

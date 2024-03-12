@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "Texture.h"
 #include "VkWrapper.h"
+#include "BindlessResources.h"
 #include "stb_image.h"
 
 Texture::Texture(TextureDescription description)
@@ -11,13 +12,15 @@ Texture::Texture(TextureDescription description)
 
 Texture::~Texture()
 {
+	BindlessResources::removeTexture(this);
 	if (sampler != nullptr)
-	{
 		vkDestroySampler(VkWrapper::device->logicalHandle, sampler, nullptr);
-	}
-	vkDestroyImageView(VkWrapper::device->logicalHandle, imageView, nullptr);
-	vkDestroyImage(VkWrapper::device->logicalHandle, imageHandle, nullptr);
-	vkFreeMemory(VkWrapper::device->logicalHandle, memoryHandle, nullptr);
+	if (imageView != nullptr)
+		vkDestroyImageView(VkWrapper::device->logicalHandle, imageView, nullptr);
+	if (imageHandle != nullptr && m_Description.destroy_image)
+		vkDestroyImage(VkWrapper::device->logicalHandle, imageHandle, nullptr);
+	if (memoryHandle != nullptr)
+		vkFreeMemory(VkWrapper::device->logicalHandle, memoryHandle, nullptr);
 }
 
 void Texture::fill()
@@ -51,6 +54,7 @@ void Texture::fill()
 
 	vkBindImageMemory(VkWrapper::device->logicalHandle, imageHandle, memoryHandle, 0);
 	create_image_view();
+	create_sampler();
 }
 
 
@@ -204,6 +208,12 @@ void Texture::load(const char *path)
 
 		stbi_image_free(pixels);
 	}
+}
+
+void Texture::fill_raw(VkImage image)
+{
+	imageHandle = image;
+	create_image_view();
 }
 
 void Texture::generate_mipmaps() {

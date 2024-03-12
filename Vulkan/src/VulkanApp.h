@@ -26,8 +26,8 @@ private:
 
 	void cleanup_swapchain();
 	void recreate_swapchain();
+	virtual void onSwapchainRecreated(int width, int height) {}
 
-	void init_depth();
 	void init_sync_objects();
 
 	void framebuffer_resize_callback(GLFWwindow *window, int width, int height) { framebuffer_resized = true; }
@@ -36,8 +36,6 @@ protected:
 	GLFWwindow *window;
 private:
 	bool framebuffer_resized = false;
-
-	std::vector<std::shared_ptr<Texture>> depthStencilImages;
 
 	std::vector<VkSemaphore> imageAvailableSemaphores;
 	std::vector<VkSemaphore> renderFinishedSemaphores;

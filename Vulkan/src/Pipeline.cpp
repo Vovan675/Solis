@@ -43,14 +43,17 @@ void Pipeline::create(const PipelineDescription &description)
 	VkPipelineShaderStageCreateInfo shaderStagesInfo[] = {vertShaderStageInfo, fragShaderStageInfo};
 
 	// Vertex input state
-	auto bindingDescription = Engine::Vertex::GetBindingDescription();
-	auto attributeDescriptions = Engine::Vertex::GetAttributeDescription();
 	VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
 	vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-	vertexInputInfo.vertexBindingDescriptionCount = 1;
-	vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
-	vertexInputInfo.vertexAttributeDescriptionCount = attributeDescriptions.size();
-	vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
+	if (description.use_vertices)
+	{
+		auto bindingDescription = Engine::Vertex::GetBindingDescription();
+		auto attributeDescriptions = Engine::Vertex::GetAttributeDescription();
+		vertexInputInfo.vertexBindingDescriptionCount = 1;
+		vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
+		vertexInputInfo.vertexAttributeDescriptionCount = attributeDescriptions.size();
+		vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
+	}
 
 	// Input assembly state
 	VkPipelineInputAssemblyStateCreateInfo inputAssemblyInfo{};
@@ -58,25 +61,12 @@ void Pipeline::create(const PipelineDescription &description)
 	inputAssemblyInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 	inputAssemblyInfo.primitiveRestartEnable = VK_FALSE;
 
-	// Viewport state
-	VkViewport viewport{};
-	viewport.x = 0;
-	viewport.y = 0;
-	viewport.width = VkWrapper::swapchain->swapExtent.width;
-	viewport.height = VkWrapper::swapchain->swapExtent.height;
-	viewport.minDepth = 0;
-	viewport.maxDepth = 1;
-
-	VkRect2D scissor{};
-	scissor.offset = {0, 0};
-	scissor.extent = VkWrapper::swapchain->swapExtent;
-
 	VkPipelineViewportStateCreateInfo viewportState{};
 	viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
 	viewportState.viewportCount = 1;
-	viewportState.pViewports = &viewport;
+	viewportState.pViewports = nullptr; // ignored because its dynamic state
 	viewportState.scissorCount = 1;
-	viewportState.pScissors = &scissor;
+	viewportState.pScissors = nullptr; // ignored because its dynamic state
 
 	// Rasterizer state
 	VkPipelineRasterizationStateCreateInfo rasterizer{};
@@ -86,7 +76,7 @@ void Pipeline::create(const PipelineDescription &description)
 	rasterizer.polygonMode = VK_POLYGON_MODE_FILL; //TODO: Test another
 	rasterizer.lineWidth = 1;
 	rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
-	rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
+	rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 	rasterizer.depthBiasEnable = VK_FALSE;
 	rasterizer.depthBiasConstantFactor = 0;
 	rasterizer.depthBiasClamp = 0;
@@ -99,22 +89,28 @@ void Pipeline::create(const PipelineDescription &description)
 	multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 
 	// Color blend state
-	VkPipelineColorBlendAttachmentState colorBlendAttachment{};
-	colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-	colorBlendAttachment.blendEnable = VK_TRUE;
-	colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-	colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-	colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
-	colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-	colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-	colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
+	std::vector<VkPipelineColorBlendAttachmentState> color_blend_attachments(description.color_formats.size());
+	for (int i = 0; i < description.color_formats.size(); i++)
+	{
+		VkPipelineColorBlendAttachmentState attachment{};
+		attachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+		attachment.blendEnable = VK_TRUE;
+		attachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+		attachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+		attachment.colorBlendOp = VK_BLEND_OP_ADD;
+		attachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+		attachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+		attachment.alphaBlendOp = VK_BLEND_OP_ADD;
+		color_blend_attachments[i] = attachment;
+	}
+	
 
 	VkPipelineColorBlendStateCreateInfo colorBlending{};
 	colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
 	colorBlending.logicOpEnable = VK_FALSE;
 	colorBlending.logicOp = VK_LOGIC_OP_COPY;
-	colorBlending.attachmentCount = 1;
-	colorBlending.pAttachments = &colorBlendAttachment;
+	colorBlending.attachmentCount = color_blend_attachments.size();;
+	colorBlending.pAttachments = color_blend_attachments.data();
 	colorBlending.blendConstants[0] = 0;
 	colorBlending.blendConstants[1] = 0;
 	colorBlending.blendConstants[2] = 0;
@@ -159,8 +155,8 @@ void Pipeline::create(const PipelineDescription &description)
 	// Needed for dynamic rendering
 	VkPipelineRenderingCreateInfo pipeline_rendering_create_info{};
 	pipeline_rendering_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
-	pipeline_rendering_create_info.colorAttachmentCount = 1;
-	pipeline_rendering_create_info.pColorAttachmentFormats = &VkWrapper::swapchain->surfaceFormat.format;
+	pipeline_rendering_create_info.colorAttachmentCount = description.color_formats.size();
+	pipeline_rendering_create_info.pColorAttachmentFormats = description.color_formats.data();
 	pipeline_rendering_create_info.depthAttachmentFormat = VK_FORMAT_D32_SFLOAT_S8_UINT;
 
 	// Finally create graphics pipeline

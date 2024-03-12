@@ -111,6 +111,96 @@ void VkWrapper::endSingleTimeCommands(VkCommandBuffer commandBuffer)
 	vkFreeCommandBuffers(device->logicalHandle, command_pool, 1, &commandBuffer);
 }
 
+void VkWrapper::cmdImageMemoryBarrier(CommandBuffer &command_buffer, 
+									  VkPipelineStageFlags2 src_stage_mask, VkAccessFlags2 src_access_mask,
+									  VkPipelineStageFlags2 dst_stage_mask, VkAccessFlags2 dst_access_mask,
+									  VkImageLayout old_layout, VkImageLayout new_layout,
+									  VkImage image, VkImageAspectFlags aspect_mask)
+{
+	VkImageMemoryBarrier2 image_memory_barrier{};
+	image_memory_barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
+	image_memory_barrier.srcStageMask = src_stage_mask; // pipeline stage(s) that must be completed before the barrier is crossed
+	image_memory_barrier.srcAccessMask = src_access_mask; // operations that must complete before the barrier is crossed - example: write
+	image_memory_barrier.dstStageMask = dst_stage_mask; // pipeline stage(s) that must wait for the barrier to be crossed before beginning
+	image_memory_barrier.dstAccessMask = dst_access_mask; // operations that must wait for the barrier to be is crossed - example: read
+	image_memory_barrier.oldLayout = old_layout;
+	image_memory_barrier.newLayout = new_layout;
+	image_memory_barrier.image = image;
+	image_memory_barrier.subresourceRange.aspectMask = aspect_mask;
+	image_memory_barrier.subresourceRange.baseMipLevel = 0;
+	image_memory_barrier.subresourceRange.levelCount = 1;
+	image_memory_barrier.subresourceRange.baseArrayLayer = 0;
+	image_memory_barrier.subresourceRange.layerCount = 1;
+
+	VkDependencyInfo dependency_info{};
+	dependency_info.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+	dependency_info.imageMemoryBarrierCount = 1;
+	dependency_info.pImageMemoryBarriers = &image_memory_barrier;
+
+	vkCmdPipelineBarrier2(command_buffer.get_buffer(), &dependency_info);
+}
+
+void VkWrapper::cmdBeginRendering(CommandBuffer &command_buffer, const std::vector<std::shared_ptr<Texture>> &color_attachments, std::shared_ptr<Texture> depth_attachment)
+{
+	VkExtent2D extent;
+	extent.width = color_attachments[0]->getWidth();
+	extent.height = color_attachments[0]->getHeight();
+
+	VkRenderingInfo rendering_info{};
+	rendering_info.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+	rendering_info.renderArea.offset = {0, 0};
+	rendering_info.renderArea.extent = extent;
+	rendering_info.layerCount = 1;
+
+	std::vector<VkRenderingAttachmentInfo> color_attachments_info;
+	for (const auto &attachment : color_attachments)
+	{
+		VkRenderingAttachmentInfo info{};
+		info.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+		info.imageView = attachment->imageView;
+		info.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL;
+		info.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		info.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+		info.clearValue.color = {{0.0f, 0.0f, 0.0f, 1.0f}};
+		color_attachments_info.push_back(info);
+	}
+	rendering_info.colorAttachmentCount = color_attachments_info.size();
+	rendering_info.pColorAttachments = color_attachments_info.data();
+
+	if (depth_attachment != nullptr)
+	{
+		VkRenderingAttachmentInfo depth_stencil_attachment_info{};
+		depth_stencil_attachment_info.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+		depth_stencil_attachment_info.imageView = depth_attachment->imageView;
+		depth_stencil_attachment_info.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+		depth_stencil_attachment_info.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		depth_stencil_attachment_info.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+		depth_stencil_attachment_info.clearValue.depthStencil = {1.0f, 0};
+		rendering_info.pDepthAttachment = &depth_stencil_attachment_info;
+	}
+
+	vkCmdBeginRendering(command_buffer.get_buffer(), &rendering_info);
+
+	VkViewport viewport{};
+	viewport.x = 0.0f;
+	viewport.y = 0.0f;
+	viewport.width = extent.width;
+	viewport.height = extent.height;
+	viewport.minDepth = 0.0f;
+	viewport.maxDepth = 1.0f;
+	vkCmdSetViewport(command_buffer.get_buffer(), 0, 1, &viewport);
+
+	VkRect2D scissor{};
+	scissor.offset = {0, 0};
+	scissor.extent = extent;
+	vkCmdSetScissor(command_buffer.get_buffer(), 0, 1, &scissor);
+}
+
+void VkWrapper::cmdEndRendering(CommandBuffer &command_buffer)
+{
+	vkCmdEndRendering(command_buffer.get_buffer());
+}
+
 void VkWrapper::init_instance()
 {
 	uint32_t extensionsCount = 0;

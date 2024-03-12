@@ -3,8 +3,7 @@
 #include "Log.h"
 #include "VkWrapper.h"
 
-Swapchain::Swapchain(VkSurfaceKHR surface)
-	: swapchainHandle(nullptr), surface(surface)
+Swapchain::Swapchain(VkSurfaceKHR surface): surface(surface)
 {
 
 }
@@ -17,19 +16,12 @@ Swapchain::~Swapchain()
 
 void Swapchain::cleanup()
 {
-	if (swapchainImageViews.size() != 0)
-	{
-		for (auto view : swapchainImageViews)
-		{
-			vkDestroyImageView(VkWrapper::device->logicalHandle, view, nullptr);
-		}
-		swapchainImageViews.clear();
-	}
+	swapchain_textures.clear();
 
-	if (swapchainHandle != 0)
+	if (swapchain_handle != 0)
 	{
-		vkDestroySwapchainKHR(VkWrapper::device->logicalHandle, swapchainHandle, nullptr);
-		swapchainHandle = nullptr;
+		vkDestroySwapchainKHR(VkWrapper::device->logicalHandle, swapchain_handle, nullptr);
+		swapchain_handle = nullptr;
 	}
 }
 
@@ -37,7 +29,7 @@ void Swapchain::create(int width, int height)
 {
 	cleanup();
 	create_swapchain(width, height);
-	create_image_views();
+	create_resources();
 }
 
 void Swapchain::create_swapchain(int width, int height)
@@ -48,7 +40,6 @@ void Swapchain::create_swapchain(int width, int height)
 	{
 		CORE_CRITICAL("Surface doesn't support");
 	}
-
 
 	VkSurfaceCapabilitiesKHR surfaceCapabilities;
 	vkGetPhysicalDeviceSurfaceCapabilitiesKHR(VkWrapper::device->physicalHandle, surface, &surfaceCapabilities);
@@ -75,7 +66,7 @@ void Swapchain::create_swapchain(int width, int height)
 	{
 		if (format.format == VK_FORMAT_B8G8R8A8_SRGB && format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
 		{
-			surfaceFormat = format;
+			surface_format = format;
 		}
 	}
 
@@ -89,9 +80,9 @@ void Swapchain::create_swapchain(int width, int height)
 		}
 	}
 
-	swapExtent = { (uint32_t)width, (uint32_t)height };
-	swapExtent.width = std::clamp(swapExtent.width, surfaceCapabilities.minImageExtent.width, surfaceCapabilities.maxImageExtent.width);
-	swapExtent.height = std::clamp(swapExtent.height, surfaceCapabilities.minImageExtent.height, surfaceCapabilities.maxImageExtent.height);
+	swap_extent = { (uint32_t)width, (uint32_t)height };
+	swap_extent.width = std::clamp(swap_extent.width, surfaceCapabilities.minImageExtent.width, surfaceCapabilities.maxImageExtent.width);
+	swap_extent.height = std::clamp(swap_extent.height, surfaceCapabilities.minImageExtent.height, surfaceCapabilities.maxImageExtent.height);
 
 	uint32_t imageCount = surfaceCapabilities.minImageCount + 1;
 	if (surfaceCapabilities.maxImageCount != 0 && surfaceCapabilities.maxImageCount < imageCount)
@@ -103,9 +94,9 @@ void Swapchain::create_swapchain(int width, int height)
 	info.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
 	info.surface = surface;
 	info.minImageCount = surfaceCapabilities.minImageCount;
-	info.imageFormat = surfaceFormat.format;
-	info.imageColorSpace = surfaceFormat.colorSpace;
-	info.imageExtent = swapExtent;
+	info.imageFormat = surface_format.format;
+	info.imageColorSpace = surface_format.colorSpace;
+	info.imageExtent = swap_extent;
 	info.imageArrayLayers = 1;
 	info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 	info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
@@ -118,34 +109,28 @@ void Swapchain::create_swapchain(int width, int height)
 	info.clipped = VK_TRUE;
 	info.oldSwapchain = VK_NULL_HANDLE;
 
-	CHECK_ERROR(vkCreateSwapchainKHR(VkWrapper::device->logicalHandle, &info, nullptr, &swapchainHandle));
-
-	//Get swap chain images
-	uint32_t imagesCount;
-	vkGetSwapchainImagesKHR(VkWrapper::device->logicalHandle, swapchainHandle, &imagesCount, nullptr);
-	swapchainImages.resize(imagesCount);
-	vkGetSwapchainImagesKHR(VkWrapper::device->logicalHandle, swapchainHandle, &imagesCount, swapchainImages.data());
+	CHECK_ERROR(vkCreateSwapchainKHR(VkWrapper::device->logicalHandle, &info, nullptr, &swapchain_handle));
 }
 
-void Swapchain::create_image_views()
+void Swapchain::create_resources()
 {
-	swapchainImageViews.resize(swapchainImages.size());
-	for (size_t i = 0; i < swapchainImages.size(); i++)
+	// Get swap chain images
+	uint32_t imagesCount;
+	vkGetSwapchainImagesKHR(VkWrapper::device->logicalHandle, swapchain_handle, &imagesCount, nullptr);
+	swapchain_images.resize(imagesCount);
+	vkGetSwapchainImagesKHR(VkWrapper::device->logicalHandle, swapchain_handle, &imagesCount, swapchain_images.data());
+
+	// Create textures
+	for (size_t i = 0; i < swapchain_images.size(); i++)
 	{
-		VkImageViewCreateInfo info{};
-		info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-		info.image = swapchainImages[i];
-		info.viewType = VK_IMAGE_VIEW_TYPE_2D;
-		info.format = surfaceFormat.format;
-		info.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-		info.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-		info.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
-		info.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-		info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		info.subresourceRange.baseMipLevel = 0;
-		info.subresourceRange.levelCount = 1;
-		info.subresourceRange.baseArrayLayer = 0;
-		info.subresourceRange.layerCount = 1;
-		CHECK_ERROR(vkCreateImageView(VkWrapper::device->logicalHandle, &info, nullptr, &swapchainImageViews[i]));
+		TextureDescription desc{};
+		desc.width = swap_extent.width;
+		desc.height = swap_extent.height;
+		desc.imageFormat = surface_format.format;
+		desc.imageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
+		desc.destroy_image = false; // dont destroy image because it will be destroyed with swapchain implicitly
+		std::shared_ptr<Texture> tex = std::make_shared<Texture>(desc);
+		tex->fill_raw(swapchain_images[i]);
+		swapchain_textures.push_back(tex);
 	}
 }

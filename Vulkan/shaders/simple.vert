@@ -1,10 +1,11 @@
 #version 450
 
-layout(binding=0) uniform UniformBufferObject
+layout(set=0, binding=0) uniform UniformBufferObject
 {
 	mat4 model;
 	mat4 view;
 	mat4 proj;
+	vec3 cameraPosition;
 } ubo;
 
 layout(location=0) in vec3 inPosition;
@@ -20,8 +21,8 @@ layout(location=3) out vec3 fragColor;
 void main()
 {
 	gl_Position = ubo.proj * ubo.view * ubo.model * vec4(inPosition, 1.0);
-	fragPos = inPosition;
-	fragNormal = normalize(vec3(ubo.model * vec4(inNormal, 1.0)));
+	fragPos = vec3(ubo.model * vec4(inPosition, 1.0));
+	fragNormal = normalize(mat3(ubo.model) * inNormal); // Apply rotation to normal
 	fragUV = inUV;
 	fragColor = inColor;
 }

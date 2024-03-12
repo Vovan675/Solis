@@ -2,19 +2,39 @@
 #include "BindlessResources.h"
 #include "VkWrapper.h"
 
+std::shared_ptr<Texture> BindlessResources::invalid_texture;
+
 VkDescriptorSetLayout BindlessResources::bindless_layout;
 VkDescriptorPool BindlessResources::bindless_pool;
 VkDescriptorSet BindlessResources::bindless_set;
 
 DescriptorWriter BindlessResources::descriptor_writer;
-std::vector<VkDescriptorImageInfo> BindlessResources::textures_writes;
 bool BindlessResources::is_dirty = false;
 
-static const int MAX_BINDLESS_TEXTURES = 1024;
+std::unordered_map<Texture *, uint32_t> BindlessResources::textures_indices;
+std::vector<int> BindlessResources::empty_indices;
+
+
+static const int MAX_BINDLESS_TEXTURES = 30;
 static const int BINDLESS_TEXTURES_BINDING = 0;
 
 void BindlessResources::init()
 {
+	// Load invalid texture
+	TextureDescription description;
+	description.imageFormat = VK_FORMAT_R8G8B8A8_SRGB;
+	description.imageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
+	description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+	invalid_texture = std::make_shared<Texture>(description);
+	invalid_texture->load("assets/invalid_texture.png");
+
+	// By default all indices are empty
+	for (int i = MAX_BINDLESS_TEXTURES - 2; i >= 0; i--)
+	{
+		empty_indices.push_back(i);
+		set_invalid_texture(i);	
+	}
+
 	// Layout
 	VkDescriptorSetLayoutBindingFlagsCreateInfo extended_info{};
 	extended_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
@@ -52,6 +72,7 @@ void BindlessResources::init()
 
 void BindlessResources::cleanup()
 {
+	invalid_texture = nullptr;
 	// Descriptor sets will implicitly free
 	vkDestroyDescriptorPool(VkWrapper::device->logicalHandle, bindless_pool, nullptr);
 	vkDestroyDescriptorSetLayout(VkWrapper::device->logicalHandle, bindless_layout, nullptr);
@@ -59,9 +80,46 @@ void BindlessResources::cleanup()
 
 void BindlessResources::setTexture(uint32_t index, Texture *texture)
 {
+	if (texture == nullptr)
+	{
+		set_invalid_texture(index);
+		return;
+	}
+
+	textures_indices[texture] = index;
 	descriptor_writer.writeImage(BINDLESS_TEXTURES_BINDING, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, texture->imageView, texture->sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	descriptor_writer.writes.back().dstArrayElement = index;
 	is_dirty = true;
+}
+
+uint32_t BindlessResources::addTexture(Texture *texture)
+{
+	if (empty_indices.size() == 0)
+		throw "not enough indices";
+
+	// If already exists, return index
+	auto it = textures_indices.find(texture);
+	if (it != textures_indices.end())
+		return it->second;
+
+	uint32_t index = empty_indices.back();
+	empty_indices.pop_back();
+	setTexture(index, texture);
+	return index;
+}
+
+void BindlessResources::removeTexture(Texture *texture)
+{
+	// If not found, return
+	auto it = textures_indices.find(texture);
+	if (it == textures_indices.end())
+		return;
+
+	uint32_t index = textures_indices[texture];
+	textures_indices.erase(texture);
+	empty_indices.push_back(index);
+
+	set_invalid_texture(index);
 }
 
 void BindlessResources::updateSets()
@@ -73,3 +131,13 @@ void BindlessResources::updateSets()
 	descriptor_writer.updateSet(bindless_set);
 	descriptor_writer.clear();
 }
+
+void BindlessResources::set_invalid_texture(uint32_t index)
+{
+	if (invalid_texture == nullptr)
+		return;
+	descriptor_writer.writeImage(BINDLESS_TEXTURES_BINDING, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, invalid_texture->imageView, invalid_texture->sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	descriptor_writer.writes.back().dstArrayElement = index;
+	is_dirty = true;
+}
+

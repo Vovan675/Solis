@@ -6,6 +6,16 @@
 
 namespace Engine
 {
+	static glm::mat4 convertAssimpMat4(const aiMatrix4x4 &m)
+	{
+		glm::mat4 o;
+		o[0][0] = m.a1; o[0][1] = m.b1; o[0][2] = m.c1; o[0][3] = m.d1;
+		o[1][0] = m.a2; o[1][1] = m.b2; o[1][2] = m.c2; o[1][3] = m.d2;
+		o[2][0] = m.a3; o[2][1] = m.b3; o[2][2] = m.c3; o[2][3] = m.d3;
+		o[3][0] = m.a4; o[3][1] = m.b4; o[3][2] = m.c4; o[3][3] = m.d4;
+		return o;
+	}
+
 	Mesh::Mesh(const std::string& path)
 		: filePath(path)
 	{
@@ -38,17 +48,15 @@ namespace Engine
 	void Mesh::LoadModel()
 	{
 		std::string pFile = filePath;
-		// Create an instance of the Importer class
 		Assimp::Importer importer;
 
-		// And have it read the given file with some example postprocessing
-		// Usually - if speed is not the most important aspect for you - you'll
-		// probably to request more postprocessing than we do in this example.
 		const aiScene* scene = importer.ReadFile(pFile,
 			aiProcess_CalcTangentSpace |
 			aiProcess_Triangulate |
 			aiProcess_JoinIdenticalVertices |
 			aiProcess_SortByPType);
+
+		root_transform = convertAssimpMat4(scene->mRootNode->mChildren[0]->mTransformation);
 
 		vertices.clear();
 		indices.clear();

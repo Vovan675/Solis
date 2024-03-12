@@ -23,7 +23,6 @@ VulkanApp::VulkanApp()
 	Log::Init();
 	VkWrapper::init(window);
 
-	init_depth();
 	init_sync_objects();
 }
 
@@ -41,7 +40,7 @@ void VulkanApp::run()
 
 		// Acquire image and trigger semaphore
 		uint32_t image_index;
-		VkResult result = vkAcquireNextImageKHR(VkWrapper::device->logicalHandle, VkWrapper::swapchain->swapchainHandle, UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &image_index);
+		VkResult result = vkAcquireNextImageKHR(VkWrapper::device->logicalHandle, VkWrapper::swapchain->swapchain_handle, UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &image_index);
 		if (result == VK_ERROR_OUT_OF_DATE_KHR)
 		{
 			recreate_swapchain();
@@ -81,7 +80,7 @@ void VulkanApp::run()
 		presentInfo.waitSemaphoreCount = 1;
 		// Wait until queue submitted before present it
 		presentInfo.pWaitSemaphores = signalSemaphores;
-		VkSwapchainKHR swapChains[] = {VkWrapper::swapchain->swapchainHandle};
+		VkSwapchainKHR swapChains[] = {VkWrapper::swapchain->swapchain_handle};
 		presentInfo.swapchainCount = 1;
 		presentInfo.pSwapchains = swapChains;
 		presentInfo.pImageIndices = &image_index;
@@ -109,103 +108,22 @@ void VulkanApp::render(CommandBuffer &command_buffer, uint32_t image_index)
 {
 	command_buffer.open();
 
-	{
-		// Set swapchain color image layout for writing
-		VkImageMemoryBarrier2 image_memory_barrier{};
-		image_memory_barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
-		image_memory_barrier.srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
-		image_memory_barrier.srcAccessMask = 0;
-		image_memory_barrier.dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
-		image_memory_barrier.dstAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
-		image_memory_barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		image_memory_barrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-		image_memory_barrier.image = VkWrapper::swapchain->swapchainImages[image_index];
-		image_memory_barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		image_memory_barrier.subresourceRange.baseMipLevel = 0;
-		image_memory_barrier.subresourceRange.levelCount = 1;
-		image_memory_barrier.subresourceRange.baseArrayLayer = 0;
-		image_memory_barrier.subresourceRange.layerCount = 1;
+	// Set swapchain color image layout for writing
+	VkWrapper::cmdImageMemoryBarrier(command_buffer,
+									VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, 0,
+									VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+									VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+									VkWrapper::swapchain->swapchain_images[image_index], VK_IMAGE_ASPECT_COLOR_BIT);
 
-		VkDependencyInfo dependency_info{};
-		dependency_info.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
-		dependency_info.imageMemoryBarrierCount = 1;
-		dependency_info.pImageMemoryBarriers = &image_memory_barrier;
-
-		vkCmdPipelineBarrier2(command_buffer.get_buffer(), &dependency_info);
-	}
-
-
-	// Begin dynamic rendering
-	VkRenderingAttachmentInfo color_attachment_info{};
-	color_attachment_info.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-	color_attachment_info.imageView = VkWrapper::swapchain->swapchainImageViews[image_index];
-	color_attachment_info.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL;
-	color_attachment_info.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-	color_attachment_info.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-	color_attachment_info.clearValue.color = {{0.0f, 0.0f, 0.0f, 1.0f}};
-
-	VkRenderingAttachmentInfo depth_stencil_attachment_info{};
-	depth_stencil_attachment_info.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-	depth_stencil_attachment_info.imageView = depthStencilImages[image_index]->imageView;
-	depth_stencil_attachment_info.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-	depth_stencil_attachment_info.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-	depth_stencil_attachment_info.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-	depth_stencil_attachment_info.clearValue.depthStencil = {1.0f, 0};
-
-	VkRenderingInfo rendering_info{};
-	rendering_info.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
-	rendering_info.renderArea.offset = {0, 0};
-	rendering_info.renderArea.extent = VkWrapper::swapchain->swapExtent;
-	rendering_info.layerCount = 1;
-	rendering_info.colorAttachmentCount = 1;
-	rendering_info.pColorAttachments = &color_attachment_info;
-	rendering_info.pDepthAttachment = &depth_stencil_attachment_info;
-
-	vkCmdBeginRendering(command_buffer.get_buffer(), &rendering_info);
-
-	VkViewport viewport{};
-	viewport.x = 0.0f;
-	viewport.y = 0.0f;
-	viewport.width = (float)VkWrapper::swapchain->swapExtent.width;
-	viewport.height = (float)VkWrapper::swapchain->swapExtent.height;
-	viewport.minDepth = 0.0f;
-	viewport.maxDepth = 1.0f;
-	vkCmdSetViewport(command_buffer.get_buffer(), 0, 1, &viewport);
-
-	VkRect2D scissor{};
-	scissor.offset = {0, 0};
-	scissor.extent = VkWrapper::swapchain->swapExtent;
-	vkCmdSetScissor(command_buffer.get_buffer(), 0, 1, &scissor);
-
-	// Record commands
+	// Record commands (they do what they want + output to swapchain_textures)
 	recordCommands(command_buffer, image_index);
 
-	vkCmdEndRendering(command_buffer.get_buffer());
-
-	{
-		// Set swapchain color image layout for presenting
-		VkImageMemoryBarrier2 image_memory_barrier{};
-		image_memory_barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
-		image_memory_barrier.srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
-		image_memory_barrier.srcAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
-		image_memory_barrier.dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
-		image_memory_barrier.dstAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT;
-		image_memory_barrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-		image_memory_barrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-		image_memory_barrier.image = VkWrapper::swapchain->swapchainImages[image_index];
-		image_memory_barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		image_memory_barrier.subresourceRange.baseMipLevel = 0;
-		image_memory_barrier.subresourceRange.levelCount = 1;
-		image_memory_barrier.subresourceRange.baseArrayLayer = 0;
-		image_memory_barrier.subresourceRange.layerCount = 1;
-
-		VkDependencyInfo dependency_info{};
-		dependency_info.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
-		dependency_info.imageMemoryBarrierCount = 1;
-		dependency_info.pImageMemoryBarriers = &image_memory_barrier;
-
-		vkCmdPipelineBarrier2(command_buffer.get_buffer(), &dependency_info);
-	}
+	// Set swapchain color image layout for presenting
+	VkWrapper::cmdImageMemoryBarrier(command_buffer,
+									VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+									VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT,
+									VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+									VkWrapper::swapchain->swapchain_images[image_index], VK_IMAGE_ASPECT_COLOR_BIT);
 
 	command_buffer.close();
 }
@@ -214,7 +132,6 @@ void VulkanApp::cleanup()
 {
 	vkDeviceWaitIdle(VkWrapper::device->logicalHandle);
 	VkWrapper::cleanup();
-	depthStencilImages.clear();
 	cleanupResources();
 	cleanup_swapchain();
 
@@ -249,28 +166,9 @@ void VulkanApp::recreate_swapchain()
 
 	vkDeviceWaitIdle(VkWrapper::device->logicalHandle);
 
-	depthStencilImages.clear();
-
 	VkWrapper::swapchain->create(width, height);
-	init_depth();
-}
 
-void VulkanApp::init_depth()
-{
-	depthStencilImages.resize(VkWrapper::swapchain->swapchainImages.size());
-	for (int i = 0; i < VkWrapper::swapchain->swapchainImages.size(); i++)
-	{
-		TextureDescription description;
-		description.width = VkWrapper::swapchain->swapExtent.width;
-		description.height = VkWrapper::swapchain->swapExtent.height;
-		description.mipLevels = 1;
-		description.numSamples = VK_SAMPLE_COUNT_1_BIT;
-		description.imageFormat = VK_FORMAT_D32_SFLOAT_S8_UINT;
-		description.imageAspectFlags = VK_IMAGE_ASPECT_DEPTH_BIT;
-		description.imageUsageFlags = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-		depthStencilImages[i] = std::make_shared<Texture>(description);
-		depthStencilImages[i]->fill();
-	}
+	onSwapchainRecreated(width, height);
 }
 
 void VulkanApp::init_sync_objects()

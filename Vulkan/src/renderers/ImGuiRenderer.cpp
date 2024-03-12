@@ -45,7 +45,7 @@ ImGuiRenderer::ImGuiRenderer(GLFWwindow* window) : RendererBase()
 	VkPipelineRenderingCreateInfo pipeline_rendering_create_info{};
 	pipeline_rendering_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
 	pipeline_rendering_create_info.colorAttachmentCount = 1;
-	pipeline_rendering_create_info.pColorAttachmentFormats = &VkWrapper::swapchain->surfaceFormat.format;
+	pipeline_rendering_create_info.pColorAttachmentFormats = &VkWrapper::swapchain->surface_format.format;
 	pipeline_rendering_create_info.depthAttachmentFormat = VK_FORMAT_D32_SFLOAT_S8_UINT;
 	init_info.PipelineRenderingCreateInfo = pipeline_rendering_create_info;
 	ImGui_ImplVulkan_Init(&init_info);

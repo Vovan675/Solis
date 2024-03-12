@@ -122,6 +122,6 @@ void CubeMapRenderer::updateUniformBuffer(uint32_t image_index)
 	UniformBufferObject ubo{};
 	ubo.model = glm::rotate(glm::mat4(1), glm::radians(90.0f), glm::vec3(1, 0, 0)) * glm::translate(glm::mat4(1), glm::vec3(0, 0, 0));
 	ubo.view = camera->getView();
-	ubo.proj = glm::perspective(glm::radians(45.0f), VkWrapper::swapchain->swapExtent.width / (float)VkWrapper::swapchain->swapExtent.height, 0.1f, 60.0f);
+	ubo.proj = glm::perspective(glm::radians(45.0f), VkWrapper::swapchain->swap_extent.width / (float)VkWrapper::swapchain->swap_extent.height, 0.1f, 60.0f);
 	memcpy(image_uniform_buffers_mapped[image_index], &ubo, sizeof(ubo));
 }

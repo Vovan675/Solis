@@ -8,12 +8,13 @@ static struct UniformBufferObject
 	alignas(16) glm::mat4 model;
 	alignas(16) glm::mat4 view;
 	alignas(16) glm::mat4 proj;
+	alignas(16) glm::vec3 camera_position;
 };
 
 MeshRenderer::MeshRenderer(std::shared_ptr<Camera> cam, std::shared_ptr<Engine::Mesh> mesh) : RendererBase()
 {
 	camera = cam;
-	rotation = glm::rotate(glm::quat(), glm::vec3(glm::radians(90.0f), 0, 0));
+	rotation = glm::quat();
 	scale = glm::vec3(1.0f, 1.0f, 1.0f);
 	this->mesh = mesh;
 	this->texture = texture;
@@ -63,11 +64,10 @@ MeshRenderer::MeshRenderer(std::shared_ptr<Camera> cam, std::shared_ptr<Engine::
 	descriptor_set_layout = layout_builder.build(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
 
 	// Create descriptor set
-	std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, descriptor_set_layout);
 	image_descriptor_sets.resize(MAX_FRAMES_IN_FLIGHT);
 	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
-		image_descriptor_sets[i] = VkWrapper::global_descriptor_allocator->allocate(layouts[i]);
+		image_descriptor_sets[i] = VkWrapper::global_descriptor_allocator->allocate(descriptor_set_layout);
 	}
 
 	// Update descriptor set
@@ -90,14 +90,15 @@ MeshRenderer::~MeshRenderer()
 void MeshRenderer::recreatePipeline()
 {
 	// Create pipeline
-	auto vertShader = std::make_shared<Shader>(VkWrapper::device->logicalHandle, "shaders/simple.vert", Shader::VERTEX_SHADER);
-	auto fragShader = std::make_shared<Shader>(VkWrapper::device->logicalHandle, "shaders/simple.frag", Shader::FRAGMENT_SHADER);
+	auto vertShader = std::make_shared<Shader>(VkWrapper::device->logicalHandle, "shaders/opaque.vert", Shader::VERTEX_SHADER);
+	auto fragShader = std::make_shared<Shader>(VkWrapper::device->logicalHandle, "shaders/opaque.frag", Shader::FRAGMENT_SHADER);
 
 	PipelineDescription description{};
 	description.vertex_shader = vertShader;
 	description.fragment_shader = fragShader;
 
 	description.descriptor_set_layout = descriptor_set_layout;
+	description.color_formats = {VkWrapper::swapchain->surface_format.format, VK_FORMAT_R8G8B8A8_SRGB};
 
 	pipeline = std::make_shared<Pipeline>();
 	pipeline->create(description);
@@ -124,9 +125,10 @@ void MeshRenderer::fillCommandBuffer(CommandBuffer & command_buffer, uint32_t im
 void MeshRenderer::updateUniformBuffer(uint32_t image_index)
 {
 	UniformBufferObject ubo{};
-	ubo.model = glm::scale(glm::mat4(1.0f), scale) * glm::mat4_cast(rotation) * glm::translate(glm::mat4(1.0f), position);
+	ubo.model = glm::mat4_cast(rotation) * glm::translate(glm::mat4(1.0f), position) * glm::scale(glm::mat4(1.0f), scale) * mesh->root_transform;
 	ubo.view = camera->getView();
 	ubo.proj = camera->getProj();
+	ubo.camera_position = camera->getPosition();
 	memcpy(image_uniform_buffers_mapped[image_index], &ubo, sizeof(ubo));
 
 	memcpy(material_uniform_buffers_mapped[image_index], &mat, sizeof(mat));

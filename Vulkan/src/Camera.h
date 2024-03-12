@@ -9,7 +9,7 @@ class Camera
 public:
 	Camera() 
 	{
-		position = glm::vec3(1, -1, 2);
+		position = glm::vec3(0, 2, 3);
 		pitch = 0;
 		yaw = 0;
 		updateMatrices();
@@ -21,7 +21,7 @@ public:
 		{
 			glm::vec2 delta_pos = mouse_pos - prev_mouse_pos;
 			delta_pos *= 0.003f;
-			pitch += delta_pos.y;
+			pitch += -delta_pos.y;
 			yaw += -delta_pos.x;
 			updateMatrices();
 		}
@@ -51,9 +51,11 @@ public:
 	{
 		orientation = glm::quat(glm::vec3(pitch, yaw, 0));
 		view = glm::inverse(glm::translate(glm::mat4(1.0f), position) * glm::toMat4(orientation));
-		proj = glm::perspectiveRH(glm::radians(45.0f), VkWrapper::swapchain->swapExtent.width / (float)VkWrapper::swapchain->swapExtent.height, 0.1f, 60.0f);
+		proj = glm::perspectiveRH_ZO(glm::radians(45.0f), VkWrapper::swapchain->swap_extent.width / (float)VkWrapper::swapchain->swap_extent.height, 0.1f, 60.0f);
+		proj[1][1] *= -1.0f;
 	}
 
+	const glm::vec3 &getPosition() const { return position; }
 	const glm::mat4 &getView() const { return view; }
 	const glm::mat4 &getProj() const { return proj; }
 
