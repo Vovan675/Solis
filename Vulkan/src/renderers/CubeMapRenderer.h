@@ -1,9 +1,9 @@
 #pragma once
 
 #include "RendererBase.h"
-#include "Pipeline.h"
+#include "RHI/Pipeline.h"
 #include "Mesh.h"
-#include "Texture.h"
+#include "RHI/Texture.h"
 #include "Camera.h"
 
 class CubeMapRenderer: public RendererBase

@@ -1,6 +1,6 @@
 #pragma once
-#include "Texture.h"
-#include "Descriptors.h"
+#include "RHI/Texture.h"
+#include "RHI/Descriptors.h"
 
 class BindlessResources
 {

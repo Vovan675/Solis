@@ -148,8 +148,8 @@ void Pipeline::create(const PipelineDescription &description)
 	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 	pipelineLayoutInfo.setLayoutCount = descriptor_set_layouts.size();
 	pipelineLayoutInfo.pSetLayouts = descriptor_set_layouts.data();
-	pipelineLayoutInfo.pushConstantRangeCount = 0;
-	pipelineLayoutInfo.pPushConstantRanges = nullptr;
+	pipelineLayoutInfo.pushConstantRangeCount = description.push_constant_ranges.size();
+	pipelineLayoutInfo.pPushConstantRanges = description.push_constant_ranges.data();
 	CHECK_ERROR(vkCreatePipelineLayout(VkWrapper::device->logicalHandle, &pipelineLayoutInfo, nullptr, &pipeline_layout));
 
 	// Needed for dynamic rendering

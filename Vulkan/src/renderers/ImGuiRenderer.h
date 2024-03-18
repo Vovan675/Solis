@@ -2,9 +2,9 @@
 #include <GLFW/glfw3.h>
 
 #include "RendererBase.h"
-#include "Pipeline.h"
+#include "RHI/Pipeline.h"
 #include "Mesh.h"
-#include "Texture.h"
+#include "RHI/Texture.h"
 
 class ImGuiRenderer : public RendererBase
 {

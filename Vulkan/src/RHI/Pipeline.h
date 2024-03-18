@@ -8,6 +8,7 @@ struct PipelineDescription
 	bool use_vertices = true;
 	VkDescriptorSetLayout descriptor_set_layout;
 	std::vector<VkFormat> color_formats;
+	std::vector<VkPushConstantRange> push_constant_ranges;
 	VkFormat depth_format;
 };
 

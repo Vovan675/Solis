@@ -1,10 +1,10 @@
 #pragma once
 #include "RendererBase.h"
-#include "Pipeline.h"
+#include "RHI/Pipeline.h"
 #include "Mesh.h"
-#include "Texture.h"
+#include "RHI/Texture.h"
 #include "Camera.h"
-#include "Descriptors.h"
+#include "RHI/Descriptors.h"
 
 
 class QuadRenderer : public RendererBase

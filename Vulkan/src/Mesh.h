@@ -1,5 +1,5 @@
 #pragma once
-#include "Buffer.h"
+#include "RHI/Buffer.h"
 #include "glm/glm.hpp"
 
 namespace Engine
@@ -51,6 +51,7 @@ namespace Engine
 		}
 	};
 
+	// Just a collection of data
 	class Mesh
 	{
 	public:
@@ -62,9 +63,12 @@ namespace Engine
 		std::shared_ptr<Buffer> indexBuffer;
 		glm::mat4 root_transform;
 	public:
-		Mesh() = delete;
+		Mesh() = default;
 		Mesh(const std::string& path);
 		~Mesh();
-		void LoadModel();
+		void loadFromPath();
+		void setData(std::vector<Vertex> vertices, std::vector<uint32_t> indices);
+	private:
+		void create_buffers();
 	};
 }

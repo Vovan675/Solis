@@ -2,11 +2,15 @@
 
 layout(set=0, binding=0) uniform UBO
 {
-	mat4 model;
 	mat4 view;
 	mat4 proj;
 	vec3 cameraPosition;
 } ubo;
+
+layout(push_constant) uniform constants
+{
+	mat4 model;
+} PushConstants;
 
 layout(location=0) in vec3 inPosition;
 layout(location=1) in vec3 inNormal;
@@ -20,10 +24,10 @@ layout(location=3) out vec3 outColor;
 
 void main()
 {
-	gl_Position = ubo.proj * ubo.view * ubo.model * vec4(inPosition, 1.0);
+	gl_Position = ubo.proj * ubo.view * PushConstants.model * vec4(inPosition, 1.0);
     
-	outPos = vec3(ubo.model * vec4(inPosition, 1.0));
-	outNormal = normalize(mat3(ubo.model) * inNormal); // Apply rotation to normal
+	outPos = vec3(PushConstants.model * vec4(inPosition, 1.0));
+	outNormal = normalize(mat3(PushConstants.model) * inNormal); // Apply rotation to normal
 	outUV = inUV;
 	outColor = inColor;
 

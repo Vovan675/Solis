@@ -2,10 +2,10 @@
 #include "vulkan/vulkan.h"
 #include <vector>
 #include "Log.h"
-#include "Device.h"
-#include "Swapchain.h"
-#include "Descriptors.h"
-#include "Texture.h"
+#include "RHI/Device.h"
+#include "RHI/Swapchain.h"
+#include "RHI/Descriptors.h"
+#include "RHI/Texture.h"
 
 static const int MAX_FRAMES_IN_FLIGHT = 2;
 

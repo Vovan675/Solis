@@ -5,25 +5,21 @@
 #include "Mesh.h"
 #include "RHI/Texture.h"
 #include "Camera.h"
+#include "Entity.h"
 #include "RHI/Descriptors.h"
+#include "MeshRenderer.h"
 
-// Basic material
-struct Material
-{
-	uint32_t albedo_tex_id = 0;
-	uint32_t rougness_tex_id = 0;
-	float use_rougness = 0;
-};
 
-class MeshRenderer : public RendererBase
+class EntityRenderer: public RendererBase
 {
 public:
-	MeshRenderer(std::shared_ptr<Camera> cam, std::shared_ptr<Engine::Mesh> mesh);
-	virtual ~MeshRenderer();
+	EntityRenderer(std::shared_ptr<Camera> cam, std::shared_ptr<Entity> mesh);
+	virtual ~EntityRenderer();
 
 	void recreatePipeline();
 
 	void fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index) override;
+	void renderEntity(CommandBuffer &command_buffer, Entity *entity);
 
 	void setPosition(glm::vec3 pos) { position = pos; }
 	void setRotation(glm::quat rot) { rotation = rot; }
@@ -42,12 +38,12 @@ private:
 	std::vector<void *> material_uniform_buffers_mapped;
 
 	std::shared_ptr<Texture> texture;
-	std::shared_ptr<Engine::Mesh> mesh;
+	std::shared_ptr<Entity> entity;
 
 	std::shared_ptr<Camera> camera;
 	glm::vec3 position;
 	glm::quat rotation;
 	glm::vec3 scale;
-	Material mat {};
+	Material mat{};
 };
 

@@ -1,12 +1,12 @@
 #pragma once
-#include "Buffer.h"
-#include "Device.h"
+#include "RHI/Buffer.h"
+#include "RHI/Device.h"
 #include "Log.h"
 #include "Mesh.h"
-#include "Pipeline.h"
-#include "Shader.h"
-#include "Swapchain.h"
-#include "Texture.h"
+#include "RHI/Pipeline.h"
+#include "RHI/Shader.h"
+#include "RHI/Swapchain.h"
+#include "RHI/Texture.h"
 #include "VkWrapper.h"
 
 class VulkanApp

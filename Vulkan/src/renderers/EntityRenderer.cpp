@@ -1,5 +1,5 @@
 #include "pch.h"
-#include "MeshRenderer.h"
+#include "EntityRenderer.h"
 #include "BindlessResources.h"
 #include <stb_image.h>
 
@@ -15,12 +15,12 @@ static struct PushConstant
 	alignas(16) glm::mat4 model;
 };
 
-MeshRenderer::MeshRenderer(std::shared_ptr<Camera> cam, std::shared_ptr<Engine::Mesh> mesh) : RendererBase()
+EntityRenderer::EntityRenderer(std::shared_ptr<Camera> cam, std::shared_ptr<Entity> entity): RendererBase()
 {
 	camera = cam;
 	rotation = glm::quat();
 	scale = glm::vec3(1.0f, 1.0f, 1.0f);
-	this->mesh = mesh;
+	this->entity = entity;
 	this->texture = texture;
 
 	// Create uniform buffers
@@ -86,12 +86,12 @@ MeshRenderer::MeshRenderer(std::shared_ptr<Camera> cam, std::shared_ptr<Engine::
 	recreatePipeline();
 }
 
-MeshRenderer::~MeshRenderer()
+EntityRenderer::~EntityRenderer()
 {
 	vkDestroyDescriptorSetLayout(VkWrapper::device->logicalHandle, descriptor_set_layout, nullptr);
 }
 
-void MeshRenderer::recreatePipeline()
+void EntityRenderer::recreatePipeline()
 {
 	// Create pipeline
 	auto vertShader = std::make_shared<Shader>(VkWrapper::device->logicalHandle, "shaders/opaque.vert", Shader::VERTEX_SHADER);
@@ -104,18 +104,17 @@ void MeshRenderer::recreatePipeline()
 	description.descriptor_set_layout = descriptor_set_layout;
 	description.color_formats = {VkWrapper::swapchain->surface_format.format, VK_FORMAT_R8G8B8A8_SRGB};
 
-	VkPushConstantRange push_constant_range {};
+	VkPushConstantRange push_constant_range{};
 	push_constant_range.offset = 0;
 	push_constant_range.size = sizeof(PushConstant);
 	push_constant_range.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-	description.push_constant_ranges = { push_constant_range };
-
+	description.push_constant_ranges = {push_constant_range};
 
 	pipeline = std::make_shared<Pipeline>();
 	pipeline->create(description);
 }
 
-void MeshRenderer::fillCommandBuffer(CommandBuffer & command_buffer, uint32_t image_index)
+void EntityRenderer::fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index)
 {
 	vkCmdBindPipeline(command_buffer.get_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);
 
@@ -125,20 +124,36 @@ void MeshRenderer::fillCommandBuffer(CommandBuffer & command_buffer, uint32_t im
 	// Uniforms
 	vkCmdBindDescriptorSets(command_buffer.get_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline_layout, 0, 1, &image_descriptor_sets[image_index], 0, nullptr);
 
-	// Push constant
-	PushConstant push_constant;
-	push_constant.model = glm::mat4_cast(rotation) * glm::translate(glm::mat4(1.0f), position) * glm::scale(glm::mat4(1.0f), scale) * mesh->root_transform;
-	vkCmdPushConstants(command_buffer.get_buffer(), pipeline->pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PushConstant), &push_constant);
-
-	// Render mesh
-	VkBuffer vertexBuffers[] = {mesh->vertexBuffer->bufferHandle};
-	VkDeviceSize offsets[] = {0};
-	vkCmdBindVertexBuffers(command_buffer.get_buffer(), 0, 1, vertexBuffers, offsets);
-	vkCmdBindIndexBuffer(command_buffer.get_buffer(), mesh->indexBuffer->bufferHandle, 0, VK_INDEX_TYPE_UINT32);
-	vkCmdDrawIndexed(command_buffer.get_buffer(), mesh->indices.size(), 1, 0, 0, 0);
+	// Render entity
+	renderEntity(command_buffer, entity.get());
 }
 
-void MeshRenderer::updateUniformBuffer(uint32_t image_index)
+void EntityRenderer::renderEntity(CommandBuffer &command_buffer, Entity *entity)
+{
+	// Render all meshes of this entity
+	// TODO: Set materials
+	for (auto mesh : entity->meshes)
+	{
+		// Push constant
+		PushConstant push_constant;
+		push_constant.model = entity->transform.model_matrix;
+		vkCmdPushConstants(command_buffer.get_buffer(), pipeline->pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PushConstant), &push_constant);
+		
+		// Render mesh
+		VkBuffer vertexBuffers[] = {mesh->vertexBuffer->bufferHandle};
+		VkDeviceSize offsets[] = {0};
+		vkCmdBindVertexBuffers(command_buffer.get_buffer(), 0, 1, vertexBuffers, offsets);
+		vkCmdBindIndexBuffer(command_buffer.get_buffer(), mesh->indexBuffer->bufferHandle, 0, VK_INDEX_TYPE_UINT32);
+		vkCmdDrawIndexed(command_buffer.get_buffer(), mesh->indices.size(), 1, 0, 0, 0);
+	}
+	
+	for (auto child : entity->children)
+	{
+		renderEntity(command_buffer, child.get());
+	}
+}
+
+void EntityRenderer::updateUniformBuffer(uint32_t image_index)
 {
 	UniformBufferObject ubo{};
 	ubo.view = camera->getView();

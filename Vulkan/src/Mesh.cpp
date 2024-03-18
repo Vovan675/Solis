@@ -19,25 +19,9 @@ namespace Engine
 	Mesh::Mesh(const std::string& path)
 		: filePath(path)
 	{
-		LoadModel();
+		loadFromPath();
 
-		// Create Vertex buffer
-		BufferDescription vertexDesc;
-		vertexDesc.size = sizeof(vertices[0]) * vertices.size();
-		vertexDesc.useStagingBuffer = true;
-		vertexDesc.bufferUsageFlags = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-
-		vertexBuffer = std::make_shared<Buffer>(vertexDesc);
-		vertexBuffer->fill(vertices.data());
 		
-		// Create Index buffer
-		BufferDescription indexDesc;
-		indexDesc.size = sizeof(indices[0]) * indices.size();
-		indexDesc.useStagingBuffer = true;
-		indexDesc.bufferUsageFlags = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
-
-		indexBuffer = std::make_shared<Buffer>(indexDesc);
-		indexBuffer->fill(indices.data());
 	}
 
 	Mesh::~Mesh()
@@ -45,7 +29,7 @@ namespace Engine
 
 	}
 
-	void Mesh::LoadModel()
+	void Mesh::loadFromPath()
 	{
 		std::string pFile = filePath;
 		Assimp::Importer importer;
@@ -107,6 +91,36 @@ namespace Engine
 		if (nullptr == scene) {
 			CORE_ERROR(importer.GetErrorString());
 		}
+
+		create_buffers();
+	}
+
+	void Mesh::setData(std::vector<Vertex> vertices, std::vector<uint32_t> indices)
+	{
+		this->vertices = vertices;
+		this->indices = indices;
+		create_buffers();
+	}
+
+	void Mesh::create_buffers()
+	{
+		// Create Vertex buffer
+		BufferDescription vertexDesc;
+		vertexDesc.size = sizeof(vertices[0]) * vertices.size();
+		vertexDesc.useStagingBuffer = true;
+		vertexDesc.bufferUsageFlags = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+
+		vertexBuffer = std::make_shared<Buffer>(vertexDesc);
+		vertexBuffer->fill(vertices.data());
+
+		// Create Index buffer
+		BufferDescription indexDesc;
+		indexDesc.size = sizeof(indices[0]) * indices.size();
+		indexDesc.useStagingBuffer = true;
+		indexDesc.bufferUsageFlags = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+
+		indexBuffer = std::make_shared<Buffer>(indexDesc);
+		indexBuffer->fill(indices.data());
 	}
 
 }

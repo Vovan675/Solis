@@ -2,6 +2,7 @@
 #include "Application.h"
 #include "VkWrapper.h"
 #include "BindlessResources.h"
+#include "Entity.h"
 
 #include "assimp/Importer.hpp"
 #include "assimp/scene.h"
@@ -15,10 +16,18 @@ Application::Application()
 	camera = std::make_shared<Camera>();
 
 	// Load mesh
+	//auto entity = std::make_shared<Entity>("assets/barrels/source/Industrial_Updated.fbx");
+	auto entity = std::make_shared<Entity>("assets/bistro/BistroExterior.fbx");
+
+	//entity->transform.local_model_matrix = glm::scale(glm::mat4(1), glm::vec3(0.9, 0.9, 0.9));
+	//entity->updateTransform();
+	//auto mesh = std::make_shared<Engine::Mesh>("assets/bistro/BistroExterior.fbx");
+	//auto mesh = std::make_shared<Engine::Mesh>("assets/barrels/source/Industrial_Updated.fbx");
 	auto mesh = std::make_shared<Engine::Mesh>("assets/model2.obj");
 	auto mesh2 = std::make_shared<Engine::Mesh>("assets/model.fbx");
 
 	//cubemap_renderer = std::make_shared<CubeMapRenderer>(camera);
+	entity_renderer = std::make_shared<EntityRenderer>(camera, entity);
 	mesh_renderer = std::make_shared<MeshRenderer>(camera, mesh);
 	mesh_renderer2 = std::make_shared<MeshRenderer>(camera, mesh2);
 	imgui_renderer = std::make_shared<ImGuiRenderer>(window);
@@ -85,8 +94,11 @@ void Application::updateBuffers(float delta_time, uint32_t image_index)
 	// Update bindless resources in any
 	BindlessResources::updateSets();
 
+	entity_renderer->updateUniformBuffer(image_index);
+
 	mesh_renderer->setRotation(glm::rotate(glm::quat(), glm::vec3(-glm::radians(90.0f), -glm::radians(90.0f), 0)));
 	mesh_renderer->setPosition(glm::vec3(0, 0, 0));
+	mesh_renderer->setScale(glm::vec3(1));
 	mesh_renderer->updateUniformBuffer(image_index);
 
 	double time = glfwGetTime();
@@ -122,6 +134,8 @@ void Application::recordCommands(CommandBuffer &command_buffer, uint32_t image_i
 		std::vector<std::shared_ptr<Texture>> color_attachments = {gbuffer_albedo, gbuffer_normal};
 		VkWrapper::cmdBeginRendering(command_buffer, color_attachments, depth_stencil_textures[image_index]);
 	}
+
+	entity_renderer->fillCommandBuffer(command_buffer, image_index);
 
 	// Render mesh into gbuffer
 	mesh_renderer->fillCommandBuffer(command_buffer, image_index);
@@ -188,6 +202,7 @@ void Application::cleanupResources()
 	gbuffer_albedo = nullptr;
 	gbuffer_normal = nullptr;
 	depth_stencil_textures.clear();
+	entity_renderer = nullptr;
 	mesh_renderer = nullptr;
 	mesh_renderer2 = nullptr;
 	imgui_renderer = nullptr;
