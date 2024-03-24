@@ -15,6 +15,7 @@ public:
 		uint32_t present_mode = 0;
 		uint32_t albedo_tex_id = 0;
 		uint32_t normal_tex_id = 0;
+		uint32_t depth_tex_id = 0;
 	} ubo;
 
 	QuadRenderer();

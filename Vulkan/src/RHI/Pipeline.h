@@ -10,6 +10,7 @@ struct PipelineDescription
 	std::vector<VkFormat> color_formats;
 	std::vector<VkPushConstantRange> push_constant_ranges;
 	VkFormat depth_format;
+	VkCullModeFlagBits cull_mode = VK_CULL_MODE_BACK_BIT;
 };
 
 class Pipeline

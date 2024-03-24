@@ -160,12 +160,12 @@ void Texture::fill(const void* sourceData)
 		// Copy staging to image
 		transition_image_layout(imageHandle, VK_FORMAT_R32G32B32_SFLOAT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 		copy_buffer_to_image(stagingBuffer, imageHandle, m_Description.width, m_Description.height);
-		//TransitionImageLayout(imageHandle, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		transition_image_layout(imageHandle, VK_FORMAT_R32G32B32_SFLOAT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 		vkDestroyBuffer(VkWrapper::device->logicalHandle, stagingBuffer, nullptr);
 		vkFreeMemory(VkWrapper::device->logicalHandle, stagingBufferMemory, nullptr);
 
-		generate_mipmaps();
+		//generate_mipmaps();
 
 		create_image_view();
 		create_sampler();
@@ -175,10 +175,10 @@ void Texture::fill(const void* sourceData)
 void Texture::load(const char *path)
 {
 	int texWidth, texHeight, texChannels;
-	stbi_set_flip_vertically_on_load(1);
 
 	if (m_Description.is_cube == false)
 	{
+		stbi_set_flip_vertically_on_load(1);
 		stbi_uc *pixels = stbi_load(path, &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
 
 		if (!pixels)
@@ -194,19 +194,57 @@ void Texture::load(const char *path)
 		stbi_image_free(pixels);
 	} else
 	{
-		float *pixels = stbi_loadf(path, &texWidth, &texHeight, &texChannels, STBI_rgb);
-
-		if (!pixels)
-		{
+		stbi_set_flip_vertically_on_load(0);
+		stbi_uc *pos_x = stbi_load((std::string(path) + "posx.jpg").c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+		if (!pos_x)
 			CORE_ERROR("Loading texture error");
-		}
+
+		stbi_uc *neg_x = stbi_load((std::string(path) + "negx.jpg").c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+		if (!neg_x)
+			CORE_ERROR("Loading texture error");
+
+		stbi_uc *pos_y = stbi_load((std::string(path) + "posy.jpg").c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+		if (!pos_y)
+			CORE_ERROR("Loading texture error");
+
+		stbi_uc *neg_y = stbi_load((std::string(path) + "negy.jpg").c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+		if (!neg_y)
+			CORE_ERROR("Loading texture error");
+
+		stbi_uc *pos_z = stbi_load((std::string(path) + "posz.jpg").c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+		if (!pos_y)
+			CORE_ERROR("Loading texture error");
+
+		stbi_uc *neg_z = stbi_load((std::string(path) + "negz.jpg").c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+		if (!neg_y)
+			CORE_ERROR("Loading texture error");
 
 		m_Description.width = texWidth;
 		m_Description.height = texHeight;
 		m_Description.mipLevels = 1;
-		fill(pixels);
 
-		stbi_image_free(pixels);
+		texChannels = 4;
+		size_t face_size = texWidth * texHeight * texChannels;
+		stbi_uc *data = new stbi_uc[face_size * 6];
+		memcpy(data + face_size * 0, pos_x, face_size);
+		memcpy(data + face_size * 1, neg_x, face_size);
+
+		memcpy(data + face_size * 2, pos_y, face_size);
+		memcpy(data + face_size * 3, neg_y, face_size);
+
+		memcpy(data + face_size * 4, pos_z, face_size);
+		memcpy(data + face_size * 5, neg_z, face_size);
+
+		fill(data);
+
+		stbi_image_free(pos_x);
+		stbi_image_free(neg_x);
+
+		stbi_image_free(pos_y);
+		stbi_image_free(neg_y);
+
+		stbi_image_free(pos_z);
+		stbi_image_free(neg_z);
 	}
 }
 
@@ -308,7 +346,7 @@ void Texture::transition_image_layout(VkImage image, VkFormat format, VkImageLay
 	barrier.subresourceRange.baseMipLevel = 0;
 	barrier.subresourceRange.levelCount = m_Description.mipLevels;
 	barrier.subresourceRange.baseArrayLayer = 0;
-	barrier.subresourceRange.layerCount = 1;
+	barrier.subresourceRange.layerCount = m_Description.is_cube ? 6 : 1;
 
 	VkPipelineStageFlags sourceStage;
 	VkPipelineStageFlags destinationStage;
@@ -353,7 +391,7 @@ void Texture::copy_buffer_to_image(VkBuffer buffer, VkImage image, uint32_t widt
 	region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 	region.imageSubresource.mipLevel = 0;
 	region.imageSubresource.baseArrayLayer = 0;
-	region.imageSubresource.layerCount = 1;
+	region.imageSubresource.layerCount = m_Description.is_cube ? 6 : 1;
 	region.imageOffset = { 0, 0, 0 };
 	region.imageExtent = {
 		width,

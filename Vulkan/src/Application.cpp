@@ -16,17 +16,19 @@ Application::Application()
 	camera = std::make_shared<Camera>();
 
 	// Load mesh
-	//auto entity = std::make_shared<Entity>("assets/barrels/source/Industrial_Updated.fbx");
-	auto entity = std::make_shared<Entity>("assets/bistro/BistroExterior.fbx");
+	auto entity = std::make_shared<Entity>("assets/barrels/source/Industrial_Updated.fbx");
+	//auto entity = std::make_shared<Entity>("assets/bistro/BistroExterior.fbx");
 
 	//entity->transform.local_model_matrix = glm::scale(glm::mat4(1), glm::vec3(0.9, 0.9, 0.9));
 	//entity->updateTransform();
 	//auto mesh = std::make_shared<Engine::Mesh>("assets/bistro/BistroExterior.fbx");
 	//auto mesh = std::make_shared<Engine::Mesh>("assets/barrels/source/Industrial_Updated.fbx");
 	auto mesh = std::make_shared<Engine::Mesh>("assets/model2.obj");
+	//auto mesh = std::make_shared<Engine::Mesh>();
+	//mesh->load("assets/test_save.mesh");
 	auto mesh2 = std::make_shared<Engine::Mesh>("assets/model.fbx");
 
-	//cubemap_renderer = std::make_shared<CubeMapRenderer>(camera);
+	cubemap_renderer = std::make_shared<CubeMapRenderer>(camera);
 	entity_renderer = std::make_shared<EntityRenderer>(camera, entity);
 	mesh_renderer = std::make_shared<MeshRenderer>(camera, mesh);
 	mesh_renderer2 = std::make_shared<MeshRenderer>(camera, mesh2);
@@ -69,6 +71,7 @@ void Application::update(float delta_time)
 		mesh_renderer->recreatePipeline();
 		mesh_renderer2->recreatePipeline();
 		quad_renderer->recreatePipeline();
+		cubemap_renderer->recreatePipeline();
 	}
 	
 	static int present_mode = 0;
@@ -105,12 +108,12 @@ void Application::updateBuffers(float delta_time, uint32_t image_index)
 	mesh_renderer2->setPosition(glm::vec3(1, 0.3, 0));
 	mesh_renderer2->setScale(glm::vec3(0.02f, 0.02f, 0.02f));
 	mesh_renderer2->updateUniformBuffer(image_index);
-	//cubemap_renderer->updateUniformBuffer(image_index);
+	cubemap_renderer->updateUniformBuffer(image_index);
 
 	Material mat1;
-	mat1.albedo_tex_id = 2;
+	mat1.albedo_tex_id = 3;
 	Material mat2;
-	mat2.albedo_tex_id = 2;
+	mat2.albedo_tex_id = 3;
 	mesh_renderer->setMaterial(mat1);
 	mesh_renderer2->setMaterial(mat2);
 
@@ -129,10 +132,17 @@ void Application::recordCommands(CommandBuffer &command_buffer, uint32_t image_i
 									 VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
 									 VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 									 gbuffer_normal->imageHandle, VK_IMAGE_ASPECT_COLOR_BIT);
+	VkWrapper::cmdImageMemoryBarrier(command_buffer,
+									 VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT,
+									 VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT, VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+									 VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+									 gbuffer_depth_stencil->imageHandle, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
+
+
 	// Begin rendering to gbuffer
 	{
 		std::vector<std::shared_ptr<Texture>> color_attachments = {gbuffer_albedo, gbuffer_normal};
-		VkWrapper::cmdBeginRendering(command_buffer, color_attachments, depth_stencil_textures[image_index]);
+		VkWrapper::cmdBeginRendering(command_buffer, color_attachments, gbuffer_depth_stencil);
 	}
 
 	entity_renderer->fillCommandBuffer(command_buffer, image_index);
@@ -153,7 +163,11 @@ void Application::recordCommands(CommandBuffer &command_buffer, uint32_t image_i
 									 VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT,
 									 VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL,
 									 gbuffer_normal->imageHandle, VK_IMAGE_ASPECT_COLOR_BIT);
-
+	VkWrapper::cmdImageMemoryBarrier(command_buffer,
+									 VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT, VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+									 VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT,
+									 VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL,
+									 gbuffer_depth_stencil->imageHandle, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
 	// Begin rendering lighting
 	// TODO: render lights to another texture
 	// End lighting rendering
@@ -163,6 +177,7 @@ void Application::recordCommands(CommandBuffer &command_buffer, uint32_t image_i
 		std::vector<std::shared_ptr<Texture>> color_attachments = {VkWrapper::swapchain->swapchain_textures[image_index]};
 		VkWrapper::cmdBeginRendering(command_buffer, color_attachments, nullptr);
 	}
+	cubemap_renderer->fillCommandBuffer(command_buffer, image_index);
 
 	// Render quad
 	quad_renderer->fillCommandBuffer(command_buffer, image_index);
@@ -201,7 +216,7 @@ void Application::cleanupResources()
 {
 	gbuffer_albedo = nullptr;
 	gbuffer_normal = nullptr;
-	depth_stencil_textures.clear();
+	gbuffer_depth_stencil = nullptr;
 	entity_renderer = nullptr;
 	mesh_renderer = nullptr;
 	mesh_renderer2 = nullptr;
@@ -211,21 +226,6 @@ void Application::cleanupResources()
 
 void Application::onSwapchainRecreated(int width, int height)
 {
-	depth_stencil_textures.resize(VkWrapper::swapchain->swapchain_images.size());
-	for (int i = 0; i < VkWrapper::swapchain->swapchain_images.size(); i++)
-	{
-		TextureDescription description;
-		description.width = VkWrapper::swapchain->swap_extent.width;
-		description.height = VkWrapper::swapchain->swap_extent.height;
-		description.mipLevels = 1;
-		description.numSamples = VK_SAMPLE_COUNT_1_BIT;
-		description.imageFormat = VK_FORMAT_D32_SFLOAT_S8_UINT;
-		description.imageAspectFlags = VK_IMAGE_ASPECT_DEPTH_BIT;
-		description.imageUsageFlags = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-		depth_stencil_textures[i] = std::make_shared<Texture>(description);
-		depth_stencil_textures[i]->fill();
-	}
-
 	// init gbuffer resources
 	{
 		TextureDescription description;
@@ -256,6 +256,22 @@ void Application::onSwapchainRecreated(int width, int height)
 
 		uint32_t normal_id = BindlessResources::addTexture(gbuffer_normal.get());
 		quad_renderer->ubo.normal_tex_id = normal_id;
+	}
+
+	{
+		TextureDescription description;
+		description.width = VkWrapper::swapchain->swap_extent.width;
+		description.height = VkWrapper::swapchain->swap_extent.height;
+		description.mipLevels = 1;
+		description.numSamples = VK_SAMPLE_COUNT_1_BIT;
+		description.imageFormat = VK_FORMAT_D32_SFLOAT_S8_UINT;
+		description.imageAspectFlags = VK_IMAGE_ASPECT_DEPTH_BIT;
+		description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+		gbuffer_depth_stencil = std::make_shared<Texture>(description);
+		gbuffer_depth_stencil->fill();
+
+		uint32_t depth_id = BindlessResources::addTexture(gbuffer_depth_stencil.get());
+		quad_renderer->ubo.depth_tex_id = depth_id;
 	}
 }
 

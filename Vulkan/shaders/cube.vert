@@ -2,9 +2,8 @@
 
 layout (location=0) out vec3 dir;
 
-layout(binding = 0) uniform UniformBufferObject
+layout(set=0, binding=0) uniform UBO
 {
-	mat4 model;
 	mat4 view;
 	mat4 proj;
 } ubo;
@@ -36,10 +35,18 @@ const int indices[36] = int[36](
 	3, 2, 6, 6, 7, 3
 );
 
+layout(location=0) in vec3 inPosition;
+layout(location=1) in vec3 inNormal;
+layout(location=2) in vec2 inUV;
+layout(location=3) in vec3 inColor;
+
 void main()
 {
 	float cubeSize = 10.0;
-	int idx = indices[gl_VertexIndex];
-	gl_Position = ubo.mvp * vec4(cubeSize * pos[idx], 1.0);
-	dir = pos[idx].xyz;
+	//int idx = indices[gl_VertexIndex];
+	//gl_Position = ubo.view * ubo.proj * vec4(cubeSize * pos[idx], 1.0);
+	//dir = pos[idx].xyz;
+	gl_Position = ubo.proj * mat4(mat3(ubo.view)) * vec4(inPosition, 1.0);
+
+	dir = vec3(vec4(inPosition, 1.0));
 }

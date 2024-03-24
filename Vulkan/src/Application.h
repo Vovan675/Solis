@@ -29,7 +29,7 @@ private:
 	void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods) override;
 
 private:
-	std::vector<std::shared_ptr<Texture>> depth_stencil_textures;
+	std::shared_ptr<Texture> gbuffer_depth_stencil;
 	std::shared_ptr<Texture> gbuffer_albedo;
 	std::shared_ptr<Texture> gbuffer_normal;
 

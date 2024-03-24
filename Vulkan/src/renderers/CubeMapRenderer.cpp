@@ -1,9 +1,9 @@
 #include "pch.h"
 #include "CubeMapRenderer.h"
+#include "BindlessResources.h"
 
 static struct UniformBufferObject
 {
-	alignas(16) glm::mat4 model;
 	alignas(16) glm::mat4 view;
 	alignas(16) glm::mat4 proj;
 };
@@ -12,29 +12,20 @@ CubeMapRenderer::CubeMapRenderer(std::shared_ptr<Camera> cam): RendererBase()
 {
 	camera = cam;
 
-	// Create descriptor set layout
-	std::vector<VkDescriptorSetLayoutBinding> bindings = {
-		VkWrapper::descriptorSetLayoutBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT),
-		VkWrapper::descriptorSetLayoutBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT),
-	};
-	VkDescriptorSetLayoutCreateInfo info{};
-	info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-	info.bindingCount = bindings.size();
-	info.pBindings = bindings.data();
+	// Load image
+	TextureDescription tex_description{};
+	tex_description.imageFormat = VK_FORMAT_R8G8B8A8_SRGB;
+	tex_description.imageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
+	tex_description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+	tex_description.is_cube = true;
+	auto tex_cube = new Texture(tex_description);
+	tex_cube->load("assets/cubemap/");
+	this->texture = texture;
 
-	CHECK_ERROR(vkCreateDescriptorSetLayout(VkWrapper::device->logicalHandle, &info, nullptr, &descriptor_set_layout));
+	camera = cam;
+	mesh = std::make_shared<Engine::Mesh>("assets/cube.fbx");
 
-	// Create pipeline
-	auto vertShader = std::make_shared<Shader>(VkWrapper::device->logicalHandle, "shaders/simple.vert", Shader::VERTEX_SHADER);
-	auto fragShader = std::make_shared<Shader>(VkWrapper::device->logicalHandle, "shaders/simple.frag", Shader::FRAGMENT_SHADER);
-
-	PipelineDescription description{};
-	description.vertex_shader = vertShader;
-	description.fragment_shader = fragShader;
-	description.descriptor_set_layout = descriptor_set_layout;
-
-	pipeline = std::make_shared<Pipeline>();
-	pipeline->create(description);
+	//mesh->setData(vertices, indices);
 
 	// Create uniform buffers
 	VkDeviceSize bufferSize = sizeof(UniformBufferObject);
@@ -55,62 +46,73 @@ CubeMapRenderer::CubeMapRenderer(std::shared_ptr<Camera> cam): RendererBase()
 		image_uniform_buffers[i]->map(&image_uniform_buffers_mapped[i]);
 	}
 
-	// Load image
-	TextureDescription tex_description;
-	tex_description.is_cube = true;
-	tex_description.imageFormat = VK_FORMAT_R32G32B32_SFLOAT;
-	tex_description.imageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
-	tex_description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-	texture = std::make_shared<Texture>(tex_description);
-	texture->load("assets/piazza_bologni_1k.hdr");
-
-	// Create descriptor pool
-	descriptor_pool = VkWrapper::createDescriptorPool(MAX_FRAMES_IN_FLIGHT, MAX_FRAMES_IN_FLIGHT);
+	// Create descriptor set layout
+	DescriptorLayoutBuilder layout_builder;
+	layout_builder.clear();
+	layout_builder.add_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+	layout_builder.add_binding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+	descriptor_set_layout = layout_builder.build(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
 
 	// Create descriptor set
-	std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, descriptor_set_layout);
-	VkDescriptorSetAllocateInfo allocInfo{};
-	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-	allocInfo.descriptorPool = descriptor_pool;
-	allocInfo.descriptorSetCount = MAX_FRAMES_IN_FLIGHT;
-	allocInfo.pSetLayouts = layouts.data();
-
 	image_descriptor_sets.resize(MAX_FRAMES_IN_FLIGHT);
-	CHECK_ERROR(vkAllocateDescriptorSets(VkWrapper::device->logicalHandle, &allocInfo, image_descriptor_sets.data()));
+	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+	{
+		image_descriptor_sets[i] = VkWrapper::global_descriptor_allocator->allocate(descriptor_set_layout);
+	}
 
+	// Update descriptor set
 	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
-		VkDescriptorBufferInfo buffer_info{};
-		buffer_info.buffer = image_uniform_buffers[i]->bufferHandle;
-		buffer_info.offset = 0;
-		buffer_info.range = sizeof(UniformBufferObject);
+		DescriptorWriter writer;
+		writer.writeBuffer(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, image_uniform_buffers[i]->bufferHandle, sizeof(UniformBufferObject));
+		writer.writeImage(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, tex_cube->imageView, tex_cube->sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
-		VkDescriptorImageInfo image_info{};
-		image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		image_info.imageView = texture->imageView;
-		image_info.sampler = texture->sampler;
-
-		std::vector<VkWriteDescriptorSet> descriptorWrites = {
-			VkWrapper::bufferWriteDescriptorSet(image_descriptor_sets[i], 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &buffer_info),
-			VkWrapper::imageWriteDescriptorSet(image_descriptor_sets[i], 1, &image_info),
-		};
-
-		vkUpdateDescriptorSets(VkWrapper::device->logicalHandle, descriptorWrites.size(), descriptorWrites.data(), 0, nullptr);
+		writer.updateSet(image_descriptor_sets[i]);
 	}
+
+	recreatePipeline();
 }
 
 CubeMapRenderer::~CubeMapRenderer()
 {
-	vkDestroyDescriptorPool(VkWrapper::device->logicalHandle, descriptor_pool, nullptr);
 	vkDestroyDescriptorSetLayout(VkWrapper::device->logicalHandle, descriptor_set_layout, nullptr);
+}
+
+void CubeMapRenderer::recreatePipeline()
+{
+	// Create pipeline
+	auto vertShader = std::make_shared<Shader>(VkWrapper::device->logicalHandle, "shaders/cube.vert", Shader::VERTEX_SHADER);
+	auto fragShader = std::make_shared<Shader>(VkWrapper::device->logicalHandle, "shaders/cube.frag", Shader::FRAGMENT_SHADER);
+
+	PipelineDescription description{};
+	description.vertex_shader = vertShader;
+	description.fragment_shader = fragShader;
+
+	description.descriptor_set_layout = descriptor_set_layout;
+	description.color_formats = {VkWrapper::swapchain->surface_format.format};
+
+	description.cull_mode = VK_CULL_MODE_FRONT_BIT;
+
+	pipeline = std::make_shared<Pipeline>();
+	pipeline->create(description);
 }
 
 void CubeMapRenderer::fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index)
 {
 	vkCmdBindPipeline(command_buffer.get_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);
+
+	// Bindless
+	vkCmdBindDescriptorSets(command_buffer.get_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline_layout, 1, 1, BindlessResources::getDescriptorSet(), 0, nullptr);
+
+	// Uniforms
 	vkCmdBindDescriptorSets(command_buffer.get_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline_layout, 0, 1, &image_descriptor_sets[image_index], 0, nullptr);
 
-	vkCmdDrawIndexed(command_buffer.get_buffer(), 36, 1, 0, 0, 0);
+	// Render mesh
+	VkBuffer vertexBuffers[] = {mesh->vertexBuffer->bufferHandle};
+	VkDeviceSize offsets[] = {0};
+	vkCmdBindVertexBuffers(command_buffer.get_buffer(), 0, 1, vertexBuffers, offsets);
+	vkCmdBindIndexBuffer(command_buffer.get_buffer(), mesh->indexBuffer->bufferHandle, 0, VK_INDEX_TYPE_UINT32);
+	vkCmdDrawIndexed(command_buffer.get_buffer(), mesh->indices.size(), 1, 0, 0, 0);
 }
 
 void CubeMapRenderer::updateUniformBuffer(uint32_t image_index)
@@ -120,8 +122,7 @@ void CubeMapRenderer::updateUniformBuffer(uint32_t image_index)
 	float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
 	UniformBufferObject ubo{};
-	ubo.model = glm::rotate(glm::mat4(1), glm::radians(90.0f), glm::vec3(1, 0, 0)) * glm::translate(glm::mat4(1), glm::vec3(0, 0, 0));
 	ubo.view = camera->getView();
-	ubo.proj = glm::perspective(glm::radians(45.0f), VkWrapper::swapchain->swap_extent.width / (float)VkWrapper::swapchain->swap_extent.height, 0.1f, 60.0f);
+	ubo.proj = camera->getProj();
 	memcpy(image_uniform_buffers_mapped[image_index], &ubo, sizeof(ubo));
 }

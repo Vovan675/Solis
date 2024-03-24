@@ -102,6 +102,46 @@ namespace Engine
 		create_buffers();
 	}
 
+	static struct MeshFileHeader
+	{
+		uint32_t magicValue;
+		uint32_t verticesCount;
+		uint32_t indicesCount;
+	};
+
+	void Mesh::save(const char *filename)
+	{
+		FILE *f = fopen(filename, "wb");
+		MeshFileHeader header;
+		header.magicValue = 0x1337;
+		header.verticesCount = vertices.size();
+		header.indicesCount = indices.size();
+
+		fwrite(&header, sizeof(header), 1, f);
+		fwrite(vertices.data(), sizeof(Vertex), vertices.size(), f);
+		fwrite(indices.data(), sizeof(uint32_t), indices.size(), f);
+
+		fclose(f);
+	}
+
+	void Mesh::load(const char *filename)
+	{
+		FILE *f = fopen(filename, "rb");
+
+		MeshFileHeader header;
+		fread(&header, sizeof(header), 1, f);
+
+		vertices.resize(header.verticesCount);
+		fread(vertices.data(), sizeof(Vertex), header.verticesCount, f);
+
+		indices.resize(header.indicesCount);
+		fread(indices.data(), sizeof(uint32_t), header.indicesCount, f);
+
+		fclose(f);
+
+		create_buffers();
+	}
+
 	void Mesh::create_buffers()
 	{
 		// Create Vertex buffer

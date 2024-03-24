@@ -61,13 +61,16 @@ namespace Engine
 
 		std::shared_ptr<Buffer> vertexBuffer;
 		std::shared_ptr<Buffer> indexBuffer;
-		glm::mat4 root_transform;
+		glm::mat4 root_transform = glm::mat4(1.0);
 	public:
 		Mesh() = default;
 		Mesh(const std::string& path);
 		~Mesh();
 		void loadFromPath();
 		void setData(std::vector<Vertex> vertices, std::vector<uint32_t> indices);
+
+		void save(const char *filename);
+		void load(const char *filename);
 	private:
 		void create_buffers();
 	};

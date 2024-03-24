@@ -12,6 +12,8 @@ public:
 	CubeMapRenderer(std::shared_ptr<Camera> cam);
 	virtual ~CubeMapRenderer();
 
+	void recreatePipeline();
+
 	void fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index) override;
 	void updateUniformBuffer(uint32_t image_index) override;
 private:
@@ -24,6 +26,7 @@ private:
 	std::vector<void *> image_uniform_buffers_mapped;
 
 	std::shared_ptr<Texture> texture;
+	std::shared_ptr<Engine::Mesh> mesh;
 
 	std::shared_ptr<Camera> camera;
 };
