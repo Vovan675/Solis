@@ -8,24 +8,24 @@ Buffer::Buffer(BufferDescription description)
 	VkDeviceSize bufferSize = description.size;
 
 	VkBufferUsageFlags bufferUsageFlags = description.bufferUsageFlags;
-	VkMemoryPropertyFlags memoryFlags = 0;
+	VmaMemoryUsage memory_usage = VMA_MEMORY_USAGE_AUTO;
 	if (description.useStagingBuffer)
 	{
 		bufferUsageFlags |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-		memoryFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+		memory_usage = VMA_MEMORY_USAGE_GPU_ONLY;
 	}
 	else
 	{
-		memoryFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+		memory_usage = VMA_MEMORY_USAGE_CPU_ONLY;
 	}
 
-	VkWrapper::createBuffer(bufferSize, bufferUsageFlags, memoryFlags, bufferHandle, memoryHandle);
+	VkWrapper::createBuffer(bufferSize, bufferUsageFlags, memory_usage, bufferHandle, allocation);
 }
 
 Buffer::~Buffer()
 {
 	vkDestroyBuffer(VkWrapper::device->logicalHandle, bufferHandle, nullptr);
-	vkFreeMemory(VkWrapper::device->logicalHandle, memoryHandle, nullptr);
+	vmaFreeMemory(VkWrapper::allocator, allocation);
 }
 
 void Buffer::fill(const void* sourceData)
@@ -36,34 +36,34 @@ void Buffer::fill(const void* sourceData)
 	{
 		// Staging buffer
 		VkBuffer stagingBuffer;
-		VkDeviceMemory stagingBufferMemory;
-		VkWrapper::createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+		VmaAllocation stagingAllocation;
+		VkWrapper::createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VmaMemoryUsage::VMA_MEMORY_USAGE_CPU_ONLY, stagingBuffer, stagingAllocation);
 
 		// Map buffer memory to CPU accessible memory
 		void* data;
-		vkMapMemory(VkWrapper::device->logicalHandle, stagingBufferMemory, 0, bufferSize, 0, &data);
+		vmaMapMemory(VkWrapper::allocator, stagingAllocation, &data);
 		memcpy(data, sourceData, bufferSize);
-		vkUnmapMemory(VkWrapper::device->logicalHandle, stagingBufferMemory);
+		vmaUnmapMemory(VkWrapper::allocator, stagingAllocation);
 
 		// Copy from staging to buffer
 		VkWrapper::copyBuffer(stagingBuffer, bufferHandle, bufferSize);
 
 		// Destroy staging buffer
 		vkDestroyBuffer(VkWrapper::device->logicalHandle, stagingBuffer, nullptr);
-		vkFreeMemory(VkWrapper::device->logicalHandle, stagingBufferMemory, nullptr);
+		vmaFreeMemory(VkWrapper::allocator, stagingAllocation);
 	}
 	else
 	{
 		// Map buffer memory to CPU accessible memory
 		void* data;
-		vkMapMemory(VkWrapper::device->logicalHandle, memoryHandle, 0, bufferSize, 0, &data);
+		vmaMapMemory(VkWrapper::allocator, allocation, &data);
 		memcpy(data, sourceData, bufferSize);
-		vkUnmapMemory(VkWrapper::device->logicalHandle, memoryHandle);
+		vmaUnmapMemory(VkWrapper::allocator, allocation);
 	}
 }
 
 void Buffer::map(void **data)
 {
 	// Map buffer memory to CPU accessible memory
-	vkMapMemory(VkWrapper::device->logicalHandle, memoryHandle, 0, m_Description.size, 0, data);
+	vmaMapMemory(VkWrapper::allocator, allocation, data);
 }

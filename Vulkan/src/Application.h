@@ -7,7 +7,7 @@
 #include "RHI/Shader.h"
 #include "RHI/Swapchain.h"
 #include "RHI/Texture.h"
-#include "VkWrapper.h"
+#include "RHI/VkWrapper.h"
 #include "renderers/EntityRenderer.h"
 #include "renderers/CubeMapRenderer.h"
 #include "renderers/MeshRenderer.h"

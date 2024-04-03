@@ -1,4 +1,5 @@
 #pragma once
+#include "vma/vk_mem_alloc.h"
 #include "Log.h"
 #include "Device.h"
 
@@ -13,7 +14,7 @@ class Buffer
 {
 public:
 	VkBuffer bufferHandle;
-	VkDeviceMemory memoryHandle;
+	VmaAllocation allocation;
 public:
 	Buffer(BufferDescription description);
 	virtual ~Buffer();

@@ -7,7 +7,7 @@
 #include "RHI/Shader.h"
 #include "RHI/Swapchain.h"
 #include "RHI/Texture.h"
-#include "VkWrapper.h"
+#include "RHI/VkWrapper.h"
 
 class VulkanApp
 {

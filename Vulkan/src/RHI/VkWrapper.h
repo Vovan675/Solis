@@ -1,5 +1,6 @@
 #pragma once
 #include "vulkan/vulkan.h"
+#include "vma/vk_mem_alloc.h"
 #include <vector>
 #include "Log.h"
 #include "RHI/Device.h"
@@ -91,7 +92,7 @@ public:
 	static void init(GLFWwindow* window);
 	static void cleanup();
 
-	static void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags memory_property_flags, VkBuffer &buffer, VkDeviceMemory &buffer_memory)
+	static void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VmaMemoryUsage memory_usage, VkBuffer &buffer, VmaAllocation &allocation)
 	{
 		// Create buffer
 		VkBufferCreateInfo info{};
@@ -102,30 +103,10 @@ public:
 
 		CHECK_ERROR(vkCreateBuffer(device->logicalHandle, &info, nullptr, &buffer));
 
-		// Get memory requirements
-		VkMemoryRequirements memoryRequrements;
-		vkGetBufferMemoryRequirements(device->logicalHandle, buffer, &memoryRequrements);
+		VmaAllocationCreateInfo alloc_info{};
+		alloc_info.usage = memory_usage;
 
-		// Allocate memory based on requirements
-		VkMemoryAllocateInfo allocInfo{};
-		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-		allocInfo.allocationSize = memoryRequrements.size;
-		allocInfo.memoryTypeIndex = findMemoryType(memoryRequrements.memoryTypeBits, memory_property_flags);
-		CHECK_ERROR(vkAllocateMemory(device->logicalHandle, &allocInfo, nullptr, &buffer_memory));
-
-		// Bind allocated memory to buffer
-		vkBindBufferMemory(device->logicalHandle, buffer, buffer_memory, 0);
-	}
-
-	static uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties)
-	{
-		for (uint32_t i = 0; i < device->memory_properties.memoryTypeCount; i++)
-		{
-			if ((typeFilter & (1 << i)) && (device->memory_properties.memoryTypes[i].propertyFlags & properties) == properties)
-			{
-				return i;
-			}
-		}
+		vmaCreateBuffer(allocator, &info, &alloc_info, &buffer, &allocation, nullptr);
 	}
 
 	static void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
@@ -241,10 +222,12 @@ public:
 
 private:
 	static void init_instance();
+	static void init_vma();
 	static void init_command_buffers();
 public:
 	static VkInstance instance;
 	static std::shared_ptr<Device> device;
+	static VmaAllocator allocator;
 	static std::vector<CommandBuffer> command_buffers;
 	static std::shared_ptr<Swapchain> swapchain;
 	static std::shared_ptr<DescriptorAllocator> global_descriptor_allocator;

@@ -1,6 +1,6 @@
 #include "pch.h"
 #include "BindlessResources.h"
-#include "VkWrapper.h"
+#include "RHI/VkWrapper.h"
 
 std::shared_ptr<Texture> BindlessResources::invalid_texture;
 

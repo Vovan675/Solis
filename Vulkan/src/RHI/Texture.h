@@ -1,4 +1,5 @@
 #pragma once
+#include "vma/vk_mem_alloc.h"
 #include "Log.h"
 #include "Device.h"
 
@@ -20,7 +21,7 @@ class Texture
 {
 public:
 	VkBuffer bufferHandle = nullptr;
-	VkDeviceMemory memoryHandle = nullptr;
+	VmaAllocation allocation;
 	VkImage imageHandle = nullptr;
 	// ImageView needs to gain some information about how to render into this image
 	VkImageView imageView = nullptr;

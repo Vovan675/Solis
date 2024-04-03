@@ -19,8 +19,8 @@ Texture::~Texture()
 		vkDestroyImageView(VkWrapper::device->logicalHandle, imageView, nullptr);
 	if (imageHandle != nullptr && m_Description.destroy_image)
 		vkDestroyImage(VkWrapper::device->logicalHandle, imageHandle, nullptr);
-	if (memoryHandle != nullptr)
-		vkFreeMemory(VkWrapper::device->logicalHandle, memoryHandle, nullptr);
+	if (allocation != nullptr)
+		vmaFreeMemory(VkWrapper::allocator, allocation);
 }
 
 void Texture::fill()
@@ -40,19 +40,11 @@ void Texture::fill()
 	imageInfo.usage = m_Description.imageUsageFlags;
 	imageInfo.samples = m_Description.numSamples;
 	imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-	CHECK_ERROR(vkCreateImage(VkWrapper::device->logicalHandle, &imageInfo, nullptr, &imageHandle));
 
-	VkMemoryRequirements memRequirements;
-	vkGetImageMemoryRequirements(VkWrapper::device->logicalHandle, imageHandle, &memRequirements);
-
-	VkMemoryAllocateInfo allocInfo{};
-	allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-	allocInfo.allocationSize = memRequirements.size;
-	allocInfo.memoryTypeIndex = VkWrapper::findMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-	CHECK_ERROR(vkAllocateMemory(VkWrapper::device->logicalHandle, &allocInfo, nullptr, &memoryHandle));
-
-	vkBindImageMemory(VkWrapper::device->logicalHandle, imageHandle, memoryHandle, 0);
+	VmaAllocationCreateInfo alloc_info{};
+	alloc_info.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+	vmaCreateImage(VkWrapper::allocator, &imageInfo, &alloc_info, &imageHandle, &allocation, nullptr);
+	
 	create_image_view();
 	create_sampler();
 }
@@ -77,30 +69,21 @@ void Texture::fill(const void* sourceData)
 		imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | m_Description.imageUsageFlags;
 		imageInfo.samples = m_Description.numSamples;
 		imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-		CHECK_ERROR(vkCreateImage(VkWrapper::device->logicalHandle, &imageInfo, nullptr, &imageHandle));
 
-		VkMemoryRequirements memRequirements;
-		vkGetImageMemoryRequirements(VkWrapper::device->logicalHandle, imageHandle, &memRequirements);
-
-		VkMemoryAllocateInfo allocInfo{};
-		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-		allocInfo.allocationSize = memRequirements.size;
-		allocInfo.memoryTypeIndex = VkWrapper::findMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-		CHECK_ERROR(vkAllocateMemory(VkWrapper::device->logicalHandle, &allocInfo, nullptr, &memoryHandle));
-
-		vkBindImageMemory(VkWrapper::device->logicalHandle, imageHandle, memoryHandle, 0);
+		VmaAllocationCreateInfo alloc_info{};
+		alloc_info.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+		vmaCreateImage(VkWrapper::allocator, &imageInfo, &alloc_info, &imageHandle, &allocation, nullptr);
 
 		// Create staging buffer
 		VkBuffer stagingBuffer;
-		VkDeviceMemory stagingBufferMemory;
-		VkWrapper::createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+		VmaAllocation stagingAllocation;
+		VkWrapper::createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VmaMemoryUsage::VMA_MEMORY_USAGE_CPU_ONLY, stagingBuffer, stagingAllocation);
 
 		// Copy data to staging
 		void* data;
-		vkMapMemory(VkWrapper::device->logicalHandle, stagingBufferMemory, 0, imageSize, 0, &data);
+		vmaMapMemory(VkWrapper::allocator, stagingAllocation, &data);
 		memcpy(data, sourceData, static_cast<size_t>(imageSize));
-		vkUnmapMemory(VkWrapper::device->logicalHandle, stagingBufferMemory);
+		vmaUnmapMemory(VkWrapper::allocator, stagingAllocation);
 
 		// Copy staging to image
 		transition_image_layout(imageHandle, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
@@ -108,7 +91,7 @@ void Texture::fill(const void* sourceData)
 		//TransitionImageLayout(imageHandle, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 		vkDestroyBuffer(VkWrapper::device->logicalHandle, stagingBuffer, nullptr);
-		vkFreeMemory(VkWrapper::device->logicalHandle, stagingBufferMemory, nullptr);
+		vmaFreeMemory(VkWrapper::allocator, stagingAllocation);
 
 		generate_mipmaps();
 
@@ -132,30 +115,21 @@ void Texture::fill(const void* sourceData)
 		imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | m_Description.imageUsageFlags;
 		imageInfo.samples = m_Description.numSamples;
 		imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-		CHECK_ERROR(vkCreateImage(VkWrapper::device->logicalHandle, &imageInfo, nullptr, &imageHandle));
 
-		VkMemoryRequirements memRequirements;
-		vkGetImageMemoryRequirements(VkWrapper::device->logicalHandle, imageHandle, &memRequirements);
-
-		VkMemoryAllocateInfo allocInfo{};
-		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-		allocInfo.allocationSize = memRequirements.size;
-		allocInfo.memoryTypeIndex = VkWrapper::findMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-		CHECK_ERROR(vkAllocateMemory(VkWrapper::device->logicalHandle, &allocInfo, nullptr, &memoryHandle));
-
-		vkBindImageMemory(VkWrapper::device->logicalHandle, imageHandle, memoryHandle, 0);
+		VmaAllocationCreateInfo alloc_info{};
+		alloc_info.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+		vmaCreateImage(VkWrapper::allocator, &imageInfo, &alloc_info, &imageHandle, &allocation, nullptr);
 
 		// Create staging buffer
 		VkBuffer stagingBuffer;
-		VkDeviceMemory stagingBufferMemory;
-		VkWrapper::createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+		VmaAllocation stagingAllocation;
+		VkWrapper::createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VmaMemoryUsage::VMA_MEMORY_USAGE_CPU_ONLY, stagingBuffer, stagingAllocation);
 
 		// Copy data to staging
 		void *data;
-		vkMapMemory(VkWrapper::device->logicalHandle, stagingBufferMemory, 0, imageSize, 0, &data);
+		vmaMapMemory(VkWrapper::allocator, stagingAllocation, &data);
 		memcpy(data, sourceData, static_cast<size_t>(imageSize));
-		vkUnmapMemory(VkWrapper::device->logicalHandle, stagingBufferMemory);
+		vmaUnmapMemory(VkWrapper::allocator, stagingAllocation);
 
 		// Copy staging to image
 		transition_image_layout(imageHandle, VK_FORMAT_R32G32B32_SFLOAT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
@@ -163,7 +137,7 @@ void Texture::fill(const void* sourceData)
 		transition_image_layout(imageHandle, VK_FORMAT_R32G32B32_SFLOAT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 		vkDestroyBuffer(VkWrapper::device->logicalHandle, stagingBuffer, nullptr);
-		vkFreeMemory(VkWrapper::device->logicalHandle, stagingBufferMemory, nullptr);
+		vmaFreeMemory(VkWrapper::allocator, stagingAllocation);
 
 		//generate_mipmaps();
 
@@ -425,8 +399,6 @@ void Texture::create_image_view()
 	}
 
 	CHECK_ERROR(vkCreateImageView(VkWrapper::device->logicalHandle, &viewInfo, nullptr, &imageView));
-
-
 }
 
 void Texture::create_sampler()

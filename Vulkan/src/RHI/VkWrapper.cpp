@@ -1,9 +1,11 @@
 #include "pch.h"
+#define VMA_IMPLEMENTATION
 #include "VkWrapper.h"
 #include "BindlessResources.h"
 
 VkInstance VkWrapper::instance;
 std::shared_ptr<Device> VkWrapper::device;
+VmaAllocator VkWrapper::allocator;
 std::vector<CommandBuffer> VkWrapper::command_buffers;
 std::shared_ptr<Swapchain> VkWrapper::swapchain;
 std::shared_ptr<DescriptorAllocator> VkWrapper::global_descriptor_allocator;
@@ -22,6 +24,7 @@ void VkWrapper::init(GLFWwindow *window)
 {
 	init_instance();
 	device = std::make_shared<Device>(instance);
+	init_vma();
 	init_command_buffers();
 
 	VkSurfaceKHR surface;
@@ -40,6 +43,7 @@ void VkWrapper::cleanup()
 	BindlessResources::cleanup();
 	vkDestroyCommandPool(device->logicalHandle, command_pool, nullptr);
 	global_descriptor_allocator->cleanup();
+	vmaDestroyAllocator(allocator);
 }
 
 void VkWrapper::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size)
@@ -72,7 +76,7 @@ void VkWrapper::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize 
 	submitInfo.pCommandBuffers = &commandBuffer;
 	vkQueueSubmit(device->graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
 	vkQueueWaitIdle(device->graphicsQueue);
-
+	
 	vkFreeCommandBuffers(device->logicalHandle, command_pool, 1, &commandBuffer);
 }
 
@@ -222,6 +226,17 @@ void VkWrapper::init_instance()
 	info.enabledLayerCount = s_ValidationLayers.size();
 	info.ppEnabledLayerNames = s_ValidationLayers.data();
 	CHECK_ERROR(vkCreateInstance(&info, nullptr, &instance));
+}
+
+void VkWrapper::init_vma()
+{
+	VmaAllocatorCreateInfo allocator_create_info{};
+	allocator_create_info.vulkanApiVersion = VK_API_VERSION_1_3;
+	allocator_create_info.physicalDevice = device->physicalHandle;
+	allocator_create_info.device = device->logicalHandle;
+	allocator_create_info.instance = instance;
+	
+	vmaCreateAllocator(&allocator_create_info, &allocator);
 }
 
 void VkWrapper::init_command_buffers()
