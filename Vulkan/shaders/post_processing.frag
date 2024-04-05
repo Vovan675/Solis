@@ -9,7 +9,7 @@ layout (set=1, binding=0) uniform sampler2D textures[];
 
 layout(set=0, binding=0) uniform UBO
 {
-	uint albedo_tex_id;
+	uint composite_final_tex_id;
 	float use_vignette;
 	float vignette_radius;
 	float vignette_smoothness;
@@ -30,7 +30,7 @@ void main() {
     }
 
     vec4 value = vec4(1, 1, 1, 1);
-    vec4 albedo = texture(textures[ubo.albedo_tex_id], uv);
-    value = albedo * vignette;
+    vec4 composite_final = texture(textures[ubo.composite_final_tex_id], uv);
+    value = composite_final * vignette;
     outColor = vec4(value.rgb, 1.0);
 }

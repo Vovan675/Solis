@@ -7,27 +7,25 @@
 #include "RHI/Descriptors.h"
 
 
-class QuadRenderer : public RendererBase
+class DefferedCompositeRenderer: public RendererBase
 {
 public:
-	struct PresentUBO
+	struct UBO
 	{
-		uint32_t present_mode = 0;
-		uint32_t composite_final_tex_id = 0;
 		uint32_t albedo_tex_id = 0;
 		uint32_t normal_tex_id = 0;
 		uint32_t depth_tex_id = 0;
 	} ubo;
 
-	QuadRenderer();
-	virtual ~QuadRenderer();
+	DefferedCompositeRenderer();
+	virtual ~DefferedCompositeRenderer();
 
 	void recreatePipeline();
 
 	void fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index) override;
 
 	void updateUniformBuffer(uint32_t image_index) override;
-
+	void renderImgui();
 private:
 	std::shared_ptr<Pipeline> pipeline;
 

@@ -12,6 +12,7 @@
 #include "renderers/CubeMapRenderer.h"
 #include "renderers/MeshRenderer.h"
 #include "renderers/ImGuiRenderer.h"
+#include "renderers/DefferedCompositeRenderer.h"
 #include "renderers/PostProcessingRenderer.h"
 #include "renderers/QuadRenderer.h"
 #include "VulkanApp.h"
@@ -30,17 +31,22 @@ private:
 	void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods) override;
 
 private:
+	bool debug_rendering = false;
+
 	std::shared_ptr<Texture> gbuffer_depth_stencil;
 	std::shared_ptr<Texture> gbuffer_albedo;
 	std::shared_ptr<Texture> gbuffer_normal;
+
+	std::shared_ptr<Texture> composite_final;
 
 	std::shared_ptr<EntityRenderer> entity_renderer;
 	std::shared_ptr<CubeMapRenderer> cubemap_renderer;
 	std::shared_ptr<MeshRenderer> mesh_renderer;
 	std::shared_ptr<MeshRenderer> mesh_renderer2;
-	std::shared_ptr<ImGuiRenderer> imgui_renderer;
+	std::shared_ptr<DefferedCompositeRenderer> deffered_composite_renderer;
 	std::shared_ptr<PostProcessingRenderer> post_renderer;
 	std::shared_ptr<QuadRenderer> quad_renderer;
+	std::shared_ptr<ImGuiRenderer> imgui_renderer;
 
 	std::shared_ptr<Camera> camera;
 };

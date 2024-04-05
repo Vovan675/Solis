@@ -1,11 +1,12 @@
 #include "pch.h"
-#include "QuadRenderer.h"
+#include "DefferedCompositeRenderer.h"
+#include "imgui.h"
 #include "BindlessResources.h"
 
-QuadRenderer::QuadRenderer()
+DefferedCompositeRenderer::DefferedCompositeRenderer()
 {
 	// Create uniform buffers
-	VkDeviceSize bufferSize = sizeof(PresentUBO);
+	VkDeviceSize bufferSize = sizeof(UBO);
 
 	uniform_buffers.resize(MAX_FRAMES_IN_FLIGHT);
 	uniform_buffers_mapped.resize(MAX_FRAMES_IN_FLIGHT);
@@ -40,23 +41,23 @@ QuadRenderer::QuadRenderer()
 	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
 		DescriptorWriter writer;
-		writer.writeBuffer(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, uniform_buffers[i]->bufferHandle, sizeof(PresentUBO));
+		writer.writeBuffer(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, uniform_buffers[i]->bufferHandle, sizeof(UBO));
 		writer.updateSet(descriptor_sets[i]);
 	}
 
 	recreatePipeline();
 }
 
-QuadRenderer::~QuadRenderer()
+DefferedCompositeRenderer::~DefferedCompositeRenderer()
 {
 	vkDestroyDescriptorSetLayout(VkWrapper::device->logicalHandle, descriptor_set_layout, nullptr);
 }
 
-void QuadRenderer::recreatePipeline()
+void DefferedCompositeRenderer::recreatePipeline()
 {
 	// Create pipeline
 	auto vertShader = std::make_shared<Shader>(VkWrapper::device->logicalHandle, "shaders/quad.vert", Shader::VERTEX_SHADER);
-	auto fragShader = std::make_shared<Shader>(VkWrapper::device->logicalHandle, "shaders/debug_quad.frag", Shader::FRAGMENT_SHADER);
+	auto fragShader = std::make_shared<Shader>(VkWrapper::device->logicalHandle, "shaders/deffered_composite.frag", Shader::FRAGMENT_SHADER);
 
 	PipelineDescription description{};
 	description.vertex_shader = vertShader;
@@ -70,7 +71,7 @@ void QuadRenderer::recreatePipeline()
 	pipeline->create(description);
 }
 
-void QuadRenderer::fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index)
+void DefferedCompositeRenderer::fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index)
 {
 	vkCmdBindPipeline(command_buffer.get_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);
 
@@ -84,7 +85,12 @@ void QuadRenderer::fillCommandBuffer(CommandBuffer &command_buffer, uint32_t ima
 	vkCmdDraw(command_buffer.get_buffer(), 6, 1, 0, 0);
 }
 
-void QuadRenderer::updateUniformBuffer(uint32_t image_index)
+void DefferedCompositeRenderer::updateUniformBuffer(uint32_t image_index)
 {
 	memcpy(uniform_buffers_mapped[image_index], &ubo, sizeof(ubo));
+}
+
+void DefferedCompositeRenderer::renderImgui()
+{
+	
 }

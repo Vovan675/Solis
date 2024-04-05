@@ -10,6 +10,7 @@ layout (set=1, binding=0) uniform sampler2D textures[];
 layout(set=0, binding=0) uniform UBO
 {
 	uint present_mode;
+	uint composite_final_tex_id;
 	uint albedo_tex_id;
 	uint normal_tex_id;
 	uint depth_tex_id;
@@ -22,12 +23,7 @@ void main() {
     vec4 value = vec4(1, 1, 1, 1);
     const float border = 0.001;
 
-    float depth = texture(textures[ubo.depth_tex_id], uv).r;
-
-    if (mode == 1 && depth == 1.0)
-        discard;
-        
-    if (ubo.present_mode == 0)
+    if (mode == 0)
     {
         if (uv.x < 1.0 / 3.0 - border)
         {
@@ -42,16 +38,21 @@ void main() {
         uv.x *= 3.0;
     }
     
+    vec4 composite_final = texture(textures[ubo.composite_final_tex_id], uv);
     vec4 albedo = texture(textures[ubo.albedo_tex_id], uv);
     vec4 normal = texture(textures[ubo.normal_tex_id], uv);
+    float depth = texture(textures[ubo.depth_tex_id], uv).r;
 
     if (mode == 1)
     {
-        value = albedo;
+        value = composite_final;
     } else if (mode == 2)
+    {
+        value = albedo;
+    } else if (mode == 3)
     {   
         value = normal;
-    } else if (mode == 3)
+    } else if (mode == 4)
     {   
         value = vec4(depth, depth, depth, 1.0);
     }
