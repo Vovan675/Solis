@@ -12,6 +12,11 @@ Texture::Texture(TextureDescription description)
 
 Texture::~Texture()
 {
+	cleanup();
+}
+
+void Texture::cleanup()
+{
 	BindlessResources::removeTexture(this);
 	if (sampler != nullptr)
 		vkDestroySampler(VkWrapper::device->logicalHandle, sampler, nullptr);
@@ -25,6 +30,7 @@ Texture::~Texture()
 
 void Texture::fill()
 {
+	cleanup();
 	VkDeviceSize imageSize = m_Description.width * m_Description.height * 4;
 	VkImageCreateInfo imageInfo{};
 	imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -49,9 +55,9 @@ void Texture::fill()
 	create_sampler();
 }
 
-
 void Texture::fill(const void* sourceData)
 {
+	cleanup();
 	if (m_Description.is_cube == false)
 	{
 		VkDeviceSize imageSize = m_Description.width * m_Description.height * 4;
@@ -224,6 +230,7 @@ void Texture::load(const char *path)
 
 void Texture::fill_raw(VkImage image)
 {
+	cleanup();
 	imageHandle = image;
 	create_image_view();
 }

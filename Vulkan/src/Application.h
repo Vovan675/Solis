@@ -12,6 +12,7 @@
 #include "renderers/CubeMapRenderer.h"
 #include "renderers/MeshRenderer.h"
 #include "renderers/ImGuiRenderer.h"
+#include "renderers/PostProcessingRenderer.h"
 #include "renderers/QuadRenderer.h"
 #include "VulkanApp.h"
 
@@ -38,6 +39,7 @@ private:
 	std::shared_ptr<MeshRenderer> mesh_renderer;
 	std::shared_ptr<MeshRenderer> mesh_renderer2;
 	std::shared_ptr<ImGuiRenderer> imgui_renderer;
+	std::shared_ptr<PostProcessingRenderer> post_renderer;
 	std::shared_ptr<QuadRenderer> quad_renderer;
 
 	std::shared_ptr<Camera> camera;

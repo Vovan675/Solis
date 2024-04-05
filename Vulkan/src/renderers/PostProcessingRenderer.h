@@ -7,26 +7,26 @@
 #include "RHI/Descriptors.h"
 
 
-class QuadRenderer : public RendererBase
+class PostProcessingRenderer: public RendererBase
 {
 public:
-	struct PresentUBO
+	struct UBO
 	{
-		uint32_t present_mode = 0;
 		uint32_t albedo_tex_id = 0;
-		uint32_t normal_tex_id = 0;
-		uint32_t depth_tex_id = 0;
+		float use_vignette = 1;
+		float vignette_radius = 0.7;
+		float vignette_smoothness = 0.2;
 	} ubo;
 
-	QuadRenderer();
-	virtual ~QuadRenderer();
+	PostProcessingRenderer();
+	virtual ~PostProcessingRenderer();
 
 	void recreatePipeline();
 
 	void fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index) override;
 
 	void updateUniformBuffer(uint32_t image_index) override;
-
+	void renderImgui();
 private:
 	std::shared_ptr<Pipeline> pipeline;
 

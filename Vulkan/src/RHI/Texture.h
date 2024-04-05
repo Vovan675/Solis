@@ -21,7 +21,7 @@ class Texture
 {
 public:
 	VkBuffer bufferHandle = nullptr;
-	VmaAllocation allocation;
+	VmaAllocation allocation = nullptr;
 	VkImage imageHandle = nullptr;
 	// ImageView needs to gain some information about how to render into this image
 	VkImageView imageView = nullptr;
@@ -29,6 +29,7 @@ public:
 public:
 	Texture(TextureDescription description);
 	virtual ~Texture();
+	void cleanup();
 	void fill();
 	void fill(const void* sourceData);
 	void load(const char* path);

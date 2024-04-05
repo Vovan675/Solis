@@ -33,6 +33,7 @@ Application::Application()
 	mesh_renderer = std::make_shared<MeshRenderer>(camera, mesh);
 	mesh_renderer2 = std::make_shared<MeshRenderer>(camera, mesh2);
 	imgui_renderer = std::make_shared<ImGuiRenderer>(window);
+	post_renderer = std::make_shared<PostProcessingRenderer>();
 	quad_renderer = std::make_shared<QuadRenderer>();
 
 	onSwapchainRecreated(0, 0);
@@ -70,6 +71,7 @@ void Application::update(float delta_time)
 		vkDeviceWaitIdle(VkWrapper::device->logicalHandle);
 		mesh_renderer->recreatePipeline();
 		mesh_renderer2->recreatePipeline();
+		post_renderer->recreatePipeline();
 		quad_renderer->recreatePipeline();
 		cubemap_renderer->recreatePipeline();
 	}
@@ -89,6 +91,8 @@ void Application::update(float delta_time)
 		ImGui::EndCombo();
 	}
 	quad_renderer->ubo.present_mode = present_mode;
+
+	post_renderer->renderImgui();
 
 }
 
@@ -116,6 +120,8 @@ void Application::updateBuffers(float delta_time, uint32_t image_index)
 	mat2.albedo_tex_id = 3;
 	mesh_renderer->setMaterial(mat1);
 	mesh_renderer2->setMaterial(mat2);
+
+	post_renderer->updateUniformBuffer(image_index);
 
 	quad_renderer->updateUniformBuffer(image_index);
 }
@@ -180,7 +186,8 @@ void Application::recordCommands(CommandBuffer &command_buffer, uint32_t image_i
 	cubemap_renderer->fillCommandBuffer(command_buffer, image_index);
 
 	// Render quad
-	quad_renderer->fillCommandBuffer(command_buffer, image_index);
+	post_renderer->fillCommandBuffer(command_buffer, image_index);
+	//quad_renderer->fillCommandBuffer(command_buffer, image_index);
 
 	// Render imgui
 	imgui_renderer->fillCommandBuffer(command_buffer, image_index);
@@ -221,6 +228,7 @@ void Application::cleanupResources()
 	mesh_renderer = nullptr;
 	mesh_renderer2 = nullptr;
 	imgui_renderer = nullptr;
+	post_renderer = nullptr;
 	quad_renderer = nullptr;
 }
 
@@ -240,6 +248,7 @@ void Application::onSwapchainRecreated(int width, int height)
 		gbuffer_albedo->fill();
 
 		uint32_t albedo_id = BindlessResources::addTexture(gbuffer_albedo.get());
+		post_renderer->ubo.albedo_tex_id = albedo_id;
 		quad_renderer->ubo.albedo_tex_id = albedo_id;
 	}
 	{
