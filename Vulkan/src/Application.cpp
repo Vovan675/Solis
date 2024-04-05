@@ -68,8 +68,9 @@ void Application::update(float delta_time)
 	camera->update(delta_time, glm::vec2(mouse_x, mouse_y), glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_1) == GLFW_PRESS);
 	imgui_renderer->begin();
 
-	// Draw Imgui Windows
-	ImGui::ShowDemoWindow();
+	ImGui::DockSpaceOverViewport(ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
+
+	ImGui::Begin("Debug Window");
 	if (ImGui::Button("Recompile shaders") || ImGui::IsKeyReleased(ImGuiKey_R))
 	{
 		// Wait for all operations complete
@@ -103,6 +104,7 @@ void Application::update(float delta_time)
 		quad_renderer->ubo.present_mode = present_mode;
 	}
 	post_renderer->renderImgui();
+	ImGui::End();
 }
 
 void Application::updateBuffers(float delta_time, uint32_t image_index)

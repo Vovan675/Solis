@@ -49,6 +49,9 @@ ImGuiRenderer::ImGuiRenderer(GLFWwindow* window) : RendererBase()
 	pipeline_rendering_create_info.depthAttachmentFormat = VK_FORMAT_D32_SFLOAT_S8_UINT;
 	init_info.PipelineRenderingCreateInfo = pipeline_rendering_create_info;
 	ImGui_ImplVulkan_Init(&init_info);
+
+	ImGuiIO &io = ImGui::GetIO();
+	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 }
 
 ImGuiRenderer::~ImGuiRenderer()
