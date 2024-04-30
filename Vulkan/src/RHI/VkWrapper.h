@@ -216,8 +216,9 @@ public:
 		VkPipelineStageFlags2 src_stage_mask, VkAccessFlags2 src_access_mask,
 		VkPipelineStageFlags2 dst_stage_mask, VkAccessFlags2 dst_access_mask,
 		VkImageLayout old_layout, VkImageLayout new_layout,
-		VkImage image, VkImageAspectFlags aspect_mask);
-	static void cmdBeginRendering(CommandBuffer &command_buffer, const std::vector<std::shared_ptr<Texture>> &color_attachments, std::shared_ptr<Texture> depth_attachment);
+		VkImage image, VkImageAspectFlags aspect_mask,
+		int level_count = 1, int layer_count = 1);
+	static void cmdBeginRendering(CommandBuffer &command_buffer, const std::vector<std::shared_ptr<Texture>> &color_attachments, std::shared_ptr<Texture> depth_attachment, int cubemap_face = -1, int mip = 0);
 	static void cmdEndRendering(CommandBuffer &command_buffer);
 
 private:

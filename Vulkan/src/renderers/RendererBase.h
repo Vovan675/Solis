@@ -11,6 +11,8 @@ public:
 	// Free resources
 	virtual ~RendererBase() {}
 
+	virtual void recreatePipeline() {}
+
 	// Add commands to command buffer
 	virtual void fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index) {}
 

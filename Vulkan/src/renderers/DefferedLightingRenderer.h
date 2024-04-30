@@ -7,22 +7,25 @@
 #include "RHI/Descriptors.h"
 
 
-class DefferedCompositeRenderer: public RendererBase
+class DefferedLightingRenderer: public RendererBase
 {
 public:
 	struct UBO
 	{
-		uint32_t lighting_diffuse_tex_id = 0;
-		uint32_t lighting_specular_tex_id = 0;
+		uint32_t position_tex_id = 0;
 		uint32_t albedo_tex_id = 0;
 		uint32_t normal_tex_id = 0;
 		uint32_t depth_tex_id = 0;
+		uint32_t shading_tex_id = 0;
 	} ubo;
 
-	std::shared_ptr<Texture> irradiance_cubemap;
+	struct PushConstant
+	{
+		glm::vec4 cam_pos;
+	} constants;
 
-	DefferedCompositeRenderer();
-	virtual ~DefferedCompositeRenderer();
+	DefferedLightingRenderer();
+	virtual ~DefferedLightingRenderer();
 
 	void recreatePipeline();
 

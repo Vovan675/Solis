@@ -9,6 +9,6 @@ layout (set=1, binding=0) uniform sampler2D textures[];
 
 void main()
 {
-	outColor = texture(texSampler, dir);
+	outColor = textureLod(texSampler, dir, 0.0);
 	//outColor = vec4(1, 0,0,1);
 }

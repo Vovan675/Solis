@@ -94,7 +94,7 @@ void Pipeline::create(const PipelineDescription &description)
 	{
 		VkPipelineColorBlendAttachmentState attachment{};
 		attachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-		attachment.blendEnable = VK_TRUE;
+		attachment.blendEnable = description.use_blending;
 		attachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
 		attachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
 		attachment.colorBlendOp = VK_BLEND_OP_ADD;
@@ -119,7 +119,7 @@ void Pipeline::create(const PipelineDescription &description)
 	// Depth Stencil state
 	VkPipelineDepthStencilStateCreateInfo depthStencil{};
 	depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-	depthStencil.depthTestEnable = VK_TRUE;
+	depthStencil.depthTestEnable = description.use_depth_test;
 	depthStencil.depthWriteEnable = VK_TRUE;
 	depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
 	depthStencil.depthBoundsTestEnable = VK_FALSE;
@@ -140,10 +140,13 @@ void Pipeline::create(const PipelineDescription &description)
 	dynamicState.pDynamicStates = dynamicStates;
 
 	// Pipeline layout state (aka uniform values)
-	std::array<VkDescriptorSetLayout, 2> descriptor_set_layouts = {
-		description.descriptor_set_layout, // One descriptor set should be enough
-		*BindlessResources::getDescriptorLayout() // Add bindless layout to every pipeline
-	};
+	std::vector<VkDescriptorSetLayout> descriptor_set_layouts;
+	if (description.descriptor_set_layout)
+	{
+		descriptor_set_layouts.push_back(description.descriptor_set_layout); // One descriptor set should be enough
+	}
+	descriptor_set_layouts.push_back(*BindlessResources::getDescriptorLayout()); // Add bindless layout to every pipeline
+
 	VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 	pipelineLayoutInfo.setLayoutCount = descriptor_set_layouts.size();

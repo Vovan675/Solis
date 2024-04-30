@@ -6,7 +6,7 @@ VulkanApp::VulkanApp()
 {
 	glfwInit();
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API); //FUCK OFF OPENGL
-	window = glfwCreateWindow(800, 600, "Hello Vulkan", nullptr, nullptr);
+	window = glfwCreateWindow(1440, 900, "Hello Vulkan", nullptr, nullptr);
 	glfwSwapInterval(0);
 
 	glfwSetWindowUserPointer(window, this);

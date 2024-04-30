@@ -11,8 +11,14 @@
 struct Material
 {
 	uint32_t albedo_tex_id = 0;
+	glm::vec4 albedo = glm::vec4(1, 1, 1, 1);
+	float use_albedo_map = 0;
+
 	uint32_t rougness_tex_id = 0;
-	float use_rougness = 0;
+	float use_rougness_map = 0;
+	float metalness = 0;
+	float roughness = 0;
+	float specular = 0.5f;
 };
 
 class MeshRenderer : public RendererBase
@@ -21,7 +27,7 @@ public:
 	MeshRenderer(std::shared_ptr<Camera> cam, std::shared_ptr<Engine::Mesh> mesh);
 	virtual ~MeshRenderer();
 
-	void recreatePipeline();
+	void recreatePipeline() override;
 
 	void fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index) override;
 
@@ -45,9 +51,9 @@ private:
 	std::shared_ptr<Engine::Mesh> mesh;
 
 	std::shared_ptr<Camera> camera;
-	glm::vec3 position;
-	glm::quat rotation;
-	glm::vec3 scale;
+	glm::vec3 position = glm::vec3(0.0f);
+	glm::quat rotation = glm::quat();
+	glm::vec3 scale = glm::vec3(1.0f);
 	Material mat {};
 };
 

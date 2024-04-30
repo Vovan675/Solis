@@ -6,16 +6,32 @@
 #include "RHI/Texture.h"
 #include "Camera.h"
 
-class CubeMapRenderer: public RendererBase
+class PrefilterRenderer: public RendererBase
 {
 public:
-	CubeMapRenderer(std::shared_ptr<Camera> cam);
-	virtual ~CubeMapRenderer();
+	struct UniformBufferObject
+	{
+		alignas(16) float roughness = 0;
+	} ubo;
+
+	struct PushConstantVert
+	{
+		glm::mat4 mvp = glm::mat4(1.0f);
+	} constants_vert;
+
+	struct PushConstantFrag
+	{
+		float roughness = 0;
+	} constants_frag;
+
+	PrefilterRenderer();
+	virtual ~PrefilterRenderer();
 
 	void recreatePipeline();
 
 	void fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index) override;
 	void updateUniformBuffer(uint32_t image_index) override;
+
 	std::shared_ptr<Texture> cube_texture;
 private:
 	VkDescriptorSetLayout descriptor_set_layout;
@@ -27,7 +43,5 @@ private:
 	std::vector<void *> image_uniform_buffers_mapped;
 
 	std::shared_ptr<Engine::Mesh> mesh;
-
-	std::shared_ptr<Camera> camera;
 };
 

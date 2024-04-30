@@ -102,7 +102,8 @@ void EntityRenderer::recreatePipeline()
 	description.fragment_shader = fragShader;
 
 	description.descriptor_set_layout = descriptor_set_layout;
-	description.color_formats = {VkWrapper::swapchain->surface_format.format, VK_FORMAT_R8G8B8A8_SRGB};
+	description.color_formats = {VkWrapper::swapchain->surface_format.format, VK_FORMAT_R16G16B16A16_SFLOAT, VK_FORMAT_R16G16B16A16_SFLOAT, VK_FORMAT_R8G8B8A8_UNORM};
+	description.use_blending = false;
 
 	VkPushConstantRange push_constant_range{};
 	push_constant_range.offset = 0;

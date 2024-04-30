@@ -9,10 +9,15 @@ layout (set=1, binding=0) uniform sampler2D textures[];
 
 layout(set=0, binding=0) uniform UBO
 {
+    uint lighting_diffuse_tex_id;
+	uint lighting_specular_tex_id;
 	uint albedo_tex_id;
 	uint normal_tex_id;
 	uint depth_tex_id;
 } ubo;
+
+layout (set=0, binding=1) uniform samplerCube irradiance_tex;
+
 
 void main() {
     float depth = texture(textures[ubo.depth_tex_id], inUV).r;
@@ -21,5 +26,16 @@ void main() {
         discard;
 
     vec4 albedo = texture(textures[ubo.albedo_tex_id], inUV);
-    outColor = vec4(albedo.rgb, 1.0);
+    vec3 normal = normalize(texture(textures[ubo.normal_tex_id], inUV).rgb);
+
+    vec3 light_diffuse = texture(textures[ubo.lighting_diffuse_tex_id], inUV).rgb;
+    vec3 light_specular = texture(textures[ubo.lighting_specular_tex_id], inUV).rgb;
+
+    // IBL
+    vec3 irradiance = texture(irradiance_tex, normal).rgb;
+    vec3 ibl_diffuse = irradiance * albedo.rgb;
+
+    vec3 ambient = ibl_diffuse * 0.3f;
+
+    outColor = vec4(albedo.rgb * light_diffuse + light_specular + ambient, albedo.a);
 }

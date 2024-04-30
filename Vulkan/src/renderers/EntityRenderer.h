@@ -23,7 +23,12 @@ public:
 
 	void setPosition(glm::vec3 pos) { position = pos; }
 	void setRotation(glm::quat rot) { rotation = rot; }
-	void setScale(glm::vec3 scale) { this->scale = scale; }
+	void setScale(glm::vec3 scale) { entity->transform.scale = scale; }
+	void setTransform(glm::mat4 transform)
+	{
+		entity->transform.local_model_matrix = transform;
+		entity->updateTransform();
+	}
 	void setMaterial(Material mat) { this->mat = mat; }
 	void updateUniformBuffer(uint32_t image_index) override;
 private:

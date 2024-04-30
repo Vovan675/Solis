@@ -42,7 +42,7 @@ public:
 		if (inputs.right)
 			movement += right;
 
-		movement *= dt * 2.0;
+		movement *= dt * 3.0;
 		position += movement;
 		updateMatrices();
 	}

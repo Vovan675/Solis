@@ -14,6 +14,8 @@ layout(set=0, binding=0) uniform UBO
 	uint albedo_tex_id;
 	uint normal_tex_id;
 	uint depth_tex_id;
+	uint position_tex_id;
+	uint brdf_lut_id;
 } ubo;
 
 void main() {
@@ -42,6 +44,8 @@ void main() {
     vec4 albedo = texture(textures[ubo.albedo_tex_id], uv);
     vec4 normal = texture(textures[ubo.normal_tex_id], uv);
     float depth = texture(textures[ubo.depth_tex_id], uv).r;
+    vec3 position = texture(textures[ubo.position_tex_id], uv).xyz;
+    vec2 brdf_lut = texture(textures[ubo.brdf_lut_id], uv).xy;
 
     if (mode == 1)
     {
@@ -55,6 +59,12 @@ void main() {
     } else if (mode == 4)
     {   
         value = vec4(depth, depth, depth, 1.0);
+    } else if (mode == 5)
+    {   
+        value = vec4(position, 1.0);
+    } else if (mode == 6)
+    {   
+        value = vec4(brdf_lut, 0.0, 1.0);
     }
     outColor = vec4(value.rgb, 1.0);
 }

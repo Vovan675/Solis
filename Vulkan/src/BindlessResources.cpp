@@ -87,7 +87,7 @@ void BindlessResources::setTexture(uint32_t index, Texture *texture)
 	}
 
 	textures_indices[texture] = index;
-	descriptor_writer.writeImage(BINDLESS_TEXTURES_BINDING, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, texture->imageView, texture->sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	descriptor_writer.writeImage(BINDLESS_TEXTURES_BINDING, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, texture->getImageView(), texture->sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	descriptor_writer.writes.back().dstArrayElement = index;
 	is_dirty = true;
 }
@@ -136,7 +136,7 @@ void BindlessResources::set_invalid_texture(uint32_t index)
 {
 	if (invalid_texture == nullptr)
 		return;
-	descriptor_writer.writeImage(BINDLESS_TEXTURES_BINDING, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, invalid_texture->imageView, invalid_texture->sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	descriptor_writer.writeImage(BINDLESS_TEXTURES_BINDING, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, invalid_texture->getImageView(), invalid_texture->sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	descriptor_writer.writes.back().dstArrayElement = index;
 	is_dirty = true;
 }

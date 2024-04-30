@@ -20,8 +20,11 @@ void Texture::cleanup()
 	BindlessResources::removeTexture(this);
 	if (sampler != nullptr)
 		vkDestroySampler(VkWrapper::device->logicalHandle, sampler, nullptr);
-	if (imageView != nullptr)
-		vkDestroyImageView(VkWrapper::device->logicalHandle, imageView, nullptr);
+
+	for (auto &view : image_views)
+		view.cleanup();
+	image_views.clear();
+
 	if (imageHandle != nullptr && m_Description.destroy_image)
 		vkDestroyImage(VkWrapper::device->logicalHandle, imageHandle, nullptr);
 	if (allocation != nullptr)
@@ -31,28 +34,60 @@ void Texture::cleanup()
 void Texture::fill()
 {
 	cleanup();
-	VkDeviceSize imageSize = m_Description.width * m_Description.height * 4;
-	VkImageCreateInfo imageInfo{};
-	imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-	imageInfo.imageType = VK_IMAGE_TYPE_2D;
-	imageInfo.extent.width = m_Description.width;
-	imageInfo.extent.height = m_Description.height;
-	imageInfo.extent.depth = 1;
-	imageInfo.mipLevels = m_Description.mipLevels;
-	imageInfo.arrayLayers = 1;
-	imageInfo.format = m_Description.imageFormat;
-	imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-	imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	imageInfo.usage = m_Description.imageUsageFlags;
-	imageInfo.samples = m_Description.numSamples;
-	imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	if (m_Description.is_cube == false)
+	{
+		VkDeviceSize imageSize = m_Description.width * m_Description.height * 4;
+		VkImageCreateInfo imageInfo{};
+		imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+		imageInfo.imageType = VK_IMAGE_TYPE_2D;
+		imageInfo.extent.width = m_Description.width;
+		imageInfo.extent.height = m_Description.height;
+		imageInfo.extent.depth = 1;
+		imageInfo.mipLevels = m_Description.mipLevels;
+		imageInfo.arrayLayers = 1;
+		imageInfo.format = m_Description.imageFormat;
+		imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+		imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		imageInfo.usage = m_Description.imageUsageFlags;
+		imageInfo.samples = m_Description.numSamples;
+		imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-	VmaAllocationCreateInfo alloc_info{};
-	alloc_info.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-	vmaCreateImage(VkWrapper::allocator, &imageInfo, &alloc_info, &imageHandle, &allocation, nullptr);
+		current_layout = TEXTURE_LAYOUT_UNDEFINED;
+
+		VmaAllocationCreateInfo alloc_info{};
+		alloc_info.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+		vmaCreateImage(VkWrapper::allocator, &imageInfo, &alloc_info, &imageHandle, &allocation, nullptr);
 	
-	create_image_view();
-	create_sampler();
+		getImageView();
+		create_sampler();
+	} else
+	{
+		VkDeviceSize imageSize = m_Description.width * m_Description.height * 4 * 6;
+		VkImageCreateInfo imageInfo{};
+		imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+		imageInfo.imageType = VK_IMAGE_TYPE_2D;
+		imageInfo.extent.width = m_Description.width;
+		imageInfo.extent.height = m_Description.height;
+		imageInfo.extent.depth = 1;
+		imageInfo.mipLevels = m_Description.mipLevels;
+		imageInfo.arrayLayers = 6; // 6 faces
+		imageInfo.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
+		imageInfo.format = m_Description.imageFormat;
+		imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+		imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		imageInfo.usage = m_Description.imageUsageFlags;
+		imageInfo.samples = m_Description.numSamples;
+		imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+		current_layout = TEXTURE_LAYOUT_UNDEFINED;
+
+		VmaAllocationCreateInfo alloc_info{};
+		alloc_info.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+		vmaCreateImage(VkWrapper::allocator, &imageInfo, &alloc_info, &imageHandle, &allocation, nullptr);
+
+		getImageView();
+		create_sampler();
+	}
 }
 
 void Texture::fill(const void* sourceData)
@@ -75,6 +110,8 @@ void Texture::fill(const void* sourceData)
 		imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | m_Description.imageUsageFlags;
 		imageInfo.samples = m_Description.numSamples;
 		imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+		current_layout = TEXTURE_LAYOUT_UNDEFINED;
 
 		VmaAllocationCreateInfo alloc_info{};
 		alloc_info.usage = VMA_MEMORY_USAGE_GPU_ONLY;
@@ -101,7 +138,7 @@ void Texture::fill(const void* sourceData)
 
 		generate_mipmaps();
 
-		create_image_view();
+		getImageView();
 		create_sampler();
 	} else
 	{
@@ -121,6 +158,8 @@ void Texture::fill(const void* sourceData)
 		imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | m_Description.imageUsageFlags;
 		imageInfo.samples = m_Description.numSamples;
 		imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+		current_layout = TEXTURE_LAYOUT_UNDEFINED;
 
 		VmaAllocationCreateInfo alloc_info{};
 		alloc_info.usage = VMA_MEMORY_USAGE_GPU_ONLY;
@@ -147,7 +186,7 @@ void Texture::fill(const void* sourceData)
 
 		//generate_mipmaps();
 
-		create_image_view();
+		getImageView();
 		create_sampler();
 	}
 }
@@ -232,7 +271,141 @@ void Texture::fill_raw(VkImage image)
 {
 	cleanup();
 	imageHandle = image;
-	create_image_view();
+	getImageView();
+}
+
+void Texture::transitLayout(CommandBuffer &command_buffer, TextureLayoutType new_layout_type)
+{
+	if (current_layout == new_layout_type) return;
+
+	bool is_depth_texture = m_Description.imageAspectFlags & VK_IMAGE_ASPECT_DEPTH_BIT;
+	
+	VkImageAspectFlags aspect_flags = is_depth_texture ? VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
+
+	VkImageLayout old_layout = get_vk_layout(current_layout);
+	VkImageLayout new_layout = get_vk_layout(new_layout_type);
+	VkPipelineStageFlags2 src_stage_mask; VkAccessFlags2 src_access_mask;
+	VkPipelineStageFlags2 dst_stage_mask; VkAccessFlags2 dst_access_mask;
+
+	switch (current_layout)
+	{
+		case TEXTURE_LAYOUT_UNDEFINED:
+			src_stage_mask = VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT;
+			src_access_mask = VK_ACCESS_2_MEMORY_READ_BIT;
+			break;
+		case TEXTURE_LAYOUT_ATTACHMENT:
+			if (is_depth_texture)
+			{
+				src_stage_mask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT;
+				src_access_mask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+			} else
+			{
+				src_stage_mask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+				src_access_mask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
+			}
+			break;
+		case TEXTURE_LAYOUT_SHADER_READ:
+			src_stage_mask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
+			src_access_mask = VK_ACCESS_2_SHADER_READ_BIT;
+			break;
+	}
+
+	switch (new_layout_type)
+	{
+		case TEXTURE_LAYOUT_ATTACHMENT:
+			if (is_depth_texture)
+			{
+				dst_stage_mask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT;
+				dst_access_mask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+			} else
+			{
+				dst_stage_mask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+				dst_access_mask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
+			}
+			break;
+		case TEXTURE_LAYOUT_SHADER_READ:
+			dst_stage_mask = VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
+			dst_access_mask = VK_ACCESS_2_SHADER_READ_BIT;
+	}
+
+	int layer_count = m_Description.is_cube ? 6 : 1;
+
+	VkWrapper::cmdImageMemoryBarrier(command_buffer,
+									src_stage_mask, src_access_mask,
+									dst_stage_mask, dst_access_mask,
+									old_layout, new_layout,
+									imageHandle, aspect_flags,
+									m_Description.mipLevels, layer_count);
+	current_layout = new_layout_type;
+}
+
+VkImageView Texture::getImageView(int mip, int face)
+{
+	// Find already created
+	for (const auto &view : image_views)
+	{
+		if (view.mip == mip && view.face == face)
+			return view.image_view;
+	}
+
+	// Otherwise create new
+	VkImageViewCreateInfo viewInfo{};
+	viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+	viewInfo.image = imageHandle;
+	viewInfo.format = m_Description.imageFormat;
+	viewInfo.subresourceRange.aspectMask = m_Description.imageAspectFlags;
+
+	// -1 = all mips
+	viewInfo.subresourceRange.baseMipLevel = mip == -1 ? 0 : mip;
+	viewInfo.subresourceRange.levelCount = mip == -1 ? m_Description.mipLevels : 1;
+
+	if (m_Description.is_cube)
+	{
+		// -1 = all faces
+		if (face == -1)
+		{
+			viewInfo.viewType = VK_IMAGE_VIEW_TYPE_CUBE;
+			viewInfo.subresourceRange.baseArrayLayer = 0;
+			viewInfo.subresourceRange.layerCount = 6;
+		} else
+		{
+			viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+			viewInfo.subresourceRange.baseArrayLayer = face;
+			viewInfo.subresourceRange.layerCount = 1;
+		}
+	} else
+	{
+		viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+		viewInfo.subresourceRange.layerCount = 1;
+	}
+
+	VkImageView image_view;
+	CHECK_ERROR(vkCreateImageView(VkWrapper::device->logicalHandle, &viewInfo, nullptr, &image_view));
+
+	ImageView view;
+	view.mip = mip;
+	view.face = face;
+	view.image_view = image_view;
+
+	image_views.push_back(view);
+	return image_view;
+}
+
+VkImageLayout Texture::get_vk_layout(TextureLayoutType layout_type)
+{
+	bool is_depth_texture = m_Description.imageAspectFlags & VK_IMAGE_ASPECT_DEPTH_BIT;
+	switch (layout_type)
+	{
+		case TEXTURE_LAYOUT_UNDEFINED:
+			return VK_IMAGE_LAYOUT_UNDEFINED;
+			break;
+		case TEXTURE_LAYOUT_ATTACHMENT:
+			return is_depth_texture ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+			break;
+		case TEXTURE_LAYOUT_SHADER_READ:
+			return VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL;
+			break;
+	}
 }
 
 void Texture::generate_mipmaps() {
@@ -385,29 +558,6 @@ void Texture::copy_buffer_to_image(VkBuffer buffer, VkImage image, uint32_t widt
 	VkWrapper::endSingleTimeCommands(commandBuffer);
 }
 
-
-void Texture::create_image_view()
-{
-	VkImageViewCreateInfo viewInfo{};
-	viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-	viewInfo.image = imageHandle;
-	viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-	viewInfo.format = m_Description.imageFormat;
-	viewInfo.subresourceRange.aspectMask = m_Description.imageAspectFlags;
-	viewInfo.subresourceRange.baseMipLevel = 0;
-	viewInfo.subresourceRange.levelCount = 1;
-	viewInfo.subresourceRange.baseArrayLayer = 0;
-	viewInfo.subresourceRange.layerCount = 1;
-	
-	if (m_Description.is_cube)
-	{
-		viewInfo.viewType = VK_IMAGE_VIEW_TYPE_CUBE;
-		viewInfo.subresourceRange.layerCount = 6;
-	}
-
-	CHECK_ERROR(vkCreateImageView(VkWrapper::device->logicalHandle, &viewInfo, nullptr, &imageView));
-}
-
 void Texture::create_sampler()
 {
 	VkSamplerCreateInfo samplerInfo{};
@@ -425,9 +575,15 @@ void Texture::create_sampler()
 	samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
 	samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
 	samplerInfo.mipLodBias = 0.0f;
-	samplerInfo.minLod = (float)m_Description.mipLevels / 2;
+	samplerInfo.minLod = 0;
 	samplerInfo.maxLod = m_Description.mipLevels;
 
 
 	CHECK_ERROR(vkCreateSampler(VkWrapper::device->logicalHandle, &samplerInfo, nullptr, &sampler));
+}
+
+void Texture::ImageView::cleanup()
+{
+	if (image_view)
+		vkDestroyImageView(VkWrapper::device->logicalHandle, image_view, nullptr);
 }

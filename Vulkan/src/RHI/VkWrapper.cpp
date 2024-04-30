@@ -119,7 +119,8 @@ void VkWrapper::cmdImageMemoryBarrier(CommandBuffer &command_buffer,
 									  VkPipelineStageFlags2 src_stage_mask, VkAccessFlags2 src_access_mask,
 									  VkPipelineStageFlags2 dst_stage_mask, VkAccessFlags2 dst_access_mask,
 									  VkImageLayout old_layout, VkImageLayout new_layout,
-									  VkImage image, VkImageAspectFlags aspect_mask)
+									  VkImage image, VkImageAspectFlags aspect_mask,
+									  int level_count, int layer_count)
 {
 	VkImageMemoryBarrier2 image_memory_barrier{};
 	image_memory_barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
@@ -132,9 +133,9 @@ void VkWrapper::cmdImageMemoryBarrier(CommandBuffer &command_buffer,
 	image_memory_barrier.image = image;
 	image_memory_barrier.subresourceRange.aspectMask = aspect_mask;
 	image_memory_barrier.subresourceRange.baseMipLevel = 0;
-	image_memory_barrier.subresourceRange.levelCount = 1;
+	image_memory_barrier.subresourceRange.levelCount = level_count;
 	image_memory_barrier.subresourceRange.baseArrayLayer = 0;
-	image_memory_barrier.subresourceRange.layerCount = 1;
+	image_memory_barrier.subresourceRange.layerCount = layer_count;
 
 	VkDependencyInfo dependency_info{};
 	dependency_info.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
@@ -144,7 +145,7 @@ void VkWrapper::cmdImageMemoryBarrier(CommandBuffer &command_buffer,
 	vkCmdPipelineBarrier2(command_buffer.get_buffer(), &dependency_info);
 }
 
-void VkWrapper::cmdBeginRendering(CommandBuffer &command_buffer, const std::vector<std::shared_ptr<Texture>> &color_attachments, std::shared_ptr<Texture> depth_attachment)
+void VkWrapper::cmdBeginRendering(CommandBuffer &command_buffer, const std::vector<std::shared_ptr<Texture>> &color_attachments, std::shared_ptr<Texture> depth_attachment, int cubemap_face, int mip)
 {
 	VkExtent2D extent;
 	extent.width = color_attachments[0]->getWidth();
@@ -161,7 +162,7 @@ void VkWrapper::cmdBeginRendering(CommandBuffer &command_buffer, const std::vect
 	{
 		VkRenderingAttachmentInfo info{};
 		info.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-		info.imageView = attachment->imageView;
+		info.imageView = attachment->getImageView(mip, cubemap_face);
 		info.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL;
 		info.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 		info.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -175,7 +176,7 @@ void VkWrapper::cmdBeginRendering(CommandBuffer &command_buffer, const std::vect
 	{
 		VkRenderingAttachmentInfo depth_stencil_attachment_info{};
 		depth_stencil_attachment_info.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-		depth_stencil_attachment_info.imageView = depth_attachment->imageView;
+		depth_stencil_attachment_info.imageView = depth_attachment->getImageView();
 		depth_stencil_attachment_info.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 		depth_stencil_attachment_info.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 		depth_stencil_attachment_info.storeOp = VK_ATTACHMENT_STORE_OP_STORE;

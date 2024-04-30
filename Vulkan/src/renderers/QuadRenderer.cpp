@@ -62,6 +62,7 @@ void QuadRenderer::recreatePipeline()
 	description.vertex_shader = vertShader;
 	description.fragment_shader = fragShader;
 	description.use_vertices = false;
+	description.use_blending = false;
 
 	description.color_formats = {VkWrapper::swapchain->surface_format.format};
 	description.descriptor_set_layout = descriptor_set_layout;

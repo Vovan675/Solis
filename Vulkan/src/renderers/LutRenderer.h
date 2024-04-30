@@ -6,28 +6,21 @@
 #include "RHI/Texture.h"
 #include "Camera.h"
 
-class CubeMapRenderer: public RendererBase
+class LutRenderer: public RendererBase
 {
 public:
-	CubeMapRenderer(std::shared_ptr<Camera> cam);
-	virtual ~CubeMapRenderer();
+	LutRenderer();
+	virtual ~LutRenderer();
 
 	void recreatePipeline();
 
 	void fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index) override;
 	void updateUniformBuffer(uint32_t image_index) override;
-	std::shared_ptr<Texture> cube_texture;
+
 private:
 	VkDescriptorSetLayout descriptor_set_layout;
 	VkDescriptorPool descriptor_pool;
 
 	std::shared_ptr<Pipeline> pipeline;
-	std::vector<VkDescriptorSet> image_descriptor_sets;
-	std::vector<std::shared_ptr<Buffer>> image_uniform_buffers;
-	std::vector<void *> image_uniform_buffers_mapped;
-
-	std::shared_ptr<Engine::Mesh> mesh;
-
-	std::shared_ptr<Camera> camera;
 };
 

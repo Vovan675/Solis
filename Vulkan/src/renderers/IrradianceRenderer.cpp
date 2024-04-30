@@ -1,27 +1,19 @@
 #include "pch.h"
-#include "MeshRenderer.h"
+#include "IrradianceRenderer.h"
 #include "BindlessResources.h"
-#include <stb_image.h>
 
-static struct UniformBufferObject
+IrradianceRenderer::IrradianceRenderer(): RendererBase()
 {
-	alignas(16) glm::mat4 view;
-	alignas(16) glm::mat4 proj;
-	alignas(16) glm::vec3 camera_position;
-};
+	// Load image
+	TextureDescription tex_description{};
+	tex_description.imageFormat = VK_FORMAT_R8G8B8A8_SRGB;
+	tex_description.imageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
+	tex_description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+	tex_description.is_cube = true;
+	
+	mesh = std::make_shared<Engine::Mesh>("assets/cube.fbx");
 
-static struct PushConstant
-{
-	alignas(16) glm::mat4 model;
-};
-
-MeshRenderer::MeshRenderer(std::shared_ptr<Camera> cam, std::shared_ptr<Engine::Mesh> mesh) : RendererBase()
-{
-	camera = cam;
-	rotation = glm::quat();
-	scale = glm::vec3(1.0f, 1.0f, 1.0f);
-	this->mesh = mesh;
-	this->texture = texture;
+	//mesh->setData(vertices, indices);
 
 	// Create uniform buffers
 	VkDeviceSize bufferSize = sizeof(UniformBufferObject);
@@ -42,29 +34,11 @@ MeshRenderer::MeshRenderer(std::shared_ptr<Camera> cam, std::shared_ptr<Engine::
 		image_uniform_buffers[i]->map(&image_uniform_buffers_mapped[i]);
 	}
 
-	bufferSize = sizeof(Material);
-
-	material_uniform_buffers.resize(MAX_FRAMES_IN_FLIGHT);
-	material_uniform_buffers_mapped.resize(MAX_FRAMES_IN_FLIGHT);
-
-	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-	{
-		BufferDescription desc;
-		desc.size = bufferSize;
-		desc.useStagingBuffer = false;
-		desc.bufferUsageFlags = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-
-		material_uniform_buffers[i] = std::make_shared<Buffer>(desc);
-
-		// Map gpu memory on cpu memory
-		material_uniform_buffers[i]->map(&material_uniform_buffers_mapped[i]);
-	}
-
 	// Create descriptor set layout
 	DescriptorLayoutBuilder layout_builder;
 	layout_builder.clear();
 	layout_builder.add_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-	layout_builder.add_binding(1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+	layout_builder.add_binding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 	descriptor_set_layout = layout_builder.build(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
 
 	// Create descriptor set
@@ -79,44 +53,45 @@ MeshRenderer::MeshRenderer(std::shared_ptr<Camera> cam, std::shared_ptr<Engine::
 	{
 		DescriptorWriter writer;
 		writer.writeBuffer(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, image_uniform_buffers[i]->bufferHandle, sizeof(UniformBufferObject));
-		writer.writeBuffer(1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, material_uniform_buffers[i]->bufferHandle, sizeof(Material));
+		///writer.writeImage(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, tex_cube->imageView, tex_cube->sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
 		writer.updateSet(image_descriptor_sets[i]);
 	}
 
 	recreatePipeline();
 }
 
-MeshRenderer::~MeshRenderer()
+IrradianceRenderer::~IrradianceRenderer()
 {
 	vkDestroyDescriptorSetLayout(VkWrapper::device->logicalHandle, descriptor_set_layout, nullptr);
 }
 
-void MeshRenderer::recreatePipeline()
+void IrradianceRenderer::recreatePipeline()
 {
 	// Create pipeline
-	auto vertShader = std::make_shared<Shader>(VkWrapper::device->logicalHandle, "shaders/opaque.vert", Shader::VERTEX_SHADER);
-	auto fragShader = std::make_shared<Shader>(VkWrapper::device->logicalHandle, "shaders/opaque.frag", Shader::FRAGMENT_SHADER);
+	auto vertShader = std::make_shared<Shader>(VkWrapper::device->logicalHandle, "shaders/ibl/cubemap_filter.vert", Shader::VERTEX_SHADER);
+	auto fragShader = std::make_shared<Shader>(VkWrapper::device->logicalHandle, "shaders/ibl/irradiance.frag", Shader::FRAGMENT_SHADER);
 
 	PipelineDescription description{};
 	description.vertex_shader = vertShader;
 	description.fragment_shader = fragShader;
 
-	description.descriptor_set_layout = descriptor_set_layout;
-	description.color_formats = {VkWrapper::swapchain->surface_format.format, VK_FORMAT_R16G16B16A16_SFLOAT, VK_FORMAT_R16G16B16A16_SFLOAT, VK_FORMAT_R8G8B8A8_UNORM};
-	description.use_blending = false;
-
-	VkPushConstantRange push_constant_range {};
+	VkPushConstantRange push_constant_range{};
 	push_constant_range.offset = 0;
 	push_constant_range.size = sizeof(PushConstant);
 	push_constant_range.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-	description.push_constant_ranges = { push_constant_range };
+	description.push_constant_ranges = {push_constant_range};
 
+	description.descriptor_set_layout = descriptor_set_layout;
+	description.color_formats = {VkWrapper::swapchain->surface_format.format};
+
+	description.cull_mode = VK_CULL_MODE_BACK_BIT;
 
 	pipeline = std::make_shared<Pipeline>();
 	pipeline->create(description);
 }
 
-void MeshRenderer::fillCommandBuffer(CommandBuffer & command_buffer, uint32_t image_index)
+void IrradianceRenderer::fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index)
 {
 	vkCmdBindPipeline(command_buffer.get_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);
 
@@ -126,10 +101,7 @@ void MeshRenderer::fillCommandBuffer(CommandBuffer & command_buffer, uint32_t im
 	// Uniforms
 	vkCmdBindDescriptorSets(command_buffer.get_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline_layout, 0, 1, &image_descriptor_sets[image_index], 0, nullptr);
 
-	// Push constant
-	PushConstant push_constant;
-	push_constant.model = glm::mat4_cast(rotation) * glm::translate(glm::mat4(1.0f), position) * glm::scale(glm::mat4(1.0f), scale) * mesh->root_transform;
-	vkCmdPushConstants(command_buffer.get_buffer(), pipeline->pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PushConstant), &push_constant);
+	vkCmdPushConstants(command_buffer.get_buffer(), pipeline->pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PushConstant), &constants);
 
 	// Render mesh
 	VkBuffer vertexBuffers[] = {mesh->vertexBuffer->bufferHandle};
@@ -139,13 +111,13 @@ void MeshRenderer::fillCommandBuffer(CommandBuffer & command_buffer, uint32_t im
 	vkCmdDrawIndexed(command_buffer.get_buffer(), mesh->indices.size(), 1, 0, 0, 0);
 }
 
-void MeshRenderer::updateUniformBuffer(uint32_t image_index)
+void IrradianceRenderer::updateUniformBuffer(uint32_t image_index)
 {
-	UniformBufferObject ubo{};
-	ubo.view = camera->getView();
-	ubo.proj = camera->getProj();
-	ubo.camera_position = camera->getPosition();
 	memcpy(image_uniform_buffers_mapped[image_index], &ubo, sizeof(ubo));
 
-	memcpy(material_uniform_buffers_mapped[image_index], &mat, sizeof(mat));
+	// Update descriptor set
+	DescriptorWriter writer;
+	writer.writeImage(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, cube_texture->getImageView(), cube_texture->sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+	writer.updateSet(image_descriptor_sets[image_index]);
 }
