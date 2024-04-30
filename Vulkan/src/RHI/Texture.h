@@ -49,6 +49,8 @@ public:
 	void transitLayout(CommandBuffer &command_buffer, TextureLayoutType new_layout_type);
 	
 	VkImageView getImageView(int mip = 0, int face = -1);
+
+	VkFormat getImageFormat() const { return m_Description.imageFormat; }
 private:
 	VkImageLayout get_vk_layout(TextureLayoutType layout_type);
 

@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "VulkanApp.h"
 #include "imgui.h"
+#include "Rendering/Renderer.h"
 
 VulkanApp::VulkanApp()
 {
@@ -167,7 +168,7 @@ void VulkanApp::recreate_swapchain()
 	vkDeviceWaitIdle(VkWrapper::device->logicalHandle);
 
 	VkWrapper::swapchain->create(width, height);
-
+	Renderer::recreateScreenResources();
 	onSwapchainRecreated(width, height);
 }
 

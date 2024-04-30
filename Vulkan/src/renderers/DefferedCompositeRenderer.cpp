@@ -29,13 +29,13 @@ DefferedCompositeRenderer::DefferedCompositeRenderer()
 	layout_builder.clear();
 	layout_builder.add_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 	layout_builder.add_binding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-	descriptor_set_layout = layout_builder.build(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
+	descriptor_layout = layout_builder.build(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
 
 	// Create descriptor set
 	descriptor_sets.resize(MAX_FRAMES_IN_FLIGHT);
 	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
-		descriptor_sets[i] = VkWrapper::global_descriptor_allocator->allocate(descriptor_set_layout);
+		descriptor_sets[i] = VkWrapper::global_descriptor_allocator->allocate(descriptor_layout.layout);
 	}
 
 	// Update descriptor set
@@ -46,44 +46,46 @@ DefferedCompositeRenderer::DefferedCompositeRenderer()
 		writer.updateSet(descriptor_sets[i]);
 	}
 
-	recreatePipeline();
+	reloadShaders();
 }
 
 DefferedCompositeRenderer::~DefferedCompositeRenderer()
 {
-	vkDestroyDescriptorSetLayout(VkWrapper::device->logicalHandle, descriptor_set_layout, nullptr);
+	vkDestroyDescriptorSetLayout(VkWrapper::device->logicalHandle, descriptor_layout.layout, nullptr);
 }
 
-void DefferedCompositeRenderer::recreatePipeline()
+void DefferedCompositeRenderer::reloadShaders()
 {
-	// Create pipeline
-	auto vertShader = std::make_shared<Shader>(VkWrapper::device->logicalHandle, "shaders/quad.vert", Shader::VERTEX_SHADER);
-	auto fragShader = std::make_shared<Shader>(VkWrapper::device->logicalHandle, "shaders/deffered_composite.frag", Shader::FRAGMENT_SHADER);
-
-	PipelineDescription description{};
-	description.vertex_shader = vertShader;
-	description.fragment_shader = fragShader;
-	description.use_vertices = false;
-
-	description.color_formats = {VkWrapper::swapchain->surface_format.format};
-	description.descriptor_set_layout = descriptor_set_layout;
-
-	pipeline = std::make_shared<Pipeline>();
-	pipeline->create(description);
+	vertex_shader = std::make_shared<Shader>(VkWrapper::device->logicalHandle, "shaders/quad.vert", Shader::VERTEX_SHADER);
+	fragment_shader = std::make_shared<Shader>(VkWrapper::device->logicalHandle, "shaders/deffered_composite.frag", Shader::FRAGMENT_SHADER);
 }
 
 void DefferedCompositeRenderer::fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index)
 {
-	vkCmdBindPipeline(command_buffer.get_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);
+	auto &p = VkWrapper::global_pipeline;
+	p->reset();
+
+	p->setVertexShader(vertex_shader);
+	p->setFragmentShader(fragment_shader);
+	
+	p->setRenderTargets(VkWrapper::current_render_targets, nullptr);
+
+	p->setUseVertices(false);
+	p->setDescriptorLayout(descriptor_layout);
+
+	p->flush();
+	p->bind(command_buffer);
 
 	// Bindless
-	vkCmdBindDescriptorSets(command_buffer.get_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline_layout, 1, 1, BindlessResources::getDescriptorSet(), 0, nullptr);
+	vkCmdBindDescriptorSets(command_buffer.get_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, p->getPipelineLayout(), 1, 1, BindlessResources::getDescriptorSet(), 0, nullptr);
 
 	// Uniforms
-	vkCmdBindDescriptorSets(command_buffer.get_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline_layout, 0, 1, &descriptor_sets[image_index], 0, nullptr);
+	vkCmdBindDescriptorSets(command_buffer.get_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, p->getPipelineLayout(), 0, 1, &descriptor_sets[image_index], 0, nullptr);
 
 	// Render quad
 	vkCmdDraw(command_buffer.get_buffer(), 6, 1, 0, 0);
+
+	p->unbind(command_buffer);
 }
 
 void DefferedCompositeRenderer::updateUniformBuffer(uint32_t image_index)

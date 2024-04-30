@@ -6,7 +6,6 @@
 #include "Camera.h"
 #include "RHI/Descriptors.h"
 
-
 class DefferedCompositeRenderer: public RendererBase
 {
 public:
@@ -24,16 +23,17 @@ public:
 	DefferedCompositeRenderer();
 	virtual ~DefferedCompositeRenderer();
 
-	void recreatePipeline();
+	void reloadShaders() override;
 
 	void fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index) override;
 
 	void updateUniformBuffer(uint32_t image_index) override;
 	void renderImgui();
 private:
-	std::shared_ptr<Pipeline> pipeline;
+	std::shared_ptr<Shader> vertex_shader;
+	std::shared_ptr<Shader> fragment_shader;
 
-	VkDescriptorSetLayout descriptor_set_layout;
+	DescriptorLayout descriptor_layout;
 	std::vector<VkDescriptorSet> descriptor_sets;
 
 	std::vector<std::shared_ptr<Buffer>> uniform_buffers;

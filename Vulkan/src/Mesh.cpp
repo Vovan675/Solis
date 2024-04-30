@@ -36,6 +36,7 @@ namespace Engine
 
 		const aiScene* scene = importer.ReadFile(pFile,
 			aiProcess_CalcTangentSpace |
+			aiProcess_GenSmoothNormals |
 			aiProcess_Triangulate |
 			aiProcess_JoinIdenticalVertices |
 			aiProcess_SortByPType);

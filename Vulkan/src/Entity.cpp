@@ -33,6 +33,7 @@ void Entity::load_model(const char *model_path)
 
 	const aiScene *scene = importer.ReadFile(model_path,
 											 aiProcess_CalcTangentSpace |
+											 aiProcess_GenSmoothNormals |
 											 aiProcess_Triangulate |
 											 aiProcess_JoinIdenticalVertices |
 											 aiProcess_SortByPType);

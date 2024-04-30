@@ -2,10 +2,12 @@
 #include "Shader.h"
 #include "Log.h"
 #include <shaderc/shaderc.hpp>
+#include "MathUtils.h"
 
 Shader::Shader(const VkDevice& device, const std::string& path, ShaderType type): m_DeviceHandle(device)
 {
-	std::string source = read_file(path);
+	this->path = path;
+	this->source = read_file(path);
 	std::vector<uint32_t> spirvBinary = compile_glsl(source, type, path);
 
 	VkShaderModuleCreateInfo vertShaderModuleCreateInfo{};
@@ -19,6 +21,13 @@ Shader::Shader(const VkDevice& device, const std::string& path, ShaderType type)
 Shader::~Shader()
 {
 	vkDestroyShaderModule(m_DeviceHandle, handle, nullptr);
+}
+
+size_t Shader::getHash() const
+{
+	size_t hash = 0;
+	hash_combine(hash, source);
+	return hash;
 }
 
 std::string Shader::read_file(const std::string& fileName) const

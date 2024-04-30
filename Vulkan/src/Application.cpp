@@ -3,6 +3,7 @@
 #include "RHI/VkWrapper.h"
 #include "BindlessResources.h"
 #include "Entity.h"
+#include "Rendering/Renderer.h"
 
 #include "assimp/Importer.hpp"
 #include "assimp/scene.h"
@@ -56,10 +57,11 @@ Application::Application()
 	post_renderer = std::make_shared<PostProcessingRenderer>();
 	renderers.push_back(post_renderer);
 
-	quad_renderer = std::make_shared<QuadRenderer>();
-	renderers.push_back(quad_renderer);
+	debug_renderer = std::make_shared<DebugRenderer>();
+	renderers.push_back(debug_renderer);
 
 	onSwapchainRecreated(0, 0);
+	createRenderTargets();
 
 	// Load Textures
 	{
@@ -115,6 +117,50 @@ Application::Application()
 	//cubemap_renderer->cube_texture = ibl_prefilter; // test
 }
 
+void Application::createRenderTargets()
+{
+	/////////////
+	// IBL
+	/////////////
+
+	// Irradiance
+	TextureDescription description;
+	description.width = 2048;
+	description.height = 2048;
+	description.imageFormat = VkWrapper::swapchain->surface_format.format;
+	description.imageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
+	description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+	description.is_cube = true;
+	ibl_irradiance = std::make_shared<Texture>(description);
+	ibl_irradiance->fill();
+
+	deffered_composite_renderer->irradiance_cubemap = ibl_irradiance;
+
+	// Prefilter
+	description.width = 128;
+	description.height = 128;
+	description.imageFormat = VkWrapper::swapchain->surface_format.format;
+	description.imageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
+	description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+	description.is_cube = true;
+	description.mipLevels = 5;
+	ibl_prefilter = std::make_shared<Texture>(description);
+	ibl_prefilter->fill();
+
+	// BRDF LUT
+	description.width = 512;
+	description.height = 512;
+	description.imageFormat = VK_FORMAT_R16G16_SFLOAT;
+	description.imageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
+	description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+	description.is_cube = false;
+	ibl_brdf_lut = std::make_shared<Texture>(description);
+	ibl_brdf_lut->fill();
+
+	uint32_t ibl_brdf_lut_id = BindlessResources::addTexture(ibl_brdf_lut.get());
+	debug_renderer->ubo.brdf_lut_id = ibl_brdf_lut_id;
+}
+
 void Application::update(float delta_time)
 {
 	double mouse_x, mouse_y;
@@ -131,7 +177,7 @@ void Application::update(float delta_time)
 		vkDeviceWaitIdle(VkWrapper::device->logicalHandle);
 		for (const auto& renderer : renderers)
 		{
-			renderer->recreatePipeline();
+			renderer->reloadShaders();
 		}
 	}
 	
@@ -153,7 +199,7 @@ void Application::update(float delta_time)
 			}
 			ImGui::EndCombo();
 		}
-		quad_renderer->ubo.present_mode = present_mode;
+		debug_renderer->ubo.present_mode = present_mode;
 	}
 
 	ImGui::Checkbox("Is First Frame", &is_first_frame);
@@ -247,7 +293,7 @@ void Application::recordCommands(CommandBuffer &command_buffer, uint32_t image_i
 	render_lighting(command_buffer, image_index);
 	render_deffered_composite(command_buffer, image_index);
 
-	composite_final->transitLayout(command_buffer, TEXTURE_LAYOUT_SHADER_READ);
+	Renderer::getRenderTarget(RENDER_TARGET_COMPOSITE)->transitLayout(command_buffer, TEXTURE_LAYOUT_SHADER_READ);
 
 	// Begin rendering to present (just output texture)
 	VkWrapper::cmdBeginRendering(command_buffer, {VkWrapper::swapchain->swapchain_textures[image_index]}, nullptr);
@@ -261,7 +307,7 @@ void Application::recordCommands(CommandBuffer &command_buffer, uint32_t image_i
 	// Render debug textures
 	if (debug_rendering)
 	{
-		quad_renderer->fillCommandBuffer(command_buffer, image_index);
+		debug_renderer->fillCommandBuffer(command_buffer, image_index);
 	}
 
 	// Render imgui
@@ -273,175 +319,83 @@ void Application::recordCommands(CommandBuffer &command_buffer, uint32_t image_i
 
 void Application::cleanupResources()
 {
-	gbuffer_albedo = nullptr;
-	gbuffer_normal = nullptr;
-	gbuffer_depth_stencil = nullptr;
-	gbuffer_position = nullptr;
-	gbuffer_shading = nullptr;
-
-	composite_final = nullptr;
-
-	lighting_diffuse = nullptr;
-	lighting_specular = nullptr;
+	ibl_brdf_lut = nullptr;
+	ibl_irradiance = nullptr;
+	ibl_prefilter = nullptr;
 
 	renderers.clear();
 }
 
 void Application::onSwapchainRecreated(int width, int height)
 {
-	// init screen resources
-	TextureDescription description;
-	description.width = VkWrapper::swapchain->swap_extent.width;
-	description.height = VkWrapper::swapchain->swap_extent.height;
-	description.mipLevels = 1;
-	description.numSamples = VK_SAMPLE_COUNT_1_BIT;
-
 	///////////
 	// GBuffer
 	///////////
 
 	// Albedo
-	description.imageFormat = VkWrapper::swapchain->surface_format.format;
-	description.imageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
-	description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-	gbuffer_albedo = std::make_shared<Texture>(description);
-	gbuffer_albedo->fill();
-
-	uint32_t albedo_id = BindlessResources::addTexture(gbuffer_albedo.get());
+	uint32_t albedo_id = Renderer::getRenderTargetBindlessId(RENDER_TARGET_GBUFFER_ALBEDO);
 	defferred_lighting_renderer->ubo.albedo_tex_id = albedo_id;
 	deffered_composite_renderer->ubo.albedo_tex_id = albedo_id;
-	quad_renderer->ubo.albedo_tex_id = albedo_id;
+	debug_renderer->ubo.albedo_tex_id = albedo_id;
 
 	// Normal
-	description.imageFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
-	description.imageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
-	description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-	gbuffer_normal = std::make_shared<Texture>(description);
-	gbuffer_normal->fill();
-
-	uint32_t normal_id = BindlessResources::addTexture(gbuffer_normal.get());
+	uint32_t normal_id = Renderer::getRenderTargetBindlessId(RENDER_TARGET_GBUFFER_NORMAL);
 	defferred_lighting_renderer->ubo.normal_tex_id = normal_id;
 	deffered_composite_renderer->ubo.normal_tex_id = normal_id;
-	quad_renderer->ubo.normal_tex_id = normal_id;
+	debug_renderer->ubo.normal_tex_id = normal_id;
 
 	// Depth-Stencil
-	description.imageFormat = VK_FORMAT_D32_SFLOAT_S8_UINT;
-	description.imageAspectFlags = VK_IMAGE_ASPECT_DEPTH_BIT;
-	description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-	gbuffer_depth_stencil = std::make_shared<Texture>(description);
-	gbuffer_depth_stencil->fill();
-
-	uint32_t depth_id = BindlessResources::addTexture(gbuffer_depth_stencil.get());
+	uint32_t depth_id = Renderer::getRenderTargetBindlessId(RENDER_TARGET_GBUFFER_DEPTH_STENCIL);
 	defferred_lighting_renderer->ubo.depth_tex_id = depth_id;
 	deffered_composite_renderer->ubo.depth_tex_id = depth_id;
-	quad_renderer->ubo.depth_tex_id = depth_id;
+	debug_renderer->ubo.depth_tex_id = depth_id;
 
 	// Position
-	description.imageFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
-	description.imageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
-	description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-
-	gbuffer_position = std::make_shared<Texture>(description);
-	gbuffer_position->fill();
-	uint32_t gbuffer_position_id = BindlessResources::addTexture(gbuffer_position.get());
+	uint32_t gbuffer_position_id = Renderer::getRenderTargetBindlessId(RENDER_TARGET_GBUFFER_POSITION);
 	defferred_lighting_renderer->ubo.position_tex_id = gbuffer_position_id;
-	quad_renderer->ubo.position_tex_id = gbuffer_position_id;
+	debug_renderer->ubo.position_tex_id = gbuffer_position_id;
 
 	// Shading
-	description.imageFormat = VK_FORMAT_R8G8B8A8_UNORM;
-	description.imageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
-	description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-
-	gbuffer_shading = std::make_shared<Texture>(description);
-	gbuffer_shading->fill();
-	uint32_t gbuffer_shading_id = BindlessResources::addTexture(gbuffer_shading.get());
+	uint32_t gbuffer_shading_id = Renderer::getRenderTargetBindlessId(RENDER_TARGET_GBUFFER_SHADING);
 	defferred_lighting_renderer->ubo.shading_tex_id = gbuffer_shading_id;
 
 	///////////
 	// Lighting
 	///////////
 
-	description.imageFormat = VK_FORMAT_B10G11R11_UFLOAT_PACK32;
-	description.imageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
-	description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-
-	lighting_diffuse = std::make_shared<Texture>(description);
-	lighting_diffuse->fill();
-	uint32_t lighting_diffuse_id = BindlessResources::addTexture(lighting_diffuse.get());
+	uint32_t lighting_diffuse_id = Renderer::getRenderTargetBindlessId(RENDER_TARGET_LIGHTING_DIFFUSE);
 	deffered_composite_renderer->ubo.lighting_diffuse_tex_id = lighting_diffuse_id;
 
-
-	lighting_specular = std::make_shared<Texture>(description);
-	lighting_specular->fill();
-	uint32_t lighting_specular_id = BindlessResources::addTexture(lighting_specular.get());
+	uint32_t lighting_specular_id = Renderer::getRenderTargetBindlessId(RENDER_TARGET_LIGHTING_SPECULAR);
 	deffered_composite_renderer->ubo.lighting_specular_tex_id = lighting_specular_id;
 
 	/////////////
 	// Composite
 	/////////////
 
-	description.imageFormat = VkWrapper::swapchain->surface_format.format;
-	description.imageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
-	description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-	composite_final = std::make_shared<Texture>(description);
-	composite_final->fill();
-
-	uint32_t composite_final_id = BindlessResources::addTexture(composite_final.get());
-	quad_renderer->ubo.composite_final_tex_id = composite_final_id;
+	uint32_t composite_final_id = Renderer::getRenderTargetBindlessId(RENDER_TARGET_COMPOSITE);
+	debug_renderer->ubo.composite_final_tex_id = composite_final_id;
 	post_renderer->ubo.composite_final_tex_id = composite_final_id;
-
-	/////////////
-	// IBL
-	/////////////
-
-	// Irradiance
-	description.width = 2048;
-	description.height = 2048;
-	description.imageFormat = VkWrapper::swapchain->surface_format.format;
-	description.imageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
-	description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-	description.is_cube = true;
-	ibl_irradiance = std::make_shared<Texture>(description);
-	ibl_irradiance->fill();
-
-	deffered_composite_renderer->irradiance_cubemap = ibl_irradiance;
-
-	// Prefilter
-	description.width = 128;
-	description.height = 128;
-	description.imageFormat = VkWrapper::swapchain->surface_format.format;
-	description.imageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
-	description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-	description.is_cube = true;
-	description.mipLevels = 5;
-	ibl_prefilter = std::make_shared<Texture>(description);
-	ibl_prefilter->fill();
-
-	// BRDF LUT
-	description.width = 512;
-	description.height = 512;
-	description.imageFormat = VK_FORMAT_R16G16_SFLOAT;
-	description.imageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
-	description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-	description.is_cube = false;
-	ibl_brdf_lut = std::make_shared<Texture>(description);
-	ibl_brdf_lut->fill();
-
-	uint32_t ibl_brdf_lut_id = BindlessResources::addTexture(ibl_brdf_lut.get());
-	quad_renderer->ubo.brdf_lut_id = ibl_brdf_lut_id;
 
 	is_first_frame = true;
 }
 
 void Application::render_GBuffer(CommandBuffer &command_buffer, uint32_t image_index)
 {
-	gbuffer_albedo->transitLayout(command_buffer, TEXTURE_LAYOUT_ATTACHMENT);
-	gbuffer_normal->transitLayout(command_buffer, TEXTURE_LAYOUT_ATTACHMENT);
-	gbuffer_position->transitLayout(command_buffer, TEXTURE_LAYOUT_ATTACHMENT);
-	gbuffer_shading->transitLayout(command_buffer, TEXTURE_LAYOUT_ATTACHMENT);
-	gbuffer_depth_stencil->transitLayout(command_buffer, TEXTURE_LAYOUT_ATTACHMENT);
+	Renderer::getRenderTarget(RENDER_TARGET_GBUFFER_ALBEDO)->transitLayout(command_buffer, TEXTURE_LAYOUT_ATTACHMENT);
+	Renderer::getRenderTarget(RENDER_TARGET_GBUFFER_NORMAL)->transitLayout(command_buffer, TEXTURE_LAYOUT_ATTACHMENT);
+	Renderer::getRenderTarget(RENDER_TARGET_GBUFFER_DEPTH_STENCIL)->transitLayout(command_buffer, TEXTURE_LAYOUT_ATTACHMENT);
+	Renderer::getRenderTarget(RENDER_TARGET_GBUFFER_POSITION)->transitLayout(command_buffer, TEXTURE_LAYOUT_ATTACHMENT);
+	Renderer::getRenderTarget(RENDER_TARGET_GBUFFER_SHADING)->transitLayout(command_buffer, TEXTURE_LAYOUT_ATTACHMENT);
 
-	VkWrapper::cmdBeginRendering(command_buffer, {gbuffer_albedo, gbuffer_normal, gbuffer_position, gbuffer_shading}, gbuffer_depth_stencil);
+	VkWrapper::cmdBeginRendering(command_buffer, 
+								 {
+									Renderer::getRenderTarget(RENDER_TARGET_GBUFFER_ALBEDO),
+									Renderer::getRenderTarget(RENDER_TARGET_GBUFFER_NORMAL),
+									Renderer::getRenderTarget(RENDER_TARGET_GBUFFER_POSITION),
+									Renderer::getRenderTarget(RENDER_TARGET_GBUFFER_SHADING)
+								 },
+								 Renderer::getRenderTarget(RENDER_TARGET_GBUFFER_DEPTH_STENCIL));
 
 	for (const auto& entity : entities_renderers)
 	{
@@ -456,16 +410,20 @@ void Application::render_GBuffer(CommandBuffer &command_buffer, uint32_t image_i
 
 void Application::render_lighting(CommandBuffer &command_buffer, uint32_t image_index)
 {
-	gbuffer_albedo->transitLayout(command_buffer, TEXTURE_LAYOUT_SHADER_READ);
-	gbuffer_normal->transitLayout(command_buffer, TEXTURE_LAYOUT_SHADER_READ);
-	gbuffer_position->transitLayout(command_buffer, TEXTURE_LAYOUT_SHADER_READ);
-	gbuffer_shading->transitLayout(command_buffer, TEXTURE_LAYOUT_SHADER_READ);
-	gbuffer_depth_stencil->transitLayout(command_buffer, TEXTURE_LAYOUT_SHADER_READ);
+	Renderer::getRenderTarget(RENDER_TARGET_GBUFFER_ALBEDO)->transitLayout(command_buffer, TEXTURE_LAYOUT_SHADER_READ);
+	Renderer::getRenderTarget(RENDER_TARGET_GBUFFER_NORMAL)->transitLayout(command_buffer, TEXTURE_LAYOUT_SHADER_READ);
+	Renderer::getRenderTarget(RENDER_TARGET_GBUFFER_DEPTH_STENCIL)->transitLayout(command_buffer, TEXTURE_LAYOUT_SHADER_READ);
+	Renderer::getRenderTarget(RENDER_TARGET_GBUFFER_POSITION)->transitLayout(command_buffer, TEXTURE_LAYOUT_SHADER_READ);
+	Renderer::getRenderTarget(RENDER_TARGET_GBUFFER_SHADING)->transitLayout(command_buffer, TEXTURE_LAYOUT_SHADER_READ);
 
-	lighting_diffuse->transitLayout(command_buffer, TEXTURE_LAYOUT_ATTACHMENT);
-	lighting_specular->transitLayout(command_buffer, TEXTURE_LAYOUT_ATTACHMENT);
+	Renderer::getRenderTarget(RENDER_TARGET_LIGHTING_DIFFUSE)->transitLayout(command_buffer, TEXTURE_LAYOUT_ATTACHMENT);
+	Renderer::getRenderTarget(RENDER_TARGET_LIGHTING_SPECULAR)->transitLayout(command_buffer, TEXTURE_LAYOUT_ATTACHMENT);
 	
-	VkWrapper::cmdBeginRendering(command_buffer, {lighting_diffuse, lighting_specular}, nullptr);
+	VkWrapper::cmdBeginRendering(command_buffer,
+								 {
+									Renderer::getRenderTarget(RENDER_TARGET_LIGHTING_DIFFUSE),
+									Renderer::getRenderTarget(RENDER_TARGET_LIGHTING_SPECULAR)
+								 }, nullptr);
 
 	defferred_lighting_renderer->fillCommandBuffer(command_buffer, image_index);
 
@@ -474,11 +432,11 @@ void Application::render_lighting(CommandBuffer &command_buffer, uint32_t image_
 
 void Application::render_deffered_composite(CommandBuffer &command_buffer, uint32_t image_index)
 {
-	lighting_diffuse->transitLayout(command_buffer, TEXTURE_LAYOUT_SHADER_READ);
-	lighting_specular->transitLayout(command_buffer, TEXTURE_LAYOUT_SHADER_READ);
-	composite_final->transitLayout(command_buffer, TEXTURE_LAYOUT_ATTACHMENT);
+	Renderer::getRenderTarget(RENDER_TARGET_LIGHTING_DIFFUSE)->transitLayout(command_buffer, TEXTURE_LAYOUT_SHADER_READ);
+	Renderer::getRenderTarget(RENDER_TARGET_LIGHTING_SPECULAR)->transitLayout(command_buffer, TEXTURE_LAYOUT_SHADER_READ);
+	Renderer::getRenderTarget(RENDER_TARGET_COMPOSITE)->transitLayout(command_buffer, TEXTURE_LAYOUT_ATTACHMENT);
 	
-	VkWrapper::cmdBeginRendering(command_buffer, {composite_final}, nullptr);
+	VkWrapper::cmdBeginRendering(command_buffer, {Renderer::getRenderTarget(RENDER_TARGET_COMPOSITE)}, nullptr);
 
 	// Draw Sky on background
 	cubemap_renderer->fillCommandBuffer(command_buffer, image_index);
@@ -499,4 +457,10 @@ void Application::key_callback(GLFWwindow *window, int key, int scancode, int ac
 		camera->inputs.left = is_pressed;
 	if (key == GLFW_KEY_D)
 		camera->inputs.right = is_pressed;
+	if (key == GLFW_KEY_E)
+		camera->inputs.up = is_pressed;
+	if (key == GLFW_KEY_Q)
+		camera->inputs.down = is_pressed;
+	if (key == GLFW_KEY_LEFT_SHIFT)
+		camera->inputs.sprint = is_pressed;
 }

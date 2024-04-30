@@ -4,6 +4,7 @@
 
 #include "Descriptors.h"
 #include "VkWrapper.h"
+#include "MathUtils.h"
 
 
 void DescriptorLayoutBuilder::add_binding(uint32_t binding, VkDescriptorType type, uint32_t count)
@@ -20,7 +21,7 @@ void DescriptorLayoutBuilder::clear()
 	bindings.clear();
 }
 
-VkDescriptorSetLayout DescriptorLayoutBuilder::build(VkShaderStageFlags stages, const void *pNext, VkDescriptorSetLayoutCreateFlags flags)
+DescriptorLayout DescriptorLayoutBuilder::build(VkShaderStageFlags stages, const void *pNext, VkDescriptorSetLayoutCreateFlags flags)
 {
 	for (auto& b : bindings)
 		b.stageFlags |= stages;
@@ -33,11 +34,18 @@ VkDescriptorSetLayout DescriptorLayoutBuilder::build(VkShaderStageFlags stages, 
 
 	info.pNext = pNext;
 
+	size_t hash = 0;
+	hash_combine(hash, bindings.size());
+	for (const auto &b : bindings)
+	{
+		size_t binding_hash = b.binding | b.descriptorType << 8 | b.descriptorCount << 16 | b.stageFlags << 24;
+		hash_combine(hash, binding_hash);
+	}
 	// TODO: caching
 
 	VkDescriptorSetLayout set;
 	CHECK_ERROR(vkCreateDescriptorSetLayout(VkWrapper::device->logicalHandle, &info, nullptr, &set));
-	return set;
+	return {set, hash};
 }
 
 

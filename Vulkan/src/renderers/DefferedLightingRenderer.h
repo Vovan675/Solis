@@ -19,6 +19,7 @@ public:
 		uint32_t shading_tex_id = 0;
 	} ubo;
 
+	// TODO: use uniform buffer, move to Renderer::setDefaultResources
 	struct PushConstant
 	{
 		glm::vec4 cam_pos;
@@ -27,16 +28,18 @@ public:
 	DefferedLightingRenderer();
 	virtual ~DefferedLightingRenderer();
 
-	void recreatePipeline();
+	void reloadShaders() override;
 
 	void fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index) override;
 
 	void updateUniformBuffer(uint32_t image_index) override;
 	void renderImgui();
 private:
-	std::shared_ptr<Pipeline> pipeline;
+	DescriptorLayout descriptor_layout;
 
-	VkDescriptorSetLayout descriptor_set_layout;
+	std::shared_ptr<Shader> vertex_shader;
+	std::shared_ptr<Shader> fragment_shader;
+
 	std::vector<VkDescriptorSet> descriptor_sets;
 
 	std::vector<std::shared_ptr<Buffer>> uniform_buffers;

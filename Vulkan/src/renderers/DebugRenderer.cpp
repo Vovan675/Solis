@@ -1,12 +1,11 @@
 #include "pch.h"
-#include "imgui.h"
-#include "PostProcessingRenderer.h"
+#include "DebugRenderer.h"
 #include "BindlessResources.h"
 
-PostProcessingRenderer::PostProcessingRenderer()
+DebugRenderer::DebugRenderer()
 {
 	// Create uniform buffers
-	VkDeviceSize bufferSize = sizeof(UBO);
+	VkDeviceSize bufferSize = sizeof(PresentUBO);
 
 	uniform_buffers.resize(MAX_FRAMES_IN_FLIGHT);
 	uniform_buffers_mapped.resize(MAX_FRAMES_IN_FLIGHT);
@@ -41,25 +40,25 @@ PostProcessingRenderer::PostProcessingRenderer()
 	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
 		DescriptorWriter writer;
-		writer.writeBuffer(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, uniform_buffers[i]->bufferHandle, sizeof(UBO));
+		writer.writeBuffer(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, uniform_buffers[i]->bufferHandle, sizeof(PresentUBO));
 		writer.updateSet(descriptor_sets[i]);
 	}
 
 	reloadShaders();
 }
 
-PostProcessingRenderer::~PostProcessingRenderer()
+DebugRenderer::~DebugRenderer()
 {
 	vkDestroyDescriptorSetLayout(VkWrapper::device->logicalHandle, descriptor_layout.layout, nullptr);
 }
 
-void PostProcessingRenderer::reloadShaders()
+void DebugRenderer::reloadShaders()
 {
 	vertex_shader = std::make_shared<Shader>(VkWrapper::device->logicalHandle, "shaders/quad.vert", Shader::VERTEX_SHADER);
-	fragment_shader = std::make_shared<Shader>(VkWrapper::device->logicalHandle, "shaders/post_processing.frag", Shader::FRAGMENT_SHADER);
+	fragment_shader = std::make_shared<Shader>(VkWrapper::device->logicalHandle, "shaders/debug_quad.frag", Shader::FRAGMENT_SHADER);
 }
 
-void PostProcessingRenderer::fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index)
+void DebugRenderer::fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index)
 {
 	auto &p = VkWrapper::global_pipeline;
 	p->reset();
@@ -69,7 +68,7 @@ void PostProcessingRenderer::fillCommandBuffer(CommandBuffer &command_buffer, ui
 
 	p->setRenderTargets(VkWrapper::current_render_targets, nullptr);
 	p->setUseVertices(false);
-
+	p->setUseBlending(false);
 	p->setDescriptorLayout(descriptor_layout);
 
 	p->flush();
@@ -87,22 +86,7 @@ void PostProcessingRenderer::fillCommandBuffer(CommandBuffer &command_buffer, ui
 	p->unbind(command_buffer);
 }
 
-void PostProcessingRenderer::updateUniformBuffer(uint32_t image_index)
+void DebugRenderer::updateUniformBuffer(uint32_t image_index)
 {
 	memcpy(uniform_buffers_mapped[image_index], &ubo, sizeof(ubo));
-}
-
-void PostProcessingRenderer::renderImgui()
-{
-	bool use_vignette_bool = ubo.use_vignette > 0.5f;
-	if (ImGui::Checkbox("Vignette", &use_vignette_bool))
-	{
-		ubo.use_vignette = use_vignette_bool ? 1.0f : 0.0f;
-	}
-
-	if (ubo.use_vignette)
-	{
-		ImGui::SliderFloat("Vignette Radius", &ubo.vignette_radius, 0.1f, 1.0f);
-		ImGui::SliderFloat("Vignette Smoothness", &ubo.vignette_smoothness, 0.1f, 1.0f);
-	}
 }

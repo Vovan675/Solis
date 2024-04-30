@@ -65,13 +65,13 @@ EntityRenderer::EntityRenderer(std::shared_ptr<Camera> cam, std::shared_ptr<Enti
 	layout_builder.clear();
 	layout_builder.add_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 	layout_builder.add_binding(1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-	descriptor_set_layout = layout_builder.build(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
+	descriptor_layout = layout_builder.build(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
 
 	// Create descriptor set
 	image_descriptor_sets.resize(MAX_FRAMES_IN_FLIGHT);
 	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
-		image_descriptor_sets[i] = VkWrapper::global_descriptor_allocator->allocate(descriptor_set_layout);
+		image_descriptor_sets[i] = VkWrapper::global_descriptor_allocator->allocate(descriptor_layout.layout);
 	}
 
 	// Update descriptor set
@@ -83,54 +83,52 @@ EntityRenderer::EntityRenderer(std::shared_ptr<Camera> cam, std::shared_ptr<Enti
 		writer.updateSet(image_descriptor_sets[i]);
 	}
 
-	recreatePipeline();
+	reloadShaders();
 }
 
 EntityRenderer::~EntityRenderer()
 {
-	vkDestroyDescriptorSetLayout(VkWrapper::device->logicalHandle, descriptor_set_layout, nullptr);
+	vkDestroyDescriptorSetLayout(VkWrapper::device->logicalHandle, descriptor_layout.layout, nullptr);
 }
 
-void EntityRenderer::recreatePipeline()
+void EntityRenderer::reloadShaders()
 {
-	// Create pipeline
-	auto vertShader = std::make_shared<Shader>(VkWrapper::device->logicalHandle, "shaders/opaque.vert", Shader::VERTEX_SHADER);
-	auto fragShader = std::make_shared<Shader>(VkWrapper::device->logicalHandle, "shaders/opaque.frag", Shader::FRAGMENT_SHADER);
-
-	PipelineDescription description{};
-	description.vertex_shader = vertShader;
-	description.fragment_shader = fragShader;
-
-	description.descriptor_set_layout = descriptor_set_layout;
-	description.color_formats = {VkWrapper::swapchain->surface_format.format, VK_FORMAT_R16G16B16A16_SFLOAT, VK_FORMAT_R16G16B16A16_SFLOAT, VK_FORMAT_R8G8B8A8_UNORM};
-	description.use_blending = false;
-
-	VkPushConstantRange push_constant_range{};
-	push_constant_range.offset = 0;
-	push_constant_range.size = sizeof(PushConstant);
-	push_constant_range.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-	description.push_constant_ranges = {push_constant_range};
-
-	pipeline = std::make_shared<Pipeline>();
-	pipeline->create(description);
+	vertex_shader = std::make_shared<Shader>(VkWrapper::device->logicalHandle, "shaders/opaque.vert", Shader::VERTEX_SHADER);
+	fragment_shader = std::make_shared<Shader>(VkWrapper::device->logicalHandle, "shaders/opaque.frag", Shader::FRAGMENT_SHADER);
 }
 
 void EntityRenderer::fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index)
 {
-	vkCmdBindPipeline(command_buffer.get_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);
+	auto &p = VkWrapper::global_pipeline;
+	p->reset();
+
+	p->setVertexShader(vertex_shader);
+	p->setFragmentShader(fragment_shader);
+
+	p->setRenderTargets(VkWrapper::current_render_targets, nullptr);
+	p->setUseBlending(false);
+	p->setPushConstantRanges({{VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstant)}});
+
+	p->setDescriptorLayout(descriptor_layout);
+
+	p->flush();
+	p->bind(command_buffer);
 
 	// Bindless
-	vkCmdBindDescriptorSets(command_buffer.get_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline_layout, 1, 1, BindlessResources::getDescriptorSet(), 0, nullptr);
+	vkCmdBindDescriptorSets(command_buffer.get_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, p->getPipelineLayout(), 1, 1, BindlessResources::getDescriptorSet(), 0, nullptr);
 
 	// Uniforms
-	vkCmdBindDescriptorSets(command_buffer.get_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline_layout, 0, 1, &image_descriptor_sets[image_index], 0, nullptr);
+	vkCmdBindDescriptorSets(command_buffer.get_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, p->getPipelineLayout(), 0, 1, &image_descriptor_sets[image_index], 0, nullptr);
 
 	// Render entity
 	renderEntity(command_buffer, entity.get());
+
+	p->unbind(command_buffer);
 }
 
 void EntityRenderer::renderEntity(CommandBuffer &command_buffer, Entity *entity)
 {
+	auto &p = VkWrapper::global_pipeline;
 	// Render all meshes of this entity
 	// TODO: Set materials
 	for (auto mesh : entity->meshes)
@@ -138,7 +136,7 @@ void EntityRenderer::renderEntity(CommandBuffer &command_buffer, Entity *entity)
 		// Push constant
 		PushConstant push_constant;
 		push_constant.model = entity->transform.model_matrix;
-		vkCmdPushConstants(command_buffer.get_buffer(), pipeline->pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PushConstant), &push_constant);
+		vkCmdPushConstants(command_buffer.get_buffer(), p->getPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PushConstant), &push_constant);
 		
 		// Render mesh
 		VkBuffer vertexBuffers[] = {mesh->vertexBuffer->bufferHandle};

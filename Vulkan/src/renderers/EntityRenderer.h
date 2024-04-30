@@ -16,7 +16,7 @@ public:
 	EntityRenderer(std::shared_ptr<Camera> cam, std::shared_ptr<Entity> mesh);
 	virtual ~EntityRenderer();
 
-	void recreatePipeline();
+	void reloadShaders() override;
 
 	void fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index) override;
 	void renderEntity(CommandBuffer &command_buffer, Entity *entity);
@@ -32,9 +32,11 @@ public:
 	void setMaterial(Material mat) { this->mat = mat; }
 	void updateUniformBuffer(uint32_t image_index) override;
 private:
-	VkDescriptorSetLayout descriptor_set_layout;
+	DescriptorLayout descriptor_layout;
 
-	std::shared_ptr<Pipeline> pipeline;
+	std::shared_ptr<Shader> vertex_shader;
+	std::shared_ptr<Shader> fragment_shader;
+
 	std::vector<VkDescriptorSet> image_descriptor_sets;
 	std::vector<std::shared_ptr<Buffer>> image_uniform_buffers;
 	std::vector<void *> image_uniform_buffers_mapped;

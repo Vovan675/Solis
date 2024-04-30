@@ -2,6 +2,12 @@
 #include "Device.h"
 #include <deque>
 
+struct DescriptorLayout
+{
+    VkDescriptorSetLayout layout;
+    size_t hash;
+};
+
 struct DescriptorLayoutBuilder
 {
     std::vector<VkDescriptorSetLayoutBinding> bindings;
@@ -9,7 +15,7 @@ struct DescriptorLayoutBuilder
     void add_binding(uint32_t binding, VkDescriptorType type, uint32_t count = 1);
     void clear();
 
-    VkDescriptorSetLayout build(VkShaderStageFlags stages, const void *pNext = nullptr, VkDescriptorSetLayoutCreateFlags flags = 0);
+    DescriptorLayout build(VkShaderStageFlags stages, const void *pNext = nullptr, VkDescriptorSetLayoutCreateFlags flags = 0);
 };
 
 // Manages allocation of descriptor sets

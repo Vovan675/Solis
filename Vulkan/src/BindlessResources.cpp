@@ -4,7 +4,7 @@
 
 std::shared_ptr<Texture> BindlessResources::invalid_texture;
 
-VkDescriptorSetLayout BindlessResources::bindless_layout;
+DescriptorLayout BindlessResources::bindless_layout;
 VkDescriptorPool BindlessResources::bindless_pool;
 VkDescriptorSet BindlessResources::bindless_set;
 
@@ -57,7 +57,7 @@ void BindlessResources::init()
 	bindless_alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
 	bindless_alloc_info.descriptorPool = bindless_pool;
 	bindless_alloc_info.descriptorSetCount = 1;
-	bindless_alloc_info.pSetLayouts = &bindless_layout;
+	bindless_alloc_info.pSetLayouts = &bindless_layout.layout;
 
 	VkDescriptorSetVariableDescriptorCountAllocateInfo count_info{};
 	count_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO_EXT;
@@ -75,7 +75,7 @@ void BindlessResources::cleanup()
 	invalid_texture = nullptr;
 	// Descriptor sets will implicitly free
 	vkDestroyDescriptorPool(VkWrapper::device->logicalHandle, bindless_pool, nullptr);
-	vkDestroyDescriptorSetLayout(VkWrapper::device->logicalHandle, bindless_layout, nullptr);
+	vkDestroyDescriptorSetLayout(VkWrapper::device->logicalHandle, bindless_layout.layout, nullptr);
 }
 
 void BindlessResources::setTexture(uint32_t index, Texture *texture)

@@ -13,6 +13,9 @@ public:
 
 	virtual void recreatePipeline() {}
 
+	// TODO: make it global
+	virtual void reloadShaders() {}
+
 	// Add commands to command buffer
 	virtual void fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index) {}
 

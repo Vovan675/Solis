@@ -27,7 +27,7 @@ public:
 	MeshRenderer(std::shared_ptr<Camera> cam, std::shared_ptr<Engine::Mesh> mesh);
 	virtual ~MeshRenderer();
 
-	void recreatePipeline() override;
+	void reloadShaders() override;
 
 	void fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index) override;
 
@@ -36,13 +36,29 @@ public:
 	void setScale(glm::vec3 scale) { this->scale = scale; }
 	void setMaterial(Material mat) { this->mat = mat; }
 	void updateUniformBuffer(uint32_t image_index) override;
-private:
-	VkDescriptorSetLayout descriptor_set_layout;
 
-	std::shared_ptr<Pipeline> pipeline;
-	std::vector<VkDescriptorSet> image_descriptor_sets;
-	std::vector<std::shared_ptr<Buffer>> image_uniform_buffers;
-	std::vector<void *> image_uniform_buffers_mapped;
+private:
+	// TODO: move to Renderer::setDefaultResources
+	struct UniformBufferObject
+	{
+		alignas(16) glm::mat4 view;
+		alignas(16) glm::mat4 proj;
+		alignas(16) glm::vec3 camera_position;
+	};
+
+	struct PushConstant
+	{
+		alignas(16) glm::mat4 model;
+	};
+
+	DescriptorLayout descriptor_layout;
+
+	std::shared_ptr<Shader> vertex_shader;
+	std::shared_ptr<Shader> fragment_shader;
+
+	std::vector<VkDescriptorSet> descriptor_sets;
+	std::vector<std::shared_ptr<Buffer>> uniform_buffers;
+	std::vector<void *> uniform_buffers_mapped;
 
 	std::vector<std::shared_ptr<Buffer>> material_uniform_buffers;
 	std::vector<void *> material_uniform_buffers_mapped;

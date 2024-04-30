@@ -18,7 +18,7 @@
 #include "renderers/DefferedLightingRenderer.h"
 #include "renderers/DefferedCompositeRenderer.h"
 #include "renderers/PostProcessingRenderer.h"
-#include "renderers/QuadRenderer.h"
+#include "renderers/DebugRenderer.h"
 #include "VulkanApp.h"
 
 class Application : public VulkanApp
@@ -26,6 +26,7 @@ class Application : public VulkanApp
 public:
 	Application();
 protected:
+	void createRenderTargets();
 	void update(float delta_time) override;
 	void updateBuffers(float delta_time, uint32_t image_index) override;
 	void recordCommands(CommandBuffer &command_buffer, uint32_t image_index) override;
@@ -41,20 +42,9 @@ private:
 	bool debug_rendering = false;
 	bool is_first_frame = true;
 
-	std::shared_ptr<Texture> gbuffer_depth_stencil;
-	std::shared_ptr<Texture> gbuffer_albedo;
-	std::shared_ptr<Texture> gbuffer_normal;
-	std::shared_ptr<Texture> gbuffer_position; // TODO: reconstruct position from depth buffer
-	std::shared_ptr<Texture> gbuffer_shading; // R - metalness, G - roughness, B - specular, A - ?
-
-	std::shared_ptr<Texture> lighting_diffuse;
-	std::shared_ptr<Texture> lighting_specular;
-	std::shared_ptr<Texture> composite_final;
-	
 	std::shared_ptr<Texture> ibl_irradiance;
 	std::shared_ptr<Texture> ibl_prefilter;
 	std::shared_ptr<Texture> ibl_brdf_lut;
-
 
 	std::shared_ptr<LutRenderer> lut_renderer;
 	std::shared_ptr<IrradianceRenderer> irradiance_renderer;
@@ -66,7 +56,7 @@ private:
 	std::shared_ptr<DefferedLightingRenderer> defferred_lighting_renderer;
 	std::shared_ptr<DefferedCompositeRenderer> deffered_composite_renderer;
 	std::shared_ptr<PostProcessingRenderer> post_renderer;
-	std::shared_ptr<QuadRenderer> quad_renderer;
+	std::shared_ptr<DebugRenderer> debug_renderer;
 	std::shared_ptr<ImGuiRenderer> imgui_renderer;
 
 	std::vector<std::shared_ptr<RendererBase>> renderers;

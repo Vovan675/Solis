@@ -12,15 +12,15 @@ public:
 	LutRenderer();
 	virtual ~LutRenderer();
 
-	void recreatePipeline();
+	void reloadShaders() override;
 
 	void fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index) override;
 	void updateUniformBuffer(uint32_t image_index) override;
 
 private:
-	VkDescriptorSetLayout descriptor_set_layout;
-	VkDescriptorPool descriptor_pool;
+	DescriptorLayout descriptor_layout;
 
-	std::shared_ptr<Pipeline> pipeline;
+	std::shared_ptr<Shader> vertex_shader;
+	std::shared_ptr<Shader> fragment_shader;
 };
 

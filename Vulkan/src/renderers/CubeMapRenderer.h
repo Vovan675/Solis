@@ -12,19 +12,28 @@ public:
 	CubeMapRenderer(std::shared_ptr<Camera> cam);
 	virtual ~CubeMapRenderer();
 
-	void recreatePipeline();
+	void reloadShaders() override;
 
 	void fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index) override;
 	void updateUniformBuffer(uint32_t image_index) override;
 	std::shared_ptr<Texture> cube_texture;
 private:
-	VkDescriptorSetLayout descriptor_set_layout;
-	VkDescriptorPool descriptor_pool;
+	// TODO: move to Renderer::setDefaultResources
+	struct UniformBufferObject
+	{
+		alignas(16) glm::mat4 view;
+		alignas(16) glm::mat4 proj;
+		alignas(16) glm::vec3 camera_position;
+	};
 
-	std::shared_ptr<Pipeline> pipeline;
-	std::vector<VkDescriptorSet> image_descriptor_sets;
-	std::vector<std::shared_ptr<Buffer>> image_uniform_buffers;
-	std::vector<void *> image_uniform_buffers_mapped;
+	DescriptorLayout descriptor_layout;
+
+	std::shared_ptr<Shader> vertex_shader;
+	std::shared_ptr<Shader> fragment_shader;
+
+	std::vector<VkDescriptorSet> descriptor_sets;
+	std::vector<std::shared_ptr<Buffer>> uniform_buffers;
+	std::vector<void *> uniform_buffers_mapped;
 
 	std::shared_ptr<Engine::Mesh> mesh;
 

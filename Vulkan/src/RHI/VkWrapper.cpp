@@ -2,6 +2,7 @@
 #define VMA_IMPLEMENTATION
 #include "VkWrapper.h"
 #include "BindlessResources.h"
+#include "Rendering/Renderer.h"
 
 VkInstance VkWrapper::instance;
 std::shared_ptr<Device> VkWrapper::device;
@@ -9,6 +10,8 @@ VmaAllocator VkWrapper::allocator;
 std::vector<CommandBuffer> VkWrapper::command_buffers;
 std::shared_ptr<Swapchain> VkWrapper::swapchain;
 std::shared_ptr<DescriptorAllocator> VkWrapper::global_descriptor_allocator;
+std::shared_ptr<GlobalPipeline> VkWrapper::global_pipeline;
+std::vector<std::shared_ptr<Texture>> VkWrapper::current_render_targets = {};
 
 namespace 
 {
@@ -35,7 +38,10 @@ void VkWrapper::init(GLFWwindow *window)
 	swapchain->create(width, height);
 
 	global_descriptor_allocator = std::make_shared<DescriptorAllocator>();
+	global_pipeline = std::make_shared<GlobalPipeline>();
 	BindlessResources::init();
+
+	Renderer::init();
 }
 
 void VkWrapper::cleanup()
@@ -199,11 +205,14 @@ void VkWrapper::cmdBeginRendering(CommandBuffer &command_buffer, const std::vect
 	scissor.offset = {0, 0};
 	scissor.extent = extent;
 	vkCmdSetScissor(command_buffer.get_buffer(), 0, 1, &scissor);
+
+	current_render_targets = color_attachments;
 }
 
 void VkWrapper::cmdEndRendering(CommandBuffer &command_buffer)
 {
 	vkCmdEndRendering(command_buffer.get_buffer());
+	current_render_targets.clear();
 }
 
 void VkWrapper::init_instance()

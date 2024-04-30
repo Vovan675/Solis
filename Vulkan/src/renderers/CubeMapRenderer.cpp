@@ -2,12 +2,6 @@
 #include "CubeMapRenderer.h"
 #include "BindlessResources.h"
 
-static struct UniformBufferObject
-{
-	alignas(16) glm::mat4 view;
-	alignas(16) glm::mat4 proj;
-};
-
 CubeMapRenderer::CubeMapRenderer(std::shared_ptr<Camera> cam): RendererBase()
 {
 	camera = cam;
@@ -29,8 +23,8 @@ CubeMapRenderer::CubeMapRenderer(std::shared_ptr<Camera> cam): RendererBase()
 	// Create uniform buffers
 	VkDeviceSize bufferSize = sizeof(UniformBufferObject);
 
-	image_uniform_buffers.resize(MAX_FRAMES_IN_FLIGHT);
-	image_uniform_buffers_mapped.resize(MAX_FRAMES_IN_FLIGHT);
+	uniform_buffers.resize(MAX_FRAMES_IN_FLIGHT);
+	uniform_buffers_mapped.resize(MAX_FRAMES_IN_FLIGHT);
 
 	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
@@ -39,10 +33,10 @@ CubeMapRenderer::CubeMapRenderer(std::shared_ptr<Camera> cam): RendererBase()
 		desc.useStagingBuffer = false;
 		desc.bufferUsageFlags = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
 
-		image_uniform_buffers[i] = std::make_shared<Buffer>(desc);
+		uniform_buffers[i] = std::make_shared<Buffer>(desc);
 
 		// Map gpu memory on cpu memory
-		image_uniform_buffers[i]->map(&image_uniform_buffers_mapped[i]);
+		uniform_buffers[i]->map(&uniform_buffers_mapped[i]);
 	}
 
 	// Create descriptor set layout
@@ -50,61 +44,60 @@ CubeMapRenderer::CubeMapRenderer(std::shared_ptr<Camera> cam): RendererBase()
 	layout_builder.clear();
 	layout_builder.add_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 	layout_builder.add_binding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-	descriptor_set_layout = layout_builder.build(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
+	descriptor_layout = layout_builder.build(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
 
 	// Create descriptor set
-	image_descriptor_sets.resize(MAX_FRAMES_IN_FLIGHT);
+	descriptor_sets.resize(MAX_FRAMES_IN_FLIGHT);
 	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
-		image_descriptor_sets[i] = VkWrapper::global_descriptor_allocator->allocate(descriptor_set_layout);
+		descriptor_sets[i] = VkWrapper::global_descriptor_allocator->allocate(descriptor_layout.layout);
 	}
 
 	// Update descriptor set
 	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
 		DescriptorWriter writer;
-		writer.writeBuffer(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, image_uniform_buffers[i]->bufferHandle, sizeof(UniformBufferObject));
+		writer.writeBuffer(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, uniform_buffers[i]->bufferHandle, sizeof(UniformBufferObject));
 		writer.writeImage(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, cube_texture->getImageView(), cube_texture->sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
-		writer.updateSet(image_descriptor_sets[i]);
+		writer.updateSet(descriptor_sets[i]);
 	}
 
-	recreatePipeline();
+	reloadShaders();
 }
 
 CubeMapRenderer::~CubeMapRenderer()
 {
-	vkDestroyDescriptorSetLayout(VkWrapper::device->logicalHandle, descriptor_set_layout, nullptr);
+	vkDestroyDescriptorSetLayout(VkWrapper::device->logicalHandle, descriptor_layout.layout, nullptr);
 }
 
-void CubeMapRenderer::recreatePipeline()
+void CubeMapRenderer::reloadShaders()
 {
-	// Create pipeline
-	auto vertShader = std::make_shared<Shader>(VkWrapper::device->logicalHandle, "shaders/cube.vert", Shader::VERTEX_SHADER);
-	auto fragShader = std::make_shared<Shader>(VkWrapper::device->logicalHandle, "shaders/cube.frag", Shader::FRAGMENT_SHADER);
-
-	PipelineDescription description{};
-	description.vertex_shader = vertShader;
-	description.fragment_shader = fragShader;
-
-	description.descriptor_set_layout = descriptor_set_layout;
-	description.color_formats = {VkWrapper::swapchain->surface_format.format};
-
-	description.cull_mode = VK_CULL_MODE_FRONT_BIT;
-
-	pipeline = std::make_shared<Pipeline>();
-	pipeline->create(description);
+	vertex_shader = std::make_shared<Shader>(VkWrapper::device->logicalHandle, "shaders/cube.vert", Shader::VERTEX_SHADER);
+	fragment_shader = std::make_shared<Shader>(VkWrapper::device->logicalHandle, "shaders/cube.frag", Shader::FRAGMENT_SHADER);
 }
 
 void CubeMapRenderer::fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index)
 {
-	vkCmdBindPipeline(command_buffer.get_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);
+	auto &p = VkWrapper::global_pipeline;
+	p->reset();
+
+	p->setVertexShader(vertex_shader);
+	p->setFragmentShader(fragment_shader);
+
+	p->setRenderTargets(VkWrapper::current_render_targets, nullptr);
+	p->setCullMode(VK_CULL_MODE_FRONT_BIT);
+
+	p->setDescriptorLayout(descriptor_layout);
+
+	p->flush();
+	p->bind(command_buffer);
 
 	// Bindless
-	vkCmdBindDescriptorSets(command_buffer.get_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline_layout, 1, 1, BindlessResources::getDescriptorSet(), 0, nullptr);
+	vkCmdBindDescriptorSets(command_buffer.get_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, p->getPipelineLayout(), 1, 1, BindlessResources::getDescriptorSet(), 0, nullptr);
 
 	// Uniforms
-	vkCmdBindDescriptorSets(command_buffer.get_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline_layout, 0, 1, &image_descriptor_sets[image_index], 0, nullptr);
+	vkCmdBindDescriptorSets(command_buffer.get_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, p->getPipelineLayout(), 0, 1, &descriptor_sets[image_index], 0, nullptr);
 
 	// Render mesh
 	VkBuffer vertexBuffers[] = {mesh->vertexBuffer->bufferHandle};
@@ -112,6 +105,7 @@ void CubeMapRenderer::fillCommandBuffer(CommandBuffer &command_buffer, uint32_t 
 	vkCmdBindVertexBuffers(command_buffer.get_buffer(), 0, 1, vertexBuffers, offsets);
 	vkCmdBindIndexBuffer(command_buffer.get_buffer(), mesh->indexBuffer->bufferHandle, 0, VK_INDEX_TYPE_UINT32);
 	vkCmdDrawIndexed(command_buffer.get_buffer(), mesh->indices.size(), 1, 0, 0, 0);
+	p->unbind(command_buffer);
 }
 
 void CubeMapRenderer::updateUniformBuffer(uint32_t image_index)
@@ -123,11 +117,12 @@ void CubeMapRenderer::updateUniformBuffer(uint32_t image_index)
 	UniformBufferObject ubo{};
 	ubo.view = camera->getView();
 	ubo.proj = camera->getProj();
-	memcpy(image_uniform_buffers_mapped[image_index], &ubo, sizeof(ubo));
+	ubo.camera_position = camera->getPosition();
+	memcpy(uniform_buffers_mapped[image_index], &ubo, sizeof(ubo));
 
 	// Update descriptor set
 	DescriptorWriter writer;
 	writer.writeImage(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, cube_texture->getImageView(), cube_texture->sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
-	writer.updateSet(image_descriptor_sets[image_index]);
+	writer.updateSet(descriptor_sets[image_index]);
 }

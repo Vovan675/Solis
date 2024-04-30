@@ -39,13 +39,13 @@ PrefilterRenderer::PrefilterRenderer(): RendererBase()
 	layout_builder.clear();
 	layout_builder.add_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 	layout_builder.add_binding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-	descriptor_set_layout = layout_builder.build(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
+	descriptor_layout = layout_builder.build(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
 
 	// Create descriptor set
 	image_descriptor_sets.resize(MAX_FRAMES_IN_FLIGHT);
 	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
-		image_descriptor_sets[i] = VkWrapper::global_descriptor_allocator->allocate(descriptor_set_layout);
+		image_descriptor_sets[i] = VkWrapper::global_descriptor_allocator->allocate(descriptor_layout.layout);
 	}
 
 	// Update descriptor set
@@ -58,56 +58,46 @@ PrefilterRenderer::PrefilterRenderer(): RendererBase()
 		writer.updateSet(image_descriptor_sets[i]);
 	}
 
-	recreatePipeline();
+	reloadShaders();
 }
 
 PrefilterRenderer::~PrefilterRenderer()
 {
-	vkDestroyDescriptorSetLayout(VkWrapper::device->logicalHandle, descriptor_set_layout, nullptr);
+	vkDestroyDescriptorSetLayout(VkWrapper::device->logicalHandle, descriptor_layout.layout, nullptr);
 }
 
-void PrefilterRenderer::recreatePipeline()
+void PrefilterRenderer::reloadShaders()
 {
-	// Create pipeline
-	auto vertShader = std::make_shared<Shader>(VkWrapper::device->logicalHandle, "shaders/ibl/cubemap_filter.vert", Shader::VERTEX_SHADER);
-	auto fragShader = std::make_shared<Shader>(VkWrapper::device->logicalHandle, "shaders/ibl/prefilter.frag", Shader::FRAGMENT_SHADER);
-
-	PipelineDescription description{};
-	description.vertex_shader = vertShader;
-	description.fragment_shader = fragShader;
-
-	VkPushConstantRange push_constant_range_vert{};
-	push_constant_range_vert.offset = 0;
-	push_constant_range_vert.size = sizeof(PushConstantVert);
-	push_constant_range_vert.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-
-	VkPushConstantRange push_constant_range_frag{};
-	push_constant_range_frag.offset = sizeof(PushConstantVert);
-	push_constant_range_frag.size = sizeof(PushConstantFrag);
-	push_constant_range_frag.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-	description.push_constant_ranges = {push_constant_range_vert, push_constant_range_frag};
-
-	description.descriptor_set_layout = descriptor_set_layout;
-	description.color_formats = {VkWrapper::swapchain->surface_format.format};
-
-	description.cull_mode = VK_CULL_MODE_BACK_BIT;
-
-	pipeline = std::make_shared<Pipeline>();
-	pipeline->create(description);
+	vertex_shader = std::make_shared<Shader>(VkWrapper::device->logicalHandle, "shaders/ibl/cubemap_filter.vert", Shader::VERTEX_SHADER);
+	fragment_shader = std::make_shared<Shader>(VkWrapper::device->logicalHandle, "shaders/ibl/prefilter.frag", Shader::FRAGMENT_SHADER);
 }
 
 void PrefilterRenderer::fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index)
 {
-	vkCmdBindPipeline(command_buffer.get_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);
+	auto &p = VkWrapper::global_pipeline;
+	p->reset();
+
+	p->setVertexShader(vertex_shader);
+	p->setFragmentShader(fragment_shader);
+
+	p->setRenderTargets(VkWrapper::current_render_targets, nullptr);
+	p->setCullMode(VK_CULL_MODE_BACK_BIT);
+	p->setPushConstantRanges({{VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PushConstantVert)},
+							 {VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(PushConstantVert), sizeof(PushConstantFrag)}});
+
+	p->setDescriptorLayout(descriptor_layout);
+
+	p->flush();
+	p->bind(command_buffer);
 
 	// Bindless
-	vkCmdBindDescriptorSets(command_buffer.get_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline_layout, 1, 1, BindlessResources::getDescriptorSet(), 0, nullptr);
+	vkCmdBindDescriptorSets(command_buffer.get_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, p->getPipelineLayout(), 1, 1, BindlessResources::getDescriptorSet(), 0, nullptr);
 
 	// Uniforms
-	vkCmdBindDescriptorSets(command_buffer.get_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline_layout, 0, 1, &image_descriptor_sets[image_index], 0, nullptr);
+	vkCmdBindDescriptorSets(command_buffer.get_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, p->getPipelineLayout(), 0, 1, &image_descriptor_sets[image_index], 0, nullptr);
 
-	vkCmdPushConstants(command_buffer.get_buffer(), pipeline->pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PushConstantVert), &constants_vert);
-	vkCmdPushConstants(command_buffer.get_buffer(), pipeline->pipeline_layout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(PushConstantVert), sizeof(PushConstantFrag), &constants_frag);
+	vkCmdPushConstants(command_buffer.get_buffer(), p->getPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PushConstantVert), &constants_vert);
+	vkCmdPushConstants(command_buffer.get_buffer(), p->getPipelineLayout(), VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(PushConstantVert), sizeof(PushConstantFrag), &constants_frag);
 
 	// Render mesh
 	VkBuffer vertexBuffers[] = {mesh->vertexBuffer->bufferHandle};
@@ -115,6 +105,8 @@ void PrefilterRenderer::fillCommandBuffer(CommandBuffer &command_buffer, uint32_
 	vkCmdBindVertexBuffers(command_buffer.get_buffer(), 0, 1, vertexBuffers, offsets);
 	vkCmdBindIndexBuffer(command_buffer.get_buffer(), mesh->indexBuffer->bufferHandle, 0, VK_INDEX_TYPE_UINT32);
 	vkCmdDrawIndexed(command_buffer.get_buffer(), mesh->indices.size(), 1, 0, 0, 0);
+
+	p->unbind(command_buffer);
 }
 
 void PrefilterRenderer::updateUniformBuffer(uint32_t image_index)

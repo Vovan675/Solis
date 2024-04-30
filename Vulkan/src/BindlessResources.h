@@ -8,7 +8,7 @@ public:
 	static void init();
 	static void cleanup();
 
-	static const VkDescriptorSetLayout *getDescriptorLayout() { return &bindless_layout; }
+	static const VkDescriptorSetLayout *getDescriptorLayout() { return &bindless_layout.layout; }
 	static const VkDescriptorSet *getDescriptorSet() { return &bindless_set; }
 
 	static void setTexture(uint32_t index, Texture *texture);
@@ -22,7 +22,7 @@ private:
 private:
 	static std::shared_ptr<Texture> invalid_texture;
 
-	static VkDescriptorSetLayout bindless_layout;
+	static DescriptorLayout bindless_layout;
 	static VkDescriptorPool bindless_pool;
 	static VkDescriptorSet bindless_set;
 

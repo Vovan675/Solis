@@ -30,7 +30,7 @@ public:
 		// Get rows for directions
 		glm::vec3 forward = glm::rotate(orientation, glm::vec3(0, 0, 1));
 		glm::vec3 right = glm::rotate(orientation, glm::vec3(-1, 0, 0));
-		glm::vec3 up = glm::rotate(orientation, glm::vec3(0, 1, 0));
+		glm::vec3 up = glm::rotate(orientation, glm::vec3(0, -1, 0));
 
 		glm::vec3 movement = glm::vec3(0, 0, 0);
 		if (inputs.forward)
@@ -41,6 +41,13 @@ public:
 			movement -= right;
 		if (inputs.right)
 			movement += right;
+		if (inputs.up)
+			movement += up;
+		if (inputs.down)
+			movement -= up;
+		
+		if (inputs.sprint)
+			movement *= 2.0f;
 
 		movement *= dt * 3.0;
 		position += movement;
@@ -65,6 +72,9 @@ public:
 		bool backward = false;
 		bool left = false;
 		bool right = false;
+		bool up = false;
+		bool down = false;
+		bool sprint = false;
 	} inputs;
 
 private:

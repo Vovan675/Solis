@@ -26,6 +26,7 @@ void Pipeline::cleanup()
 void Pipeline::create(const PipelineDescription &description)
 {
 	cleanup();
+	hash = description.getHash();
 
 	// Shaders state
 	VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
@@ -141,9 +142,9 @@ void Pipeline::create(const PipelineDescription &description)
 
 	// Pipeline layout state (aka uniform values)
 	std::vector<VkDescriptorSetLayout> descriptor_set_layouts;
-	if (description.descriptor_set_layout)
+	if (description.descriptor_layout.layout)
 	{
-		descriptor_set_layouts.push_back(description.descriptor_set_layout); // One descriptor set should be enough
+		descriptor_set_layouts.push_back(description.descriptor_layout.layout); // One descriptor set should be enough
 	}
 	descriptor_set_layouts.push_back(*BindlessResources::getDescriptorLayout()); // Add bindless layout to every pipeline
 

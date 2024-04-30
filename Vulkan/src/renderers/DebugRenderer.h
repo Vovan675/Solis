@@ -7,7 +7,7 @@
 #include "RHI/Descriptors.h"
 
 
-class QuadRenderer : public RendererBase
+class DebugRenderer : public RendererBase
 {
 public:
 	struct PresentUBO
@@ -21,19 +21,21 @@ public:
 		uint32_t brdf_lut_id = 0;
 	} ubo;
 
-	QuadRenderer();
-	virtual ~QuadRenderer();
+	DebugRenderer();
+	virtual ~DebugRenderer();
 
-	void recreatePipeline();
+	void reloadShaders() override;
 
 	void fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index) override;
 
 	void updateUniformBuffer(uint32_t image_index) override;
 
 private:
-	std::shared_ptr<Pipeline> pipeline;
+	DescriptorLayout descriptor_layout;
 
-	VkDescriptorSetLayout descriptor_set_layout;
+	std::shared_ptr<Shader> vertex_shader;
+	std::shared_ptr<Shader> fragment_shader;
+
 	std::vector<VkDescriptorSet> descriptor_sets;
 
 	std::vector<std::shared_ptr<Buffer>> uniform_buffers;
