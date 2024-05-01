@@ -68,6 +68,7 @@ project "Vulkan"
 		"GLFW",
 		"%{LibDir.Vulkan}/vulkan-1.lib",
 		"%{LibDir.Vulkan}/shaderc_shared.lib",
+		"%{LibDir.Vulkan}/spirv-cross-c-shared.lib",
 		"Assimp",
 		"ImGui"
 	}

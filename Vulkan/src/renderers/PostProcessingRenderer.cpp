@@ -55,8 +55,8 @@ PostProcessingRenderer::~PostProcessingRenderer()
 
 void PostProcessingRenderer::reloadShaders()
 {
-	vertex_shader = std::make_shared<Shader>(VkWrapper::device->logicalHandle, "shaders/quad.vert", Shader::VERTEX_SHADER);
-	fragment_shader = std::make_shared<Shader>(VkWrapper::device->logicalHandle, "shaders/post_processing.frag", Shader::FRAGMENT_SHADER);
+	vertex_shader = std::make_shared<Shader>("shaders/quad.vert", Shader::VERTEX_SHADER);
+	fragment_shader = std::make_shared<Shader>("shaders/post_processing.frag", Shader::FRAGMENT_SHADER);
 }
 
 void PostProcessingRenderer::fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index)

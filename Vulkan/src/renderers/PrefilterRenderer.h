@@ -39,8 +39,8 @@ private:
 	std::shared_ptr<Shader> vertex_shader;
 	std::shared_ptr<Shader> fragment_shader;
 
-	std::vector<VkDescriptorSet> image_descriptor_sets;
-	std::vector<std::shared_ptr<Buffer>> image_uniform_buffers;
+	std::vector<VkDescriptorSet> descriptor_sets;
+	std::vector<std::shared_ptr<Buffer>> uniform_buffers;
 	std::vector<void *> image_uniform_buffers_mapped;
 
 	std::shared_ptr<Engine::Mesh> mesh;

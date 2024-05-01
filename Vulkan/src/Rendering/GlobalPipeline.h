@@ -21,7 +21,6 @@ public:
 
 	void setCullMode(VkCullModeFlagBits cull_mode) { current_description.cull_mode = cull_mode; }
 
-	void setPushConstantRanges(std::vector<VkPushConstantRange> ranges) { current_description.push_constant_ranges = ranges; }
 	void setDescriptorLayout(DescriptorLayout layout) { current_description.descriptor_layout = layout; }
 	void setColorFormats(std::vector<VkFormat> color_formats) { current_description.color_formats = color_formats; }
 	void setRenderTargets(std::vector<std::shared_ptr<Texture>> color_attachments, std::shared_ptr<Texture> depth_attachment)
@@ -38,6 +37,9 @@ public:
 	void unbind(const CommandBuffer& command_buffer);
 
 	VkPipelineLayout getPipelineLayout() const { return current_pipeline->pipeline_layout; }
+private:
+	void setupPushConstantRanges();
+
 private:
 	bool is_binded = false;
 	PipelineDescription current_description;

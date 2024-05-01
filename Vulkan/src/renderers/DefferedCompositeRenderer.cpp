@@ -56,8 +56,8 @@ DefferedCompositeRenderer::~DefferedCompositeRenderer()
 
 void DefferedCompositeRenderer::reloadShaders()
 {
-	vertex_shader = std::make_shared<Shader>(VkWrapper::device->logicalHandle, "shaders/quad.vert", Shader::VERTEX_SHADER);
-	fragment_shader = std::make_shared<Shader>(VkWrapper::device->logicalHandle, "shaders/deffered_composite.frag", Shader::FRAGMENT_SHADER);
+	vertex_shader = std::make_shared<Shader>("shaders/quad.vert", Shader::VERTEX_SHADER);
+	fragment_shader = std::make_shared<Shader>("shaders/deffered_composite.frag", Shader::FRAGMENT_SHADER);
 }
 
 void DefferedCompositeRenderer::fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index)

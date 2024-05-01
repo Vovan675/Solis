@@ -28,9 +28,9 @@ struct PipelineDescription
 
 		for (const auto &range : push_constant_ranges)
 		{
+			hash_combine(hash, range.stageFlags);
 			hash_combine(hash, range.offset);
 			hash_combine(hash, range.size);
-			hash_combine(hash, range.stageFlags);
 		}
 
 		hash_combine(hash, depth_format);

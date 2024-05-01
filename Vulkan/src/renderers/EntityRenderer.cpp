@@ -93,8 +93,8 @@ EntityRenderer::~EntityRenderer()
 
 void EntityRenderer::reloadShaders()
 {
-	vertex_shader = std::make_shared<Shader>(VkWrapper::device->logicalHandle, "shaders/opaque.vert", Shader::VERTEX_SHADER);
-	fragment_shader = std::make_shared<Shader>(VkWrapper::device->logicalHandle, "shaders/opaque.frag", Shader::FRAGMENT_SHADER);
+	vertex_shader = std::make_shared<Shader>("shaders/opaque.vert", Shader::VERTEX_SHADER);
+	fragment_shader = std::make_shared<Shader>("shaders/opaque.frag", Shader::FRAGMENT_SHADER);
 }
 
 void EntityRenderer::fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index)
@@ -107,7 +107,6 @@ void EntityRenderer::fillCommandBuffer(CommandBuffer &command_buffer, uint32_t i
 
 	p->setRenderTargets(VkWrapper::current_render_targets, nullptr);
 	p->setUseBlending(false);
-	p->setPushConstantRanges({{VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstant)}});
 
 	p->setDescriptorLayout(descriptor_layout);
 

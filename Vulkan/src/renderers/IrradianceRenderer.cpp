@@ -68,8 +68,8 @@ IrradianceRenderer::~IrradianceRenderer()
 
 void IrradianceRenderer::reloadShaders()
 {
-	vertex_shader = std::make_shared<Shader>(VkWrapper::device->logicalHandle, "shaders/ibl/cubemap_filter.vert", Shader::VERTEX_SHADER);
-	fragment_shader = std::make_shared<Shader>(VkWrapper::device->logicalHandle, "shaders/ibl/irradiance.frag", Shader::FRAGMENT_SHADER);
+	vertex_shader = std::make_shared<Shader>("shaders/ibl/cubemap_filter.vert", Shader::VERTEX_SHADER);
+	fragment_shader = std::make_shared<Shader>("shaders/ibl/irradiance.frag", Shader::FRAGMENT_SHADER);
 }
 
 void IrradianceRenderer::fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index)
@@ -82,7 +82,6 @@ void IrradianceRenderer::fillCommandBuffer(CommandBuffer &command_buffer, uint32
 
 	p->setRenderTargets(VkWrapper::current_render_targets, nullptr);
 	p->setCullMode(VK_CULL_MODE_BACK_BIT);
-	p->setPushConstantRanges({{VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PushConstant)}});
 
 	p->setDescriptorLayout(descriptor_layout);
 

@@ -18,8 +18,8 @@ LutRenderer::~LutRenderer()
 
 void LutRenderer::reloadShaders()
 {
-	vertex_shader = std::make_shared<Shader>(VkWrapper::device->logicalHandle, "shaders/quad.vert", Shader::VERTEX_SHADER);
-	fragment_shader = std::make_shared<Shader>(VkWrapper::device->logicalHandle, "shaders/ibl/brdf_lut.frag", Shader::FRAGMENT_SHADER);
+	vertex_shader = std::make_shared<Shader>("shaders/quad.vert", Shader::VERTEX_SHADER);
+	fragment_shader = std::make_shared<Shader>("shaders/ibl/brdf_lut.frag", Shader::FRAGMENT_SHADER);
 }
 
 void LutRenderer::fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index)

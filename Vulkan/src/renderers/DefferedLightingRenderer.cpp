@@ -55,8 +55,8 @@ DefferedLightingRenderer::~DefferedLightingRenderer()
 
 void DefferedLightingRenderer::reloadShaders()
 {
-	vertex_shader = std::make_shared<Shader>(VkWrapper::device->logicalHandle, "shaders/quad.vert", Shader::VERTEX_SHADER);
-	fragment_shader = std::make_shared<Shader>(VkWrapper::device->logicalHandle, "shaders/deffered_lighting.frag", Shader::FRAGMENT_SHADER);
+	vertex_shader = std::make_shared<Shader>("shaders/quad.vert", Shader::VERTEX_SHADER);
+	fragment_shader = std::make_shared<Shader>("shaders/deffered_lighting.frag", Shader::FRAGMENT_SHADER);
 }
 
 void DefferedLightingRenderer::fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index)
@@ -71,7 +71,6 @@ void DefferedLightingRenderer::fillCommandBuffer(CommandBuffer &command_buffer, 
 	p->setUseVertices(false);
 	p->setUseBlending(false);
 	p->setDepthTest(false);
-	p->setPushConstantRanges({{VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstant)}});
 
 	p->setDescriptorLayout(descriptor_layout);
 

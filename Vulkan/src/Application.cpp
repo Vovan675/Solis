@@ -376,8 +376,6 @@ void Application::onSwapchainRecreated(int width, int height)
 	uint32_t composite_final_id = Renderer::getRenderTargetBindlessId(RENDER_TARGET_COMPOSITE);
 	debug_renderer->ubo.composite_final_tex_id = composite_final_id;
 	post_renderer->ubo.composite_final_tex_id = composite_final_id;
-
-	is_first_frame = true;
 }
 
 void Application::render_GBuffer(CommandBuffer &command_buffer, uint32_t image_index)
