@@ -15,11 +15,8 @@ public:
 	void reloadShaders() override;
 
 	void fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index) override;
-	void updateUniformBuffer(uint32_t image_index) override;
 
 private:
-	DescriptorLayout descriptor_layout;
-
 	std::shared_ptr<Shader> vertex_shader;
 	std::shared_ptr<Shader> fragment_shader;
 };

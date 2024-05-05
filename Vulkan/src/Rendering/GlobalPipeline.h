@@ -38,7 +38,7 @@ public:
 
 	VkPipelineLayout getPipelineLayout() const { return current_pipeline->pipeline_layout; }
 private:
-	void setupPushConstantRanges();
+	void parse_descriptors();
 
 private:
 	bool is_binded = false;

@@ -2,56 +2,15 @@
 #include "DefferedCompositeRenderer.h"
 #include "imgui.h"
 #include "BindlessResources.h"
+#include "Rendering/Renderer.h"
 
 DefferedCompositeRenderer::DefferedCompositeRenderer()
 {
-	// Create uniform buffers
-	VkDeviceSize bufferSize = sizeof(UBO);
-
-	uniform_buffers.resize(MAX_FRAMES_IN_FLIGHT);
-	uniform_buffers_mapped.resize(MAX_FRAMES_IN_FLIGHT);
-
-	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-	{
-		BufferDescription desc;
-		desc.size = bufferSize;
-		desc.useStagingBuffer = false;
-		desc.bufferUsageFlags = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-
-		uniform_buffers[i] = std::make_shared<Buffer>(desc);
-
-		// Map gpu memory on cpu memory
-		uniform_buffers[i]->map(&uniform_buffers_mapped[i]);
-	}
-
-	// Create descriptor set layout
-	DescriptorLayoutBuilder layout_builder;
-	layout_builder.clear();
-	layout_builder.add_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-	layout_builder.add_binding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-	descriptor_layout = layout_builder.build(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
-
-	// Create descriptor set
-	descriptor_sets.resize(MAX_FRAMES_IN_FLIGHT);
-	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-	{
-		descriptor_sets[i] = VkWrapper::global_descriptor_allocator->allocate(descriptor_layout.layout);
-	}
-
-	// Update descriptor set
-	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-	{
-		DescriptorWriter writer;
-		writer.writeBuffer(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, uniform_buffers[i]->bufferHandle, sizeof(UBO));
-		writer.updateSet(descriptor_sets[i]);
-	}
-
 	reloadShaders();
 }
 
 DefferedCompositeRenderer::~DefferedCompositeRenderer()
 {
-	vkDestroyDescriptorSetLayout(VkWrapper::device->logicalHandle, descriptor_layout.layout, nullptr);
 }
 
 void DefferedCompositeRenderer::reloadShaders()
@@ -71,16 +30,18 @@ void DefferedCompositeRenderer::fillCommandBuffer(CommandBuffer &command_buffer,
 	p->setRenderTargets(VkWrapper::current_render_targets, nullptr);
 
 	p->setUseVertices(false);
-	p->setDescriptorLayout(descriptor_layout);
 
 	p->flush();
 	p->bind(command_buffer);
+
+	Renderer::setShadersUniformBuffer(vertex_shader, fragment_shader, 0, &ubo, sizeof(UBO), image_index);
+	Renderer::setShadersTexture(vertex_shader, fragment_shader, 1, irradiance_cubemap, image_index);
 
 	// Bindless
 	vkCmdBindDescriptorSets(command_buffer.get_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, p->getPipelineLayout(), 1, 1, BindlessResources::getDescriptorSet(), 0, nullptr);
 
 	// Uniforms
-	vkCmdBindDescriptorSets(command_buffer.get_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, p->getPipelineLayout(), 0, 1, &descriptor_sets[image_index], 0, nullptr);
+	Renderer::bindShadersDescriptorSets(vertex_shader, fragment_shader, command_buffer, p->getPipelineLayout(), image_index);
 
 	// Render quad
 	vkCmdDraw(command_buffer.get_buffer(), 6, 1, 0, 0);
@@ -88,18 +49,6 @@ void DefferedCompositeRenderer::fillCommandBuffer(CommandBuffer &command_buffer,
 	p->unbind(command_buffer);
 }
 
-void DefferedCompositeRenderer::updateUniformBuffer(uint32_t image_index)
-{
-	memcpy(uniform_buffers_mapped[image_index], &ubo, sizeof(ubo));
-
-	// Update descriptor set
-	DescriptorWriter writer;
-	writer.writeImage(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, irradiance_cubemap->getImageView(), irradiance_cubemap->sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-
-	writer.updateSet(descriptor_sets[image_index]);
-}
-
 void DefferedCompositeRenderer::renderImgui()
 {
-	
 }

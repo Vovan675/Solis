@@ -27,17 +27,10 @@ public:
 
 	void fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index) override;
 
-	void updateUniformBuffer(uint32_t image_index) override;
 	void renderImgui();
 private:
 	std::shared_ptr<Shader> vertex_shader;
 	std::shared_ptr<Shader> fragment_shader;
-
-	DescriptorLayout descriptor_layout;
-	std::vector<VkDescriptorSet> descriptor_sets;
-
-	std::vector<std::shared_ptr<Buffer>> uniform_buffers;
-	std::vector<void *> uniform_buffers_mapped;
 
 	uint32_t preview_index = 0;
 };

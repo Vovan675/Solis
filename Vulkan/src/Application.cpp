@@ -180,6 +180,15 @@ void Application::update(float delta_time)
 			renderer->reloadShaders();
 		}
 	}
+
+	if (ImGui::TreeNode("Debug Info"))
+	{
+		auto info = Renderer::getDebugInfo();
+		ImGui::Text("descriptors_count: %u", info.descriptors_count);
+		ImGui::Text("descriptor_bindings_count: %u", info.descriptor_bindings_count);
+		ImGui::Text("descriptors_max_offset: %u", info.descriptors_max_offset);
+		ImGui::TreePop();
+	}
 	
 	ImGui::Checkbox("Debug", &debug_rendering);
 
@@ -210,7 +219,7 @@ void Application::update(float delta_time)
 
 void Application::updateBuffers(float delta_time, uint32_t image_index)
 {
-	// Update bindless resources in any
+	// Update bindless resources if any
 	BindlessResources::updateSets();
 
 	mesh_renderer->setRotation(glm::rotate(glm::quat(), glm::vec3(-glm::radians(90.0f), -glm::radians(90.0f), 0)));
@@ -222,12 +231,6 @@ void Application::updateBuffers(float delta_time, uint32_t image_index)
 	mesh_renderer2->setScale(glm::vec3(0.02f, 0.02f, 0.02f));
 
 	defferred_lighting_renderer->constants.cam_pos = glm::vec4(camera->getPosition(), 1.0f);
-
-
-	for (const auto &renderer : renderers)
-	{
-		renderer->updateUniformBuffer(image_index);
-	}
 }
 
 void Application::recordCommands(CommandBuffer &command_buffer, uint32_t image_index)

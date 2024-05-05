@@ -147,6 +147,9 @@ public:
 	static void cmdBeginRendering(CommandBuffer &command_buffer, const std::vector<std::shared_ptr<Texture>> &color_attachments, std::shared_ptr<Texture> depth_attachment, int cubemap_face = -1, int mip = 0);
 	static void cmdEndRendering(CommandBuffer &command_buffer);
 
+	static std::vector<Descriptor> getMergedDescriptors(std::shared_ptr<Shader> vertex_shader, std::shared_ptr<Shader> fragment_shader);
+	static DescriptorLayout getDescriptorLayout(std::vector<Descriptor> descriptors);
+
 private:
 	static void init_instance();
 	static void init_vma();

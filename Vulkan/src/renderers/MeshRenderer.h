@@ -35,7 +35,6 @@ public:
 	void setRotation(glm::quat rot) { rotation = rot; }
 	void setScale(glm::vec3 scale) { this->scale = scale; }
 	void setMaterial(Material mat) { this->mat = mat; }
-	void updateUniformBuffer(uint32_t image_index) override;
 
 private:
 	// TODO: move to Renderer::setDefaultResources
@@ -51,17 +50,8 @@ private:
 		alignas(16) glm::mat4 model;
 	};
 
-	DescriptorLayout descriptor_layout;
-
 	std::shared_ptr<Shader> vertex_shader;
 	std::shared_ptr<Shader> fragment_shader;
-
-	std::vector<VkDescriptorSet> descriptor_sets;
-	std::vector<std::shared_ptr<Buffer>> uniform_buffers;
-	std::vector<void *> uniform_buffers_mapped;
-
-	std::vector<std::shared_ptr<Buffer>> material_uniform_buffers;
-	std::vector<void *> material_uniform_buffers_mapped;
 
 	std::shared_ptr<Texture> texture;
 	std::shared_ptr<Engine::Mesh> mesh;

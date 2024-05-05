@@ -24,6 +24,7 @@ Buffer::Buffer(BufferDescription description)
 
 Buffer::~Buffer()
 {
+	vmaUnmapMemory(VkWrapper::allocator, allocation);
 	vkDestroyBuffer(VkWrapper::device->logicalHandle, bufferHandle, nullptr);
 	vmaFreeMemory(VkWrapper::allocator, allocation);
 }

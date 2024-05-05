@@ -96,6 +96,7 @@ void VulkanApp::run()
 		}
 		//vkQueueWaitIdle(VkWrapper::device->presentQueue);
 
+		Renderer::endFrame(image_index);
 		currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 
 		delta_seconds = prev_time - glfwGetTime();

@@ -30,19 +30,9 @@ public:
 		entity->updateTransform();
 	}
 	void setMaterial(Material mat) { this->mat = mat; }
-	void updateUniformBuffer(uint32_t image_index) override;
 private:
-	DescriptorLayout descriptor_layout;
-
 	std::shared_ptr<Shader> vertex_shader;
 	std::shared_ptr<Shader> fragment_shader;
-
-	std::vector<VkDescriptorSet> image_descriptor_sets;
-	std::vector<std::shared_ptr<Buffer>> image_uniform_buffers;
-	std::vector<void *> image_uniform_buffers_mapped;
-
-	std::vector<std::shared_ptr<Buffer>> material_uniform_buffers;
-	std::vector<void *> material_uniform_buffers_mapped;
 
 	std::shared_ptr<Texture> texture;
 	std::shared_ptr<Entity> entity;

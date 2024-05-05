@@ -215,6 +215,62 @@ void VkWrapper::cmdEndRendering(CommandBuffer &command_buffer)
 	current_render_targets.clear();
 }
 
+std::vector<Descriptor> VkWrapper::getMergedDescriptors(std::shared_ptr<Shader> vertex_shader, std::shared_ptr<Shader> fragment_shader)
+{
+	auto vs_descriptors = vertex_shader->getDescriptors();
+	auto fs_descriptors = fragment_shader->getDescriptors();
+
+	auto merged_descriptors = vs_descriptors;
+
+	for (int i = 0; i < fs_descriptors.size(); i++)
+	{
+		auto &other = fs_descriptors[i];
+
+		bool is_found = false;
+
+		for (auto &result : merged_descriptors)
+		{
+			// If this descriptor exists in other descriptor, then just merge their stages
+			if (result.type == other.type && result.set == other.set && result.binding == other.binding && result.first_member_offset == other.first_member_offset)
+			{
+				result.stage = (DescriptorStage)(result.stage | other.stage);
+				is_found = true;
+				break;
+			}
+		}
+
+		// This is unique descriptor
+		if (!is_found)
+		{
+			merged_descriptors.push_back(other);
+		}
+	}
+
+	return merged_descriptors;
+}
+
+DescriptorLayout VkWrapper::getDescriptorLayout(std::vector<Descriptor> descriptors)
+{
+	DescriptorLayoutBuilder layout_builder;
+	layout_builder.clear();
+	for (const auto &descriptor : descriptors)
+	{
+		// Skip bindless textures
+		if (descriptor.type == DESCRIPTOR_TYPE_SAMPLER && descriptor.set == 1 && descriptor.binding == 0)
+			continue;
+
+		VkDescriptorType descriptor_type;
+		if (descriptor.type == DESCRIPTOR_TYPE_UNIFORM_BUFFER)
+			descriptor_type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		else if (descriptor.type == DESCRIPTOR_TYPE_SAMPLER)
+			descriptor_type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		else
+			continue;
+		layout_builder.add_binding(descriptor.binding, descriptor_type);
+	}
+	return layout_builder.build(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
+}
+
 void VkWrapper::init_instance()
 {
 	uint32_t extensionsCount = 0;

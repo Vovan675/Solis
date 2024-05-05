@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "EntityRenderer.h"
 #include "BindlessResources.h"
+#include "Rendering/Renderer.h"
 #include <stb_image.h>
 
 static struct UniformBufferObject
@@ -23,72 +24,11 @@ EntityRenderer::EntityRenderer(std::shared_ptr<Camera> cam, std::shared_ptr<Enti
 	this->entity = entity;
 	this->texture = texture;
 
-	// Create uniform buffers
-	VkDeviceSize bufferSize = sizeof(UniformBufferObject);
-
-	image_uniform_buffers.resize(MAX_FRAMES_IN_FLIGHT);
-	image_uniform_buffers_mapped.resize(MAX_FRAMES_IN_FLIGHT);
-
-	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-	{
-		BufferDescription desc;
-		desc.size = bufferSize;
-		desc.useStagingBuffer = false;
-		desc.bufferUsageFlags = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-
-		image_uniform_buffers[i] = std::make_shared<Buffer>(desc);
-
-		// Map gpu memory on cpu memory
-		image_uniform_buffers[i]->map(&image_uniform_buffers_mapped[i]);
-	}
-
-	bufferSize = sizeof(Material);
-
-	material_uniform_buffers.resize(MAX_FRAMES_IN_FLIGHT);
-	material_uniform_buffers_mapped.resize(MAX_FRAMES_IN_FLIGHT);
-
-	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-	{
-		BufferDescription desc;
-		desc.size = bufferSize;
-		desc.useStagingBuffer = false;
-		desc.bufferUsageFlags = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-
-		material_uniform_buffers[i] = std::make_shared<Buffer>(desc);
-
-		// Map gpu memory on cpu memory
-		material_uniform_buffers[i]->map(&material_uniform_buffers_mapped[i]);
-	}
-
-	// Create descriptor set layout
-	DescriptorLayoutBuilder layout_builder;
-	layout_builder.clear();
-	layout_builder.add_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-	layout_builder.add_binding(1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-	descriptor_layout = layout_builder.build(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
-
-	// Create descriptor set
-	image_descriptor_sets.resize(MAX_FRAMES_IN_FLIGHT);
-	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-	{
-		image_descriptor_sets[i] = VkWrapper::global_descriptor_allocator->allocate(descriptor_layout.layout);
-	}
-
-	// Update descriptor set
-	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-	{
-		DescriptorWriter writer;
-		writer.writeBuffer(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, image_uniform_buffers[i]->bufferHandle, sizeof(UniformBufferObject));
-		writer.writeBuffer(1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, material_uniform_buffers[i]->bufferHandle, sizeof(Material));
-		writer.updateSet(image_descriptor_sets[i]);
-	}
-
 	reloadShaders();
 }
 
 EntityRenderer::~EntityRenderer()
 {
-	vkDestroyDescriptorSetLayout(VkWrapper::device->logicalHandle, descriptor_layout.layout, nullptr);
 }
 
 void EntityRenderer::reloadShaders()
@@ -108,8 +48,6 @@ void EntityRenderer::fillCommandBuffer(CommandBuffer &command_buffer, uint32_t i
 	p->setRenderTargets(VkWrapper::current_render_targets, nullptr);
 	p->setUseBlending(false);
 
-	p->setDescriptorLayout(descriptor_layout);
-
 	p->flush();
 	p->bind(command_buffer);
 
@@ -117,7 +55,12 @@ void EntityRenderer::fillCommandBuffer(CommandBuffer &command_buffer, uint32_t i
 	vkCmdBindDescriptorSets(command_buffer.get_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, p->getPipelineLayout(), 1, 1, BindlessResources::getDescriptorSet(), 0, nullptr);
 
 	// Uniforms
-	vkCmdBindDescriptorSets(command_buffer.get_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, p->getPipelineLayout(), 0, 1, &image_descriptor_sets[image_index], 0, nullptr);
+	UniformBufferObject ubo{};
+	ubo.view = camera->getView();
+	ubo.proj = camera->getProj();
+	ubo.camera_position = camera->getPosition();
+	Renderer::setShadersUniformBuffer(vertex_shader, fragment_shader, 0, &ubo, sizeof(UniformBufferObject), image_index);
+	Renderer::setShadersUniformBuffer(vertex_shader, fragment_shader, 1, &mat, sizeof(Material), image_index);
 
 	// Render entity
 	renderEntity(command_buffer, entity.get());
@@ -149,15 +92,4 @@ void EntityRenderer::renderEntity(CommandBuffer &command_buffer, Entity *entity)
 	{
 		renderEntity(command_buffer, child.get());
 	}
-}
-
-void EntityRenderer::updateUniformBuffer(uint32_t image_index)
-{
-	UniformBufferObject ubo{};
-	ubo.view = camera->getView();
-	ubo.proj = camera->getProj();
-	ubo.camera_position = camera->getPosition();
-	memcpy(image_uniform_buffers_mapped[image_index], &ubo, sizeof(ubo));
-
-	memcpy(material_uniform_buffers_mapped[image_index], &mat, sizeof(mat));
 }

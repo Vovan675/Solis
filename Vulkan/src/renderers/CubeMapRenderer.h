@@ -15,7 +15,6 @@ public:
 	void reloadShaders() override;
 
 	void fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index) override;
-	void updateUniformBuffer(uint32_t image_index) override;
 	std::shared_ptr<Texture> cube_texture;
 private:
 	// TODO: move to Renderer::setDefaultResources
@@ -26,14 +25,8 @@ private:
 		alignas(16) glm::vec3 camera_position;
 	};
 
-	DescriptorLayout descriptor_layout;
-
 	std::shared_ptr<Shader> vertex_shader;
 	std::shared_ptr<Shader> fragment_shader;
-
-	std::vector<VkDescriptorSet> descriptor_sets;
-	std::vector<std::shared_ptr<Buffer>> uniform_buffers;
-	std::vector<void *> uniform_buffers_mapped;
 
 	std::shared_ptr<Engine::Mesh> mesh;
 

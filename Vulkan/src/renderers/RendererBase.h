@@ -18,9 +18,6 @@ public:
 
 	// Add commands to command buffer
 	virtual void fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index) {}
-
-	// Update uniform buffer there if needed
-	virtual void updateUniformBuffer(uint32_t image_index) {}
 private:
 };
 

@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "GlobalPipeline.h"
+#include "RHI/VkWrapper.h"
 
 GlobalPipeline::GlobalPipeline()
 {
@@ -19,7 +20,7 @@ void GlobalPipeline::flush()
 		return;
 	}
 
-	setupPushConstantRanges();
+	parse_descriptors();
 
 	// If hash the same, no need to change pipeline
 	if (current_pipeline != nullptr && current_pipeline->getHash() == current_description.getHash())
@@ -54,36 +55,9 @@ void GlobalPipeline::unbind(const CommandBuffer & command_buffer)
 	is_binded = false;
 }
 
-void GlobalPipeline::setupPushConstantRanges()
+void GlobalPipeline::parse_descriptors()
 {
-	auto vs_descriptors = current_description.vertex_shader->getDescriptors();
-	auto fs_descriptors = current_description.fragment_shader->getDescriptors();
-
-	auto result_descriptors = vs_descriptors;
-	
-	for (int i = 0; i < fs_descriptors.size(); i++)
-	{
-		auto& other = fs_descriptors[i];
-
-		bool is_found = false;
-
-		for (auto &result : result_descriptors)
-		{
-			// If this descriptor exists in other descriptor, then just merge their stages
-			if (result.set == other.set && result.binding == other.binding && result.first_member_offset == other.first_member_offset)
-			{
-				result.stage = (DescriptorStage)(result.stage | other.stage);
-				is_found = true;
-				break;
-			}
-		}
-		
-		// This is unique descriptor
-		if (!is_found)
-		{
-			result_descriptors.push_back(other);
-		}
-	}
+	auto result_descriptors = VkWrapper::getMergedDescriptors(current_description.vertex_shader, current_description.fragment_shader);
 
 	// Create desciptor ranges based on descriptors
 	const auto stage_to_vk = [](DescriptorStage stage) {
@@ -98,6 +72,8 @@ void GlobalPipeline::setupPushConstantRanges()
 	std::vector<VkPushConstantRange> ranges;
 	for (const auto &descriptor : result_descriptors)
 	{
+		if (descriptor.type != DESCRIPTOR_TYPE_PUSH_CONSTANT)
+			continue;
 		VkPushConstantRange range;
 		range.stageFlags = stage_to_vk(descriptor.stage);
 		range.offset = descriptor.first_member_offset;
@@ -105,4 +81,7 @@ void GlobalPipeline::setupPushConstantRanges()
 		ranges.push_back(range);
 	}
 	current_description.push_constant_ranges = ranges;
+
+	current_description.descriptor_layout = VkWrapper::getDescriptorLayout(result_descriptors);
 }
+

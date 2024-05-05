@@ -6,14 +6,12 @@ LutRenderer::LutRenderer(): RendererBase()
 {
 	DescriptorLayoutBuilder layout_builder;
 	layout_builder.clear();
-	descriptor_layout = layout_builder.build(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
 
 	reloadShaders();
 }
 
 LutRenderer::~LutRenderer()
 {
-	vkDestroyDescriptorSetLayout(VkWrapper::device->logicalHandle, descriptor_layout.layout, nullptr);
 }
 
 void LutRenderer::reloadShaders()
@@ -35,8 +33,6 @@ void LutRenderer::fillCommandBuffer(CommandBuffer &command_buffer, uint32_t imag
 	p->setUseBlending(false);
 	p->setCullMode(VK_CULL_MODE_BACK_BIT);
 
-	p->setDescriptorLayout(descriptor_layout);
-
 	p->flush();
 	p->bind(command_buffer);
 
@@ -44,8 +40,4 @@ void LutRenderer::fillCommandBuffer(CommandBuffer &command_buffer, uint32_t imag
 	vkCmdDraw(command_buffer.get_buffer(), 6, 1, 0, 0);
 
 	p->unbind(command_buffer);
-}
-
-void LutRenderer::updateUniformBuffer(uint32_t image_index)
-{
 }
