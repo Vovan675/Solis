@@ -51,8 +51,15 @@ void VulkanApp::run()
 			CORE_CRITICAL("Failed to acquire next image");
 		}
 
-		updateBuffers(delta_seconds, image_index);
+		last_fps_timer -= delta_seconds;
+		if (last_fps_timer <= 0)
+		{
+			last_fps_timer = 0.3;
+			last_fps = 1.0f / delta_seconds;
+		}
+
 		update(delta_seconds);
+		updateBuffers(delta_seconds, image_index);
 
 		// Record commands
 		render(VkWrapper::command_buffers[currentFrame], image_index);
@@ -99,7 +106,7 @@ void VulkanApp::run()
 		Renderer::endFrame(image_index);
 		currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 
-		delta_seconds = prev_time - glfwGetTime();
+		delta_seconds = glfwGetTime() - prev_time;
 		prev_time = glfwGetTime();
 	}
 

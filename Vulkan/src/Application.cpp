@@ -60,6 +60,9 @@ Application::Application()
 	debug_renderer = std::make_shared<DebugRenderer>();
 	renderers.push_back(debug_renderer);
 
+	ssao_renderer = std::make_shared<SSAORenderer>();
+	renderers.push_back(ssao_renderer);
+
 	onSwapchainRecreated(0, 0);
 	createRenderTargets();
 
@@ -88,8 +91,8 @@ Application::Application()
 	}
 
 	auto mesh_ball = std::make_shared<Engine::Mesh>("assets/ball.fbx");
-	int count_x = 2;
-	int count_y = 2;
+	int count_x = 5;
+	int count_y = 5;
 	for (int x = 0; x < count_x; x++)
 	{
 		for (int y = 0; y < count_y; y++)
@@ -104,8 +107,8 @@ Application::Application()
 			entities_renderers.push_back(entity_renderer);
 
 			Material mat;
-			mat.metalness = y / (count_y - 1);
-			mat.roughness = x / (count_x - 1);
+			mat.metalness = y / (float)(count_y - 1);
+			mat.roughness = x / (float)(count_x - 1);
 			mat.albedo = glm::vec4(1, 0, 0, 1);
 			entity_renderer->setMaterial(mat);
 		}
@@ -147,6 +150,8 @@ void Application::createRenderTargets()
 	ibl_prefilter = std::make_shared<Texture>(description);
 	ibl_prefilter->fill();
 
+	deffered_composite_renderer->prefilter_cubemap = ibl_prefilter;
+
 	// BRDF LUT
 	description.width = 512;
 	description.height = 512;
@@ -159,6 +164,7 @@ void Application::createRenderTargets()
 
 	uint32_t ibl_brdf_lut_id = BindlessResources::addTexture(ibl_brdf_lut.get());
 	debug_renderer->ubo.brdf_lut_id = ibl_brdf_lut_id;
+	deffered_composite_renderer->ubo.brdf_lut_tex_id = ibl_brdf_lut_id;
 }
 
 void Application::update(float delta_time)
@@ -171,6 +177,7 @@ void Application::update(float delta_time)
 	ImGui::DockSpaceOverViewport(ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
 
 	ImGui::Begin("Debug Window");
+	ImGui::Text("FPS: %i (%f ms)", (int)(last_fps), 1.0f / last_fps * 1000);
 	if (ImGui::Button("Recompile shaders") || ImGui::IsKeyReleased(ImGuiKey_R))
 	{
 		// Wait for all operations complete
@@ -195,7 +202,7 @@ void Application::update(float delta_time)
 	if (debug_rendering)
 	{
 		static int present_mode = 2;
-		char* items[] = { "All", "Final Composite", "Albedo", "Normal", "Depth", "Position", "BRDF LUT" };
+		char* items[] = { "All", "Final Composite", "Albedo", "Normal", "Depth", "Position", "BRDF LUT", "SSAO" };
 		if (ImGui::BeginCombo("Preview Combo", items[present_mode]))
 		{
 			for (int n = 0; n < IM_ARRAYSIZE(items); n++)
@@ -213,7 +220,26 @@ void Application::update(float delta_time)
 
 	ImGui::Checkbox("Is First Frame", &is_first_frame);
 
+	float cam_speed = camera->getSpeed();
+	if (ImGui::SliderFloat("Camera Speed", &cam_speed, 0.1f, 3.5f))
+	{
+		camera->setSpeed(cam_speed);
+	}
+
+	float cam_near = camera->getNear();
+	if (ImGui::SliderFloat("Camera Near", &cam_near, 0.01f, 3.5f))
+	{
+		camera->setNear(cam_near);
+	}
+
+	float cam_far = camera->getFar();
+	if (ImGui::SliderFloat("Camera Far", &cam_far, 1.0f, 150.0f))
+	{
+		camera->setFar(cam_far);
+	}
+
 	post_renderer->renderImgui();
+	ssao_renderer->renderImgui();
 	ImGui::End();
 }
 
@@ -231,6 +257,12 @@ void Application::updateBuffers(float delta_time, uint32_t image_index)
 	mesh_renderer2->setScale(glm::vec3(0.02f, 0.02f, 0.02f));
 
 	defferred_lighting_renderer->constants.cam_pos = glm::vec4(camera->getPosition(), 1.0f);
+	deffered_composite_renderer->ubo.cam_pos = glm::vec4(camera->getPosition(), 1.0f);
+
+	ssao_renderer->ubo_raw_pass.view = camera->getView();
+	ssao_renderer->ubo_raw_pass.proj = camera->getProj();
+	ssao_renderer->ubo_raw_pass.near_plane = camera->getNear();
+	ssao_renderer->ubo_raw_pass.far_plane = camera->getFar();
 }
 
 void Application::recordCommands(CommandBuffer &command_buffer, uint32_t image_index)
@@ -294,6 +326,7 @@ void Application::recordCommands(CommandBuffer &command_buffer, uint32_t image_i
 
 	render_GBuffer(command_buffer, image_index);
 	render_lighting(command_buffer, image_index);
+	render_ssao(command_buffer, image_index);
 	render_deffered_composite(command_buffer, image_index);
 
 	Renderer::getRenderTarget(RENDER_TARGET_COMPOSITE)->transitLayout(command_buffer, TEXTURE_LAYOUT_SHADER_READ);
@@ -346,21 +379,26 @@ void Application::onSwapchainRecreated(int width, int height)
 	defferred_lighting_renderer->ubo.normal_tex_id = normal_id;
 	deffered_composite_renderer->ubo.normal_tex_id = normal_id;
 	debug_renderer->ubo.normal_tex_id = normal_id;
+	ssao_renderer->ubo_raw_pass.normal_tex_id = normal_id;
 
 	// Depth-Stencil
 	uint32_t depth_id = Renderer::getRenderTargetBindlessId(RENDER_TARGET_GBUFFER_DEPTH_STENCIL);
 	defferred_lighting_renderer->ubo.depth_tex_id = depth_id;
 	deffered_composite_renderer->ubo.depth_tex_id = depth_id;
 	debug_renderer->ubo.depth_tex_id = depth_id;
+	ssao_renderer->ubo_raw_pass.depth_tex_id = depth_id;
 
 	// Position
 	uint32_t gbuffer_position_id = Renderer::getRenderTargetBindlessId(RENDER_TARGET_GBUFFER_POSITION);
 	defferred_lighting_renderer->ubo.position_tex_id = gbuffer_position_id;
+	deffered_composite_renderer->ubo.position_tex_id = gbuffer_position_id;
 	debug_renderer->ubo.position_tex_id = gbuffer_position_id;
+	ssao_renderer->ubo_raw_pass.position_tex_id = gbuffer_position_id;
 
 	// Shading
 	uint32_t gbuffer_shading_id = Renderer::getRenderTargetBindlessId(RENDER_TARGET_GBUFFER_SHADING);
 	defferred_lighting_renderer->ubo.shading_tex_id = gbuffer_shading_id;
+	deffered_composite_renderer->ubo.shading_tex_id = gbuffer_shading_id;
 
 	///////////
 	// Lighting
@@ -371,6 +409,14 @@ void Application::onSwapchainRecreated(int width, int height)
 
 	uint32_t lighting_specular_id = Renderer::getRenderTargetBindlessId(RENDER_TARGET_LIGHTING_SPECULAR);
 	deffered_composite_renderer->ubo.lighting_specular_tex_id = lighting_specular_id;
+
+
+	uint32_t ssao_raw_id = Renderer::getRenderTargetBindlessId(RENDER_TARGET_SSAO_RAW);
+	ssao_renderer->ubo_blur_pass.raw_tex_id = ssao_raw_id;
+	
+	uint32_t ssao_id = Renderer::getRenderTargetBindlessId(RENDER_TARGET_SSAO);
+	debug_renderer->ubo.ssao_id = ssao_id;
+	deffered_composite_renderer->ubo.ssao_tex_id = ssao_id;
 
 	/////////////
 	// Composite
@@ -431,12 +477,18 @@ void Application::render_lighting(CommandBuffer &command_buffer, uint32_t image_
 	VkWrapper::cmdEndRendering(command_buffer);
 }
 
+void Application::render_ssao(CommandBuffer &command_buffer, uint32_t image_index)
+{
+	ssao_renderer->fillCommandBuffer(command_buffer, image_index);
+}
+
 void Application::render_deffered_composite(CommandBuffer &command_buffer, uint32_t image_index)
 {
 	Renderer::getRenderTarget(RENDER_TARGET_LIGHTING_DIFFUSE)->transitLayout(command_buffer, TEXTURE_LAYOUT_SHADER_READ);
 	Renderer::getRenderTarget(RENDER_TARGET_LIGHTING_SPECULAR)->transitLayout(command_buffer, TEXTURE_LAYOUT_SHADER_READ);
 	Renderer::getRenderTarget(RENDER_TARGET_COMPOSITE)->transitLayout(command_buffer, TEXTURE_LAYOUT_ATTACHMENT);
-	
+	Renderer::getRenderTarget(RENDER_TARGET_SSAO)->transitLayout(command_buffer, TEXTURE_LAYOUT_SHADER_READ);
+
 	VkWrapper::cmdBeginRendering(command_buffer, {Renderer::getRenderTarget(RENDER_TARGET_COMPOSITE)}, nullptr);
 
 	// Draw Sky on background

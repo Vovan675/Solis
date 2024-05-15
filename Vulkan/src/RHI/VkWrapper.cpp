@@ -154,8 +154,8 @@ void VkWrapper::cmdImageMemoryBarrier(CommandBuffer &command_buffer,
 void VkWrapper::cmdBeginRendering(CommandBuffer &command_buffer, const std::vector<std::shared_ptr<Texture>> &color_attachments, std::shared_ptr<Texture> depth_attachment, int cubemap_face, int mip)
 {
 	VkExtent2D extent;
-	extent.width = color_attachments[0]->getWidth();
-	extent.height = color_attachments[0]->getHeight();
+	extent.width = color_attachments[0]->getWidth(mip);
+	extent.height = color_attachments[0]->getHeight(mip);
 
 	VkRenderingInfo rendering_info{};
 	rendering_info.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;

@@ -28,9 +28,9 @@ public:
 		prev_mouse_pos = mouse_pos;
 
 		// Get rows for directions
-		glm::vec3 forward = glm::rotate(orientation, glm::vec3(0, 0, 1));
-		glm::vec3 right = glm::rotate(orientation, glm::vec3(-1, 0, 0));
-		glm::vec3 up = glm::rotate(orientation, glm::vec3(0, -1, 0));
+		glm::vec3 forward = glm::rotate(orientation, glm::vec3(0, 0, -1));
+		glm::vec3 right = glm::rotate(orientation, glm::vec3(1, 0, 0));
+		glm::vec3 up = glm::rotate(orientation, glm::vec3(0, 1, 0));
 
 		glm::vec3 movement = glm::vec3(0, 0, 0);
 		if (inputs.forward)
@@ -49,7 +49,7 @@ public:
 		if (inputs.sprint)
 			movement *= 2.0f;
 
-		movement *= dt * 3.0;
+		movement *= dt * speed;
 		position += movement;
 		updateMatrices();
 	}
@@ -58,9 +58,18 @@ public:
 	{
 		orientation = glm::quat(glm::vec3(pitch, yaw, 0));
 		view = glm::inverse(glm::translate(glm::mat4(1.0f), position) * glm::toMat4(orientation));
-		proj = glm::perspectiveRH_ZO(glm::radians(45.0f), VkWrapper::swapchain->swap_extent.width / (float)VkWrapper::swapchain->swap_extent.height, 0.1f, 60.0f);
+		proj = glm::perspectiveRH(glm::radians(45.0f), VkWrapper::swapchain->swap_extent.width / (float)VkWrapper::swapchain->swap_extent.height, near_plane, far_plane);
 		proj[1][1] *= -1.0f;
 	}
+
+	void setSpeed(float speed) { this->speed = speed; }
+	float getSpeed() const { return speed; }
+
+	void setNear(float near_plane) { this->near_plane = near_plane; }
+	float getNear() const { return near_plane; }
+
+	void setFar(float far_plane) { this->far_plane = far_plane; }
+	float getFar() const { return far_plane; }
 
 	const glm::vec3 &getPosition() const { return position; }
 	const glm::mat4 &getView() const { return view; }
@@ -85,4 +94,8 @@ private:
 	float pitch, yaw;
 
 	glm::vec2 prev_mouse_pos;
+
+	float near_plane = 0.1f;
+	float far_plane = 60.0f;
+	float speed = 2.0f;
 };

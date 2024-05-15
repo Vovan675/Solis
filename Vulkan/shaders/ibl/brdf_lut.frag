@@ -44,7 +44,7 @@ vec3 ImportanceSampleGGX(vec2 Xi, vec3 N, float roughness)
     // from tangent-space vector to world-space sample vector
     vec3 up        = abs(N.z) < 0.999 ? vec3(0.0, 0.0, 1.0) : vec3(1.0, 0.0, 0.0);
     vec3 tangent   = normalize(cross(up, N));
-    vec3 bitangent = cross(N, tangent);
+    vec3 bitangent = normalize(cross(N, tangent));
 	
     vec3 sampleVec = tangent * H.x + bitangent * H.y + N * H.z;
     return normalize(sampleVec);
@@ -85,7 +85,8 @@ vec2 IntegrateBRDF(float NoV, float roughness)
         }
     }
 
-    sum /= float(SAMPLES_COUNT);
+    sum.x /= float(SAMPLES_COUNT);
+    sum.y /= float(SAMPLES_COUNT);
     return sum;
 }
 

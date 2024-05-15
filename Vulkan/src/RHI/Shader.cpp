@@ -1,7 +1,7 @@
 #include "pch.h"
 #include "Shader.h"
 #include "Log.h"
-#include "MathUtils.h"
+#include "Math.h"
 #include <shaderc/shaderc.hpp>
 #include "VkWrapper.h"
 
@@ -30,7 +30,7 @@ Shader::~Shader()
 size_t Shader::getHash() const
 {
 	size_t hash = 0;
-	hash_combine(hash, source);
+	Engine::Math::hash_combine(hash, source);
 	return hash;
 }
 

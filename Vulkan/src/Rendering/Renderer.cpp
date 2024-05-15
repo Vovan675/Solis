@@ -27,11 +27,13 @@ void Renderer::recreateScreenResources()
 
 	auto swapchain_format = VkWrapper::swapchain->surface_format.format;
 
-	auto create_screen_texture = [&description](RENDER_TARGETS rt, VkFormat format, VkImageAspectFlags aspect_flags, VkImageUsageFlags usage_flags)
+	auto create_screen_texture = [&description](RENDER_TARGETS rt, VkFormat format, VkImageAspectFlags aspect_flags, VkImageUsageFlags usage_flags, bool anisotropy = false, VkSamplerAddressMode sampler_address_mode = VK_SAMPLER_ADDRESS_MODE_REPEAT)
 	{
 		description.imageFormat = format;
 		description.imageAspectFlags = aspect_flags;
 		description.imageUsageFlags = usage_flags;
+		description.sampler_address_mode = sampler_address_mode;
+		description.anisotropy = anisotropy;
 		screen_resources[rt] = std::make_shared<Texture>(description);
 		screen_resources[rt]->fill();
 
@@ -45,15 +47,15 @@ void Renderer::recreateScreenResources()
 
 	// Normal
 	create_screen_texture(RENDER_TARGET_GBUFFER_NORMAL, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT,
-						  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
+						  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, false, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
 
 	// Depth-Stencil
 	create_screen_texture(RENDER_TARGET_GBUFFER_DEPTH_STENCIL, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_IMAGE_ASPECT_DEPTH_BIT,
-						  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
+						  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, false, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
 
 	// Position
 	create_screen_texture(RENDER_TARGET_GBUFFER_POSITION, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT,
-						  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
+						  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, false, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
 
 	// Shading
 	create_screen_texture(RENDER_TARGET_GBUFFER_SHADING, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT,
@@ -67,6 +69,13 @@ void Renderer::recreateScreenResources()
 						  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
 
 	create_screen_texture(RENDER_TARGET_LIGHTING_SPECULAR, VK_FORMAT_B10G11R11_UFLOAT_PACK32, VK_IMAGE_ASPECT_COLOR_BIT,
+						  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
+
+
+	create_screen_texture(RENDER_TARGET_SSAO_RAW, VK_FORMAT_R8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT,
+						  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
+
+	create_screen_texture(RENDER_TARGET_SSAO, VK_FORMAT_R8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT,
 						  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
 
 	/////////////
@@ -149,7 +158,7 @@ void Renderer::setShadersUniformBuffer(std::shared_ptr<Shader> vertex_shader, st
 	memcpy(current_binding.second, params_struct, params_size);
 }
 
-void Renderer::setShadersTexture(std::shared_ptr<Shader> vertex_shader, std::shared_ptr<Shader> fragment_shader, unsigned int binding, std::shared_ptr<Texture> texture, unsigned int image_index)
+void Renderer::setShadersTexture(std::shared_ptr<Shader> vertex_shader, std::shared_ptr<Shader> fragment_shader, unsigned int binding, std::shared_ptr<Texture> texture, unsigned int image_index, int mip, int face)
 {
 	auto descriptor_layout = VkWrapper::getDescriptorLayout(VkWrapper::getMergedDescriptors(vertex_shader, fragment_shader));
 
@@ -163,7 +172,7 @@ void Renderer::setShadersTexture(std::shared_ptr<Shader> vertex_shader, std::sha
 
 	// Update set
 	DescriptorWriter writer;
-	writer.writeImage(binding, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, texture->getImageView(), texture->sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	writer.writeImage(binding, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, texture->getImageView(mip, face), texture->sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	writer.updateSet(descriptors[descriptor_hash][image_index].descriptor_per_offset[offset]);
 }
 

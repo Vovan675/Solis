@@ -17,6 +17,8 @@ public:
 	void cleanup();
 	void create(int width, int height);
 
+	glm::vec2 getSize() const { return glm::vec2(swap_extent.width, swap_extent.height); }
+
 private:
 	void create_swapchain(int width, int height);
 	void create_resources();

@@ -17,6 +17,9 @@ enum RENDER_TARGETS
 	RENDER_TARGET_LIGHTING_DIFFUSE,
 	RENDER_TARGET_LIGHTING_SPECULAR,
 
+	RENDER_TARGET_SSAO_RAW,
+	RENDER_TARGET_SSAO,
+
 	RENDER_TARGET_COMPOSITE,
 
 	RENDER_TARGET_TEXTURES_COUNT
@@ -47,7 +50,7 @@ public:
 										unsigned int binding, void* params_struct, size_t params_size, unsigned int image_index);
 
 	static void setShadersTexture(std::shared_ptr<Shader> vertex_shader, std::shared_ptr<Shader> fragment_shader,
-										unsigned int binding, std::shared_ptr<Texture> texture, unsigned int image_index);
+										unsigned int binding, std::shared_ptr<Texture> texture, unsigned int image_index, int mip = -1, int face = -1);
 
 	static void bindShadersDescriptorSets(std::shared_ptr<Shader> vertex_shader, std::shared_ptr<Shader> fragment_shader, CommandBuffer &command_buffer, VkPipelineLayout pipeline_layout, unsigned int image_index);
 private:

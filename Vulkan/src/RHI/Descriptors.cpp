@@ -4,8 +4,9 @@
 
 #include "Descriptors.h"
 #include "VkWrapper.h"
-#include "MathUtils.h"
+#include "Math.h"
 
+using namespace Engine::Math;
 
 void DescriptorLayoutBuilder::add_binding(uint32_t binding, VkDescriptorType type, uint32_t count)
 {

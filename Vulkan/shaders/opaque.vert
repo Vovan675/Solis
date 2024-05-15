@@ -25,8 +25,8 @@ void main()
 {
 	gl_Position = ubo.proj * ubo.view * PushConstants.model * vec4(inPosition, 1.0);
     
-	outPos = vec3(PushConstants.model * vec4(inPosition, 1.0));
-	outNormal = normalize(mat3(PushConstants.model) * inNormal); // Apply rotation to normal
+	outPos = (PushConstants.model * vec4(inPosition, 1.0)).xyz;
+	outNormal = normalize(transpose(inverse(mat3(PushConstants.model))) * inNormal); // Apply rotation to normal
 	outUV = inUV;
 	outColor = inColor;
 

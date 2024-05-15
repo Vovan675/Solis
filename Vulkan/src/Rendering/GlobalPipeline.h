@@ -1,5 +1,5 @@
 #pragma once
-#include "MathUtils.h"
+#include "Math.h"
 #include "RHI/Pipeline.h"
 #include "RHI/CommandBuffer.h"
 #include "RHI/Texture.h"

@@ -13,6 +13,9 @@ struct TextureDescription
 	VkFormat imageFormat;
 	VkImageAspectFlags imageAspectFlags;
 	VkImageUsageFlags imageUsageFlags;
+	VkSamplerAddressMode sampler_address_mode = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	VkFilter filtering = VK_FILTER_LINEAR;
+	bool anisotropy = false;
 
 	bool destroy_image = true; // primary used for swapchain images
 };
@@ -43,8 +46,8 @@ public:
 
 	void fill_raw(VkImage image);
 
-	uint32_t getWidth() const { return m_Description.width; }
-	uint32_t getHeight() const { return m_Description.height; }
+	uint32_t getWidth(int mip = 0) const { return m_Description.width >> mip; }
+	uint32_t getHeight(int mip = 0) const { return m_Description.height >> mip; }
 
 	void transitLayout(CommandBuffer &command_buffer, TextureLayoutType new_layout_type);
 	
@@ -53,6 +56,8 @@ public:
 	VkFormat getImageFormat() const { return m_Description.imageFormat; }
 private:
 	VkImageLayout get_vk_layout(TextureLayoutType layout_type);
+	int get_channels_count() const;
+	int get_bytes_per_channel() const;
 
 	void generate_mipmaps();
 	void transition_image_layout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);

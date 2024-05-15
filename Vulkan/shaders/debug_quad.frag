@@ -16,6 +16,7 @@ layout(set=0, binding=0) uniform UBO
 	uint depth_tex_id;
 	uint position_tex_id;
 	uint brdf_lut_id;
+	uint ssao_id;
 } ubo;
 
 void main() {
@@ -46,6 +47,7 @@ void main() {
     float depth = texture(textures[ubo.depth_tex_id], uv).r;
     vec3 position = texture(textures[ubo.position_tex_id], uv).xyz;
     vec2 brdf_lut = texture(textures[ubo.brdf_lut_id], uv).xy;
+    float ssao = texture(textures[ubo.ssao_id], uv).r;
 
     if (mode == 1)
     {
@@ -65,6 +67,10 @@ void main() {
     } else if (mode == 6)
     {   
         value = vec4(brdf_lut, 0.0, 1.0);
+    } else if (mode == 7)
+    {   
+        //value = vec4(ssao, ssao, ssao, 1.0);
+        value = vec4(ssao, ssao, ssao, 1.0);
     }
     outColor = vec4(value.rgb, 1.0);
 }

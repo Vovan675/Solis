@@ -9,15 +9,25 @@ layout (set=1, binding=0) uniform sampler2D textures[];
 
 layout(set=0, binding=0) uniform UBO
 {
+	vec4 cam_pos;
     uint lighting_diffuse_tex_id;
 	uint lighting_specular_tex_id;
 	uint albedo_tex_id;
 	uint normal_tex_id;
 	uint depth_tex_id;
+    uint position_tex_id;
+	uint shading_tex_id;
+	uint brdf_lut_tex_id;
+	uint ssao_tex_id;
 } ubo;
 
 layout (set=0, binding=1) uniform samplerCube irradiance_tex;
+layout (set=0, binding=2) uniform samplerCube prefilter_tex;
 
+vec4 SRGBtoLinear(vec4 srgb)
+{
+    return vec4(pow(srgb.rgb, vec3(2.2)), srgb.a);
+}
 
 void main() {
     float depth = texture(textures[ubo.depth_tex_id], inUV).r;
@@ -32,10 +42,31 @@ void main() {
     vec3 light_specular = texture(textures[ubo.lighting_specular_tex_id], inUV).rgb;
 
     // IBL
-    vec3 irradiance = texture(irradiance_tex, normal).rgb;
-    vec3 ibl_diffuse = irradiance * albedo.rgb;
+    vec3 f0 = vec3(0.04);
 
-    vec3 ambient = ibl_diffuse * 0.3f;
+    vec4 shading = texture(textures[ubo.shading_tex_id], inUV).rgba;
+	float metalness = shading.r;
+	float roughness = clamp(shading.g, 0.045f, 1.0f);
 
-    outColor = vec4(albedo.rgb * light_diffuse + light_specular + ambient, albedo.a);
+    vec3 irradiance = SRGBtoLinear(texture(irradiance_tex, normal)).rgb;
+    vec3 ibl_diffuse = irradiance * albedo.rgb * (1.0 - f0) * (1.0 - metalness);
+
+    vec3 world_pos = texture(textures[ubo.position_tex_id], inUV).rgb;
+    vec3 v = normalize(ubo.cam_pos.xyz - world_pos);
+	float NdotV = clamp(abs(dot(normal, v)), 0.001f, 1.0f);
+    vec3 brdf_lut = texture(textures[ubo.brdf_lut_tex_id], vec2(NdotV, 1.0 - roughness)).rgb;
+
+    vec3 reflection = -normalize(reflect(v, normal));
+    float lod = roughness * 5; // num mip maps
+
+    vec3 prefilter = SRGBtoLinear(textureLod(prefilter_tex, reflection, lod)).rgb;
+
+    
+    float ssao = texture(textures[ubo.ssao_tex_id], inUV).r;
+    vec3 specular_color = mix(f0, albedo.rgb, metalness);
+
+    vec3 diffuse = ibl_diffuse * ssao;
+    vec3 specular = prefilter * (specular_color * brdf_lut.x + brdf_lut.y);
+
+    outColor = vec4(albedo.rgb * light_diffuse + light_specular + diffuse, albedo.a);
 }

@@ -19,6 +19,7 @@
 #include "renderers/DefferedCompositeRenderer.h"
 #include "renderers/PostProcessingRenderer.h"
 #include "renderers/DebugRenderer.h"
+#include "renderers/SSAORenderer.h"
 #include "VulkanApp.h"
 
 class Application : public VulkanApp
@@ -35,6 +36,7 @@ protected:
 private:
 	void render_GBuffer(CommandBuffer &command_buffer, uint32_t image_index);
 	void render_lighting(CommandBuffer &command_buffer, uint32_t image_index);
+	void render_ssao(CommandBuffer &command_buffer, uint32_t image_index);
 	void render_deffered_composite(CommandBuffer &command_buffer, uint32_t image_index);
 	void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods) override;
 
@@ -58,6 +60,8 @@ private:
 	std::shared_ptr<PostProcessingRenderer> post_renderer;
 	std::shared_ptr<DebugRenderer> debug_renderer;
 	std::shared_ptr<ImGuiRenderer> imgui_renderer;
+	std::shared_ptr<SSAORenderer> ssao_renderer;
+
 
 	std::vector<std::shared_ptr<RendererBase>> renderers;
 	std::vector<std::shared_ptr<RendererBase>> entities_renderers;

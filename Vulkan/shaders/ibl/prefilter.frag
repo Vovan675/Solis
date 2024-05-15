@@ -26,14 +26,6 @@ vec2 Hammersley(uint i, uint N)
     return vec2(float(i)/float(N), RadicalInverse_VdC(i));
 }
 
-float G_SchlicksmithGGX(float NdotL, float NdotV, float roughness)
-{
-	float k = (roughness * roughness) / 2.0;
-	float GL = NdotL / (NdotL * (1.0 - k) + k);
-	float GV = NdotV / (NdotV * (1.0 - k) + k);
-	return GL * GV;
-}
-
 vec3 ImportanceSampleGGX(vec2 Xi, vec3 N, float roughness)
 {
     float a = roughness*roughness;
@@ -57,6 +49,15 @@ vec3 ImportanceSampleGGX(vec2 Xi, vec3 N, float roughness)
     return normalize(sampleVec);
 }  
 
+float D_GGX(float NdotH, float roughness)
+{
+	float alpha = roughness * roughness;
+	float alpha2 = alpha * alpha;
+	float denom = NdotH * NdotH * (alpha2 - 1.0) + 1.0;
+	return (alpha2)/(PI * denom*denom); 
+}
+
+
 vec3 prefilterEnvMap(vec3 R, float roughness)
 {
     // Normal always points along z-axis for the 2D lookup 
@@ -76,11 +77,18 @@ vec3 prefilterEnvMap(vec3 R, float roughness)
         float NdotL = clamp(dot(N, L), 0.0, 1.0);
         if (NdotL > 0.0)
         {
-            //float NdotV = max(dot(N, V), 0.0);
-            //float NdotH = max(dot(N, H), 0.0);
-            //float VdotH = max(dot(V, H), 0.0);
+            float NdotH = clamp(dot(N, H), 0.0, 1.0);
+            float VdotH = clamp(dot(V, H), 0.0, 1.0);
 
-            prefiltered_color += texture(texSampler, L).rgb * NdotL;
+            float pdf = D_GGX(NdotH, roughness) * NdotH / (4.0 * VdotH) + 0.0001;
+
+            float resolution = 2048; // source cubemap resolution
+            float omega_s = 1.0 / (float(SAMPLES_COUNT) * pdf);
+            float omega_p = 4.0 * PI / (6.0 * resolution * resolution);
+
+            float mip_level = roughness == 0.0 ? 0.0 : max(0.5 * log2(omega_s / omega_p) + 1.0, 0.0);
+
+            prefiltered_color += textureLod(texSampler, L, mip_level).rgb * NdotL;
             total_weight += NdotL;
         }
     }

@@ -1,33 +1,31 @@
 #pragma once
+
 #include "RendererBase.h"
 #include "RHI/Pipeline.h"
 #include "Mesh.h"
 #include "RHI/Texture.h"
 #include "Camera.h"
-#include "RHI/Descriptors.h"
 
-
-class PostProcessingRenderer: public RendererBase
+class IrradianceRenderer: public RendererBase
 {
 public:
-	struct UBO
+	struct PushConstant
 	{
-		uint32_t composite_final_tex_id = 0;
-		float use_vignette = 1;
-		float vignette_radius = 0.7;
-		float vignette_smoothness = 0.2;
-	} ubo;
+		glm::mat4 mvp = glm::mat4(1.0f);
+	} constants;
 
-	PostProcessingRenderer();
-	virtual ~PostProcessingRenderer();
+	IrradianceRenderer();
+	virtual ~IrradianceRenderer();
 
 	void reloadShaders() override;
 
 	void fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index) override;
 
-	void renderImgui();
+	std::shared_ptr<Texture> cube_texture;
 private:
 	std::shared_ptr<Shader> vertex_shader;
 	std::shared_ptr<Shader> fragment_shader;
+
+	std::shared_ptr<Engine::Mesh> mesh;
 };
 

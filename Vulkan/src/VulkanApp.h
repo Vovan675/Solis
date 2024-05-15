@@ -34,11 +34,14 @@ private:
 	virtual void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods) {}
 protected:
 	GLFWwindow *window;
+	float last_fps = 0;
 private:
 	bool framebuffer_resized = false;
 
 	std::vector<VkSemaphore> imageAvailableSemaphores;
 	std::vector<VkSemaphore> renderFinishedSemaphores;
 	int currentFrame = 0;
+
+	float last_fps_timer = 1;
 };
 

@@ -1,7 +1,9 @@
 #pragma once
 #include "Shader.h"
-#include "MathUtils.h"
+#include "Math.h"
 #include "Descriptors.h"
+
+using namespace Engine::Math;
 
 struct PipelineDescription
 {
