@@ -1,5 +1,4 @@
-#version 450
-#extension GL_EXT_nonuniform_qualifier : enable
+#include "common.h"
 
 layout(location = 0) in vec2 inUV;
 
@@ -12,10 +11,7 @@ layout(set=0, binding=0) uniform UBO
 	uint normal_tex_id;
 	uint depth_tex_id;
     uint position_tex_id;
-    vec3 screen_size;
     vec4 kernel[64];
-    mat4 view;
-    mat4 proj;
     float near;
     float far;
     int samples;
@@ -27,7 +23,7 @@ layout (set=0, binding=1) uniform sampler2D noise_tex;
 
 vec3 getVSPosition(vec2 uv, float hardware_depth)
 {
-    vec4 pos = inverse(ubo.proj) * vec4(uv * 2 - 1, hardware_depth, 1.0f);
+    vec4 pos = inverse(projection) * vec4(uv * 2 - 1, hardware_depth, 1.0f);
     pos /= pos.w;
     return pos.xyz;
 }
@@ -38,10 +34,10 @@ void main() {
     //if (depth == 1.0)
     //    discard;
 
-    vec2 noise_scale = ubo.screen_size.xy / 4.0f;
+    vec2 noise_scale = swapchain_size.xy / 4.0f;
 
     vec3 normal = normalize(texture(textures[ubo.normal_tex_id], inUV).rgb);
-    normal = normalize(transpose(inverse(mat3(ubo.view))) * normal); // world -> view space
+    normal = normalize(transpose(inverse(mat3(view))) * normal); // world -> view space
 
     vec3 view_pos = getVSPosition(inUV, depth);
 
@@ -61,7 +57,7 @@ void main() {
         sample_pos = view_pos + sample_pos * ubo.sample_radius;
 
         vec4 offset = vec4(sample_pos, 1.0);
-        offset = ubo.proj * offset; // view -> clip space
+        offset = projection * offset; // view -> clip space
         offset.xyz /= offset.w; // perspective divide
         offset.xyz = offset.xyz * 0.5 + 0.5; // [-1, 1] -> [0, 1]
 

@@ -35,21 +35,27 @@ struct Descriptor
 class Shader
 {
 public:
-	VkShaderModule handle;
+	virtual ~Shader();
+
+	VkShaderModule handle = nullptr;
 	enum ShaderType
 	{
 		VERTEX_SHADER,
 		FRAGMENT_SHADER
 	};
-public:
-	Shader(const std::string& path, ShaderType type);
-	virtual ~Shader();
 
 	size_t getHash() const;
 
 	const std::vector<Descriptor> &getDescriptors() const { return descriptors; }
+
+	void recompile();
+	static void recompileAllShaders();
+
+	static std::shared_ptr<Shader> create(const std::string &path, ShaderType type);
 private:
-	std::string read_file(const std::string& fileName) const;
+	Shader(const std::string &path, ShaderType type);
+private:
+	static std::string read_file(const std::string& fileName);
 	std::vector<uint32_t> compile_glsl(const std::string& glslSource, ShaderType type, const std::string debugName) const;
 	void init_descriptors(const std::vector<uint32_t>& spirv);
 	void parse_spv_resources(const spvc_reflected_resource *resources, size_t count, spvc_resource_type resource_type);
@@ -59,6 +65,8 @@ private:
 	std::string source;
 
 	std::vector<Descriptor> descriptors;
+
+	static std::unordered_map<size_t, std::shared_ptr<Shader>> cached_shaders;
 
 	spvc_compiler compiler;
 };

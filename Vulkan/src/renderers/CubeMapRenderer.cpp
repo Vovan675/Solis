@@ -3,10 +3,8 @@
 #include "BindlessResources.h"
 #include "Rendering/Renderer.h"
 
-CubeMapRenderer::CubeMapRenderer(std::shared_ptr<Camera> cam): RendererBase()
+CubeMapRenderer::CubeMapRenderer(): RendererBase()
 {
-	camera = cam;
-
 	// Load image
 	TextureDescription tex_description{};
 	tex_description.imageFormat = VK_FORMAT_R8G8B8A8_SRGB;
@@ -16,22 +14,16 @@ CubeMapRenderer::CubeMapRenderer(std::shared_ptr<Camera> cam): RendererBase()
 	cube_texture = std::make_shared<Texture>(tex_description);
 	cube_texture->load("assets/cubemap/");
 
-	camera = cam;
 	mesh = std::make_shared<Engine::Mesh>("assets/cube.fbx");
 
 	//mesh->setData(vertices, indices);
 
-	reloadShaders();
+	vertex_shader = Shader::create("shaders/cube.vert", Shader::VERTEX_SHADER);
+	fragment_shader = Shader::create("shaders/cube.frag", Shader::FRAGMENT_SHADER);
 }
 
 CubeMapRenderer::~CubeMapRenderer()
 {
-}
-
-void CubeMapRenderer::reloadShaders()
-{
-	vertex_shader = std::make_shared<Shader>("shaders/cube.vert", Shader::VERTEX_SHADER);
-	fragment_shader = std::make_shared<Shader>("shaders/cube.frag", Shader::FRAGMENT_SHADER);
 }
 
 void CubeMapRenderer::fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index)
@@ -48,15 +40,7 @@ void CubeMapRenderer::fillCommandBuffer(CommandBuffer &command_buffer, uint32_t 
 	p->flush();
 	p->bind(command_buffer);
 
-	// Bindless
-	vkCmdBindDescriptorSets(command_buffer.get_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, p->getPipelineLayout(), 1, 1, BindlessResources::getDescriptorSet(), 0, nullptr);
-
 	// Uniforms
-	UniformBufferObject ubo{};
-	ubo.view = camera->getView();
-	ubo.proj = camera->getProj();
-	ubo.camera_position = camera->getPosition();
-	Renderer::setShadersUniformBuffer(vertex_shader, fragment_shader, 0, &ubo, sizeof(UniformBufferObject), image_index);
 	Renderer::setShadersTexture(vertex_shader, fragment_shader, 1, cube_texture, image_index);
 	Renderer::bindShadersDescriptorSets(vertex_shader, fragment_shader, command_buffer, p->getPipelineLayout(), image_index);
 

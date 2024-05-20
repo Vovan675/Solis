@@ -8,9 +8,18 @@ std::unordered_map<size_t, std::array<Renderer::PerFrameDescriptor, MAX_FRAMES_I
 std::unordered_map<size_t, std::array<size_t, MAX_FRAMES_IN_FLIGHT>> Renderer::descriptors_offset;
 std::unordered_map<size_t, std::array<Renderer::PerFrameDescriptorBinding, MAX_FRAMES_IN_FLIGHT>> Renderer::descriptor_bindings;
 
+Renderer::DefaultUniforms Renderer::default_uniforms;
+DescriptorLayout Renderer::default_descriptor_layout;
+std::shared_ptr<Camera> Renderer::camera;
+
+
 void Renderer::init()
 {
 	recreateScreenResources();
+
+	DescriptorLayoutBuilder layout_builder;
+	layout_builder.add_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER); // 0 - Default uniforms
+	default_descriptor_layout = layout_builder.build(VK_SHADER_STAGE_ALL);
 }
 
 void Renderer::recreateScreenResources()
@@ -178,6 +187,14 @@ void Renderer::setShadersTexture(std::shared_ptr<Shader> vertex_shader, std::sha
 
 void Renderer::bindShadersDescriptorSets(std::shared_ptr<Shader> vertex_shader, std::shared_ptr<Shader> fragment_shader, CommandBuffer &command_buffer, VkPipelineLayout pipeline_layout, unsigned int image_index)
 {
+	// Bind bindless
+	vkCmdBindDescriptorSets(command_buffer.get_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout, 1, 1, BindlessResources::getDescriptorSet(), 0, nullptr);
+
+	// Bind default uniforms
+	size_t default_uniforms_offset = descriptors_offset[0][image_index];
+	vkCmdBindDescriptorSets(command_buffer.get_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout, 2, 1, &descriptors[0][image_index].descriptor_per_offset[default_uniforms_offset], 0, nullptr);
+
+	// Bind custom descriptor
 	auto descriptor_layout = VkWrapper::getDescriptorLayout(VkWrapper::getMergedDescriptors(vertex_shader, fragment_shader));
 
 	size_t descriptor_hash = descriptor_layout.hash;
@@ -193,6 +210,58 @@ void Renderer::bindShadersDescriptorSets(std::shared_ptr<Shader> vertex_shader, 
 
 	// After every bind increment offset (because bind was made for a draw that uses this uniforms and we cant write to it)
 	descriptors_offset[descriptor_hash][image_index] += 1;
+}
+
+void Renderer::updateDefaultUniforms(unsigned int image_index)
+{
+	default_uniforms.view = camera->getView();
+	default_uniforms.iview = glm::inverse(camera->getView());
+	default_uniforms.projection = camera->getProj();
+	default_uniforms.iprojection = glm::inverse(camera->getProj());
+	default_uniforms.camera_position = glm::vec4(camera->getPosition(), 1.0);
+	default_uniforms.swapchain_size = glm::vec4(VkWrapper::swapchain->getSize(), 1.0f / VkWrapper::swapchain->getSize());
+
+	// After every updating (changing) increment offset because we can't override previous descriptor layout that is used in this frame
+	descriptors_offset[0][image_index] += 1;
+
+	size_t offset = descriptors_offset[0][image_index];
+
+	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+	{
+		auto &current_descriptor = descriptors[0][i];
+		// If there is no allocated descriptors for this offset, then allocate new descriptor set
+		if (current_descriptor.descriptor_per_offset.size() <= offset)
+		{
+			current_descriptor.descriptor_per_offset.resize(offset + 1);
+			current_descriptor.descriptor_per_offset[offset] = VkWrapper::global_descriptor_allocator->allocate(default_descriptor_layout.layout);
+		}
+
+		auto &current_binding_frame = descriptor_bindings[0][i];
+		// If there is no descriptor binding for this offset, then create buffer for it and map
+		if (current_binding_frame.bindings_per_offset.size() <= offset)
+		{
+			current_binding_frame.bindings_per_offset.resize(offset + 1);
+			auto &current_binding = current_binding_frame.bindings_per_offset[offset];
+
+			BufferDescription desc;
+			desc.size = sizeof(DefaultUniforms);
+			desc.useStagingBuffer = false;
+			desc.bufferUsageFlags = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+
+			current_binding.first = std::make_shared<Buffer>(desc);
+
+			// Map gpu memory on cpu memory
+			current_binding.first->map(&current_binding.second);
+
+			// Update set
+			DescriptorWriter writer;
+			writer.writeBuffer(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, current_binding.first->bufferHandle, sizeof(DefaultUniforms));
+			writer.updateSet(descriptors[0][i].descriptor_per_offset[offset]);
+		}
+	}
+
+	auto &current_binding = descriptor_bindings[0][image_index].bindings_per_offset[offset];
+	memcpy(current_binding.second, &default_uniforms, sizeof(DefaultUniforms));
 }
 
 void Renderer::ensureDescriptorsAllocated(DescriptorLayout descriptor_layout, size_t descriptor_hash, size_t offset)

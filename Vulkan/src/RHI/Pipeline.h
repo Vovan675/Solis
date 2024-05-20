@@ -1,6 +1,6 @@
 #pragma once
 #include "Shader.h"
-#include "Math.h"
+#include "EngineMath.h"
 #include "Descriptors.h"
 
 using namespace Engine::Math;
@@ -16,6 +16,12 @@ struct PipelineDescription
 	VkFormat depth_format;
 	bool use_depth_test = true;
 	bool use_blending = true;
+	VkBlendFactor srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+	VkBlendFactor dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+	VkBlendOp colorBlendOp = VK_BLEND_OP_ADD;
+	VkBlendFactor srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+	VkBlendFactor dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+	VkBlendOp alphaBlendOp = VK_BLEND_OP_ADD;
 	VkCullModeFlagBits cull_mode = VK_CULL_MODE_BACK_BIT;
 
 	size_t getHash() const

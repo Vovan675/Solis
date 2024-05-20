@@ -1,5 +1,3 @@
-#version 450
-
 layout (location=0) out vec3 dir;
 
 layout(push_constant) uniform constants

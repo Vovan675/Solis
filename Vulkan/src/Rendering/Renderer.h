@@ -5,6 +5,7 @@
 #include "RHI/Buffer.h"
 #include "RHI/VkWrapper.h"
 #include "BindlessResources.h"
+#include "Camera.h"
 
 enum RENDER_TARGETS
 {
@@ -53,9 +54,15 @@ public:
 										unsigned int binding, std::shared_ptr<Texture> texture, unsigned int image_index, int mip = -1, int face = -1);
 
 	static void bindShadersDescriptorSets(std::shared_ptr<Shader> vertex_shader, std::shared_ptr<Shader> fragment_shader, CommandBuffer &command_buffer, VkPipelineLayout pipeline_layout, unsigned int image_index);
+
+	// Default Uniforms
+	static void setCamera(std::shared_ptr<Camera> camera) { Renderer::camera = camera; }
+	static void updateDefaultUniforms(unsigned int image_index);
+
+	static VkDescriptorSetLayout getDefaultDescriptorLayout() { return default_descriptor_layout.layout; }
 private:
 	static void ensureDescriptorsAllocated(DescriptorLayout descriptor_layout, size_t descriptor_hash, size_t offset);
-
+	
 	static RendererDebugInfo debug_info;
 
 	static std::array<std::shared_ptr<Texture>, RENDER_TARGET_TEXTURES_COUNT> screen_resources;
@@ -75,5 +82,18 @@ private:
 
 	// Use descriptor layout & binding hash
 	static std::unordered_map<size_t, std::array<PerFrameDescriptorBinding, MAX_FRAMES_IN_FLIGHT>> descriptor_bindings;
+
+	struct DefaultUniforms
+	{
+		glm::mat4 view;
+		glm::mat4 iview;
+		glm::mat4 projection;
+		glm::mat4 iprojection;
+		glm::vec4 camera_position;
+		glm::vec4 swapchain_size;
+	};
+	static DefaultUniforms default_uniforms;
+	static DescriptorLayout default_descriptor_layout;
+	static std::shared_ptr<Camera> camera;
 };
 

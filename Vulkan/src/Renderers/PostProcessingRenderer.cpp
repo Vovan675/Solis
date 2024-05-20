@@ -6,17 +6,12 @@
 
 PostProcessingRenderer::PostProcessingRenderer()
 {
-	reloadShaders();
+	vertex_shader = Shader::create("shaders/quad.vert", Shader::VERTEX_SHADER);
+	fragment_shader = Shader::create("shaders/post_processing.frag", Shader::FRAGMENT_SHADER);
 }
 
 PostProcessingRenderer::~PostProcessingRenderer()
 {
-}
-
-void PostProcessingRenderer::reloadShaders()
-{
-	vertex_shader = std::make_shared<Shader>("shaders/quad.vert", Shader::VERTEX_SHADER);
-	fragment_shader = std::make_shared<Shader>("shaders/post_processing.frag", Shader::FRAGMENT_SHADER);
 }
 
 void PostProcessingRenderer::fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index)
@@ -32,9 +27,6 @@ void PostProcessingRenderer::fillCommandBuffer(CommandBuffer &command_buffer, ui
 
 	p->flush();
 	p->bind(command_buffer);
-
-	// Bindless
-	vkCmdBindDescriptorSets(command_buffer.get_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, p->getPipelineLayout(), 1, 1, BindlessResources::getDescriptorSet(), 0, nullptr);
 
 	// Uniforms
 	Renderer::setShadersUniformBuffer(vertex_shader, fragment_shader, 0, &ubo, sizeof(UBO), image_index);

@@ -11,7 +11,6 @@ class DefferedCompositeRenderer: public RendererBase
 public:
 	struct UBO
 	{
-		glm::vec4 cam_pos;
 		uint32_t lighting_diffuse_tex_id = 0;
 		uint32_t lighting_specular_tex_id = 0;
 		uint32_t albedo_tex_id = 0;
@@ -28,8 +27,6 @@ public:
 
 	DefferedCompositeRenderer();
 	virtual ~DefferedCompositeRenderer();
-
-	void reloadShaders() override;
 
 	void fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index) override;
 

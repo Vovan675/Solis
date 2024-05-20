@@ -24,10 +24,8 @@ struct Material
 class MeshRenderer : public RendererBase
 {
 public:
-	MeshRenderer(std::shared_ptr<Camera> cam, std::shared_ptr<Engine::Mesh> mesh);
+	MeshRenderer(std::shared_ptr<Engine::Mesh> mesh);
 	virtual ~MeshRenderer();
-
-	void reloadShaders() override;
 
 	void fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index) override;
 
@@ -37,14 +35,6 @@ public:
 	void setMaterial(Material mat) { this->mat = mat; }
 
 private:
-	// TODO: move to Renderer::setDefaultResources
-	struct UniformBufferObject
-	{
-		alignas(16) glm::mat4 view;
-		alignas(16) glm::mat4 proj;
-		alignas(16) glm::vec3 camera_position;
-	};
-
 	struct PushConstant
 	{
 		alignas(16) glm::mat4 model;
@@ -56,7 +46,6 @@ private:
 	std::shared_ptr<Texture> texture;
 	std::shared_ptr<Engine::Mesh> mesh;
 
-	std::shared_ptr<Camera> camera;
 	glm::vec3 position = glm::vec3(0.0f);
 	glm::quat rotation = glm::quat();
 	glm::vec3 scale = glm::vec3(1.0f);

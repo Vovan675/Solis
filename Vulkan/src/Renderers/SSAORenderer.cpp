@@ -53,14 +53,9 @@ SSAORenderer::SSAORenderer() : RendererBase()
 
 	ssao_noise->fill(ssao_noise_data.data());
 
-	reloadShaders();
-}
-
-void SSAORenderer::reloadShaders()
-{
-	vertex_shader = std::make_shared<Shader>("shaders/quad.vert", Shader::VERTEX_SHADER);
-	fragment_shader_raw = std::make_shared<Shader>("shaders/ssao.frag", Shader::FRAGMENT_SHADER);
-	fragment_shader_blur = std::make_shared<Shader>("shaders/ssao_blur.frag", Shader::FRAGMENT_SHADER);
+	vertex_shader = Shader::create("shaders/quad.vert", Shader::VERTEX_SHADER);
+	fragment_shader_raw = Shader::create("shaders/ssao.frag", Shader::FRAGMENT_SHADER);
+	fragment_shader_blur = Shader::create("shaders/ssao_blur.frag", Shader::FRAGMENT_SHADER);
 }
 
 void SSAORenderer::fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index)
@@ -85,11 +80,7 @@ void SSAORenderer::fillCommandBuffer(CommandBuffer &command_buffer, uint32_t ima
 	p->flush();
 	p->bind(command_buffer);
 
-	// Bindless
-	vkCmdBindDescriptorSets(command_buffer.get_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, p->getPipelineLayout(), 1, 1, BindlessResources::getDescriptorSet(), 0, nullptr);
-
 	// Uniforms
-	ubo_raw_pass.screen_size = glm::vec3(VkWrapper::swapchain->getSize(), 0.0f);
 	Renderer::setShadersUniformBuffer(vertex_shader, fragment_shader_raw, 0, &ubo_raw_pass, sizeof(UBO_RAW), image_index);
 	Renderer::setShadersTexture(vertex_shader, fragment_shader_raw, 1, ssao_noise, image_index);
 	Renderer::bindShadersDescriptorSets(vertex_shader, fragment_shader_raw, command_buffer, p->getPipelineLayout(), image_index);

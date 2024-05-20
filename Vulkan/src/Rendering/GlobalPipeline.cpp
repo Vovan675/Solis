@@ -44,6 +44,16 @@ void GlobalPipeline::flush()
 	current_pipeline = new_pipeline;
 }
 
+void GlobalPipeline::setBlendMode(VkBlendFactor srcColorBlendFactor, VkBlendFactor dstColorBlendFactor, VkBlendOp colorBlendOp, VkBlendFactor srcAlphaBlendFactor, VkBlendFactor dstAlphaBlendFactor, VkBlendOp alphaBlendOp)
+{
+	current_description.srcColorBlendFactor = srcColorBlendFactor;
+	current_description.dstColorBlendFactor = dstColorBlendFactor;
+	current_description.colorBlendOp = colorBlendOp;
+	current_description.srcAlphaBlendFactor = srcAlphaBlendFactor;
+	current_description.dstAlphaBlendFactor = dstAlphaBlendFactor;
+	current_description.alphaBlendOp = alphaBlendOp;
+}
+
 void GlobalPipeline::bind(const CommandBuffer &command_buffer)
 {
 	vkCmdBindPipeline(command_buffer.get_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, current_pipeline->pipeline);

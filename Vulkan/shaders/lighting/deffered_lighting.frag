@@ -1,11 +1,10 @@
-#version 450
-#extension GL_EXT_nonuniform_qualifier : enable
+#include "common.h"
 
-layout(location = 0) in vec2 inUV;
+layout(location = 0) in vec4 inPos;
 
 layout (set=1, binding=0) uniform sampler2D textures[];
 
-layout(set=0, binding=0) uniform UBO
+layout(set=0, binding=1) uniform UBO
 {
 	uint positionTexId;
 	uint albedoTexId;
@@ -16,7 +15,11 @@ layout(set=0, binding=0) uniform UBO
 
 layout(push_constant) uniform constants
 {
-	vec4 camPos;
+	vec4 light_pos;
+	vec4 light_color;
+	float light_intensity;
+	float light_range_square; // radius ^ 2
+	float padding[2];
 } PushConstants;
 
 layout(location = 0) out vec3 outDiffuse;
@@ -73,8 +76,35 @@ float compute_reflectance(float reflectance)
 	return 0.16 * reflectance * reflectance;
 }
 
+// Moving Frostbite to pbr
+float get_smooth_distance_att(float sqr_distance, float inv_sqr_att_radius)
+{
+	float factor = sqr_distance * (1 / inv_sqr_att_radius);
+	float smooth_factor = clamp(1.0 - factor * factor, 0.0, 1.0);
+	return smooth_factor * smooth_factor;
+}
+
+float get_attenuation(vec3 pos)
+{
+	vec3 delta = PushConstants.light_pos.xyz - pos;
+	float sqr_distance = dot(delta, delta);
+	float attenuation = 1.0 / max(sqr_distance, 0.01 * 0.01);
+	attenuation *= get_smooth_distance_att(sqr_distance, PushConstants.light_range_square);
+	return attenuation;
+}
+
+vec3 getVSPosition(vec2 uv, float hardware_depth)
+{
+    vec4 pos = inverse(projection) * vec4(uv * 2 - 1, hardware_depth, 1.0f);
+    pos /= pos.w;
+    return pos.xyz;
+}
+
 void main()
 {
+	vec2 inUV = inPos.xy / inPos.w * 0.5 + 0.5;
+	float depth = texture(textures[ubo.depthTexId], inUV).r;
+
 	vec4 shading = texture(textures[ubo.shadingTexId], inUV).rgba;
 	float metalness = shading.r;
 	float roughness = clamp(shading.g, 0.045f, 1.0f);
@@ -90,11 +120,15 @@ void main()
 	vec3 F0 = (albedo * metalness) + (reflectance * (1.0f - metalness));
 	float F90 = 1.0f;
 
-	vec3 LIGHT_POS = vec3(2, 2, 0);
-	vec3 P = texture(textures[ubo.positionTexId], inUV).rgb;
-	vec3 V = normalize(PushConstants.camPos.xyz - P);
-	vec3 L = normalize(LIGHT_POS - P);
-	L = normalize(vec3(2, 2, 0));
+
+	vec3 view_pos = getVSPosition(inUV, depth);
+	vec4 world_pos = inverse(view) * vec4(view_pos, 1.0);
+	world_pos.xyz /= world_pos.w;
+	//vec3 P = texture(textures[ubo.positionTexId], inUV).rgb;
+	vec3 P = world_pos.xyz;
+	vec3 V = normalize(camera_position.xyz - P);
+	vec3 L = normalize(PushConstants.light_pos.xyz - P);
+	//L = normalize(vec3(2, 2, 0));
 	vec3 N = normalize(texture(textures[ubo.normalTexId], inUV).rgb);
 	vec3 H = normalize(V + L);
 
@@ -113,6 +147,7 @@ void main()
 	float Viz = V_SmithGGXCorrelated(NdotV, NdotL, roughness); 
 	vec3 F_specular = D * F * Viz;
 
-	outDiffuse = NdotL * (vec3(1.0f) - F) * diffuse;
-	outSpecular = NdotL * F_specular;
+	float attenuation = get_attenuation(P);
+	outDiffuse = NdotL * (vec3(1.0f) - F) * diffuse * attenuation * PushConstants.light_intensity * PushConstants.light_color.rgb;
+	outSpecular = NdotL * F_specular * attenuation * PushConstants.light_intensity * PushConstants.light_color.rgb;
 }

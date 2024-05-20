@@ -1,6 +1,3 @@
-#version 450
-#extension GL_EXT_nonuniform_qualifier : enable
-
 layout(location = 0) in vec2 inUV;
 
 layout(location = 0) out vec4 outColor;
@@ -15,6 +12,8 @@ layout(set=0, binding=0) uniform UBO
 	uint normal_tex_id;
 	uint depth_tex_id;
 	uint position_tex_id;
+	uint light_diffuse_id;
+	uint light_specular_id;
 	uint brdf_lut_id;
 	uint ssao_id;
 } ubo;
@@ -46,6 +45,8 @@ void main() {
     vec4 normal = texture(textures[ubo.normal_tex_id], uv);
     float depth = texture(textures[ubo.depth_tex_id], uv).r;
     vec3 position = texture(textures[ubo.position_tex_id], uv).xyz;
+    vec3 diffuse = texture(textures[ubo.light_diffuse_id], uv).xyz;
+    vec3 specular = texture(textures[ubo.light_specular_id], uv).xyz;
     vec2 brdf_lut = texture(textures[ubo.brdf_lut_id], uv).xy;
     float ssao = texture(textures[ubo.ssao_id], uv).r;
 
@@ -66,8 +67,14 @@ void main() {
         value = vec4(position, 1.0);
     } else if (mode == 6)
     {   
-        value = vec4(brdf_lut, 0.0, 1.0);
+        value = vec4(diffuse, 1.0);
     } else if (mode == 7)
+    {   
+        value = vec4(specular, 1.0);
+    } else if (mode == 8)
+    {   
+        value = vec4(brdf_lut, 0.0, 1.0);
+    } else if (mode == 9)
     {   
         //value = vec4(ssao, ssao, ssao, 1.0);
         value = vec4(ssao, ssao, ssao, 1.0);

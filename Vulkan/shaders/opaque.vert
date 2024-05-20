@@ -1,10 +1,4 @@
-#version 450
-
-layout(set=0, binding=0) uniform UBO
-{
-	mat4 view;
-	mat4 proj;
-} ubo;
+#include "common.h"
 
 layout(push_constant) uniform constants
 {
@@ -23,7 +17,7 @@ layout(location=3) out vec3 outColor;
 
 void main()
 {
-	gl_Position = ubo.proj * ubo.view * PushConstants.model * vec4(inPosition, 1.0);
+	gl_Position = projection * view * PushConstants.model * vec4(inPosition, 1.0);
     
 	outPos = (PushConstants.model * vec4(inPosition, 1.0)).xyz;
 	outNormal = normalize(transpose(inverse(mat3(PushConstants.model))) * inNormal); // Apply rotation to normal

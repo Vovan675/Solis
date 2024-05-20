@@ -14,17 +14,12 @@ PrefilterRenderer::PrefilterRenderer(): RendererBase()
 
 	mesh = std::make_shared<Engine::Mesh>("assets/cube.fbx");
 
-	reloadShaders();
+	vertex_shader = Shader::create("shaders/ibl/cubemap_filter.vert", Shader::VERTEX_SHADER);
+	fragment_shader = Shader::create("shaders/ibl/prefilter.frag", Shader::FRAGMENT_SHADER);
 }
 
 PrefilterRenderer::~PrefilterRenderer()
 {
-}
-
-void PrefilterRenderer::reloadShaders()
-{
-	vertex_shader = std::make_shared<Shader>("shaders/ibl/cubemap_filter.vert", Shader::VERTEX_SHADER);
-	fragment_shader = std::make_shared<Shader>("shaders/ibl/prefilter.frag", Shader::FRAGMENT_SHADER);
 }
 
 void PrefilterRenderer::fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index)
@@ -40,9 +35,6 @@ void PrefilterRenderer::fillCommandBuffer(CommandBuffer &command_buffer, uint32_
 
 	p->flush();
 	p->bind(command_buffer);
-
-	// Bindless
-	vkCmdBindDescriptorSets(command_buffer.get_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, p->getPipelineLayout(), 1, 1, BindlessResources::getDescriptorSet(), 0, nullptr);
 
 	// Uniforms
 	Renderer::setShadersTexture(vertex_shader, fragment_shader, 1, cube_texture, image_index);

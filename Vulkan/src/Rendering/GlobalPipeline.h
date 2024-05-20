@@ -17,6 +17,8 @@ public:
 
 	void setUseVertices(bool use_vertices) { current_description.use_vertices = use_vertices; }
 	void setUseBlending(bool use_blending) { current_description.use_blending = use_blending; }
+	void setBlendMode(VkBlendFactor srcColorBlendFactor, VkBlendFactor dstColorBlendFactor, VkBlendOp colorBlendOp,
+					  VkBlendFactor srcAlphaBlendFactor, VkBlendFactor dstAlphaBlendFactor, VkBlendOp alphaBlendOp);
 	void setDepthTest(bool depth_test) { current_description.use_depth_test = depth_test; }
 
 	void setCullMode(VkCullModeFlagBits cull_mode) { current_description.cull_mode = cull_mode; }

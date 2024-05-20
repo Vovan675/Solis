@@ -3,6 +3,7 @@
 #include "Pipeline.h"
 #include "VkWrapper.h"
 #include "BindlessResources.h"
+#include "Rendering/Renderer.h"
 
 Pipeline::~Pipeline()
 {
@@ -96,12 +97,12 @@ void Pipeline::create(const PipelineDescription &description)
 		VkPipelineColorBlendAttachmentState attachment{};
 		attachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
 		attachment.blendEnable = description.use_blending;
-		attachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-		attachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-		attachment.colorBlendOp = VK_BLEND_OP_ADD;
-		attachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-		attachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-		attachment.alphaBlendOp = VK_BLEND_OP_ADD;
+		attachment.srcColorBlendFactor = description.srcColorBlendFactor;
+		attachment.dstColorBlendFactor = description.dstColorBlendFactor;
+		attachment.colorBlendOp = description.colorBlendOp;
+		attachment.srcAlphaBlendFactor = description.srcAlphaBlendFactor;
+		attachment.dstAlphaBlendFactor = description.dstAlphaBlendFactor;
+		attachment.alphaBlendOp = description.alphaBlendOp;
 		color_blend_attachments[i] = attachment;
 	}
 	
@@ -147,6 +148,7 @@ void Pipeline::create(const PipelineDescription &description)
 		descriptor_set_layouts.push_back(description.descriptor_layout.layout); // One descriptor set should be enough
 	}
 	descriptor_set_layouts.push_back(*BindlessResources::getDescriptorLayout()); // Add bindless layout to every pipeline
+	descriptor_set_layouts.push_back(Renderer::getDefaultDescriptorLayout()); // Add default resources layout to every pipeline
 
 	VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;

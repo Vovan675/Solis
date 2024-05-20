@@ -14,17 +14,12 @@ IrradianceRenderer::IrradianceRenderer(): RendererBase()
 	
 	mesh = std::make_shared<Engine::Mesh>("assets/cube.fbx");
 
-	reloadShaders();
+	vertex_shader = Shader::create("shaders/ibl/cubemap_filter.vert", Shader::VERTEX_SHADER);
+	fragment_shader = Shader::create("shaders/ibl/irradiance.frag", Shader::FRAGMENT_SHADER);
 }
 
 IrradianceRenderer::~IrradianceRenderer()
 {
-}
-
-void IrradianceRenderer::reloadShaders()
-{
-	vertex_shader = std::make_shared<Shader>("shaders/ibl/cubemap_filter.vert", Shader::VERTEX_SHADER);
-	fragment_shader = std::make_shared<Shader>("shaders/ibl/irradiance.frag", Shader::FRAGMENT_SHADER);
 }
 
 void IrradianceRenderer::fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index)
@@ -40,9 +35,6 @@ void IrradianceRenderer::fillCommandBuffer(CommandBuffer &command_buffer, uint32
 
 	p->flush();
 	p->bind(command_buffer);
-
-	// Bindless
-	vkCmdBindDescriptorSets(command_buffer.get_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, p->getPipelineLayout(), 1, 1, BindlessResources::getDescriptorSet(), 0, nullptr);
 
 	// Uniforms
 	Renderer::setShadersTexture(vertex_shader, fragment_shader, 1, cube_texture, image_index);

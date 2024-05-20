@@ -21,8 +21,6 @@ public:
 	PostProcessingRenderer();
 	virtual ~PostProcessingRenderer();
 
-	void reloadShaders() override;
-
 	void fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index) override;
 
 	void renderImgui();

@@ -4,13 +4,6 @@
 #include "Rendering/Renderer.h"
 #include <stb_image.h>
 
-static struct UniformBufferObject
-{
-	alignas(16) glm::mat4 view;
-	alignas(16) glm::mat4 proj;
-	alignas(16) glm::vec3 camera_position;
-};
-
 static struct PushConstant
 {
 	alignas(16) glm::mat4 model;
@@ -24,17 +17,12 @@ EntityRenderer::EntityRenderer(std::shared_ptr<Camera> cam, std::shared_ptr<Enti
 	this->entity = entity;
 	this->texture = texture;
 
-	reloadShaders();
+	vertex_shader = Shader::create("shaders/opaque.vert", Shader::VERTEX_SHADER);
+	fragment_shader = Shader::create("shaders/opaque.frag", Shader::FRAGMENT_SHADER);
 }
 
 EntityRenderer::~EntityRenderer()
 {
-}
-
-void EntityRenderer::reloadShaders()
-{
-	vertex_shader = std::make_shared<Shader>("shaders/opaque.vert", Shader::VERTEX_SHADER);
-	fragment_shader = std::make_shared<Shader>("shaders/opaque.frag", Shader::FRAGMENT_SHADER);
 }
 
 void EntityRenderer::fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index)
@@ -51,15 +39,7 @@ void EntityRenderer::fillCommandBuffer(CommandBuffer &command_buffer, uint32_t i
 	p->flush();
 	p->bind(command_buffer);
 
-	// Bindless
-	vkCmdBindDescriptorSets(command_buffer.get_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, p->getPipelineLayout(), 1, 1, BindlessResources::getDescriptorSet(), 0, nullptr);
-
 	// Uniforms
-	UniformBufferObject ubo{};
-	ubo.view = camera->getView();
-	ubo.proj = camera->getProj();
-	ubo.camera_position = camera->getPosition();
-	Renderer::setShadersUniformBuffer(vertex_shader, fragment_shader, 0, &ubo, sizeof(UniformBufferObject), image_index);
 	Renderer::setShadersUniformBuffer(vertex_shader, fragment_shader, 1, &mat, sizeof(Material), image_index);
 
 	// Render entity

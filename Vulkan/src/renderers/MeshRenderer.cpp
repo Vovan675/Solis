@@ -4,25 +4,19 @@
 #include "Rendering/Renderer.h"
 #include <stb_image.h>
 
-MeshRenderer::MeshRenderer(std::shared_ptr<Camera> cam, std::shared_ptr<Engine::Mesh> mesh) : RendererBase()
+MeshRenderer::MeshRenderer(std::shared_ptr<Engine::Mesh> mesh) : RendererBase()
 {
-	camera = cam;
 	rotation = glm::quat();
 	scale = glm::vec3(1.0f, 1.0f, 1.0f);
 	this->mesh = mesh;
 	this->texture = texture;
 
-	reloadShaders();
+	vertex_shader = Shader::create("shaders/opaque.vert", Shader::VERTEX_SHADER);
+	fragment_shader = Shader::create("shaders/opaque.frag", Shader::FRAGMENT_SHADER);
 }
 
 MeshRenderer::~MeshRenderer()
 {
-}
-
-void MeshRenderer::reloadShaders()
-{
-	vertex_shader = std::make_shared<Shader>("shaders/opaque.vert", Shader::VERTEX_SHADER);
-	fragment_shader = std::make_shared<Shader>("shaders/opaque.frag", Shader::FRAGMENT_SHADER);
 }
 
 void MeshRenderer::fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index)
@@ -39,15 +33,7 @@ void MeshRenderer::fillCommandBuffer(CommandBuffer &command_buffer, uint32_t ima
 	p->flush();
 	p->bind(command_buffer);
 
-	// Bindless
-	vkCmdBindDescriptorSets(command_buffer.get_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, p->getPipelineLayout(), 1, 1, BindlessResources::getDescriptorSet(), 0, nullptr);
-
 	// Uniforms
-	UniformBufferObject ubo{};
-	ubo.view = camera->getView();
-	ubo.proj = camera->getProj();
-	ubo.camera_position = camera->getPosition();
-	Renderer::setShadersUniformBuffer(vertex_shader, fragment_shader, 0, &ubo, sizeof(UniformBufferObject), image_index);
 	Renderer::setShadersUniformBuffer(vertex_shader, fragment_shader, 1, &mat, sizeof(Material), image_index);
 	Renderer::bindShadersDescriptorSets(vertex_shader, fragment_shader, command_buffer, p->getPipelineLayout(), image_index);
 

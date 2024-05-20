@@ -1,5 +1,4 @@
-#version 450
-#extension GL_EXT_nonuniform_qualifier : enable
+#include "common.h"
 
 layout(location = 0) in vec2 inUV;
 
@@ -9,7 +8,6 @@ layout (set=1, binding=0) uniform sampler2D textures[];
 
 layout(set=0, binding=0) uniform UBO
 {
-	vec4 cam_pos;
     uint lighting_diffuse_tex_id;
 	uint lighting_specular_tex_id;
 	uint albedo_tex_id;
@@ -52,7 +50,7 @@ void main() {
     vec3 ibl_diffuse = irradiance * albedo.rgb * (1.0 - f0) * (1.0 - metalness);
 
     vec3 world_pos = texture(textures[ubo.position_tex_id], inUV).rgb;
-    vec3 v = normalize(ubo.cam_pos.xyz - world_pos);
+    vec3 v = normalize(camera_position.xyz - world_pos);
 	float NdotV = clamp(abs(dot(normal, v)), 0.001f, 1.0f);
     vec3 brdf_lut = texture(textures[ubo.brdf_lut_tex_id], vec2(NdotV, 1.0 - roughness)).rgb;
 

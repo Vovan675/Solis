@@ -15,6 +15,7 @@
 Application::Application()
 {
 	camera = std::make_shared<Camera>();
+	Renderer::setCamera(camera);
 
 	// Load mesh
 	//auto entity = std::make_shared<Entity>("assets/bistro/BistroExterior.fbx");
@@ -36,13 +37,13 @@ Application::Application()
 	prefilter_renderer = std::make_shared<PrefilterRenderer>();
 	renderers.push_back(prefilter_renderer);
 
-	cubemap_renderer = std::make_shared<CubeMapRenderer>(camera);
+	cubemap_renderer = std::make_shared<CubeMapRenderer>();
 	renderers.push_back(cubemap_renderer);
 
-	mesh_renderer = std::make_shared<MeshRenderer>(camera, mesh);
+	mesh_renderer = std::make_shared<MeshRenderer>(mesh);
 	renderers.push_back(mesh_renderer);
 
-	mesh_renderer2 = std::make_shared<MeshRenderer>(camera, mesh2);
+	mesh_renderer2 = std::make_shared<MeshRenderer>(mesh2);
 	renderers.push_back(mesh_renderer2);
 
 	imgui_renderer = std::make_shared<ImGuiRenderer>(window);
@@ -99,9 +100,9 @@ Application::Application()
 		{
 			//auto entity = std::make_shared<Entity>("assets/ball.fbx");
 			//auto entity_renderer = std::make_shared<MeshRenderer>(camera, entity);
-			auto entity_renderer = std::make_shared<MeshRenderer>(camera, mesh_ball);
+			auto entity_renderer = std::make_shared<MeshRenderer>(mesh_ball);
 			//entity_renderer->setTransform(glm::scale(glm::mat4(1.0), glm::vec3(0.001f)) * glm::translate(glm::mat4(1.0), glm::vec3(-2.0 * 5 + 2.0 * x, 2.0 * y, 0)));
-			entity_renderer->setPosition(glm::vec3(-0.3 * 5 + 0.3 * x, 0.3 * y, 0));
+			entity_renderer->setPosition(glm::vec3(-0.3 * 4 + 0.3 * x, 0.3 * y, 0));
 			entity_renderer->setScale(glm::vec3(0.001f));
 			renderers.push_back(entity_renderer);
 			entities_renderers.push_back(entity_renderer);
@@ -182,10 +183,7 @@ void Application::update(float delta_time)
 	{
 		// Wait for all operations complete
 		vkDeviceWaitIdle(VkWrapper::device->logicalHandle);
-		for (const auto& renderer : renderers)
-		{
-			renderer->reloadShaders();
-		}
+		Shader::recompileAllShaders();
 	}
 
 	if (ImGui::TreeNode("Debug Info"))
@@ -202,7 +200,7 @@ void Application::update(float delta_time)
 	if (debug_rendering)
 	{
 		static int present_mode = 2;
-		char* items[] = { "All", "Final Composite", "Albedo", "Normal", "Depth", "Position", "BRDF LUT", "SSAO" };
+		char* items[] = { "All", "Final Composite", "Albedo", "Normal", "Depth", "Position", "Light Diffuse", "Light Specular", "BRDF LUT", "SSAO" };
 		if (ImGui::BeginCombo("Preview Combo", items[present_mode]))
 		{
 			for (int n = 0; n < IM_ARRAYSIZE(items); n++)
@@ -240,6 +238,7 @@ void Application::update(float delta_time)
 
 	post_renderer->renderImgui();
 	ssao_renderer->renderImgui();
+	defferred_lighting_renderer->renderImgui();
 	ImGui::End();
 }
 
@@ -247,6 +246,7 @@ void Application::updateBuffers(float delta_time, uint32_t image_index)
 {
 	// Update bindless resources if any
 	BindlessResources::updateSets();
+	Renderer::updateDefaultUniforms(image_index);
 
 	mesh_renderer->setRotation(glm::rotate(glm::quat(), glm::vec3(-glm::radians(90.0f), -glm::radians(90.0f), 0)));
 	mesh_renderer->setPosition(glm::vec3(-5, 0, 0));
@@ -256,11 +256,6 @@ void Application::updateBuffers(float delta_time, uint32_t image_index)
 	mesh_renderer2->setPosition(glm::vec3(1, 0.3, 0));
 	mesh_renderer2->setScale(glm::vec3(0.02f, 0.02f, 0.02f));
 
-	defferred_lighting_renderer->constants.cam_pos = glm::vec4(camera->getPosition(), 1.0f);
-	deffered_composite_renderer->ubo.cam_pos = glm::vec4(camera->getPosition(), 1.0f);
-
-	ssao_renderer->ubo_raw_pass.view = camera->getView();
-	ssao_renderer->ubo_raw_pass.proj = camera->getProj();
 	ssao_renderer->ubo_raw_pass.near_plane = camera->getNear();
 	ssao_renderer->ubo_raw_pass.far_plane = camera->getFar();
 }
@@ -320,9 +315,8 @@ void Application::recordCommands(CommandBuffer &command_buffer, uint32_t image_i
 		}
 
 		ibl_prefilter->transitLayout(command_buffer, TEXTURE_LAYOUT_SHADER_READ);
+		is_first_frame = false;
 	}
-
-	is_first_frame = false;
 
 	render_GBuffer(command_buffer, image_index);
 	render_lighting(command_buffer, image_index);
@@ -406,9 +400,11 @@ void Application::onSwapchainRecreated(int width, int height)
 
 	uint32_t lighting_diffuse_id = Renderer::getRenderTargetBindlessId(RENDER_TARGET_LIGHTING_DIFFUSE);
 	deffered_composite_renderer->ubo.lighting_diffuse_tex_id = lighting_diffuse_id;
+	debug_renderer->ubo.light_diffuse_id = lighting_diffuse_id;
 
 	uint32_t lighting_specular_id = Renderer::getRenderTargetBindlessId(RENDER_TARGET_LIGHTING_SPECULAR);
 	deffered_composite_renderer->ubo.lighting_specular_tex_id = lighting_specular_id;
+	debug_renderer->ubo.light_specular_id = lighting_specular_id;
 
 
 	uint32_t ssao_raw_id = Renderer::getRenderTargetBindlessId(RENDER_TARGET_SSAO_RAW);

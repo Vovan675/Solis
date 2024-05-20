@@ -16,8 +16,6 @@ public:
 	EntityRenderer(std::shared_ptr<Camera> cam, std::shared_ptr<Entity> mesh);
 	virtual ~EntityRenderer();
 
-	void reloadShaders() override;
-
 	void fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index) override;
 	void renderEntity(CommandBuffer &command_buffer, Entity *entity);
 

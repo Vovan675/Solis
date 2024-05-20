@@ -12,8 +12,6 @@ public:
 	LutRenderer();
 	virtual ~LutRenderer();
 
-	void reloadShaders() override;
-
 	void fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index) override;
 
 private:

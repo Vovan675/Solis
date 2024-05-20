@@ -1,12 +1,6 @@
-#version 450
+#include "common.h"
 
 layout (location=0) out vec3 dir;
-
-layout(set=0, binding=0) uniform UBO
-{
-	mat4 view;
-	mat4 proj;
-} ubo;
 
 const vec3 pos[8] = vec3[8](
 	vec3(-1.0,-1.0, 1.0),
@@ -46,7 +40,7 @@ void main()
 	//int idx = indices[gl_VertexIndex];
 	//gl_Position = ubo.view * ubo.proj * vec4(cubeSize * pos[idx], 1.0);
 	//dir = pos[idx].xyz;
-	gl_Position = ubo.proj * mat4(mat3(ubo.view)) * vec4(inPosition, 1.0);
+	gl_Position = projection * mat4(mat3(view)) * vec4(inPosition, 1.0);
 
 	dir = vec3(vec4(inPosition, 1.0));
 }

@@ -10,6 +10,11 @@
 class DefferedLightingRenderer: public RendererBase
 {
 public:
+	struct UniformBufferObject
+	{
+		alignas(16) glm::mat4 model;
+	} ubo_sphere;
+
 	struct UBO
 	{
 		uint32_t position_tex_id = 0;
@@ -22,13 +27,15 @@ public:
 	// TODO: use uniform buffer, move to Renderer::setDefaultResources
 	struct PushConstant
 	{
-		glm::vec4 cam_pos;
+		glm::vec4 light_pos;
+		glm::vec4 light_color;
+		float light_intensity;
+		float light_range_square; // radius ^ 2
+		float padding[2];
 	} constants;
 
 	DefferedLightingRenderer();
 	virtual ~DefferedLightingRenderer();
-
-	void reloadShaders() override;
 
 	void fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index) override;
 
@@ -36,5 +43,19 @@ public:
 private:
 	std::shared_ptr<Shader> vertex_shader;
 	std::shared_ptr<Shader> fragment_shader;
+	std::shared_ptr<Engine::Mesh> icosphere_mesh;
+
+	struct LightData
+	{
+		glm::vec4 position;
+		glm::vec4 color;
+		float intensity;
+		float radius;
+	};
+	std::vector<LightData> lights;
+
+	glm::vec3 position = glm::vec3(0, 0, 0);
+	float radius = 1.0;
+	float intensity = 1.0;
 };
 

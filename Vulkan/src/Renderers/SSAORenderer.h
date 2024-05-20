@@ -14,10 +14,7 @@ public:
 		uint32_t normal_tex_id = 0;
 		uint32_t depth_tex_id = 0;
 		uint32_t position_tex_id = 0;
-		alignas(16) glm::vec3 screen_size;
 		alignas(16) glm::vec4 kernel[64];
-		alignas(16) glm::mat4 view;
-		alignas(16) glm::mat4 proj;
 		float near_plane;
 		float far_plane;
 		int samples = 64;
@@ -30,8 +27,6 @@ public:
 	} ubo_blur_pass;
 
 	SSAORenderer();
-
-	void reloadShaders() override;
 
 	void fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index) override;
 

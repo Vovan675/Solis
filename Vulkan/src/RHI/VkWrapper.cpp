@@ -256,7 +256,9 @@ DescriptorLayout VkWrapper::getDescriptorLayout(std::vector<Descriptor> descript
 	for (const auto &descriptor : descriptors)
 	{
 		// Skip bindless textures
-		if (descriptor.type == DESCRIPTOR_TYPE_SAMPLER && descriptor.set == 1 && descriptor.binding == 0)
+		if ((descriptor.type == DESCRIPTOR_TYPE_SAMPLER && descriptor.set == 1 && descriptor.binding == 0) // Bindless Textures
+			|| (descriptor.type == DESCRIPTOR_TYPE_UNIFORM_BUFFER && descriptor.set == 2 && descriptor.binding == 0) // Default uniforms
+			)
 			continue;
 
 		VkDescriptorType descriptor_type;

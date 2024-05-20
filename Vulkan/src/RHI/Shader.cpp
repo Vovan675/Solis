@@ -3,23 +3,64 @@
 #include "Log.h"
 #include "Math.h"
 #include <shaderc/shaderc.hpp>
+#include <filesystem>
 #include "VkWrapper.h"
+
+std::unordered_map<size_t, std::shared_ptr<Shader>> Shader::cached_shaders;
+
+static class ShaderIncluder : public shaderc::CompileOptions::IncluderInterface
+{
+	shaderc_include_result *GetInclude(const char *requestedSource, shaderc_include_type type, const char *requestingSource, size_t includeDepth) override
+	{
+		std::string msg = std::string(requestingSource);
+		msg += std::to_string(type);
+		msg += static_cast<char>(includeDepth);
+
+		const std::string name = std::string(requestedSource);
+		const std::string contents = ReadFile("shaders/" + name);
+
+		auto container = new std::array<std::string, 2>;
+		(*container)[0] = name;
+		(*container)[1] = contents;
+
+		auto data = new shaderc_include_result;
+
+		data->user_data = container;
+
+		data->source_name = (*container)[0].data();
+		data->source_name_length = (*container)[0].size();
+
+		data->content = (*container)[1].data();
+		data->content_length = (*container)[1].size();
+
+		return data;
+	}
+	void ReleaseInclude(shaderc_include_result *data) override
+	{
+		delete static_cast<std::array<std::string, 2> *>(data->user_data);
+		delete data;
+	}
+	static std::string ReadFile(const std::string &filepath)
+	{
+		std::ifstream file(filepath, std::ios::binary | std::ios::ate);
+		if (!file.is_open())
+		{
+			CORE_ERROR("Error opening file");
+		}
+		int size = file.tellg();
+		file.seekg(0);//Back to start
+		std::vector<char> binary(size);
+		file.read(binary.data(), size);
+		file.close();
+		return std::string(binary.data(), size);
+	}
+};
 
 Shader::Shader(const std::string& path, ShaderType type)
 {
 	this->type = type;
 	this->path = path;
-	this->source = read_file(path);
-	std::vector<uint32_t> spirvBinary = compile_glsl(source, type, path);
-
-	init_descriptors(spirvBinary);
-
-	VkShaderModuleCreateInfo vertShaderModuleCreateInfo{};
-	vertShaderModuleCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-	vertShaderModuleCreateInfo.codeSize = spirvBinary.size() * 4; // Size must be in bytes, but vector of uint32
-	vertShaderModuleCreateInfo.pCode = (const uint32_t*)spirvBinary.data();
-
-	CHECK_ERROR(vkCreateShaderModule(VkWrapper::device->logicalHandle, &vertShaderModuleCreateInfo, nullptr, &handle));
+	recompile();
 }
 
 Shader::~Shader()
@@ -30,11 +71,54 @@ Shader::~Shader()
 size_t Shader::getHash() const
 {
 	size_t hash = 0;
-	Engine::Math::hash_combine(hash, source);
+	Engine::Math::hash_combine(hash, path);
 	return hash;
 }
 
-std::string Shader::read_file(const std::string& fileName) const
+void Shader::recompile()
+{
+	if (handle)
+		vkDestroyShaderModule(VkWrapper::device->logicalHandle, handle, nullptr);
+
+	this->source = read_file(path);
+	std::vector<uint32_t> spirvBinary = compile_glsl(source, type, path);
+
+	init_descriptors(spirvBinary);
+
+	VkShaderModuleCreateInfo vertShaderModuleCreateInfo{};
+	vertShaderModuleCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+	vertShaderModuleCreateInfo.codeSize = spirvBinary.size() * 4; // Size must be in bytes, but vector of uint32
+	vertShaderModuleCreateInfo.pCode = (const uint32_t *)spirvBinary.data();
+
+	CHECK_ERROR(vkCreateShaderModule(VkWrapper::device->logicalHandle, &vertShaderModuleCreateInfo, nullptr, &handle));
+}
+
+void Shader::recompileAllShaders()
+{
+	for (auto& shader : cached_shaders)
+	{
+		shader.second->recompile();
+	}
+}
+
+std::shared_ptr<Shader> Shader::create(const std::string &path, ShaderType type)
+{
+	size_t hash = 0;
+	Engine::Math::hash_combine(hash, path);
+
+	// Try to find cached shader
+	auto cached_shader = cached_shaders.find(hash);
+	if (cached_shader != cached_shaders.end())
+	{
+		return cached_shader->second;
+	}
+
+	auto shader = std::shared_ptr<Shader>(new Shader(path, type));
+	cached_shaders[hash] = shader;
+	return shader;
+}
+
+std::string Shader::read_file(const std::string& fileName)
 {
 	std::ifstream file(fileName, std::ios::binary | std::ios::ate);
 	if (!file.is_open())
@@ -46,7 +130,12 @@ std::string Shader::read_file(const std::string& fileName) const
 	std::vector<char> binary(size);
 	file.read(binary.data(), size);
 	file.close();
-	return std::string(binary.data(), size);
+
+	std::string start = "#version 450 \n"
+		"#extension GL_GOOGLE_include_directive : enable \n"
+		"#extension GL_EXT_nonuniform_qualifier : enable \n";
+
+	return start + std::string(binary.data(), size);
 }
 
 std::vector<uint32_t> Shader::compile_glsl(const std::string& glslSource, ShaderType type, const std::string debugName) const
@@ -56,7 +145,8 @@ std::vector<uint32_t> Shader::compile_glsl(const std::string& glslSource, Shader
 	shaderc::CompileOptions options;
 	options.SetOptimizationLevel(shaderc_optimization_level_zero);
 	options.SetTargetEnvironment(shaderc_target_env_vulkan, shaderc_env_version_vulkan_1_0);
-	
+	options.SetIncluder(std::make_unique<ShaderIncluder>());
+
 	shaderc_shader_kind kind;
 	if (type == FRAGMENT_SHADER)
 	{
@@ -83,6 +173,8 @@ std::vector<uint32_t> Shader::compile_glsl(const std::string& glslSource, Shader
 
 void Shader::init_descriptors(const std::vector<uint32_t> &spirv)
 {
+	descriptors.clear();
+
 	spvc_context context;
 	spvc_context_create(&context);
 
@@ -105,6 +197,8 @@ void Shader::init_descriptors(const std::vector<uint32_t> &spirv)
 
 	spvc_resources_get_resource_list_for_type(resources, SPVC_RESOURCE_TYPE_SAMPLED_IMAGE, &list, &count);
 	parse_spv_resources(list, count, SPVC_RESOURCE_TYPE_SAMPLED_IMAGE);
+	
+	spvc_context_destroy(context);
 }
 
 void Shader::parse_spv_resources(const spvc_reflected_resource *resources, size_t count, spvc_resource_type resource_type)
