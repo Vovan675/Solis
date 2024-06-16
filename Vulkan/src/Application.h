@@ -3,6 +3,7 @@
 #include "RHI/Device.h"
 #include "Log.h"
 #include "Mesh.h"
+#include "Scene.h"
 #include "RHI/Pipeline.h"
 #include "RHI/Shader.h"
 #include "RHI/Swapchain.h"
@@ -43,6 +44,8 @@ private:
 private:
 	bool debug_rendering = false;
 	bool is_first_frame = true;
+
+	std::shared_ptr<Entity> selected_entity = nullptr;
 
 	std::shared_ptr<Texture> ibl_irradiance;
 	std::shared_ptr<Texture> ibl_prefilter;

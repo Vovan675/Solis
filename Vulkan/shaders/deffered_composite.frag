@@ -13,7 +13,6 @@ layout(set=0, binding=0) uniform UBO
 	uint albedo_tex_id;
 	uint normal_tex_id;
 	uint depth_tex_id;
-    uint position_tex_id;
 	uint shading_tex_id;
 	uint brdf_lut_tex_id;
 	uint ssao_tex_id;
@@ -49,9 +48,11 @@ void main() {
     vec3 irradiance = SRGBtoLinear(texture(irradiance_tex, normal)).rgb;
     vec3 ibl_diffuse = irradiance * albedo.rgb * (1.0 - f0) * (1.0 - metalness);
 
-    vec3 world_pos = texture(textures[ubo.position_tex_id], inUV).rgb;
-    vec3 v = normalize(camera_position.xyz - world_pos);
-	float NdotV = clamp(abs(dot(normal, v)), 0.001f, 1.0f);
+    vec3 view_pos = getVSPosition(inUV, depth);
+	vec4 world_pos = inverse(view) * vec4(view_pos, 1.0);
+
+    vec3 v = normalize(camera_position.xyz - world_pos.rgb);
+	float NdotV = clamp(abs(dot(normal, v)), 0.0f, 1.0f);
     vec3 brdf_lut = texture(textures[ubo.brdf_lut_tex_id], vec2(NdotV, 1.0 - roughness)).rgb;
 
     vec3 reflection = -normalize(reflect(v, normal));
@@ -59,12 +60,11 @@ void main() {
 
     vec3 prefilter = SRGBtoLinear(textureLod(prefilter_tex, reflection, lod)).rgb;
 
-    
     float ssao = texture(textures[ubo.ssao_tex_id], inUV).r;
     vec3 specular_color = mix(f0, albedo.rgb, metalness);
 
     vec3 diffuse = ibl_diffuse * ssao;
     vec3 specular = prefilter * (specular_color * brdf_lut.x + brdf_lut.y);
 
-    outColor = vec4(albedo.rgb * light_diffuse + light_specular + diffuse, albedo.a);
+    outColor = vec4(albedo.rgb * light_diffuse + light_specular + diffuse + specular, albedo.a);
 }

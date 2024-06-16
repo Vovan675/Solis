@@ -15,9 +15,9 @@ public:
 		uint32_t present_mode = 0;
 		uint32_t composite_final_tex_id = 0;
 		uint32_t albedo_tex_id = 0;
+		uint32_t shading_tex_id = 0;
 		uint32_t normal_tex_id = 0;
 		uint32_t depth_tex_id = 0;
-		uint32_t position_tex_id = 0;
 		uint32_t light_diffuse_id = 0;
 		uint32_t light_specular_id = 0;
 		uint32_t brdf_lut_id = 0;

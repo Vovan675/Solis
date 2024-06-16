@@ -47,14 +47,19 @@ void Pipeline::create(const PipelineDescription &description)
 	// Vertex input state
 	VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
 	vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+	
+	auto bindingDescription = Engine::Vertex::GetBindingDescription();
+	auto attributeDescriptions = Engine::Vertex::GetAttributeDescription();
 	if (description.use_vertices)
 	{
-		auto bindingDescription = Engine::Vertex::GetBindingDescription();
-		auto attributeDescriptions = Engine::Vertex::GetAttributeDescription();
 		vertexInputInfo.vertexBindingDescriptionCount = 1;
 		vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
 		vertexInputInfo.vertexAttributeDescriptionCount = attributeDescriptions.size();
 		vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
+	} else
+	{
+		vertexInputInfo.vertexBindingDescriptionCount = 0;
+		vertexInputInfo.vertexAttributeDescriptionCount = 0;
 	}
 
 	// Input assembly state
@@ -163,7 +168,7 @@ void Pipeline::create(const PipelineDescription &description)
 	pipeline_rendering_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
 	pipeline_rendering_create_info.colorAttachmentCount = description.color_formats.size();
 	pipeline_rendering_create_info.pColorAttachmentFormats = description.color_formats.data();
-	pipeline_rendering_create_info.depthAttachmentFormat = VK_FORMAT_D32_SFLOAT_S8_UINT;
+	pipeline_rendering_create_info.depthAttachmentFormat = description.depth_format;
 
 	// Finally create graphics pipeline
 	VkGraphicsPipelineCreateInfo pipelineInfo{};

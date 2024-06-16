@@ -71,7 +71,7 @@ void SSAORenderer::fillCommandBuffer(CommandBuffer &command_buffer, uint32_t ima
 	p->setVertexShader(vertex_shader);
 	p->setFragmentShader(fragment_shader_raw);
 
-	p->setRenderTargets(VkWrapper::current_render_targets, nullptr);
+	p->setRenderTargets(VkWrapper::current_render_targets);
 
 	p->setUseBlending(false);
 	p->setDepthTest(false);
@@ -104,7 +104,7 @@ void SSAORenderer::fillCommandBuffer(CommandBuffer &command_buffer, uint32_t ima
 	p->setVertexShader(vertex_shader);
 	p->setFragmentShader(fragment_shader_blur);
 
-	p->setRenderTargets(VkWrapper::current_render_targets, nullptr);
+	p->setRenderTargets(VkWrapper::current_render_targets);
 
 	p->setUseBlending(false);
 	p->setDepthTest(false);

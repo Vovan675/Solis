@@ -7,57 +7,23 @@ class CommandBuffer
 public:
 	CommandBuffer()
 	{}
-
-	void init(VkDevice device, VkCommandPool command_pool)
-	{
-		this->device = device;
-		this->command_pool = command_pool;
-
-		// Create buffer
-		VkCommandBufferAllocateInfo alloc_info{};
-		alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-		alloc_info.commandPool = command_pool;
-		alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-		alloc_info.commandBufferCount = 1;
-		CHECK_ERROR(vkAllocateCommandBuffers(device, &alloc_info, &command_buffer));
-
-		// Create fence
-		VkFenceCreateInfo fence_info{};
-		fence_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-		fence_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-		CHECK_ERROR(vkCreateFence(device, &fence_info, nullptr, &in_flight_fence));
-	}
-
+	
 	~CommandBuffer()
 	{
+		vkDeviceWaitIdle(device);
+		vkFreeCommandBuffers(device, command_pool, 1, &command_buffer);
 		vkDestroyFence(device, in_flight_fence, nullptr);
 	}
+
+	void init(bool one_time_submit = false);
 
 	void waitFence()
 	{
 		vkWaitForFences(device, 1, &in_flight_fence, VK_TRUE, UINT64_MAX);
 	}
 
-	void open()
-	{
-		if (is_open)
-			return;
-
-		vkResetFences(device, 1, &in_flight_fence);
-
-		VkCommandBufferBeginInfo info{};
-		info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-		vkResetCommandBuffer(command_buffer, 0);
-		vkBeginCommandBuffer(command_buffer, &info);
-
-		is_open = true;
-	}
-
-	void close()
-	{
-		CHECK_ERROR(vkEndCommandBuffer(command_buffer));
-		is_open = false;
-	}
+	void open();
+	void close();
 
 	VkCommandBuffer get_buffer() const
 	{
@@ -76,4 +42,6 @@ private:
 
 	VkDevice device;
 	VkCommandPool command_pool;
+
+	bool one_time_submit = false;
 };

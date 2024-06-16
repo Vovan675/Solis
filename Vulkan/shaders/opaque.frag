@@ -5,18 +5,16 @@ layout(location = 3) in vec3 inColor;
 
 layout (set=1, binding=0) uniform sampler2D textures[];
 
-layout(set=0, binding=1) uniform MaterialUBO
+layout(push_constant) uniform constants
 {
-	uint albedoTexId;
+	mat4 model;
 	vec4 albedo;
-	float useAlbedoMap;
-
-	uint rougnessTexId;
-	float useRoughnessMap;
-	float metalness;
-	float roughness;
-	float specular;
-} material;
+	int albedo_tex_id;
+	int metalness_tex_id;
+	int roughness_tex_id;
+	int specular_tex_id;
+	vec4 shading;
+};
 
 layout(location = 0) out vec4 outColor;
 layout(location = 1) out vec4 outNormal;
@@ -25,11 +23,12 @@ layout(location = 3) out vec4 outShading;
 
 void main()
 {
-	if (material.useAlbedoMap > 0.5)
-		outColor = texture(textures[material.albedoTexId], inUV);
-	else
-		outColor = material.albedo;
+	outColor = albedo_tex_id >= 0 ? texture(textures[albedo_tex_id], inUV) : albedo;
 	outNormal = vec4(normalize(inNormal), 1);
 	outPosition = inPos;
-	outShading = vec4(material.metalness, material.roughness, material.specular, 1.0f);
+
+	outShading.r = metalness_tex_id >= 0 ? texture(textures[metalness_tex_id], inUV).r : shading.r;
+	outShading.g = roughness_tex_id >= 0 ? texture(textures[roughness_tex_id], inUV).r : shading.g;
+	outShading.b = specular_tex_id >= 0 ? texture(textures[specular_tex_id], inUV).r : shading.b;
+	outShading.a = 1.0;
 }

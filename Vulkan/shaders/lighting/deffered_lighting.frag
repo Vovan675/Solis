@@ -6,7 +6,6 @@ layout (set=1, binding=0) uniform sampler2D textures[];
 
 layout(set=0, binding=1) uniform UBO
 {
-	uint positionTexId;
 	uint albedoTexId;
 	uint normalTexId;
 	uint depthTexId;
@@ -93,13 +92,6 @@ float get_attenuation(vec3 pos)
 	return attenuation;
 }
 
-vec3 getVSPosition(vec2 uv, float hardware_depth)
-{
-    vec4 pos = inverse(projection) * vec4(uv * 2 - 1, hardware_depth, 1.0f);
-    pos /= pos.w;
-    return pos.xyz;
-}
-
 void main()
 {
 	vec2 inUV = inPos.xy / inPos.w * 0.5 + 0.5;
@@ -124,7 +116,6 @@ void main()
 	vec3 view_pos = getVSPosition(inUV, depth);
 	vec4 world_pos = inverse(view) * vec4(view_pos, 1.0);
 	world_pos.xyz /= world_pos.w;
-	//vec3 P = texture(textures[ubo.positionTexId], inUV).rgb;
 	vec3 P = world_pos.xyz;
 	vec3 V = normalize(camera_position.xyz - P);
 	vec3 L = normalize(PushConstants.light_pos.xyz - P);

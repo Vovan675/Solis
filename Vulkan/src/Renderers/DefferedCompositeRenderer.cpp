@@ -22,7 +22,7 @@ void DefferedCompositeRenderer::fillCommandBuffer(CommandBuffer &command_buffer,
 	p->setVertexShader(vertex_shader);
 	p->setFragmentShader(fragment_shader);
 	
-	p->setRenderTargets(VkWrapper::current_render_targets, nullptr);
+	p->setRenderTargets(VkWrapper::current_render_targets);
 
 	p->setUseVertices(false);
 

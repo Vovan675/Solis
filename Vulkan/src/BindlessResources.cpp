@@ -15,7 +15,7 @@ std::unordered_map<Texture *, uint32_t> BindlessResources::textures_indices;
 std::vector<int> BindlessResources::empty_indices;
 
 
-static const int MAX_BINDLESS_TEXTURES = 30;
+static const int MAX_BINDLESS_TEXTURES = 10000;
 static const int BINDLESS_TEXTURES_BINDING = 0;
 
 void BindlessResources::init()
@@ -106,6 +106,16 @@ uint32_t BindlessResources::addTexture(Texture *texture)
 	empty_indices.pop_back();
 	setTexture(index, texture);
 	return index;
+}
+
+Texture *BindlessResources::getTexture(uint32_t index)
+{
+	for (auto &tex : textures_indices)
+	{
+		if (tex.second == index)
+			return tex.first;
+	}
+	return nullptr;
 }
 
 void BindlessResources::removeTexture(Texture *texture)

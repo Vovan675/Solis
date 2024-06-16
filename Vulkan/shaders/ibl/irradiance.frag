@@ -18,11 +18,12 @@ void main()
 	vec3 irradiance = vec3(0.0);
 	int samples_count = 0;
 
-	float step = 0.025;
+	float step_phi = (2.0 * PI) / 180.0;
+	float step_theta = (0.5 * PI) / 64.0;
 
-	for(float phi = 0.0f; phi < 2.0 * PI; phi += step)
+	for(float phi = 0.0f; phi < 2.0 * PI; phi += step_phi)
 	{
-		for(float theta = 0.0f; theta < 0.5 * PI; theta += step)
+		for(float theta = 0.0f; theta < 0.5 * PI; theta += step_theta)
 		{
 			// Convert spherical coordinate to cartesian (local space, aka tangent space)
 			vec3 sample_tangent = vec3(sin(theta) * cos(phi), sin(theta) * sin(phi), cos(theta));

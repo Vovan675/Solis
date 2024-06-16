@@ -25,14 +25,17 @@ public:
 
 	void setDescriptorLayout(DescriptorLayout layout) { current_description.descriptor_layout = layout; }
 	void setColorFormats(std::vector<VkFormat> color_formats) { current_description.color_formats = color_formats; }
-	void setRenderTargets(std::vector<std::shared_ptr<Texture>> color_attachments, std::shared_ptr<Texture> depth_attachment)
+	void setRenderTargets(std::vector<std::shared_ptr<Texture>> attachments)
 	{ 
 		current_description.color_formats.clear();
-		for (const auto &color : color_attachments)
-			current_description.color_formats.push_back(color->getImageFormat());
-
-		if (depth_attachment)
-			current_description.depth_format = depth_attachment->getImageFormat();
+		current_description.depth_format = VK_FORMAT_UNDEFINED;
+		for (const auto &attachment : attachments)
+		{
+			if (attachment->isDepthTexture())
+				current_description.depth_format = attachment->getImageFormat();
+			else
+				current_description.color_formats.push_back(attachment->getImageFormat());
+		}
 	}
 
 	void bind(const CommandBuffer &command_buffer);

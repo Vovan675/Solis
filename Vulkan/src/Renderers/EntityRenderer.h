@@ -17,7 +17,7 @@ public:
 	virtual ~EntityRenderer();
 
 	void fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index) override;
-	void renderEntity(CommandBuffer &command_buffer, Entity *entity);
+	void renderEntity(CommandBuffer &command_buffer, Entity *entity, uint32_t image_index);
 
 	void setPosition(glm::vec3 pos) { position = pos; }
 	void setRotation(glm::quat rot) { rotation = rot; }

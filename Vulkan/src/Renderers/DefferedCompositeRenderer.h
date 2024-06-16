@@ -16,7 +16,6 @@ public:
 		uint32_t albedo_tex_id = 0;
 		uint32_t normal_tex_id = 0;
 		uint32_t depth_tex_id = 0;
-		uint32_t position_tex_id = 0;
 		uint32_t shading_tex_id = 0;
 		uint32_t brdf_lut_tex_id = 0;
 		uint32_t ssao_tex_id = 0;

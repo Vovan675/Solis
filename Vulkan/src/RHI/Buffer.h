@@ -24,5 +24,6 @@ public:
 	void map(void** data);
 private:
 	BufferDescription m_Description;
+	bool is_mapped = false;
 };
 

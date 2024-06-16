@@ -62,10 +62,6 @@ void Renderer::recreateScreenResources()
 	create_screen_texture(RENDER_TARGET_GBUFFER_DEPTH_STENCIL, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_IMAGE_ASPECT_DEPTH_BIT,
 						  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, false, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
 
-	// Position
-	create_screen_texture(RENDER_TARGET_GBUFFER_POSITION, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT,
-						  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, false, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
-
 	// Shading
 	create_screen_texture(RENDER_TARGET_GBUFFER_SHADING, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT,
 						  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
@@ -95,7 +91,7 @@ void Renderer::recreateScreenResources()
 						  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
 }
 
-void Renderer::endFrame(unsigned int image_index)
+void Renderer::beginFrame(unsigned int image_index)
 {
 	// Update debug info
 	debug_info = RendererDebugInfo{};
@@ -114,6 +110,11 @@ void Renderer::endFrame(unsigned int image_index)
 		}
 	}
 
+	debug_info.drawcalls = 0;
+}
+
+void Renderer::endFrame(unsigned int image_index)
+{
 	// Reset offsets for uniform buffers
 	for (auto &offset : descriptors_offset)
 	{
@@ -123,7 +124,7 @@ void Renderer::endFrame(unsigned int image_index)
 
 void Renderer::setShadersUniformBuffer(std::shared_ptr<Shader> vertex_shader, std::shared_ptr<Shader> fragment_shader, unsigned int binding, void *params_struct, size_t params_size, unsigned int image_index)
 {
-	auto descriptor_layout = VkWrapper::getDescriptorLayout(VkWrapper::getMergedDescriptors(vertex_shader, fragment_shader));
+	auto descriptor_layout = VkWrapper::getDescriptorLayout(vertex_shader, fragment_shader);
 
 	size_t descriptor_hash = descriptor_layout.hash;
 	// Must also take shaders hashes into account because there could be the same descriptor layout but bindings have different sizes
@@ -169,7 +170,7 @@ void Renderer::setShadersUniformBuffer(std::shared_ptr<Shader> vertex_shader, st
 
 void Renderer::setShadersTexture(std::shared_ptr<Shader> vertex_shader, std::shared_ptr<Shader> fragment_shader, unsigned int binding, std::shared_ptr<Texture> texture, unsigned int image_index, int mip, int face)
 {
-	auto descriptor_layout = VkWrapper::getDescriptorLayout(VkWrapper::getMergedDescriptors(vertex_shader, fragment_shader));
+	auto descriptor_layout = VkWrapper::getDescriptorLayout(vertex_shader, fragment_shader);
 
 	size_t descriptor_hash = descriptor_layout.hash;
 	// Must also take shaders hashes into account because there could be the same descriptor layout but bindings have different sizes
@@ -195,7 +196,7 @@ void Renderer::bindShadersDescriptorSets(std::shared_ptr<Shader> vertex_shader, 
 	vkCmdBindDescriptorSets(command_buffer.get_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout, 2, 1, &descriptors[0][image_index].descriptor_per_offset[default_uniforms_offset], 0, nullptr);
 
 	// Bind custom descriptor
-	auto descriptor_layout = VkWrapper::getDescriptorLayout(VkWrapper::getMergedDescriptors(vertex_shader, fragment_shader));
+	auto descriptor_layout = VkWrapper::getDescriptorLayout(vertex_shader, fragment_shader);
 
 	size_t descriptor_hash = descriptor_layout.hash;
 	// Must also take shaders hashes into account because there could be the same descriptor layout but bindings have different sizes

@@ -16,6 +16,8 @@ struct DescriptorLayoutBuilder
     void clear();
 
     DescriptorLayout build(VkShaderStageFlags stages, const void *pNext = nullptr, VkDescriptorSetLayoutCreateFlags flags = 0);
+private:
+    static std::unordered_map<size_t, DescriptorLayout> cached_descriptor_layouts;
 };
 
 // Manages allocation of descriptor sets

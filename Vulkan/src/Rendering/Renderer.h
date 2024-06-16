@@ -12,7 +12,6 @@ enum RENDER_TARGETS
 	RENDER_TARGET_GBUFFER_ALBEDO,
 	RENDER_TARGET_GBUFFER_NORMAL,
 	RENDER_TARGET_GBUFFER_DEPTH_STENCIL,
-	RENDER_TARGET_GBUFFER_POSITION, // TODO: Remove (get from depth in shaders)
 	RENDER_TARGET_GBUFFER_SHADING, // R - metalness, G - roughness, B - specular, A - ?
 
 	RENDER_TARGET_LIGHTING_DIFFUSE,
@@ -31,6 +30,7 @@ struct RendererDebugInfo
 	size_t descriptors_count;
 	size_t descriptor_bindings_count;
 	size_t descriptors_max_offset;
+	size_t drawcalls;
 };
 
 class Renderer
@@ -40,6 +40,7 @@ public:
 
 	static void init();
 	static void recreateScreenResources();
+	static void beginFrame(unsigned int image_index);
 	static void endFrame(unsigned int image_index);
 	
 	static RendererDebugInfo getDebugInfo() { return debug_info; };
@@ -60,6 +61,8 @@ public:
 	static void updateDefaultUniforms(unsigned int image_index);
 
 	static VkDescriptorSetLayout getDefaultDescriptorLayout() { return default_descriptor_layout.layout; }
+
+	static void addDrawCalls(size_t count) { debug_info.drawcalls += count; }
 private:
 	static void ensureDescriptorsAllocated(DescriptorLayout descriptor_layout, size_t descriptor_hash, size_t offset);
 	

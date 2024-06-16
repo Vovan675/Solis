@@ -2,6 +2,7 @@
 #include "vma/vk_mem_alloc.h"
 #include "Log.h"
 #include "Device.h"
+#include <cereal/cereal.hpp>
 
 struct TextureDescription
 {
@@ -27,6 +28,8 @@ enum TextureLayoutType
 	TEXTURE_LAYOUT_UNDEFINED,
 	TEXTURE_LAYOUT_ATTACHMENT,
 	TEXTURE_LAYOUT_SHADER_READ,
+	TEXTURE_LAYOUT_TRANSFER_SRC,
+	TEXTURE_LAYOUT_TRANSFER_DST,
 };
 
 class Texture
@@ -46,22 +49,24 @@ public:
 
 	void fill_raw(VkImage image);
 
+	std::string getPath() const { return path; }
 	uint32_t getWidth(int mip = 0) const { return m_Description.width >> mip; }
 	uint32_t getHeight(int mip = 0) const { return m_Description.height >> mip; }
 
-	void transitLayout(CommandBuffer &command_buffer, TextureLayoutType new_layout_type);
+	void transitLayout(CommandBuffer &command_buffer, TextureLayoutType new_layout_type, int mip = -1);
 	
 	VkImageView getImageView(int mip = 0, int face = -1);
 
 	VkFormat getImageFormat() const { return m_Description.imageFormat; }
+
+	bool isDepthTexture() const { return m_Description.imageAspectFlags & VK_IMAGE_ASPECT_DEPTH_BIT; }
+	void generate_mipmaps(CommandBuffer &command_buffer);
 private:
 	VkImageLayout get_vk_layout(TextureLayoutType layout_type);
 	int get_channels_count() const;
 	int get_bytes_per_channel() const;
 
-	void generate_mipmaps();
-	void transition_image_layout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
-	void copy_buffer_to_image(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
+	void copy_buffer_to_image(CommandBuffer &command_buffer, VkBuffer buffer);
 	void create_sampler();
 
 	struct ImageView
@@ -76,6 +81,6 @@ private:
 private:
 	std::vector<ImageView> image_views;
 	TextureDescription m_Description;
-	TextureLayoutType current_layout;
+	std::vector<TextureLayoutType> current_layouts; // Image layouts for each mip map
+	std::string path = "";
 };
-

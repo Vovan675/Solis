@@ -58,7 +58,7 @@ vec2 IntegrateBRDF(float NoV, float roughness)
     V.x = sqrt(1.0 - NoV * NoV);
     V.y = 0.0f;
     V.z = NoV;
-
+    
     const uint SAMPLES_COUNT = 1024u;
 
     vec2 sum = vec2(0, 0);

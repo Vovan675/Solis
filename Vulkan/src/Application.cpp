@@ -11,21 +11,91 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 #include "imgui.h"
+#include "ImGuizmo.h"
+#include "glm/gtc/type_ptr.hpp"
 
 Application::Application()
 {
 	camera = std::make_shared<Camera>();
 	Renderer::setCamera(camera);
 
+	Material mat1;
+	TextureDescription tex_description{};
+	tex_description.imageFormat = VK_FORMAT_R8G8B8_SRGB;
+	tex_description.imageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
+	tex_description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+	auto tex = new Texture(tex_description);
+	//tex->load("assets/bistro/Textures/Paris_StringLights_01_Green_Color_Emissive_BaseColor.dds");
+	//mat1.albedo_tex_id = BindlessResources::addTexture(tex);
+
 	// Load mesh
 	//auto entity = std::make_shared<Entity>("assets/bistro/BistroExterior.fbx");
+	//auto entity = std::make_shared<Entity>("assets/sponza/sponza.obj");
+	//auto entity = std::make_shared<Entity>("assets/new_sponza/NewSponza_Main_glTF_002.gltf");
+	//auto entity = std::make_shared<Entity>("assets/model.fbx");
+	//auto entity = std::make_shared<Entity>("assets/barrels/source/Industrial_Updated.fbx");
+	//auto entity = std::make_shared<Entity>();
+	//entity->transform.scale = glm::vec3(0.01, 0.01, 0.01);
+	//entity->transform.local_model_matrix = glm::scale(glm::mat4(1), glm::vec3(0.01, 0.01, 0.01));
+	//entity->updateTransform();
+	//entity->save("assets/test.entity");
+	//entity->load("assets/test.entity");
+	//auto entity_renderer = std::make_shared<EntityRenderer>(camera, entity);
+
+
+	// Cerberus
+	{
+		auto entity = std::make_shared<Entity>();
+		//entity->transform.local_model_matrix = glm::scale(glm::mat4(1), glm::vec3(0.01, 0.01, 0.01));
+		//entity->updateTransform();
+		auto entity_renderer = std::make_shared<EntityRenderer>(camera, entity);
+		
+		Material *mat = nullptr;
+
+		std::shared_ptr<Entity> next = entity;
+		while(!mat && next)
+		{
+			if (!next->materials.empty())
+				mat = &next->materials[0];
+
+			if (!next->children.empty())
+				next = next->children[0];
+			else
+				next = nullptr;
+		}
+
+		if (mat && false)
+		{
+			TextureDescription tex_description{};
+			tex_description.imageFormat = VK_FORMAT_R8G8B8A8_SRGB;
+			tex_description.imageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
+			tex_description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+			auto tex = new Texture(tex_description);
+			tex->load("assets/cerberus/Textures/Cerberus_M.tga");
+			mat->metalness_tex_id = BindlessResources::addTexture(tex);
+			tex = new Texture(tex_description);
+			tex->load("assets/cerberus/Textures/Cerberus_R.tga");
+			mat->roughness_tex_id = BindlessResources::addTexture(tex);
+		}
+		entity->load("assets/cerberus/saved.mesh");
+		renderers.push_back(entity_renderer);
+		entities_renderers.push_back(entity_renderer);
+		Scene::addEntity(entity);
+	}
+
+
+	//entity_renderer->setMaterial(mat1);
+
+	//renderers.push_back(entity_renderer);
+	//entities_renderers.push_back(entity_renderer);
 
 	//entity->transform.local_model_matrix = glm::scale(glm::mat4(1), glm::vec3(0.9, 0.9, 0.9));
 	//entity->updateTransform();
 	//auto mesh = std::make_shared<Engine::Mesh>("assets/bistro/BistroExterior.fbx");
 	//auto mesh = std::make_shared<Engine::Mesh>("assets/barrels/source/Industrial_Updated.fbx");
 	auto mesh = std::make_shared<Engine::Mesh>("assets/model2.obj");
-	//mesh->load("assets/test_save.mesh");
+	//mesh->save("test_save");
+	//mesh->load("test_save");
 	auto mesh2 = std::make_shared<Engine::Mesh>("assets/model.fbx");
 
 	lut_renderer = std::make_shared<LutRenderer>();
@@ -82,12 +152,10 @@ Application::Application()
 
 		Material mat1;
 		mat1.albedo_tex_id = BindlessResources::addTexture(tex);
-		mat1.use_albedo_map = 1.0f;
 		mesh_renderer->setMaterial(mat1);
 
 		Material mat2;
 		mat2.albedo_tex_id = BindlessResources::addTexture(tex2);
-		mat2.use_albedo_map = 1.0f;
 		mesh_renderer2->setMaterial(mat2);
 	}
 
@@ -118,7 +186,7 @@ Application::Application()
 	irradiance_renderer->cube_texture = cubemap_renderer->cube_texture;
 	prefilter_renderer->cube_texture = cubemap_renderer->cube_texture;
 
-	//cubemap_renderer->cube_texture = ibl_prefilter; // test
+	//cubemap_renderer->cube_texture = ibl_irradiance;
 }
 
 void Application::createRenderTargets()
@@ -133,8 +201,9 @@ void Application::createRenderTargets()
 	description.height = 2048;
 	description.imageFormat = VkWrapper::swapchain->surface_format.format;
 	description.imageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
-	description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+	description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 	description.is_cube = true;
+	description.mipLevels = std::floor(std::log2(std::max(description.width, description.height))) + 1;
 	ibl_irradiance = std::make_shared<Texture>(description);
 	ibl_irradiance->fill();
 
@@ -170,14 +239,17 @@ void Application::createRenderTargets()
 
 void Application::update(float delta_time)
 {
-	double mouse_x, mouse_y;
-	glfwGetCursorPos(window, &mouse_x, &mouse_y);
-	camera->update(delta_time, glm::vec2(mouse_x, mouse_y), glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_1) == GLFW_PRESS);
+	static bool prev_is_using_ui = false;
+	bool is_using_ui = false;
 	imgui_renderer->begin();
+
+	//ImGui::ShowDemoWindow();
 
 	ImGui::DockSpaceOverViewport(ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
 
+	// Debug Window
 	ImGui::Begin("Debug Window");
+	is_using_ui |= ImGui::IsWindowFocused();
 	ImGui::Text("FPS: %i (%f ms)", (int)(last_fps), 1.0f / last_fps * 1000);
 	if (ImGui::Button("Recompile shaders") || ImGui::IsKeyReleased(ImGuiKey_R))
 	{
@@ -192,6 +264,7 @@ void Application::update(float delta_time)
 		ImGui::Text("descriptors_count: %u", info.descriptors_count);
 		ImGui::Text("descriptor_bindings_count: %u", info.descriptor_bindings_count);
 		ImGui::Text("descriptors_max_offset: %u", info.descriptors_max_offset);
+		ImGui::Text("Draw Calls: %u", info.drawcalls);
 		ImGui::TreePop();
 	}
 	
@@ -200,7 +273,7 @@ void Application::update(float delta_time)
 	if (debug_rendering)
 	{
 		static int present_mode = 2;
-		char* items[] = { "All", "Final Composite", "Albedo", "Normal", "Depth", "Position", "Light Diffuse", "Light Specular", "BRDF LUT", "SSAO" };
+		char* items[] = { "All", "Final Composite", "Albedo", "Metalness", "Roughness", "Specular", "Normal", "Depth", "Position", "Light Diffuse", "Light Specular", "BRDF LUT", "SSAO" };
 		if (ImGui::BeginCombo("Preview Combo", items[present_mode]))
 		{
 			for (int n = 0; n < IM_ARRAYSIZE(items); n++)
@@ -239,7 +312,149 @@ void Application::update(float delta_time)
 	post_renderer->renderImgui();
 	ssao_renderer->renderImgui();
 	defferred_lighting_renderer->renderImgui();
+
 	ImGui::End();
+
+	// Hierarchy
+	ImGui::Begin("Hierarchy");
+	is_using_ui |= ImGui::IsWindowFocused();
+	auto &entities = Scene::getRootEntites();
+
+	std::function<void(std::shared_ptr<Entity>)> add_entity_tree = [&add_entity_tree, this] (std::shared_ptr<Entity> entity) {
+
+		ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_SpanFullWidth | ImGuiTreeNodeFlags_SpanAvailWidth;
+		
+		// Collapsable or not
+		flags |= entity->children.empty() ? ImGuiTreeNodeFlags_Leaf : ImGuiTreeNodeFlags_OpenOnArrow;
+
+		// Highlighted or not
+		flags |= selected_entity == entity ? ImGuiTreeNodeFlags_Selected : 0;
+
+		std::string name = entity->name;
+		if (name.empty())
+			name = "(Empty)";
+
+		bool opened = ImGui::TreeNodeEx(&entity, flags, name.c_str());
+
+		bool clicked = ImGui::IsItemClicked();
+		if (clicked)
+		{
+			selected_entity = entity;
+		}
+
+		if (opened)
+		{
+			for (std::shared_ptr<Entity> child : entity->children)
+			{
+				add_entity_tree(child);
+			}
+			ImGui::TreePop();
+		}
+	};
+
+	if (ImGui::TreeNodeEx("root", ImGuiTreeNodeFlags_SpanFullWidth))
+	{
+		for (const auto &entity : entities)
+		{
+			add_entity_tree(entity);
+		}
+
+		ImGui::TreePop();
+	}
+
+	ImGui::End();
+
+	// Parameters
+	ImGui::Begin("Parameters");
+	is_using_ui |= ImGui::IsWindowFocused();
+	if (selected_entity)
+	{
+		if (!selected_entity->materials.empty())
+		{
+			ImGui::Text("Materials");
+			for (int i = 0; i < selected_entity->materials.size(); i++)
+			{
+				auto &mat = selected_entity->materials[i];
+				std::string name = "Material " + i;
+				if (ImGui::TreeNode(name.c_str()))
+				{
+					bool use_texture = mat.albedo_tex_id >= 0;
+					if (ImGui::Checkbox("Use albedo texture", &use_texture))
+					{
+						mat.albedo_tex_id = use_texture ? 0: -1;
+					} 
+					if (use_texture)
+					{
+						if (ImGui::Button("Select"))
+						{
+							// TODO: file dialog
+						}
+					} else
+					{
+						if (ImGui::ColorEdit4("Color", mat.albedo.data.data))
+						{
+							
+						}
+					}
+					// TODO: edit all textures
+
+					ImGui::TreePop();
+				}
+			}
+		}
+	}
+	ImGui::End();
+
+
+	const ImGuiViewport *viewport = ImGui::GetMainViewport();
+	ImGui::SetNextWindowPos(viewport->WorkPos);
+	ImGui::SetNextWindowSize(viewport->WorkSize);
+
+	if (ImGui::Begin("Fullscreen window", 0, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoFocusOnAppearing))
+	{
+		if (selected_entity)
+		{
+			ImGuizmo::SetDrawlist();
+			glm::vec2 swapchain_size = VkWrapper::swapchain->getSize();
+			ImGuizmo::SetRect(0, 0, swapchain_size.x, swapchain_size.y);
+
+			glm::mat4 proj = camera->getProj();
+			proj[1][1] *= -1.0f;
+
+			glm::mat4 delta_transform;
+			glm::mat4 transform = selected_entity->transform.model_matrix;
+
+			ImGuizmo::SetOrthographic(false);
+			ImGuizmo::Manipulate(glm::value_ptr(camera->getView()), glm::value_ptr(proj), ImGuizmo::TRANSLATE, ImGuizmo::WORLD, glm::value_ptr(transform), glm::value_ptr(delta_transform));
+
+			glm::vec3 dposition, drotation, dscale;
+			ImGuizmo::DecomposeMatrixToComponents(glm::value_ptr(delta_transform), glm::value_ptr(dposition), glm::value_ptr(drotation), glm::value_ptr(dscale));
+
+			glm::vec3 position, rotation, scale;
+			ImGuizmo::DecomposeMatrixToComponents(glm::value_ptr(selected_entity->transform.local_model_matrix), glm::value_ptr(position), glm::value_ptr(rotation), glm::value_ptr(scale));
+
+			//ImGuizmo::RecomposeMatrixFromComponents(glm::value_ptr(position), glm::value_ptr(rotation), glm::value_ptr(scale), glm::value_ptr(transform));
+			if (selected_entity->parent != nullptr)
+			{
+				selected_entity->transform.local_model_matrix = inverse(selected_entity->parent->transform.model_matrix) * transform;
+			} else
+			{
+				selected_entity->transform.local_model_matrix = transform;
+			}
+			selected_entity->updateTransform();
+		}
+	}
+	ImGui::End();
+
+	if (!ImGuizmo::IsUsing() && !is_using_ui)
+	{
+		double mouse_x, mouse_y;
+		glfwGetCursorPos(window, &mouse_x, &mouse_y);
+		bool mouse_pressed = prev_is_using_ui != is_using_ui ? 0 : glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_1) == GLFW_PRESS;
+		camera->update(delta_time, glm::vec2(mouse_x, mouse_y), mouse_pressed);
+	}
+
+	prev_is_using_ui = is_using_ui;
 }
 
 void Application::updateBuffers(float delta_time, uint32_t image_index)
@@ -314,8 +529,10 @@ void Application::recordCommands(CommandBuffer &command_buffer, uint32_t image_i
 			}
 		}
 
-		ibl_prefilter->transitLayout(command_buffer, TEXTURE_LAYOUT_SHADER_READ);
 		is_first_frame = false;
+
+		ibl_irradiance->generate_mipmaps(command_buffer);
+		ibl_prefilter->transitLayout(command_buffer, TEXTURE_LAYOUT_SHADER_READ);
 	}
 
 	render_GBuffer(command_buffer, image_index);
@@ -382,17 +599,11 @@ void Application::onSwapchainRecreated(int width, int height)
 	debug_renderer->ubo.depth_tex_id = depth_id;
 	ssao_renderer->ubo_raw_pass.depth_tex_id = depth_id;
 
-	// Position
-	uint32_t gbuffer_position_id = Renderer::getRenderTargetBindlessId(RENDER_TARGET_GBUFFER_POSITION);
-	defferred_lighting_renderer->ubo.position_tex_id = gbuffer_position_id;
-	deffered_composite_renderer->ubo.position_tex_id = gbuffer_position_id;
-	debug_renderer->ubo.position_tex_id = gbuffer_position_id;
-	ssao_renderer->ubo_raw_pass.position_tex_id = gbuffer_position_id;
-
 	// Shading
 	uint32_t gbuffer_shading_id = Renderer::getRenderTargetBindlessId(RENDER_TARGET_GBUFFER_SHADING);
 	defferred_lighting_renderer->ubo.shading_tex_id = gbuffer_shading_id;
 	deffered_composite_renderer->ubo.shading_tex_id = gbuffer_shading_id;
+	debug_renderer->ubo.shading_tex_id = gbuffer_shading_id;
 
 	///////////
 	// Lighting
@@ -428,14 +639,12 @@ void Application::render_GBuffer(CommandBuffer &command_buffer, uint32_t image_i
 	Renderer::getRenderTarget(RENDER_TARGET_GBUFFER_ALBEDO)->transitLayout(command_buffer, TEXTURE_LAYOUT_ATTACHMENT);
 	Renderer::getRenderTarget(RENDER_TARGET_GBUFFER_NORMAL)->transitLayout(command_buffer, TEXTURE_LAYOUT_ATTACHMENT);
 	Renderer::getRenderTarget(RENDER_TARGET_GBUFFER_DEPTH_STENCIL)->transitLayout(command_buffer, TEXTURE_LAYOUT_ATTACHMENT);
-	Renderer::getRenderTarget(RENDER_TARGET_GBUFFER_POSITION)->transitLayout(command_buffer, TEXTURE_LAYOUT_ATTACHMENT);
 	Renderer::getRenderTarget(RENDER_TARGET_GBUFFER_SHADING)->transitLayout(command_buffer, TEXTURE_LAYOUT_ATTACHMENT);
 
 	VkWrapper::cmdBeginRendering(command_buffer, 
 								 {
 									Renderer::getRenderTarget(RENDER_TARGET_GBUFFER_ALBEDO),
 									Renderer::getRenderTarget(RENDER_TARGET_GBUFFER_NORMAL),
-									Renderer::getRenderTarget(RENDER_TARGET_GBUFFER_POSITION),
 									Renderer::getRenderTarget(RENDER_TARGET_GBUFFER_SHADING)
 								 },
 								 Renderer::getRenderTarget(RENDER_TARGET_GBUFFER_DEPTH_STENCIL));
@@ -456,7 +665,6 @@ void Application::render_lighting(CommandBuffer &command_buffer, uint32_t image_
 	Renderer::getRenderTarget(RENDER_TARGET_GBUFFER_ALBEDO)->transitLayout(command_buffer, TEXTURE_LAYOUT_SHADER_READ);
 	Renderer::getRenderTarget(RENDER_TARGET_GBUFFER_NORMAL)->transitLayout(command_buffer, TEXTURE_LAYOUT_SHADER_READ);
 	Renderer::getRenderTarget(RENDER_TARGET_GBUFFER_DEPTH_STENCIL)->transitLayout(command_buffer, TEXTURE_LAYOUT_SHADER_READ);
-	Renderer::getRenderTarget(RENDER_TARGET_GBUFFER_POSITION)->transitLayout(command_buffer, TEXTURE_LAYOUT_SHADER_READ);
 	Renderer::getRenderTarget(RENDER_TARGET_GBUFFER_SHADING)->transitLayout(command_buffer, TEXTURE_LAYOUT_SHADER_READ);
 
 	Renderer::getRenderTarget(RENDER_TARGET_LIGHTING_DIFFUSE)->transitLayout(command_buffer, TEXTURE_LAYOUT_ATTACHMENT);

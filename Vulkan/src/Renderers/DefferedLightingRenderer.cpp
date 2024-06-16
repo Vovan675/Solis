@@ -35,7 +35,7 @@ void DefferedLightingRenderer::fillCommandBuffer(CommandBuffer &command_buffer, 
 	p->setVertexShader(vertex_shader);
 	p->setFragmentShader(fragment_shader);
 
-	p->setRenderTargets(VkWrapper::current_render_targets, nullptr);
+	p->setRenderTargets(VkWrapper::current_render_targets);
 	p->setUseVertices(true);
 	p->setUseBlending(true);
 	p->setBlendMode(VK_BLEND_FACTOR_ONE, VK_BLEND_FACTOR_ONE, VK_BLEND_OP_ADD, 

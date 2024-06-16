@@ -13,7 +13,7 @@ struct PipelineDescription
 	DescriptorLayout descriptor_layout;
 	std::vector<VkFormat> color_formats {};
 	std::vector<VkPushConstantRange> push_constant_ranges {};
-	VkFormat depth_format;
+	VkFormat depth_format = VK_FORMAT_UNDEFINED;
 	bool use_depth_test = true;
 	bool use_blending = true;
 	VkBlendFactor srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;

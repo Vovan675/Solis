@@ -6,20 +6,7 @@
 #include "RHI/Texture.h"
 #include "Camera.h"
 #include "RHI/Descriptors.h"
-
-// Basic material
-struct Material
-{
-	uint32_t albedo_tex_id = 0;
-	glm::vec4 albedo = glm::vec4(1, 1, 1, 1);
-	float use_albedo_map = 0;
-
-	uint32_t rougness_tex_id = 0;
-	float use_rougness_map = 0;
-	float metalness = 0;
-	float roughness = 0;
-	float specular = 0.5f;
-};
+#include "Material.h"
 
 class MeshRenderer : public RendererBase
 {

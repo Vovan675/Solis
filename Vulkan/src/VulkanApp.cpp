@@ -7,7 +7,7 @@ VulkanApp::VulkanApp()
 {
 	glfwInit();
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API); //FUCK OFF OPENGL
-	window = glfwCreateWindow(1440, 900, "Hello Vulkan", nullptr, nullptr);
+	window = glfwCreateWindow(1920, 1080, "Hello Vulkan", nullptr, nullptr);
 	glfwSwapInterval(0);
 
 	glfwSetWindowUserPointer(window, this);
@@ -60,6 +60,8 @@ void VulkanApp::run()
 
 		update(delta_seconds);
 		updateBuffers(delta_seconds, image_index);
+
+		Renderer::beginFrame(image_index);
 
 		// Record commands
 		render(VkWrapper::command_buffers[currentFrame], image_index);

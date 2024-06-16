@@ -3,7 +3,13 @@
 layout(push_constant) uniform constants
 {
 	mat4 model;
-} PushConstants;
+	vec4 albedo;
+	int albedo_tex_id;
+	int metalness_tex_id;
+	int roughness_tex_id;
+	int specular_tex_id;
+	vec4 shading;
+};
 
 layout(location=0) in vec3 inPosition;
 layout(location=1) in vec3 inNormal;
@@ -17,10 +23,10 @@ layout(location=3) out vec3 outColor;
 
 void main()
 {
-	gl_Position = projection * view * PushConstants.model * vec4(inPosition, 1.0);
+	gl_Position = projection * view * model * vec4(inPosition, 1.0);
     
-	outPos = (PushConstants.model * vec4(inPosition, 1.0)).xyz;
-	outNormal = normalize(transpose(inverse(mat3(PushConstants.model))) * inNormal); // Apply rotation to normal
+	outPos = (model * vec4(inPosition, 1.0)).xyz;
+	outNormal = normalize(transpose(inverse(mat3(model))) * inNormal); // Apply rotation to normal
 	outUV = inUV;
 	outColor = inColor;
 

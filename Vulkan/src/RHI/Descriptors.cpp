@@ -8,6 +8,8 @@
 
 using namespace Engine::Math;
 
+std::unordered_map<size_t, DescriptorLayout> DescriptorLayoutBuilder::cached_descriptor_layouts;
+
 void DescriptorLayoutBuilder::add_binding(uint32_t binding, VkDescriptorType type, uint32_t count)
 {
 	VkDescriptorSetLayoutBinding layout_binding{};
@@ -42,11 +44,19 @@ DescriptorLayout DescriptorLayoutBuilder::build(VkShaderStageFlags stages, const
 		size_t binding_hash = b.binding | b.descriptorType << 8 | b.descriptorCount << 16 | b.stageFlags << 24;
 		hash_combine(hash, binding_hash);
 	}
-	// TODO: caching
+
+	// Try to find cached
+	auto cached_layout = cached_descriptor_layouts.find(hash);
+	if (cached_layout != cached_descriptor_layouts.end())
+	{
+		return cached_layout->second;
+	}
 
 	VkDescriptorSetLayout set;
 	CHECK_ERROR(vkCreateDescriptorSetLayout(VkWrapper::device->logicalHandle, &info, nullptr, &set));
-	return {set, hash};
+	DescriptorLayout new_layout = {set, hash};
+	cached_descriptor_layouts[hash] = new_layout;
+	return new_layout;
 }
 
 

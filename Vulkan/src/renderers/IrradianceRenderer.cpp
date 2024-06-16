@@ -24,13 +24,14 @@ IrradianceRenderer::~IrradianceRenderer()
 
 void IrradianceRenderer::fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index)
 {
+	// Very heavy computation
 	auto &p = VkWrapper::global_pipeline;
 	p->reset();
 
 	p->setVertexShader(vertex_shader);
 	p->setFragmentShader(fragment_shader);
 
-	p->setRenderTargets(VkWrapper::current_render_targets, nullptr);
+	p->setRenderTargets(VkWrapper::current_render_targets);
 	p->setCullMode(VK_CULL_MODE_BACK_BIT);
 
 	p->flush();

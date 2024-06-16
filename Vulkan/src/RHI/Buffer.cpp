@@ -24,7 +24,8 @@ Buffer::Buffer(BufferDescription description)
 
 Buffer::~Buffer()
 {
-	vmaUnmapMemory(VkWrapper::allocator, allocation);
+	if (is_mapped)
+		vmaUnmapMemory(VkWrapper::allocator, allocation);
 	vkDestroyBuffer(VkWrapper::device->logicalHandle, bufferHandle, nullptr);
 	vmaFreeMemory(VkWrapper::allocator, allocation);
 }
@@ -67,4 +68,5 @@ void Buffer::map(void **data)
 {
 	// Map buffer memory to CPU accessible memory
 	vmaMapMemory(VkWrapper::allocator, allocation, data);
+	is_mapped = true;
 }

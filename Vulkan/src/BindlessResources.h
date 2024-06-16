@@ -13,6 +13,7 @@ public:
 
 	static void setTexture(uint32_t index, Texture *texture);
 	static uint32_t addTexture(Texture *texture);
+	static Texture *getTexture(uint32_t index);
 	static void removeTexture(Texture *texture);
 	static uint32_t getTextureIndex(Texture *texture) { return textures_indices[texture]; }
 	static void updateSets();

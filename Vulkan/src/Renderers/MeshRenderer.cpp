@@ -27,20 +27,18 @@ void MeshRenderer::fillCommandBuffer(CommandBuffer &command_buffer, uint32_t ima
 	p->setVertexShader(vertex_shader);
 	p->setFragmentShader(fragment_shader);
 
-	p->setRenderTargets(VkWrapper::current_render_targets, nullptr);
+	p->setRenderTargets(VkWrapper::current_render_targets);
 	p->setUseBlending(false);
 
 	p->flush();
 	p->bind(command_buffer);
 
 	// Uniforms
-	Renderer::setShadersUniformBuffer(vertex_shader, fragment_shader, 1, &mat, sizeof(Material), image_index);
 	Renderer::bindShadersDescriptorSets(vertex_shader, fragment_shader, command_buffer, p->getPipelineLayout(), image_index);
 
 	// Push constant
-	PushConstant push_constant;
-	push_constant.model = glm::mat4_cast(rotation) * glm::translate(glm::mat4(1.0f), position) * glm::scale(glm::mat4(1.0f), scale) * mesh->root_transform;
-	vkCmdPushConstants(command_buffer.get_buffer(), p->getPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PushConstant), &push_constant);
+	glm::mat4 model = glm::mat4_cast(rotation) * glm::translate(glm::mat4(1.0f), position) * glm::scale(glm::mat4(1.0f), scale) * mesh->root_transform;
+	vkCmdPushConstants(command_buffer.get_buffer(), p->getPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(Material::PushConstant), &mat.getPushConstant(model));
 
 	// Render mesh
 	VkBuffer vertexBuffers[] = {mesh->vertexBuffer->bufferHandle};

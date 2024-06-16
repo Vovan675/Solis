@@ -22,6 +22,8 @@ IncludeDir["SpdLog"] = "vendor/SpdLog/include"
 IncludeDir["Assimp"] = "vendor/Assimp/assimp/include"
 IncludeDir["STB_IMAGE"] = "vendor/stb"
 IncludeDir["ImGui"] = "vendor/imgui"
+IncludeDir["ImGuizmo"] = "vendor/imguizmo"
+IncludeDir["Cereal"] = "vendor/cereal/include"
 
 LibDir = {}
 LibDir["Vulkan"] = "../vendor/Vulkan/Lib"
@@ -30,6 +32,7 @@ group "Dependencies"
 include "vendor/GLFW"
 include "vendor/Assimp"
 include "vendor/ImGui"
+include "vendor/ImGuizmo"
 group ""
 
 project "Vulkan"
@@ -60,7 +63,9 @@ project "Vulkan"
 		"%{IncludeDir.SpdLog}",
 		"%{IncludeDir.Assimp}",
 		"%{IncludeDir.STB_IMAGE}",
-		"%{IncludeDir.ImGui}"
+		"%{IncludeDir.ImGui}",
+		"%{IncludeDir.ImGuizmo}",
+		"%{IncludeDir.Cereal}"
 	}
 
 	links
@@ -70,7 +75,8 @@ project "Vulkan"
 		"%{LibDir.Vulkan}/shaderc_shared.lib",
 		"%{LibDir.Vulkan}/spirv-cross-c-shared.lib",
 		"Assimp",
-		"ImGui"
+		"ImGui",
+		"ImGuizmo",
 	}
 
 	filter "system:windows"

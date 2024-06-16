@@ -7,16 +7,14 @@
 VkInstance VkWrapper::instance;
 std::shared_ptr<Device> VkWrapper::device;
 VmaAllocator VkWrapper::allocator;
+VkCommandPool VkWrapper::command_pool;
 std::vector<CommandBuffer> VkWrapper::command_buffers;
 std::shared_ptr<Swapchain> VkWrapper::swapchain;
 std::shared_ptr<DescriptorAllocator> VkWrapper::global_descriptor_allocator;
 std::shared_ptr<GlobalPipeline> VkWrapper::global_pipeline;
 std::vector<std::shared_ptr<Texture>> VkWrapper::current_render_targets = {};
 
-namespace 
-{
-	VkCommandPool command_pool;
-}
+std::unordered_map<size_t, DescriptorLayout> VkWrapper::cached_merged_descriptor_layouts;
 
 
 static std::vector<const char *> s_ValidationLayers = {
@@ -126,7 +124,8 @@ void VkWrapper::cmdImageMemoryBarrier(CommandBuffer &command_buffer,
 									  VkPipelineStageFlags2 dst_stage_mask, VkAccessFlags2 dst_access_mask,
 									  VkImageLayout old_layout, VkImageLayout new_layout,
 									  VkImage image, VkImageAspectFlags aspect_mask,
-									  int level_count, int layer_count)
+									  int level_count, int layer_count,
+									  int base_level, int base_layer)
 {
 	VkImageMemoryBarrier2 image_memory_barrier{};
 	image_memory_barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
@@ -138,9 +137,9 @@ void VkWrapper::cmdImageMemoryBarrier(CommandBuffer &command_buffer,
 	image_memory_barrier.newLayout = new_layout;
 	image_memory_barrier.image = image;
 	image_memory_barrier.subresourceRange.aspectMask = aspect_mask;
-	image_memory_barrier.subresourceRange.baseMipLevel = 0;
+	image_memory_barrier.subresourceRange.baseMipLevel = base_level;
 	image_memory_barrier.subresourceRange.levelCount = level_count;
-	image_memory_barrier.subresourceRange.baseArrayLayer = 0;
+	image_memory_barrier.subresourceRange.baseArrayLayer = base_layer;
 	image_memory_barrier.subresourceRange.layerCount = layer_count;
 
 	VkDependencyInfo dependency_info{};
@@ -178,15 +177,16 @@ void VkWrapper::cmdBeginRendering(CommandBuffer &command_buffer, const std::vect
 	rendering_info.colorAttachmentCount = color_attachments_info.size();
 	rendering_info.pColorAttachments = color_attachments_info.data();
 
+	VkRenderingAttachmentInfo depth_stencil_attachment_info{};
 	if (depth_attachment != nullptr)
 	{
-		VkRenderingAttachmentInfo depth_stencil_attachment_info{};
 		depth_stencil_attachment_info.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
 		depth_stencil_attachment_info.imageView = depth_attachment->getImageView();
 		depth_stencil_attachment_info.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 		depth_stencil_attachment_info.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 		depth_stencil_attachment_info.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-		depth_stencil_attachment_info.clearValue.depthStencil = {1.0f, 0};
+		depth_stencil_attachment_info.clearValue.depthStencil.depth = 1.0f;
+		depth_stencil_attachment_info.clearValue.depthStencil.stencil = 0.0f;
 		rendering_info.pDepthAttachment = &depth_stencil_attachment_info;
 	}
 
@@ -207,6 +207,8 @@ void VkWrapper::cmdBeginRendering(CommandBuffer &command_buffer, const std::vect
 	vkCmdSetScissor(command_buffer.get_buffer(), 0, 1, &scissor);
 
 	current_render_targets = color_attachments;
+	if (depth_attachment != nullptr)
+		current_render_targets.push_back(depth_attachment);
 }
 
 void VkWrapper::cmdEndRendering(CommandBuffer &command_buffer)
@@ -273,6 +275,25 @@ DescriptorLayout VkWrapper::getDescriptorLayout(std::vector<Descriptor> descript
 	return layout_builder.build(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
 }
 
+DescriptorLayout VkWrapper::getDescriptorLayout(std::shared_ptr<Shader> vertex_shader, std::shared_ptr<Shader> fragment_shader)
+{
+	size_t hash = 0;
+	hash_combine(hash, vertex_shader->getHash());
+	hash_combine(hash, fragment_shader->getHash());
+
+	// Try to find cached
+	auto cached_layout = cached_merged_descriptor_layouts.find(hash);
+	if (cached_layout != cached_merged_descriptor_layouts.end())
+	{
+		return cached_layout->second;
+	}
+
+	DescriptorLayout new_layout = getDescriptorLayout(getMergedDescriptors(vertex_shader, fragment_shader));
+	cached_merged_descriptor_layouts[hash] = new_layout;
+	return new_layout;
+}
+
+
 void VkWrapper::init_instance()
 {
 	uint32_t extensionsCount = 0;
@@ -321,6 +342,6 @@ void VkWrapper::init_command_buffers()
 	command_buffers.resize(MAX_FRAMES_IN_FLIGHT);
 	for (int i = 0; i < command_buffers.size(); i++)
 	{
-		command_buffers[i].init(device->logicalHandle, command_pool);
+		command_buffers[i].init();
 	}
 }

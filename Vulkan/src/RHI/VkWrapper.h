@@ -143,12 +143,14 @@ public:
 		VkPipelineStageFlags2 dst_stage_mask, VkAccessFlags2 dst_access_mask,
 		VkImageLayout old_layout, VkImageLayout new_layout,
 		VkImage image, VkImageAspectFlags aspect_mask,
-		int level_count = 1, int layer_count = 1);
+		int level_count = 1, int layer_count = 1,
+		int base_level = 0, int base_layer = 0);
 	static void cmdBeginRendering(CommandBuffer &command_buffer, const std::vector<std::shared_ptr<Texture>> &color_attachments, std::shared_ptr<Texture> depth_attachment, int cubemap_face = -1, int mip = 0);
 	static void cmdEndRendering(CommandBuffer &command_buffer);
 
 	static std::vector<Descriptor> getMergedDescriptors(std::shared_ptr<Shader> vertex_shader, std::shared_ptr<Shader> fragment_shader);
 	static DescriptorLayout getDescriptorLayout(std::vector<Descriptor> descriptors);
+	static DescriptorLayout getDescriptorLayout(std::shared_ptr<Shader> vertex_shader, std::shared_ptr<Shader> fragment_shader);
 
 private:
 	static void init_instance();
@@ -158,9 +160,13 @@ public:
 	static VkInstance instance;
 	static std::shared_ptr<Device> device;
 	static VmaAllocator allocator;
+	static VkCommandPool command_pool;
 	static std::vector<CommandBuffer> command_buffers;
 	static std::shared_ptr<Swapchain> swapchain;
 	static std::shared_ptr<DescriptorAllocator> global_descriptor_allocator;
 	static std::shared_ptr<GlobalPipeline> global_pipeline;
 	static std::vector<std::shared_ptr<Texture>> current_render_targets;
+
+	// Cache for full program descriptor layouts
+	static std::unordered_map<size_t, DescriptorLayout> cached_merged_descriptor_layouts;
 };

@@ -10,7 +10,6 @@ layout(set=0, binding=0) uniform UBO
 {
 	uint normal_tex_id;
 	uint depth_tex_id;
-    uint position_tex_id;
     vec4 kernel[64];
     float near;
     float far;
@@ -19,14 +18,6 @@ layout(set=0, binding=0) uniform UBO
 } ubo;
 
 layout (set=0, binding=1) uniform sampler2D noise_tex;
-
-
-vec3 getVSPosition(vec2 uv, float hardware_depth)
-{
-    vec4 pos = inverse(projection) * vec4(uv * 2 - 1, hardware_depth, 1.0f);
-    pos /= pos.w;
-    return pos.xyz;
-}
 
 void main() {
     float depth = texture(textures[ubo.depth_tex_id], inUV).r;

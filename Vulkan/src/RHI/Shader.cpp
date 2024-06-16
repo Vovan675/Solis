@@ -70,8 +70,6 @@ Shader::~Shader()
 
 size_t Shader::getHash() const
 {
-	size_t hash = 0;
-	Engine::Math::hash_combine(hash, path);
 	return hash;
 }
 
@@ -91,6 +89,10 @@ void Shader::recompile()
 	vertShaderModuleCreateInfo.pCode = (const uint32_t *)spirvBinary.data();
 
 	CHECK_ERROR(vkCreateShaderModule(VkWrapper::device->logicalHandle, &vertShaderModuleCreateInfo, nullptr, &handle));
+
+	hash = 0;
+	Engine::Math::hash_combine(hash, path);
+	Engine::Math::hash_combine(hash, source);
 }
 
 void Shader::recompileAllShaders()

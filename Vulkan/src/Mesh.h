@@ -1,6 +1,7 @@
 #pragma once
 #include "RHI/Buffer.h"
 #include "glm/glm.hpp"
+#include "CerealExtensions.h"
 
 namespace Engine
 {
@@ -49,6 +50,12 @@ namespace Engine
 			descs[3].offset = offsetof(Vertex, color);
 			return descs;
 		}
+
+		template <class Archive>
+		void serialize(Archive &ar)
+		{
+			ar(pos, normal, uv, color);
+		}
 	};
 
 	// Just a collection of data
@@ -73,5 +80,23 @@ namespace Engine
 		void load(const char *filename);
 	private:
 		void create_buffers();
+
+		friend class cereal::access;
+		template<class Archive>
+		void save(Archive &archive) const
+		{
+			archive(vertices);
+			archive(indices);
+		}
+
+		template<class Archive>
+		void load(Archive &archive)
+		{
+			vertices.clear();
+			indices.clear();
+			archive(vertices);
+			archive(indices);
+			create_buffers();
+		}
 	};
 }

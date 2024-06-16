@@ -13,7 +13,6 @@ public:
 	{
 		uint32_t normal_tex_id = 0;
 		uint32_t depth_tex_id = 0;
-		uint32_t position_tex_id = 0;
 		alignas(16) glm::vec4 kernel[64];
 		float near_plane;
 		float far_plane;

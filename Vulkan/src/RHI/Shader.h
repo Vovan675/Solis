@@ -66,6 +66,7 @@ private:
 
 	std::vector<Descriptor> descriptors;
 
+	size_t hash;
 	static std::unordered_map<size_t, std::shared_ptr<Shader>> cached_shaders;
 
 	spvc_compiler compiler;

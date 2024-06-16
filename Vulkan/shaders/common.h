@@ -7,3 +7,10 @@ layout (set = 2, binding = 0) uniform UBO_default
 	vec4 camera_position;
 	vec4 swapchain_size;
 };
+
+vec3 getVSPosition(vec2 uv, float hardware_depth)
+{
+    vec4 pos = inverse(projection) * vec4(uv * 2 - 1, hardware_depth, 1.0f);
+    pos /= pos.w;
+    return pos.xyz;
+}

@@ -3,6 +3,11 @@
 #include "assimp/Importer.hpp"
 #include "assimp/scene.h"
 #include "assimp/postprocess.h"
+#include "cereal/cereal.hpp"
+#include "cereal/archives/binary.hpp"
+#include "cereal/types/vector.hpp"
+#include "cereal/types/array.hpp"
+#include "CerealExtensions.h"
 
 namespace Engine
 {
@@ -112,35 +117,16 @@ namespace Engine
 
 	void Mesh::save(const char *filename)
 	{
-		FILE *f = fopen(filename, "wb");
-		MeshFileHeader header;
-		header.magicValue = 0x1337;
-		header.verticesCount = vertices.size();
-		header.indicesCount = indices.size();
-
-		fwrite(&header, sizeof(header), 1, f);
-		fwrite(vertices.data(), sizeof(Vertex), vertices.size(), f);
-		fwrite(indices.data(), sizeof(uint32_t), indices.size(), f);
-
-		fclose(f);
+		std::ofstream file(filename, std::ios::binary);
+		cereal::BinaryOutputArchive archive(file);
+		this->save(archive);
 	}
 
 	void Mesh::load(const char *filename)
 	{
-		FILE *f = fopen(filename, "rb");
-
-		MeshFileHeader header;
-		fread(&header, sizeof(header), 1, f);
-
-		vertices.resize(header.verticesCount);
-		fread(vertices.data(), sizeof(Vertex), header.verticesCount, f);
-
-		indices.resize(header.indicesCount);
-		fread(indices.data(), sizeof(uint32_t), header.indicesCount, f);
-
-		fclose(f);
-
-		create_buffers();
+		std::ifstream file(filename, std::ios::binary);
+		cereal::BinaryInputArchive archive(file);
+		this->load(archive);
 	}
 
 	void Mesh::create_buffers()
