@@ -2,19 +2,27 @@
 
 layout(location = 0) in vec4 inPos;
 
-layout (set=1, binding=0) uniform sampler2D textures[];
+layout (binding = 0) uniform UBO 
+{
+	mat4 model;
+	mat4 light_matrix;
+} ubo;
 
-layout(set=0, binding=1) uniform UBO
+layout (set=1, binding=0) uniform sampler2D textures[];
+layout (set=0, binding=2) uniform samplerCube shadow_map_cubemap;
+
+layout(set=0, binding=1) uniform UBOTextures
 {
 	uint albedoTexId;
 	uint normalTexId;
 	uint depthTexId;
 	uint shadingTexId;
-} ubo;
+	uint shadowMapTexId;
+};
 
 layout(push_constant) uniform constants
 {
-	vec4 light_pos;
+	vec4 light_pos; // w == 1 for dir light
 	vec4 light_color;
 	float light_intensity;
 	float light_range_square; // radius ^ 2
@@ -23,8 +31,6 @@ layout(push_constant) uniform constants
 
 layout(location = 0) out vec3 outDiffuse;
 layout(location = 1) out vec3 outSpecular;
-
-const float PI = 3.14159265359;
 
 // F - Fresnel Schlick
 vec3 F_Schlick(in vec3 f0, in float f90, in float u)
@@ -92,18 +98,50 @@ float get_attenuation(vec3 pos)
 	return attenuation;
 }
 
+vec3 sampling_offsets[20] = vec3[]
+(
+   vec3( 1,  1,  1), vec3( 1, -1,  1), vec3(-1, -1,  1), vec3(-1,  1,  1), 
+   vec3( 1,  1, -1), vec3( 1, -1, -1), vec3(-1, -1, -1), vec3(-1,  1, -1),
+   vec3( 1,  1,  0), vec3( 1, -1,  0), vec3(-1, -1,  0), vec3(-1,  1,  0),
+   vec3( 1,  0,  1), vec3(-1,  0,  1), vec3( 1,  0, -1), vec3(-1,  0, -1),
+   vec3( 0,  1,  1), vec3( 0, -1,  1), vec3( 0, -1, -1), vec3( 0,  1, -1)
+);   
+
+float get_shadow(vec3 frag_pos, float bias)
+{
+	vec3 fragToLight = frag_pos - PushConstants.light_pos.xyz;
+	float current_depth = length(fragToLight) / 40.0f;
+
+
+	float shadow = 0.0;
+	
+	float view_distance = length(frag_pos - camera_position.xyz);
+	int samples = 20;
+	float sampling_radius = 0.003;
+	for (int i = 0; i < samples; i++)
+	{
+		float closest_depth = texture(shadow_map_cubemap, fragToLight + sampling_offsets[i] * sampling_radius).r;
+		shadow += current_depth - bias < closest_depth ? 1.0 : 0.0;
+	}
+
+	shadow /= float(samples);
+
+	return clamp(shadow, 0.0, 1.0);
+	return 1.0f;
+}
+
 void main()
 {
 	vec2 inUV = inPos.xy / inPos.w * 0.5 + 0.5;
-	float depth = texture(textures[ubo.depthTexId], inUV).r;
+	float depth = texture(textures[depthTexId], inUV).r;
 
-	vec4 shading = texture(textures[ubo.shadingTexId], inUV).rgba;
+	vec4 shading = texture(textures[shadingTexId], inUV).rgba;
 	float metalness = shading.r;
 	float roughness = clamp(shading.g, 0.045f, 1.0f);
 	roughness *= roughness;
 	float specular = shading.b;
 
-	vec3 albedo = texture(textures[ubo.albedoTexId], inUV).rgb;
+	vec3 albedo = texture(textures[albedoTexId], inUV).rgb;
 	// Metals only reflect light, while dielectrics has diffuse light
 	vec3 diffuse_color = albedo * (1.0f - metalness);
 	float reflectance = compute_reflectance(specular);
@@ -118,9 +156,19 @@ void main()
 	world_pos.xyz /= world_pos.w;
 	vec3 P = world_pos.xyz;
 	vec3 V = normalize(camera_position.xyz - P);
-	vec3 L = normalize(PushConstants.light_pos.xyz - P);
-	//L = normalize(vec3(2, 2, 0));
-	vec3 N = normalize(texture(textures[ubo.normalTexId], inUV).rgb);
+	vec3 L;
+	float light_attenuation = 1.0;
+	if (PushConstants.light_pos.w > 0)
+	{ 
+		// Directional light
+		L = normalize(PushConstants.light_pos.xyz);
+	} else
+	{
+		// Punctual light
+		L = normalize(PushConstants.light_pos.xyz - P);
+		light_attenuation = get_attenuation(P);
+	}
+	vec3 N = normalize(texture(textures[normalTexId], inUV).rgb);
 	vec3 H = normalize(V + L);
 
 	float NdotL = clamp(dot(N, L), 0.001f, 1.0f);
@@ -138,7 +186,11 @@ void main()
 	float Viz = V_SmithGGXCorrelated(NdotV, NdotL, roughness); 
 	vec3 F_specular = D * F * Viz;
 
-	float attenuation = get_attenuation(P);
-	outDiffuse = NdotL * (vec3(1.0f) - F) * diffuse * attenuation * PushConstants.light_intensity * PushConstants.light_color.rgb;
-	outSpecular = NdotL * F_specular * attenuation * PushConstants.light_intensity * PushConstants.light_color.rgb;
+	float bias = max(0.005, 0.03 * (1.0 - dot(N, L)));
+	//float bias = 0.01;
+	float shadow = get_shadow(P, bias);
+ 
+	outDiffuse = shadow * NdotL * (vec3(1.0f) - F) * diffuse * light_attenuation * PushConstants.light_intensity * PushConstants.light_color.rgb;
+	outSpecular = shadow * NdotL * F_specular * light_attenuation * PushConstants.light_intensity * PushConstants.light_color.rgb;
+	//outDiffuse = vec3(shadow, 0, 0);
 }

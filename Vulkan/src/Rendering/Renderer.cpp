@@ -182,7 +182,7 @@ void Renderer::setShadersTexture(std::shared_ptr<Shader> vertex_shader, std::sha
 
 	// Update set
 	DescriptorWriter writer;
-	writer.writeImage(binding, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, texture->getImageView(mip, face), texture->sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	writer.writeImage(binding, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, texture->getImageView(mip, face), texture->sampler, texture->isDepthTexture() ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	writer.updateSet(descriptors[descriptor_hash][image_index].descriptor_per_offset[offset]);
 }
 
@@ -263,6 +263,11 @@ void Renderer::updateDefaultUniforms(unsigned int image_index)
 
 	auto &current_binding = descriptor_bindings[0][image_index].bindings_per_offset[offset];
 	memcpy(current_binding.second, &default_uniforms, sizeof(DefaultUniforms));
+}
+
+const Renderer::DefaultUniforms Renderer::getDefaultUniforms()
+{
+	return default_uniforms;
 }
 
 void Renderer::ensureDescriptorsAllocated(DescriptorLayout descriptor_layout, size_t descriptor_hash, size_t offset)

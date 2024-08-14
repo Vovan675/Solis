@@ -15,6 +15,9 @@ public:
 	void setVertexShader(std::shared_ptr<Shader> shader) { current_description.vertex_shader = shader; }
 	void setFragmentShader(std::shared_ptr<Shader> shader) { current_description.fragment_shader = shader; }
 
+	std::shared_ptr<Shader> getVertexShader() const { return current_description.vertex_shader; }
+	std::shared_ptr<Shader> getFragmentShader() const { return current_description.fragment_shader; }
+
 	void setUseVertices(bool use_vertices) { current_description.use_vertices = use_vertices; }
 	void setUseBlending(bool use_blending) { current_description.use_blending = use_blending; }
 	void setBlendMode(VkBlendFactor srcColorBlendFactor, VkBlendFactor dstColorBlendFactor, VkBlendOp colorBlendOp,

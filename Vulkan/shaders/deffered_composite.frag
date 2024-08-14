@@ -65,6 +65,7 @@ void main() {
 
     vec3 diffuse = ibl_diffuse * ssao;
     vec3 specular = prefilter * (specular_color * brdf_lut.x + brdf_lut.y);
+    vec3 ibl = diffuse + specular;
 
-    outColor = vec4(albedo.rgb * light_diffuse + light_specular + diffuse + specular, albedo.a);
+    outColor = vec4(albedo.rgb * light_diffuse + light_specular + ibl * 0.01, albedo.a);
 }

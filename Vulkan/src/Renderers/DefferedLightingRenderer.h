@@ -13,6 +13,7 @@ public:
 	struct UniformBufferObject
 	{
 		alignas(16) glm::mat4 model;
+		alignas(16) glm::mat4 light_matrix;
 	} ubo_sphere;
 
 	struct UBO
@@ -21,7 +22,10 @@ public:
 		uint32_t normal_tex_id = 0;
 		uint32_t depth_tex_id = 0;
 		uint32_t shading_tex_id = 0;
+		uint32_t shadow_map_tex_id = 0;
 	} ubo;
+
+	std::shared_ptr<Texture> shadow_map_cubemap;
 
 	// TODO: use uniform buffer, move to Renderer::setDefaultResources
 	struct PushConstant
@@ -39,9 +43,9 @@ public:
 	void fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index) override;
 
 	void renderImgui();
-private:
-	std::shared_ptr<Shader> vertex_shader;
-	std::shared_ptr<Shader> fragment_shader;
+public:
+	std::shared_ptr<Shader> lighting_vertex_shader;
+	std::shared_ptr<Shader> lighting_fragment_shader;
 	std::shared_ptr<Engine::Mesh> icosphere_mesh;
 
 	struct LightData

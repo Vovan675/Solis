@@ -89,7 +89,6 @@ void main() {
         value = vec4(brdf_lut, 0.0, 1.0);
     } else if (mode == 12)
     {   
-        //value = vec4(ssao, ssao, ssao, 1.0);
         value = vec4(ssao, ssao, ssao, 1.0);
     }
     outColor = vec4(value.rgb, 1.0);

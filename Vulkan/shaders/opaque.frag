@@ -18,14 +18,12 @@ layout(push_constant) uniform constants
 
 layout(location = 0) out vec4 outColor;
 layout(location = 1) out vec4 outNormal;
-layout(location = 2) out vec3 outPosition;
 layout(location = 3) out vec4 outShading;
 
 void main()
 {
 	outColor = albedo_tex_id >= 0 ? texture(textures[albedo_tex_id], inUV) : albedo;
 	outNormal = vec4(normalize(inNormal), 1);
-	outPosition = inPos;
 
 	outShading.r = metalness_tex_id >= 0 ? texture(textures[metalness_tex_id], inUV).r : shading.r;
 	outShading.g = roughness_tex_id >= 0 ? texture(textures[roughness_tex_id], inUV).r : shading.g;

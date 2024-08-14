@@ -44,7 +44,7 @@ Application::Application()
 
 
 	// Cerberus
-	{
+	if (0){
 		auto entity = std::make_shared<Entity>();
 		//entity->transform.local_model_matrix = glm::scale(glm::mat4(1), glm::vec3(0.01, 0.01, 0.01));
 		//entity->updateTransform();
@@ -58,7 +58,7 @@ Application::Application()
 			if (!next->materials.empty())
 				mat = &next->materials[0];
 
-			if (!next->children.empty())
+			if (!next->children.empty()) 
 				next = next->children[0];
 			else
 				next = nullptr;
@@ -78,6 +78,18 @@ Application::Application()
 			mat->roughness_tex_id = BindlessResources::addTexture(tex);
 		}
 		entity->load("assets/cerberus/saved.mesh");
+		renderers.push_back(entity_renderer);
+		entities_renderers.push_back(entity_renderer);
+		Scene::addEntity(entity);
+	}
+
+	// Demo Scene
+	{
+		auto entity = std::make_shared<Entity>("assets/demo_scene.fbx");
+		entity->transform.local_model_matrix = glm::scale(glm::mat4(1), glm::vec3(0.004, 0.004, 0.004));
+		entity->updateTransform();
+		auto entity_renderer = std::make_shared<EntityRenderer>(camera, entity);
+
 		renderers.push_back(entity_renderer);
 		entities_renderers.push_back(entity_renderer);
 		Scene::addEntity(entity);
@@ -162,6 +174,7 @@ Application::Application()
 	auto mesh_ball = std::make_shared<Engine::Mesh>("assets/ball.fbx");
 	int count_x = 5;
 	int count_y = 5;
+	/*
 	for (int x = 0; x < count_x; x++)
 	{
 		for (int y = 0; y < count_y; y++)
@@ -182,11 +195,15 @@ Application::Application()
 			entity_renderer->setMaterial(mat);
 		}
 	}
+	*/
 
 	irradiance_renderer->cube_texture = cubemap_renderer->cube_texture;
 	prefilter_renderer->cube_texture = cubemap_renderer->cube_texture;
 
 	//cubemap_renderer->cube_texture = ibl_irradiance;
+
+	shadows_vertex_shader = Shader::create("shaders/lighting/shadows.vert", Shader::VERTEX_SHADER);
+	shadows_fragment_shader = Shader::create("shaders/lighting/shadows.frag", Shader::FRAGMENT_SHADER);
 }
 
 void Application::createRenderTargets()
@@ -235,6 +252,20 @@ void Application::createRenderTargets()
 	uint32_t ibl_brdf_lut_id = BindlessResources::addTexture(ibl_brdf_lut.get());
 	debug_renderer->ubo.brdf_lut_id = ibl_brdf_lut_id;
 	deffered_composite_renderer->ubo.brdf_lut_tex_id = ibl_brdf_lut_id;
+
+	// Shadow map
+
+	description.width = 4096;
+	description.height = 4096;
+	description.imageFormat = VK_FORMAT_D32_SFLOAT_S8_UINT;
+	description.imageAspectFlags = VK_IMAGE_ASPECT_DEPTH_BIT;
+	description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+	description.is_cube = true;
+	description.mipLevels = 1;
+	//description.sampler_address_mode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+	//description.filtering = VK_FILTER_NEAREST;
+	shadow_map = std::make_shared<Texture>(description);
+	shadow_map->fill();
 }
 
 void Application::update(float delta_time)
@@ -535,6 +566,8 @@ void Application::recordCommands(CommandBuffer &command_buffer, uint32_t image_i
 		ibl_prefilter->transitLayout(command_buffer, TEXTURE_LAYOUT_SHADER_READ);
 	}
 
+	render_shadows(command_buffer, image_index);
+
 	render_GBuffer(command_buffer, image_index);
 	render_lighting(command_buffer, image_index);
 	render_ssao(command_buffer, image_index);
@@ -701,6 +734,67 @@ void Application::render_deffered_composite(CommandBuffer &command_buffer, uint3
 	deffered_composite_renderer->fillCommandBuffer(command_buffer, image_index);
 
 	VkWrapper::cmdEndRendering(command_buffer);
+}
+
+void Application::render_shadows(CommandBuffer &command_buffer, uint32_t image_index)
+{
+	shadow_map->transitLayout(command_buffer, TEXTURE_LAYOUT_ATTACHMENT);
+
+	auto &light = defferred_lighting_renderer->lights[0];
+
+	std::vector<glm::mat4> faces_transforms;
+	faces_transforms.push_back(glm::lookAt(glm::vec3(light.position), glm::vec3(light.position) + glm::vec3(1, 0, 0), glm::vec3(0, -1, 0)));
+	faces_transforms.push_back(glm::lookAt(glm::vec3(light.position), glm::vec3(light.position) + glm::vec3(-1, 0, 0), glm::vec3(0, -1, 0)));
+	faces_transforms.push_back(glm::lookAt(glm::vec3(light.position), glm::vec3(light.position) + glm::vec3(0, 1, 0), glm::vec3(0, 0, 1)));
+	faces_transforms.push_back(glm::lookAt(glm::vec3(light.position), glm::vec3(light.position) + glm::vec3(0, -1, 0), glm::vec3(0, 0, -1)));
+	faces_transforms.push_back(glm::lookAt(glm::vec3(light.position), glm::vec3(light.position) + glm::vec3(0, 0, 1), glm::vec3(0, -1, 0)));
+	faces_transforms.push_back(glm::lookAt(glm::vec3(light.position), glm::vec3(light.position) + glm::vec3(0, 0, -1), glm::vec3(0, -1, 0)));
+
+	for (int face = 0; face < 6; face++)
+	{
+		if (faces_transforms.size() <= face)
+			continue;
+
+		//glm::mat4 light_projection = glm::orthoRH(-10.0f, 10.0f, 10.0f, -10.0f, 0.01f, 40.0f);
+		glm::mat4 light_projection = glm::perspectiveRH(glm::radians(90.0f), 1.0f, 0.1f, 40.0f);
+		glm::mat4 light_matrix = light_projection * faces_transforms[face];
+
+		VkWrapper::cmdBeginRendering(command_buffer, {}, shadow_map, face);
+
+		defferred_lighting_renderer->ubo_sphere.light_matrix = light_matrix;
+
+		for (const auto &entity : entities_renderers)
+		{
+			auto &p = VkWrapper::global_pipeline;
+			p->reset();
+
+			p->setVertexShader(shadows_vertex_shader);
+			p->setFragmentShader(shadows_fragment_shader);
+
+			p->setRenderTargets(VkWrapper::current_render_targets);
+			p->setUseBlending(false);
+			p->setCullMode(VK_CULL_MODE_FRONT_BIT);
+
+			p->flush();
+			p->bind(command_buffer);
+
+			//Renderer::bindShadersDescriptorSets(shadows_vertex_shader, shadows_fragment_shader, command_buffer, p->getPipelineLayout(), image_index);
+			
+			// Render entity
+			entity->renderEntityShadow(command_buffer, entity->getEntity().get(), image_index, light_matrix, light.position);
+		
+			p->unbind(command_buffer);
+		}
+
+		// Render mesh into gbuffer
+		//mesh_renderer->fillCommandBuffer(command_buffer, image_index);
+
+		VkWrapper::cmdEndRendering(command_buffer);
+	}
+
+
+	shadow_map->transitLayout(command_buffer, TEXTURE_LAYOUT_SHADER_READ);
+	defferred_lighting_renderer->shadow_map_cubemap = shadow_map;
 }
 
 void Application::key_callback(GLFWwindow *window, int key, int scancode, int action, int mods)

@@ -39,6 +39,7 @@ private:
 	void render_lighting(CommandBuffer &command_buffer, uint32_t image_index);
 	void render_ssao(CommandBuffer &command_buffer, uint32_t image_index);
 	void render_deffered_composite(CommandBuffer &command_buffer, uint32_t image_index);
+	void render_shadows(CommandBuffer &command_buffer, uint32_t image_index);
 	void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods) override;
 
 private:
@@ -67,8 +68,14 @@ private:
 
 
 	std::vector<std::shared_ptr<RendererBase>> renderers;
-	std::vector<std::shared_ptr<RendererBase>> entities_renderers;
+	std::vector<std::shared_ptr<EntityRenderer>> entities_renderers;
 
+
+	std::shared_ptr<Texture> shadow_map_depth;
+	std::shared_ptr<Texture> shadow_map;
+
+	std::shared_ptr<Shader> shadows_vertex_shader;
+	std::shared_ptr<Shader> shadows_fragment_shader;
 
 	std::shared_ptr<Camera> camera;
 };

@@ -14,3 +14,5 @@ vec3 getVSPosition(vec2 uv, float hardware_depth)
     pos /= pos.w;
     return pos.xyz;
 }
+
+const float PI = 3.14159265359;

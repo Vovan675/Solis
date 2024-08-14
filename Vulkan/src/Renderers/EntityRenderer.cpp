@@ -68,3 +68,36 @@ void EntityRenderer::renderEntity(CommandBuffer &command_buffer, Entity *entity,
 		renderEntity(command_buffer, child.get(), image_index);
 	}
 }
+
+void EntityRenderer::renderEntityShadow(CommandBuffer &command_buffer, Entity *entity, uint32_t image_index, glm::mat4 light_space, glm::vec4 light_pos)
+{
+	ShadowUBO ubo;
+	ubo.light_space_matrix = light_space;
+	ubo.light_pos = light_pos;
+
+	auto &p = VkWrapper::global_pipeline;
+	// Render all meshes of this entity
+	// TODO: Set materials
+	for (int i = 0; i < entity->meshes.size(); i++)
+	{
+		const auto &mesh = entity->meshes[i];
+		const Material &mat = entity->materials[i];
+
+		ubo.model = entity->transform.model_matrix;
+		Renderer::setShadersUniformBuffer(VkWrapper::global_pipeline->getVertexShader(), VkWrapper::global_pipeline->getFragmentShader(), 0, &ubo, sizeof(ShadowUBO), image_index);
+		Renderer::bindShadersDescriptorSets(VkWrapper::global_pipeline->getVertexShader(), VkWrapper::global_pipeline->getFragmentShader(), command_buffer, p->getPipelineLayout(), image_index);
+
+		// Render mesh
+		VkBuffer vertexBuffers[] = {mesh->vertexBuffer->bufferHandle};
+		VkDeviceSize offsets[] = {0};
+		vkCmdBindVertexBuffers(command_buffer.get_buffer(), 0, 1, vertexBuffers, offsets);
+		vkCmdBindIndexBuffer(command_buffer.get_buffer(), mesh->indexBuffer->bufferHandle, 0, VK_INDEX_TYPE_UINT32);
+		vkCmdDrawIndexed(command_buffer.get_buffer(), mesh->indices.size(), 1, 0, 0, 0);
+		Renderer::addDrawCalls(1);
+	}
+
+	for (auto child : entity->children)
+	{
+		renderEntityShadow(command_buffer, child.get(), image_index, light_space, light_pos);
+	}
+}

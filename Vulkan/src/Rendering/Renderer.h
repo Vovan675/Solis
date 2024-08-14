@@ -35,6 +35,8 @@ struct RendererDebugInfo
 
 class Renderer
 {
+private:
+	struct DefaultUniforms;
 public:
 	Renderer() = delete;
 
@@ -59,6 +61,7 @@ public:
 	// Default Uniforms
 	static void setCamera(std::shared_ptr<Camera> camera) { Renderer::camera = camera; }
 	static void updateDefaultUniforms(unsigned int image_index);
+	static const DefaultUniforms getDefaultUniforms();
 
 	static VkDescriptorSetLayout getDefaultDescriptorLayout() { return default_descriptor_layout.layout; }
 

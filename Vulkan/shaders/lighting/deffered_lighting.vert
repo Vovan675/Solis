@@ -8,6 +8,7 @@ layout (location = 3) in vec3 inNormal;
 layout (binding = 0) uniform UBO 
 {
 	mat4 model;
+	mat4 light_matrix;
 } ubo;
 
 layout (location = 0) out vec4 outPos;

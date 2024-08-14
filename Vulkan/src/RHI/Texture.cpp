@@ -819,6 +819,7 @@ void Texture::create_sampler()
 	samplerInfo.addressModeU = m_Description.sampler_address_mode;
 	samplerInfo.addressModeV = m_Description.sampler_address_mode;
 	samplerInfo.addressModeW = m_Description.sampler_address_mode;
+	samplerInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
 
 	samplerInfo.anisotropyEnable = m_Description.anisotropy ? VK_TRUE : VK_FALSE;
 	samplerInfo.maxAnisotropy = m_Description.anisotropy ? VkWrapper::device->physicalProperties.limits.maxSamplerAnisotropy : 1.0f;
