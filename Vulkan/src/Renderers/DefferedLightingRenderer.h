@@ -14,7 +14,8 @@ public:
 	struct UniformBufferObject
 	{
 		alignas(16) glm::mat4 model;
-		alignas(16) glm::mat4 light_matrix;
+		alignas(16) std::array<glm::mat4, 4> light_matrix;
+		alignas(16) glm::vec4 cascade_splits;
 	} ubo_sphere;
 
 	struct UBO
@@ -25,8 +26,6 @@ public:
 		uint32_t shading_tex_id = 0;
 		uint32_t shadow_map_tex_id = 0;
 	} ubo;
-
-	std::shared_ptr<Texture> shadow_map_cubemap;
 
 	// TODO: use uniform buffer, move to Renderer::setDefaultResources
 	struct PushConstant
@@ -45,8 +44,10 @@ public:
 
 	void renderImgui();
 public:
-	std::shared_ptr<Shader> lighting_vertex_shader;
-	std::shared_ptr<Shader> lighting_fragment_shader;
+	std::shared_ptr<Shader> lighting_vertex_shader_point;
+	std::shared_ptr<Shader> lighting_fragment_shader_point;
+	std::shared_ptr<Shader> lighting_vertex_shader_directional;
+	std::shared_ptr<Shader> lighting_fragment_shader_directional;
 	std::shared_ptr<Engine::Mesh> icosphere_mesh;
 
 	struct LightData

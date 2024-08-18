@@ -145,7 +145,7 @@ public:
 		VkImage image, VkImageAspectFlags aspect_mask,
 		int level_count = 1, int layer_count = 1,
 		int base_level = 0, int base_layer = 0);
-	static void cmdBeginRendering(CommandBuffer &command_buffer, const std::vector<std::shared_ptr<Texture>> &color_attachments, std::shared_ptr<Texture> depth_attachment, int cubemap_face = -1, int mip = 0);
+	static void cmdBeginRendering(CommandBuffer &command_buffer, const std::vector<std::shared_ptr<Texture>> &color_attachments, std::shared_ptr<Texture> depth_attachment, int layer = -1, int mip = 0);
 	static void cmdEndRendering(CommandBuffer &command_buffer);
 
 	static std::vector<Descriptor> getMergedDescriptors(std::shared_ptr<Shader> vertex_shader, std::shared_ptr<Shader> fragment_shader);

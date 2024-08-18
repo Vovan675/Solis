@@ -56,10 +56,11 @@ static class ShaderIncluder : public shaderc::CompileOptions::IncluderInterface
 	}
 };
 
-Shader::Shader(const std::string& path, ShaderType type)
+Shader::Shader(const std::string& path, ShaderType type, std::vector<std::pair<const char *, const char *>> defines)
 {
 	this->type = type;
 	this->path = path;
+	this->defines = defines;
 	recompile();
 }
 
@@ -93,6 +94,13 @@ void Shader::recompile()
 	hash = 0;
 	Engine::Math::hash_combine(hash, path);
 	Engine::Math::hash_combine(hash, source);
+	std::string all_defines = "";
+	for (const auto &define : defines)
+	{
+		all_defines += define.first;
+		all_defines += define.second;
+	}
+	Engine::Math::hash_combine(hash, all_defines);
 }
 
 void Shader::recompileAllShaders()
@@ -103,10 +111,18 @@ void Shader::recompileAllShaders()
 	}
 }
 
-std::shared_ptr<Shader> Shader::create(const std::string &path, ShaderType type)
+std::shared_ptr<Shader> Shader::create(const std::string &path, ShaderType type, std::vector<std::pair<const char *, const char *>> defines)
 {
 	size_t hash = 0;
 	Engine::Math::hash_combine(hash, path);
+
+	std::string all_defines = "";
+	for (const auto &define : defines)
+	{
+		all_defines += define.first;
+		all_defines += define.second;
+	}
+	Engine::Math::hash_combine(hash, all_defines);
 
 	// Try to find cached shader
 	auto cached_shader = cached_shaders.find(hash);
@@ -115,7 +131,7 @@ std::shared_ptr<Shader> Shader::create(const std::string &path, ShaderType type)
 		return cached_shader->second;
 	}
 
-	auto shader = std::shared_ptr<Shader>(new Shader(path, type));
+	auto shader = std::shared_ptr<Shader>(new Shader(path, type, defines));
 	cached_shaders[hash] = shader;
 	return shader;
 }
@@ -148,6 +164,11 @@ std::vector<uint32_t> Shader::compile_glsl(const std::string& glslSource, Shader
 	options.SetOptimizationLevel(shaderc_optimization_level_zero);
 	options.SetTargetEnvironment(shaderc_target_env_vulkan, shaderc_env_version_vulkan_1_0);
 	options.SetIncluder(std::make_unique<ShaderIncluder>());
+
+	for (const auto &define : defines)
+	{
+		options.AddMacroDefinition(define.first, define.second);
+	}
 
 	shaderc_shader_kind kind;
 	if (type == FRAGMENT_SHADER)

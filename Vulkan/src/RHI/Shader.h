@@ -51,9 +51,9 @@ public:
 	void recompile();
 	static void recompileAllShaders();
 
-	static std::shared_ptr<Shader> create(const std::string &path, ShaderType type);
+	static std::shared_ptr<Shader> create(const std::string &path, ShaderType type, std::vector<std::pair<const char *, const char *>> defines = {});
 private:
-	Shader(const std::string &path, ShaderType type);
+	Shader(const std::string &path, ShaderType type, std::vector<std::pair<const char *, const char *>> defines);
 private:
 	static std::string read_file(const std::string& fileName);
 	std::vector<uint32_t> compile_glsl(const std::string& glslSource, ShaderType type, const std::string debugName) const;
@@ -63,6 +63,7 @@ private:
 	ShaderType type;
 	std::string path;
 	std::string source;
+	std::vector<std::pair<const char *, const char *>> defines;
 
 	std::vector<Descriptor> descriptors;
 

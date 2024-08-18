@@ -12,6 +12,8 @@ public:
 	Entity createEntity(std::string name);
 	Entity createEntity(std::string name, entt::entity id);
 
+	void destroyEntity(entt::entity id);
+
 	template<typename ...T>
 	auto getEntitiesWith()
 	{

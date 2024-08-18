@@ -47,21 +47,60 @@ struct MeshRendererComponent
 	std::vector<std::shared_ptr<Material>> materials;
 };
 
+enum LIGHT_TYPE
+{
+	LIGHT_TYPE_POINT,
+	LIGHT_TYPE_DIRECTIONAL,
+};
+
+#define SHADOW_MAP_CASCADE_COUNT 4
 struct LightComponent
 {
 	LightComponent()
 	{
-		TextureDescription description;
-		description.width = 4096;
-		description.height = 4096;
-		description.imageFormat = VK_FORMAT_D32_SFLOAT_S8_UINT;
-		description.imageAspectFlags = VK_IMAGE_ASPECT_DEPTH_BIT;
-		description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-		description.is_cube = true;
-		description.mipLevels = 1;
-		description.filtering = VK_FILTER_NEAREST;
-		shadow_map = std::make_shared<Texture>(description);
-		shadow_map->fill();
+		recreateTexture();
+	}
+
+	LIGHT_TYPE getType() const { return type; };
+	void setType(LIGHT_TYPE type)
+	{
+		if (this->type == type)
+			return;
+		this->type = type;
+		recreateTexture();
+	}
+
+	void recreateTexture()
+	{
+		if (type == LIGHT_TYPE_POINT)
+		{
+			TextureDescription description;
+			description.width = 4096;
+			description.height = 4096;
+			description.imageFormat = VK_FORMAT_D32_SFLOAT_S8_UINT;
+			description.imageAspectFlags = VK_IMAGE_ASPECT_DEPTH_BIT;
+			description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+			description.is_cube = true;
+			description.mipLevels = 1;
+			description.filtering = VK_FILTER_NEAREST;
+			shadow_map = std::make_shared<Texture>(description);
+			shadow_map->fill();
+		} else if (type == LIGHT_TYPE_DIRECTIONAL)
+		{
+			TextureDescription description;
+			description.width = 4096;
+			description.height = 4096;
+			description.imageFormat = VK_FORMAT_D32_SFLOAT_S8_UINT;
+			description.imageAspectFlags = VK_IMAGE_ASPECT_DEPTH_BIT;
+			description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+			description.is_cube = false;
+			description.mipLevels = 1;
+			description.arrayLevels = 4;
+			description.filtering = VK_FILTER_NEAREST;
+			description.sampler_address_mode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+			shadow_map = std::make_shared<Texture>(description);
+			shadow_map->fill();
+		}
 	}
 
 	glm::vec3 color;
@@ -69,4 +108,16 @@ struct LightComponent
 	float radius;
 
 	std::shared_ptr<Texture> shadow_map;
+
+private:
+	LIGHT_TYPE type = LIGHT_TYPE_POINT;
+	friend class Application;
+	friend class DefferedLightingRenderer;
+	struct CascadeData
+	{
+		glm::mat4 viewProjMatrix;
+		glm::mat4 View;
+		float splitDepth;
+	};
+	std::array<CascadeData, SHADOW_MAP_CASCADE_COUNT> cascades;
 };

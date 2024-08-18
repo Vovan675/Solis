@@ -29,6 +29,15 @@ public:
 		return world_transform;
 	}
 
+	glm::vec3 getLocalDirection(glm::vec3 direction)
+	{
+		glm::vec3 scale, position, skew;
+		glm::vec4 persp;
+		glm::quat rotation;
+		glm::decompose(getWorldTransformMatrix(), scale, rotation, position, skew, persp);
+		return normalize(rotation * direction);
+	}
+
 	Entity getParent() const { return Entity(getTransform().parent, scene); }
 
 	template<typename T, typename ...Args>

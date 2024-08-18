@@ -16,6 +16,10 @@
 #include "glm/gtc/type_ptr.hpp"
 #include <entt/entt.hpp>
 #include <filesystem>
+#include "glm/glm.hpp"
+#include "glm/gtc/matrix_transform.hpp"
+#include "glm/gtx/euler_angles.hpp"
+#include "glm/gtx/quaternion.hpp"
 
 Application::Application()
 {
@@ -97,7 +101,8 @@ Application::Application()
 
 	Entity light = scene.createEntity("Point Light");
 	auto &light_component = light.addComponent<LightComponent>();
-	light_component.color = glm::vec3(1, 0, 0);
+	light_component.setType(LIGHT_TYPE_DIRECTIONAL);
+	light_component.color = glm::vec3(253.0f / 255, 251.0f / 255, 211.0f / 255);
 	light_component.intensity = 1.0f;
 	light_component.radius = 10.0f;
 
@@ -200,12 +205,13 @@ Application::Application()
 	//cubemap_renderer->cube_texture = ibl_irradiance;
 
 	shadows_vertex_shader = Shader::create("shaders/lighting/shadows.vert", Shader::VERTEX_SHADER);
-	shadows_fragment_shader = Shader::create("shaders/lighting/shadows.frag", Shader::FRAGMENT_SHADER);
+	shadows_fragment_shader_point = Shader::create("shaders/lighting/shadows.frag", Shader::FRAGMENT_SHADER, {{"LIGHT_TYPE", "0"}});
+	shadows_fragment_shader_directional = Shader::create("shaders/lighting/shadows.frag", Shader::FRAGMENT_SHADER, {{"LIGHT_TYPE", "1"}});
 
-	scene.saveFile("assets/test_scene.scene");
+	//scene.saveFile("assets/test_scene.scene");
 
-	scene = Scene();
-	scene.loadFile("assets/test_scene.scene");
+	//scene = Scene();
+	//scene.loadFile("assets/test_scene.scene");
 }
 
 void Application::createRenderTargets()
@@ -254,20 +260,6 @@ void Application::createRenderTargets()
 	uint32_t ibl_brdf_lut_id = BindlessResources::addTexture(ibl_brdf_lut.get());
 	debug_renderer->ubo.brdf_lut_id = ibl_brdf_lut_id;
 	deffered_composite_renderer->ubo.brdf_lut_tex_id = ibl_brdf_lut_id;
-
-	// Shadow map
-
-	description.width = 4096;
-	description.height = 4096;
-	description.imageFormat = VK_FORMAT_D32_SFLOAT_S8_UINT;
-	description.imageAspectFlags = VK_IMAGE_ASPECT_DEPTH_BIT;
-	description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-	description.is_cube = true;
-	description.mipLevels = 1;
-	//description.sampler_address_mode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
-	//description.filtering = VK_FILTER_NEAREST;
-	shadow_map = std::make_shared<Texture>(description);
-	shadow_map->fill();
 }
 
 void Application::update(float delta_time)
@@ -284,7 +276,7 @@ void Application::update(float delta_time)
 	ImGui::Begin("Debug Window");
 	is_using_ui |= ImGui::IsWindowFocused();
 	ImGui::Text("FPS: %i (%f ms)", (int)(last_fps), 1.0f / last_fps * 1000);
-	if (ImGui::Button("Recompile shaders") || ImGui::IsKeyReleased(ImGuiKey_R))
+	if (ImGui::Button("Recompile shaders"))
 	{
 		// Wait for all operations complete
 		vkDeviceWaitIdle(VkWrapper::device->logicalHandle);
@@ -379,6 +371,16 @@ void Application::update(float delta_time)
 			selected_entity = entity;
 		}
 
+		if (ImGui::BeginPopupContextItem())
+		{
+			if (ImGui::MenuItem("Remove"))
+			{
+				scene.destroyEntity(entity);
+				selected_entity = Entity();
+			}
+			ImGui::EndPopup();
+		}
+
 		if (opened)
 		{
 			for (entt::entity child_id : transform.children)
@@ -454,23 +456,21 @@ void Application::update(float delta_time)
 		if (selected_entity.hasComponent<LightComponent>())
 		{
 			auto &light = selected_entity.getComponent<LightComponent>();
-			/*
-			static int present_mode = light.position.w;
+			int light_type = light.getType();
 			char *items[] = {"Point", "Directional"};
-			if (ImGui::BeginCombo("Light type", items[(int)light.position.w]))
+			if (ImGui::BeginCombo("Light type", items[light_type]))
 			{
 				for (int n = 0; n < IM_ARRAYSIZE(items); n++)
 				{
-					bool is_selected = (light.position.w == n);
+					bool is_selected = (light_type == n);
 					if (ImGui::Selectable(items[n], is_selected))
-						light.position.w = n;
+						light_type = n;
 					if (is_selected)
 						ImGui::SetItemDefaultFocus();
 				}
 				ImGui::EndCombo();
 			}
-			*/
-			//light.position.w = present_mode;
+			light.setType((LIGHT_TYPE)light_type);
 			ImGui::SliderFloat3("Light Color", light.color.data.data, 0, 1);
 			ImGui::SliderFloat("Light Radius", &light.radius, 0.001f, 25);
 			ImGui::SliderFloat("Light Intensity", &light.intensity, 0.01f, 25);
@@ -500,7 +500,7 @@ void Application::update(float delta_time)
 			glm::mat4 transform = selected_entity.getWorldTransformMatrix();
 
 			ImGuizmo::SetOrthographic(false);
-			if (ImGuizmo::Manipulate(glm::value_ptr(camera->getView()), glm::value_ptr(proj), ImGuizmo::TRANSLATE, ImGuizmo::WORLD, glm::value_ptr(transform), glm::value_ptr(delta_transform)))
+			if (ImGuizmo::Manipulate(glm::value_ptr(camera->getView()), glm::value_ptr(proj), guizmo_tool_type, ImGuizmo::WORLD, glm::value_ptr(transform), glm::value_ptr(delta_transform)))
 			{
 				/*
 				glm::vec3 dposition, drotation, dscale;
@@ -632,6 +632,7 @@ void Application::recordCommands(CommandBuffer &command_buffer, uint32_t image_i
 	{
 		debug_renderer->fillCommandBuffer(command_buffer, image_index);
 	}
+	debug_renderer->renderLines(command_buffer, image_index);
 
 	// Render imgui
 	imgui_renderer->fillCommandBuffer(command_buffer, image_index);
@@ -738,6 +739,7 @@ void Application::render_GBuffer(CommandBuffer &command_buffer, uint32_t image_i
 	VkWrapper::cmdEndRendering(command_buffer);
 }
 
+
 void Application::render_lighting(CommandBuffer &command_buffer, uint32_t image_index)
 {
 	Renderer::getRenderTarget(RENDER_TARGET_GBUFFER_ALBEDO)->transitLayout(command_buffer, TEXTURE_LAYOUT_SHADER_READ);
@@ -781,6 +783,100 @@ void Application::render_deffered_composite(CommandBuffer &command_buffer, uint3
 	VkWrapper::cmdEndRendering(command_buffer);
 }
 
+void Application::update_cascades(LightComponent &light, glm::vec3 light_dir)
+{
+	float cascadeSplits[SHADOW_MAP_CASCADE_COUNT];
+
+	float nearClip = camera->getNear();
+	float farClip = camera->getFar();
+	float clipRange = farClip - nearClip;
+
+	float minZ = nearClip;
+	float maxZ = nearClip + clipRange;
+
+	float range = maxZ - minZ;
+	float ratio = maxZ / minZ;
+
+	// Calculate split depths based on view camera frustum
+	// Based on method presented in https://developer.nvidia.com/gpugems/GPUGems3/gpugems3_ch10.html
+	for (uint32_t i = 0; i < SHADOW_MAP_CASCADE_COUNT; i++)
+	{
+		float p = (i + 1) / static_cast<float>(SHADOW_MAP_CASCADE_COUNT);
+		float log = minZ * std::pow(ratio, p);
+		float uniform = minZ + range * p;
+		float d = 0.95 * (log - uniform) + uniform;
+		cascadeSplits[i] = (d - nearClip) / clipRange;
+	}
+	// TODO: calculate
+	cascadeSplits[3] = 0.3f;
+	/*
+	cascadeSplits[0] = 0.05f;
+	cascadeSplits[1] = 0.15f;
+	cascadeSplits[2] = 0.3f;
+	cascadeSplits[3] = 1.0f;
+	*/
+	// Calculate orthographic projection matrix for each cascade
+	float lastSplitDist = 0.0;
+	for (uint32_t i = 0; i < SHADOW_MAP_CASCADE_COUNT; i++)
+	{
+		float splitDist = cascadeSplits[i];
+
+		glm::vec3 frustumCorners[8] = {
+			glm::vec3(-1.0f,  1.0f, 0.0f),
+			glm::vec3(1.0f,  1.0f, 0.0f),
+			glm::vec3(1.0f, -1.0f, 0.0f),
+			glm::vec3(-1.0f, -1.0f, 0.0f),
+			glm::vec3(-1.0f,  1.0f,  1.0f),
+			glm::vec3(1.0f,  1.0f,  1.0f),
+			glm::vec3(1.0f, -1.0f,  1.0f),
+			glm::vec3(-1.0f, -1.0f,  1.0f),
+		};
+
+		// Project frustum corners into world space
+		glm::mat4 invCam = glm::inverse(camera->getProj() * camera->getView());
+		for (uint32_t j = 0; j < 8; j++)
+		{
+			glm::vec4 invCorner = invCam * glm::vec4(frustumCorners[j], 1.0f);
+			frustumCorners[j] = invCorner / invCorner.w;
+		}
+
+		for (uint32_t j = 0; j < 4; j++)
+		{
+			glm::vec3 dist = frustumCorners[j + 4] - frustumCorners[j];
+			frustumCorners[j + 4] = frustumCorners[j] + (dist * splitDist);
+			frustumCorners[j] = frustumCorners[j] + (dist * lastSplitDist);
+		}
+
+		// Get frustum center
+		glm::vec3 frustumCenter = glm::vec3(0.0f);
+		for (uint32_t j = 0; j < 8; j++)
+		{
+			frustumCenter += frustumCorners[j];
+		}
+		frustumCenter /= 8.0f;
+
+		float radius = 0.0f;
+		for (uint32_t j = 0; j < 8; j++)
+		{
+			float distance = glm::length(frustumCorners[j] - frustumCenter);
+			radius = glm::max(radius, distance);
+		}
+		radius = std::ceil(radius * 16.0f) / 16.0f;
+
+		glm::vec3 maxExtents = glm::vec3(radius);
+		glm::vec3 minExtents = -maxExtents;
+
+		glm::mat4 lightViewMatrix = glm::lookAt(frustumCenter - light_dir * -minExtents.z, frustumCenter, glm::vec3(0.0f, 1.0f, 0.0f));
+		glm::mat4 lightOrthoMatrix = glm::ortho(minExtents.x, maxExtents.x, minExtents.y, maxExtents.y, 0.0f - 50.0f, maxExtents.z - minExtents.z + 50.0f);
+
+		// Store split distance and matrix in cascade
+		light.cascades[i].splitDepth = (camera->getNear() + splitDist * clipRange) * -1.0f;
+		light.cascades[i].viewProjMatrix = lightOrthoMatrix * lightViewMatrix;
+
+		lastSplitDist = cascadeSplits[i];
+	}
+}
+
 void Application::render_shadows(CommandBuffer &command_buffer, uint32_t image_index)
 {
 	auto light_entities_id = scene.getEntitiesWith<LightComponent>();
@@ -791,63 +887,97 @@ void Application::render_shadows(CommandBuffer &command_buffer, uint32_t image_i
 
 		light.shadow_map->transitLayout(command_buffer, TEXTURE_LAYOUT_ATTACHMENT);
 
-
 		glm::vec3 scale, position, skew;
 		glm::vec4 persp;
 		glm::quat rotation;
 		glm::decompose(light_entity.getWorldTransformMatrix(), scale, rotation, position, skew, persp);
 
-		std::vector<glm::mat4> faces_transforms;
-		faces_transforms.push_back(glm::lookAt(position, position + glm::vec3(1, 0, 0), glm::vec3(0, -1, 0)));
-		faces_transforms.push_back(glm::lookAt(position, position + glm::vec3(-1, 0, 0), glm::vec3(0, -1, 0)));
-		faces_transforms.push_back(glm::lookAt(position, position + glm::vec3(0, 1, 0), glm::vec3(0, 0, 1)));
-		faces_transforms.push_back(glm::lookAt(position, position + glm::vec3(0, -1, 0), glm::vec3(0, 0, -1)));
-		faces_transforms.push_back(glm::lookAt(position, position + glm::vec3(0, 0, 1), glm::vec3(0, -1, 0)));
-		faces_transforms.push_back(glm::lookAt(position, position + glm::vec3(0, 0, -1), glm::vec3(0, -1, 0)));
-
-		for (int face = 0; face < 6; face++)
+		
+		if (light.type == LIGHT_TYPE_POINT)
 		{
-			if (faces_transforms.size() <= face)
-				continue;
+			std::vector<glm::mat4> faces_transforms;
+			faces_transforms.push_back(glm::lookAt(position, position + glm::vec3(1, 0, 0), glm::vec3(0, -1, 0)));
+			faces_transforms.push_back(glm::lookAt(position, position + glm::vec3(-1, 0, 0), glm::vec3(0, -1, 0)));
+			faces_transforms.push_back(glm::lookAt(position, position + glm::vec3(0, 1, 0), glm::vec3(0, 0, 1)));
+			faces_transforms.push_back(glm::lookAt(position, position + glm::vec3(0, -1, 0), glm::vec3(0, 0, -1)));
+			faces_transforms.push_back(glm::lookAt(position, position + glm::vec3(0, 0, 1), glm::vec3(0, -1, 0)));
+			faces_transforms.push_back(glm::lookAt(position, position + glm::vec3(0, 0, -1), glm::vec3(0, -1, 0)));
 
-			//glm::mat4 light_projection = glm::orthoRH(-10.0f, 10.0f, 10.0f, -10.0f, 0.01f, 40.0f);
-			glm::mat4 light_projection = glm::perspectiveRH(glm::radians(90.0f), 1.0f, 0.1f, 40.0f);
-			glm::mat4 light_matrix = light_projection * faces_transforms[face];
-
-			VkWrapper::cmdBeginRendering(command_buffer, {}, light.shadow_map, face);
-
-			defferred_lighting_renderer->ubo_sphere.light_matrix = light_matrix;
-
-			auto mesh_entities_id = scene.getEntitiesWith<MeshRendererComponent>();
-			for (entt::entity mesh_entity_id : mesh_entities_id)
+			for (int face = 0; face < 6; face++)
 			{
-				Entity mesh_entity(mesh_entity_id, &scene);
-				MeshRendererComponent &mesh_renderer_component = mesh_entity.getComponent<MeshRendererComponent>();
+				if (faces_transforms.size() <= face)
+					continue;
 
-				auto &p = VkWrapper::global_pipeline;
-				p->reset();
+				glm::mat4 light_projection = glm::perspectiveRH(glm::radians(90.0f), 1.0f, 0.1f, 40.0f);
+				glm::mat4 light_matrix = light_projection * faces_transforms[face];
 
-				p->setVertexShader(shadows_vertex_shader);
-				p->setFragmentShader(shadows_fragment_shader);
+				VkWrapper::cmdBeginRendering(command_buffer, {}, light.shadow_map, face);
 
-				p->setRenderTargets(VkWrapper::current_render_targets);
-				p->setUseBlending(false);
-				p->setCullMode(VK_CULL_MODE_FRONT_BIT);
+				auto mesh_entities_id = scene.getEntitiesWith<MeshRendererComponent>();
+				for (entt::entity mesh_entity_id : mesh_entities_id)
+				{
+					Entity mesh_entity(mesh_entity_id, &scene);
+					MeshRendererComponent &mesh_renderer_component = mesh_entity.getComponent<MeshRendererComponent>();
 
-				p->flush();
-				p->bind(command_buffer);
+					auto &p = VkWrapper::global_pipeline;
+					p->reset();
 
-				//Renderer::bindShadersDescriptorSets(shadows_vertex_shader, shadows_fragment_shader, command_buffer, p->getPipelineLayout(), image_index);
+					p->setVertexShader(shadows_vertex_shader);
+					p->setFragmentShader(shadows_fragment_shader_point);
 
-				entity_renderer.renderEntityShadow(command_buffer, mesh_entity, image_index, light_matrix, position);
+					p->setRenderTargets(VkWrapper::current_render_targets);
+					p->setUseBlending(false);
+					p->setCullMode(VK_CULL_MODE_FRONT_BIT);
 
-				p->unbind(command_buffer);
+					p->flush();
+					p->bind(command_buffer);
+
+					entity_renderer.renderEntityShadow(command_buffer, mesh_entity, image_index, light_matrix, position);
+
+					p->unbind(command_buffer);
+				}
+
+
+				VkWrapper::cmdEndRendering(command_buffer);
 			}
+		} else
+		{
+			glm::vec3 light_dir = light_entity.getLocalDirection(glm::vec3(0, 0, 1));
+			debug_renderer->addArrow(position, position + light_dir, 0.1);
+			update_cascades(light, light_dir);
 
+			for (int c = 0; c < SHADOW_MAP_CASCADE_COUNT; c++)
+			{
+				glm::mat4 light_matrix = light.cascades[c].viewProjMatrix;
 
-			VkWrapper::cmdEndRendering(command_buffer);
+				VkWrapper::cmdBeginRendering(command_buffer, {}, light.shadow_map, c);
+
+				auto mesh_entities_id = scene.getEntitiesWith<MeshRendererComponent>();
+				for (entt::entity mesh_entity_id : mesh_entities_id)
+				{
+					Entity mesh_entity(mesh_entity_id, &scene);
+					MeshRendererComponent &mesh_renderer_component = mesh_entity.getComponent<MeshRendererComponent>();
+
+					auto &p = VkWrapper::global_pipeline;
+					p->reset();
+
+					p->setVertexShader(shadows_vertex_shader);
+					p->setFragmentShader(shadows_fragment_shader_directional);
+
+					p->setRenderTargets(VkWrapper::current_render_targets);
+					p->setUseBlending(false);
+					p->setCullMode(VK_CULL_MODE_FRONT_BIT);
+
+					p->flush();
+					p->bind(command_buffer);
+
+					entity_renderer.renderEntityShadow(command_buffer, mesh_entity, image_index, light_matrix, position);
+
+					p->unbind(command_buffer);
+				}
+				VkWrapper::cmdEndRendering(command_buffer);
+			}
 		}
-
 		light.shadow_map->transitLayout(command_buffer, TEXTURE_LAYOUT_SHADER_READ);
 	}
 }
@@ -872,4 +1002,9 @@ void Application::key_callback(GLFWwindow *window, int key, int scancode, int ac
 
 	if (key == GLFW_KEY_ESCAPE)
 		selected_entity = Entity();
+
+	if (key == GLFW_KEY_R)
+		guizmo_tool_type = ImGuizmo::ROTATE;
+	if (key == GLFW_KEY_T)
+		guizmo_tool_type = ImGuizmo::TRANSLATE;
 }

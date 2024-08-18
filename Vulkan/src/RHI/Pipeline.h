@@ -23,6 +23,7 @@ struct PipelineDescription
 	VkBlendFactor dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
 	VkBlendOp alphaBlendOp = VK_BLEND_OP_ADD;
 	VkCullModeFlagBits cull_mode = VK_CULL_MODE_BACK_BIT;
+	VkPrimitiveTopology primitive_topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 
 	size_t getHash() const
 	{
@@ -45,6 +46,7 @@ struct PipelineDescription
 		hash_combine(hash, use_depth_test);
 		hash_combine(hash, use_blending);
 		hash_combine(hash, cull_mode);
+		hash_combine(hash, primitive_topology);
 		return hash;
 	}
 };

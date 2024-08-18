@@ -24,6 +24,11 @@ Entity Scene::createEntity(std::string name, entt::entity id)
 	return Entity(entity_id, this);
 }
 
+void Scene::destroyEntity(entt::entity id)
+{
+	registry.destroy(id);
+}
+
 void Scene::saveFile(const std::string &filename)
 {
 	std::ofstream file(filename);

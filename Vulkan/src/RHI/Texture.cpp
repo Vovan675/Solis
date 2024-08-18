@@ -15,7 +15,8 @@ Texture::Texture(TextureDescription description)
 
 Texture::~Texture()
 {
-	cleanup();
+	// TODO: add GPU resources deletion queue
+	//cleanup();
 }
 
 void Texture::cleanup()
@@ -48,7 +49,7 @@ void Texture::fill()
 		imageInfo.extent.height = m_Description.height;
 		imageInfo.extent.depth = 1;
 		imageInfo.mipLevels = m_Description.mipLevels;
-		imageInfo.arrayLayers = 1;
+		imageInfo.arrayLayers = m_Description.arrayLevels;
 		imageInfo.format = m_Description.imageFormat;
 		imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
 		imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
@@ -396,7 +397,7 @@ void Texture::transitLayout(CommandBuffer &command_buffer, TextureLayoutType new
 			break;
 	}
 
-	int layer_count = m_Description.is_cube ? 6 : 1;
+	int layer_count = m_Description.is_cube ? 6 : m_Description.arrayLevels;
 
 	VkWrapper::cmdImageMemoryBarrier(command_buffer,
 									src_stage_mask, src_access_mask,
@@ -412,12 +413,12 @@ void Texture::transitLayout(CommandBuffer &command_buffer, TextureLayoutType new
 	}
 }
 
-VkImageView Texture::getImageView(int mip, int face)
+VkImageView Texture::getImageView(int mip, int layer)
 {
 	// Find already created
 	for (const auto &view : image_views)
 	{
-		if (view.mip == mip && view.face == face)
+		if (view.mip == mip && view.layer == layer)
 			return view.image_view;
 	}
 
@@ -432,10 +433,10 @@ VkImageView Texture::getImageView(int mip, int face)
 	viewInfo.subresourceRange.baseMipLevel = mip == -1 ? 0 : mip;
 	viewInfo.subresourceRange.levelCount = mip == -1 ? m_Description.mipLevels : 1;
 
+	// -1 = all layers
 	if (m_Description.is_cube)
 	{
-		// -1 = all faces
-		if (face == -1)
+		if (layer == -1)
 		{
 			viewInfo.viewType = VK_IMAGE_VIEW_TYPE_CUBE;
 			viewInfo.subresourceRange.baseArrayLayer = 0;
@@ -443,9 +444,23 @@ VkImageView Texture::getImageView(int mip, int face)
 		} else
 		{
 			viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-			viewInfo.subresourceRange.baseArrayLayer = face;
+			viewInfo.subresourceRange.baseArrayLayer = layer;
 			viewInfo.subresourceRange.layerCount = 1;
 		}
+	} else if (m_Description.arrayLevels > 1)
+	{
+		if (layer == -1)
+		{
+			viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
+			viewInfo.subresourceRange.baseArrayLayer = 0;
+			viewInfo.subresourceRange.layerCount = m_Description.arrayLevels;
+		} else
+		{
+			viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+			viewInfo.subresourceRange.baseArrayLayer = layer;
+			viewInfo.subresourceRange.layerCount = 1;
+		}
+
 	} else
 	{
 		viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
@@ -457,7 +472,7 @@ VkImageView Texture::getImageView(int mip, int face)
 
 	ImageView view;
 	view.mip = mip;
-	view.face = face;
+	view.layer = layer;
 	view.image_view = image_view;
 
 	image_views.push_back(view);

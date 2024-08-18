@@ -25,6 +25,7 @@ public:
 	void setDepthTest(bool depth_test) { current_description.use_depth_test = depth_test; }
 
 	void setCullMode(VkCullModeFlagBits cull_mode) { current_description.cull_mode = cull_mode; }
+	void setPrimitiveTopology(VkPrimitiveTopology topology) { current_description.primitive_topology = topology; }
 
 	void setDescriptorLayout(DescriptorLayout layout) { current_description.descriptor_layout = layout; }
 	void setColorFormats(std::vector<VkFormat> color_formats) { current_description.color_formats = color_formats; }

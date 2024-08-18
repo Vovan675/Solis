@@ -23,6 +23,8 @@
 #include "renderers/SSAORenderer.h"
 #include "Editor/AssetBrowserPanel.h"
 #include "VulkanApp.h"
+#include "imgui.h"
+#include "ImGuizmo.h"
 
 class Application : public VulkanApp
 {
@@ -43,9 +45,11 @@ private:
 	void render_shadows(CommandBuffer &command_buffer, uint32_t image_index);
 	void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods) override;
 
+	void update_cascades(LightComponent &light, glm::vec3 light_dir);
 private:
 	bool debug_rendering = false;
 	bool is_first_frame = true;
+	ImGuizmo::OPERATION guizmo_tool_type = ImGuizmo::TRANSLATE;
 
 	Scene scene;
 
@@ -71,15 +75,14 @@ private:
 	std::shared_ptr<ImGuiRenderer> imgui_renderer;
 	std::shared_ptr<SSAORenderer> ssao_renderer;
 
-
 	std::vector<std::shared_ptr<RendererBase>> renderers;
 
 
-	std::shared_ptr<Texture> shadow_map_depth;
-	std::shared_ptr<Texture> shadow_map;
+	std::vector<std::shared_ptr<Texture>> shadow_maps;
 
 	std::shared_ptr<Shader> shadows_vertex_shader;
-	std::shared_ptr<Shader> shadows_fragment_shader;
+	std::shared_ptr<Shader> shadows_fragment_shader_point;
+	std::shared_ptr<Shader> shadows_fragment_shader_directional;
 
 	std::shared_ptr<Camera> camera;
 };

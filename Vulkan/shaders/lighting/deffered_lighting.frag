@@ -5,11 +5,16 @@ layout(location = 0) in vec4 inPos;
 layout (binding = 0) uniform UBO 
 {
 	mat4 model;
-	mat4 light_matrix;
+	mat4 light_matrix[4];
+	vec4 cascade_splits;
 } ubo;
 
 layout (set=1, binding=0) uniform sampler2D textures[];
-layout (set=0, binding=2) uniform samplerCube shadow_map_cubemap;
+#if LIGHT_TYPE == 0
+layout (set=0, binding=2) uniform samplerCube shadow_map;
+#else
+layout (set=0, binding=2) uniform sampler2DArray shadow_map;
+#endif
 
 layout(set=0, binding=1) uniform UBOTextures
 {
@@ -106,12 +111,12 @@ vec3 sampling_offsets[20] = vec3[]
    vec3( 1,  0,  1), vec3(-1,  0,  1), vec3( 1,  0, -1), vec3(-1,  0, -1),
    vec3( 0,  1,  1), vec3( 0, -1,  1), vec3( 0, -1, -1), vec3( 0,  1, -1)
 );   
+#define SHADOW_MAP_CASCADE_COUNT 4
 
-float get_shadow(vec3 frag_pos, float bias)
+float get_shadow_point(vec3 frag_pos, float bias)
 {
 	vec3 fragToLight = frag_pos - PushConstants.light_pos.xyz;
 	float current_depth = length(fragToLight) / 40.0f;
-
 
 	float shadow = 0.0;
 	
@@ -120,14 +125,63 @@ float get_shadow(vec3 frag_pos, float bias)
 	float sampling_radius = 0.003;
 	for (int i = 0; i < samples; i++)
 	{
-		float closest_depth = texture(shadow_map_cubemap, fragToLight + sampling_offsets[i] * sampling_radius).r;
+		float closest_depth = texture(shadow_map, fragToLight + sampling_offsets[i] * sampling_radius).r;
 		shadow += current_depth - bias < closest_depth ? 1.0 : 0.0;
 	}
 
 	shadow /= float(samples);
 
 	return clamp(shadow, 0.0, 1.0);
-	return 1.0f;
+}
+
+float get_shadow_dir(vec3 frag_pos, float bias)
+{
+	// Select layer based on depth
+	float depth = ((view * vec4(frag_pos, 1.0)).z);
+	int layer = 0;
+	for (int i = 0; i < SHADOW_MAP_CASCADE_COUNT - 1; i++)
+	{
+		if (depth < ubo.cascade_splits[i])
+			layer = i + 1;
+	}
+
+	vec4 frag_pos_light_space = ubo.light_matrix[layer] * vec4(frag_pos, 1.0);
+	vec3 proj_coords = frag_pos_light_space.xyz / frag_pos_light_space.w;
+
+	float current_depth = proj_coords.z;
+	//if (layer == 1)
+	//	return 0;
+	if (current_depth > 1.0)
+		return 1.0;
+
+	const float biasModifier = 0.5f;
+    if (layer == SHADOW_MAP_CASCADE_COUNT)
+    {
+        //bias *= 1 / (200.0f * biasModifier);
+    } else
+    {
+        //bias *= 1 / (ubo.cascade_splits[layer] * biasModifier);
+    }
+	//bias = 0.005;
+	float shadow = 0.0;
+	
+	// PCF
+	float tex_size = textureSize(shadow_map, 0).x;
+	int count = 0;
+	float scale = 1.0f / (1.0 + layer);
+	for (int x = -1; x <= 1; x++)
+	{
+		for (int y = -1; y <= 1; y++)
+		{
+			float closest_depth = texture(shadow_map, vec3((proj_coords.xy * 0.5 + 0.5) + vec2(x, y) / tex_size * scale, layer)).r;
+			shadow += current_depth - bias < closest_depth ? 1.0 : 0.0;
+			count++;
+		}
+	}
+	shadow /= float(count);
+	//float closest_depth = texture(shadow_map, vec3(proj_coords.xy * 0.5 + 0.5, layer)).r;
+	//shadow += current_depth - bias < closest_depth ? 1.0 : 0.0;
+	return clamp(shadow, 0.0, 1.0);
 }
 
 void main()
@@ -155,22 +209,25 @@ void main()
 	vec4 world_pos = inverse(view) * vec4(view_pos, 1.0);
 	world_pos.xyz /= world_pos.w;
 	vec3 P = world_pos.xyz;
+	vec3 N = normalize(texture(textures[normalTexId], inUV).rgb);
 	vec3 V = normalize(camera_position.xyz - P);
 	vec3 L;
 	float light_attenuation = 1.0;
-	/*
-	if (PushConstants.light_pos.w > 0)
-	{ 
-		// Directional light
-		L = normalize(PushConstants.light_pos.xyz);
-	} else
-	*/
-	{
+	float shadow = 1.0f;
+
+	#if LIGHT_TYPE == 0
 		// Punctual light
 		L = normalize(PushConstants.light_pos.xyz - P);
+		float bias = max(0.005, 0.05 * (1.0 - dot(N, L)));
+		shadow = get_shadow_point(P, bias);
 		light_attenuation = get_attenuation(P);
-	}
-	vec3 N = normalize(texture(textures[normalTexId], inUV).rgb);
+	#else
+		// Directional light
+		L = normalize(PushConstants.light_pos.xyz);
+		float bias = max(0.005, 0.005 * (1.0 - dot(N, L)));
+		shadow = get_shadow_dir(P, bias);
+	#endif
+	
 	vec3 H = normalize(V + L);
 
 	float NdotL = clamp(dot(N, L), 0.001f, 1.0f);
@@ -188,11 +245,10 @@ void main()
 	float Viz = V_SmithGGXCorrelated(NdotV, NdotL, roughness); 
 	vec3 F_specular = D * F * Viz;
 
-	float bias = max(0.005, 0.03 * (1.0 - dot(N, L)));
-	//float bias = 0.01;
-	float shadow = get_shadow(P, bias);
- 
+	//shadow = texture(shadow_map, vec3(inUV, 0)).r;
 	outDiffuse = shadow * NdotL * (vec3(1.0f) - F) * diffuse * light_attenuation * PushConstants.light_intensity * PushConstants.light_color.rgb;
 	outSpecular = shadow * NdotL * F_specular * light_attenuation * PushConstants.light_intensity * PushConstants.light_color.rgb;
-	//outDiffuse = vec3(shadow, 0, 0);
+	//outDiffuse = vec3(shadow, LIGHT_TYPE, 0);
+	//outDiffuse = vec3(NdotL, 0, 0);
+
 }

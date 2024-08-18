@@ -10,6 +10,7 @@ struct TextureDescription
 	uint32_t width;
 	uint32_t height;
 	uint32_t mipLevels = 1;
+	uint32_t arrayLevels = 1;
 	VkSampleCountFlagBits numSamples = VK_SAMPLE_COUNT_1_BIT;
 	VkFormat imageFormat;
 	VkImageAspectFlags imageAspectFlags;
@@ -55,7 +56,7 @@ public:
 
 	void transitLayout(CommandBuffer &command_buffer, TextureLayoutType new_layout_type, int mip = -1);
 	
-	VkImageView getImageView(int mip = 0, int face = -1);
+	VkImageView getImageView(int mip = 0, int layer = -1);
 
 	VkFormat getImageFormat() const { return m_Description.imageFormat; }
 
@@ -74,7 +75,7 @@ private:
 		void cleanup();
 
 		int mip = 0;
-		int face = 0;
+		int layer = 0;
 		// ImageView needs to gain some information about how to render into this image
 		VkImageView image_view = nullptr;
 	};

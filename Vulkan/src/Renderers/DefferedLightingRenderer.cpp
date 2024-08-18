@@ -9,8 +9,12 @@ DefferedLightingRenderer::DefferedLightingRenderer()
 {
 	icosphere_mesh = std::make_shared<Engine::Mesh>("assets/icosphere_3.fbx");
 
-	lighting_vertex_shader = Shader::create("shaders/lighting/deffered_lighting.vert", Shader::VERTEX_SHADER);
-	lighting_fragment_shader = Shader::create("shaders/lighting/deffered_lighting.frag", Shader::FRAGMENT_SHADER);
+	lighting_vertex_shader_point = Shader::create("shaders/lighting/deffered_lighting.vert", Shader::VERTEX_SHADER, {{"LIGHT_TYPE", "0"}});
+	lighting_fragment_shader_point = Shader::create("shaders/lighting/deffered_lighting.frag", Shader::FRAGMENT_SHADER, {{"LIGHT_TYPE", "0"}});
+
+	// TODO: CHECK WHY NOT WORKING
+	lighting_vertex_shader_directional = Shader::create("shaders/lighting/deffered_lighting.vert", Shader::VERTEX_SHADER, {{"LIGHT_TYPE", "1"}});
+	lighting_fragment_shader_directional = Shader::create("shaders/lighting/deffered_lighting.frag", Shader::FRAGMENT_SHADER, {{"LIGHT_TYPE", "1"}});
 }
 
 DefferedLightingRenderer::~DefferedLightingRenderer()
@@ -23,9 +27,6 @@ void DefferedLightingRenderer::renderLights(Scene *scene, CommandBuffer &command
 	auto &p = VkWrapper::global_pipeline;
 	p->reset();
 
-	p->setVertexShader(lighting_vertex_shader);
-	p->setFragmentShader(lighting_fragment_shader);
-
 	p->setRenderTargets(VkWrapper::current_render_targets);
 	p->setUseVertices(true);
 	p->setUseBlending(true);
@@ -34,8 +35,6 @@ void DefferedLightingRenderer::renderLights(Scene *scene, CommandBuffer &command
 	p->setDepthTest(false);
 	p->setCullMode(VK_CULL_MODE_FRONT_BIT);
 
-	p->flush();
-	p->bind(command_buffer);
 
 	auto entities_id = scene->getEntitiesWith<LightComponent>();
 	for (entt::entity entity_id : entities_id)
@@ -43,7 +42,17 @@ void DefferedLightingRenderer::renderLights(Scene *scene, CommandBuffer &command
 		Entity entity(entity_id, scene);
 		auto &light = entity.getComponent<LightComponent>();
 
-		shadow_map_cubemap = light.shadow_map;
+		if (light.getType() == LIGHT_TYPE_POINT)
+		{
+			p->setVertexShader(lighting_vertex_shader_point);
+			p->setFragmentShader(lighting_fragment_shader_point);
+		} else
+		{
+			p->setVertexShader(lighting_vertex_shader_directional);
+			p->setFragmentShader(lighting_fragment_shader_directional);
+		}
+		p->flush();
+		p->bind(command_buffer);
 
 		glm::vec3 scale, position, skew;
 		glm::vec4 persp;
@@ -56,24 +65,31 @@ void DefferedLightingRenderer::renderLights(Scene *scene, CommandBuffer &command
 		ubo_sphere.model = glm::translate(glm::mat4(1), position) *
 			glm::scale(glm::mat4(1), glm::vec3(light.radius, light.radius, light.radius));
 
-		/*
-		if (light.position.w > 0)
+		if (light.type == LIGHT_TYPE_DIRECTIONAL)
 		{
 			const auto uniforms = Renderer::getDefaultUniforms();
 			ubo_sphere.model = glm::translate(glm::mat4(1), glm::vec3(uniforms.camera_position));
-		}
-		*/
 
-		constants.light_pos = glm::vec4(position, 1.0);
+			for (uint32_t i = 0; i < SHADOW_MAP_CASCADE_COUNT; i++)
+			{
+				ubo_sphere.cascade_splits[i] = light.cascades[i].splitDepth;
+				ubo_sphere.light_matrix[i] = light.cascades[i].viewProjMatrix;
+			}
+			constants.light_pos = glm::vec4(entity.getLocalDirection(glm::vec3(0, 0, -1)), 1.0);
+		} else
+		{
+			constants.light_pos = glm::vec4(position, 1.0f);
+		}
+
 		constants.light_color = glm::vec4(light.color, 1.0);
 		constants.light_range_square = pow(light.radius, 2);
 		constants.light_intensity = light.intensity;
 
-		Renderer::setShadersUniformBuffer(lighting_vertex_shader, lighting_fragment_shader, 1, &ubo, sizeof(UBO), image_index);
-		Renderer::setShadersUniformBuffer(lighting_vertex_shader, lighting_fragment_shader, 0, &ubo_sphere, sizeof(UniformBufferObject), image_index);
-		Renderer::setShadersTexture(lighting_vertex_shader, lighting_fragment_shader, 2, shadow_map_cubemap, image_index);
+		Renderer::setShadersUniformBuffer(p->getVertexShader(), p->getFragmentShader(), 1, &ubo, sizeof(UBO), image_index);
+		Renderer::setShadersUniformBuffer(p->getVertexShader(), p->getFragmentShader(), 0, &ubo_sphere, sizeof(UniformBufferObject), image_index);
+		Renderer::setShadersTexture(p->getVertexShader(), p->getFragmentShader(), 2, light.shadow_map, image_index);
 
-		Renderer::bindShadersDescriptorSets(lighting_vertex_shader, lighting_fragment_shader, command_buffer, p->getPipelineLayout(), image_index);
+		Renderer::bindShadersDescriptorSets(p->getVertexShader(), p->getFragmentShader(), command_buffer, p->getPipelineLayout(), image_index);
 
 		vkCmdPushConstants(command_buffer.get_buffer(), p->getPipelineLayout(), VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstant), &constants);
 
@@ -83,8 +99,8 @@ void DefferedLightingRenderer::renderLights(Scene *scene, CommandBuffer &command
 		vkCmdBindVertexBuffers(command_buffer.get_buffer(), 0, 1, vertexBuffers, offsets);
 		vkCmdBindIndexBuffer(command_buffer.get_buffer(), icosphere_mesh->indexBuffer->bufferHandle, 0, VK_INDEX_TYPE_UINT32);
 		vkCmdDrawIndexed(command_buffer.get_buffer(), icosphere_mesh->indices.size(), 1, 0, 0, 0);
+		p->unbind(command_buffer);
 	}
-	p->unbind(command_buffer);
 }
 
 void DefferedLightingRenderer::renderImgui()

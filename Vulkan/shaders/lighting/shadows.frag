@@ -11,5 +11,7 @@ layout (binding = 0) uniform UBO
 void main()
 {
     float lightDistance = length(inPos.xyz - light_pos.xyz);
-	gl_FragDepth = lightDistance / 40.0f;
+	#if LIGHT_TYPE == 0
+		gl_FragDepth = lightDistance / 40.0f;
+	#endif
 }

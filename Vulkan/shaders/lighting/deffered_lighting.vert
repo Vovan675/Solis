@@ -8,7 +8,8 @@ layout (location = 3) in vec3 inNormal;
 layout (binding = 0) uniform UBO 
 {
 	mat4 model;
-	mat4 light_matrix;
+	mat4 light_matrix[4];
+	vec4 cascade_splits;
 } ubo;
 
 layout (location = 0) out vec4 outPos;

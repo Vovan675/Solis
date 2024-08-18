@@ -65,7 +65,7 @@ void Pipeline::create(const PipelineDescription &description)
 	// Input assembly state
 	VkPipelineInputAssemblyStateCreateInfo inputAssemblyInfo{};
 	inputAssemblyInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-	inputAssemblyInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+	inputAssemblyInfo.topology = description.primitive_topology;
 	inputAssemblyInfo.primitiveRestartEnable = VK_FALSE;
 
 	VkPipelineViewportStateCreateInfo viewportState{};
