@@ -96,6 +96,6 @@ private:
 	glm::vec2 prev_mouse_pos;
 
 	float near_plane = 0.1f;
-	float far_plane = 60.0f;
+	float far_plane = 200.0f;
 	float speed = 2.0f;
 };

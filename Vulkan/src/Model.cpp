@@ -1,9 +1,7 @@
 #include "pch.h"
-#include "Entity.h"
-#include "CerealExtensions.h"
-#include "RHI/Texture.h"
-#include "BindlessResources.h"
+#include "Model.h"
 #include <filesystem>
+#include "EngineMath.h"
 
 static glm::mat4 convertAssimpMat4(const aiMatrix4x4 &m)
 {
@@ -15,65 +13,39 @@ static glm::mat4 convertAssimpMat4(const aiMatrix4x4 &m)
 	return o;
 }
 
-void Entity::updateTransform()
+void Model::load(const char *path)
 {
-	if (parent != nullptr)
-	{
-		transform.model_matrix = parent->transform.model_matrix * transform.local_model_matrix;
-	} else
-	{
-		transform.model_matrix = transform.local_model_matrix;
-	}
-
-	for (auto &child : children)
-	{
-		child->updateTransform();
-	}
-}
-
-void Entity::save(const char *filename)
-{
-	std::ofstream file(filename, std::ios::binary);
-	cereal::BinaryOutputArchive archive(file);
-
-	this->save(archive);
-}
-
-void Entity::load(const char *filename)
-{
-	std::ifstream file(filename, std::ios::binary);
-	cereal::BinaryInputArchive archive(file);
-
-	this->load(archive);
-	updateTransform();
-}
-
-void Entity::load_model(const char *model_path)
-{
-	path = model_path;
+	this->path = path;
 	Assimp::Importer importer;
 
-	const aiScene *scene = importer.ReadFile(model_path,
+	const aiScene *scene = importer.ReadFile(path,
 											 aiProcess_CalcTangentSpace |
 											 aiProcess_GenSmoothNormals |
 											 aiProcess_Triangulate |
 											 aiProcess_JoinIdenticalVertices |
 											 aiProcess_SortByPType);
-
-	process_node(scene->mRootNode, scene);
+	process_node(nullptr, scene->mRootNode, scene);
+	root_node->updateTransform();
 }
 
-void Entity::process_node(aiNode *node, const aiScene *scene)
+void Model::process_node(MeshNode *mesh_node, aiNode *node, const aiScene *scene)
 {
-	if (node->mNumMeshes > 0)
-		name = scene->mMeshes[node->mMeshes[0]]->mName.C_Str();
+	if (!mesh_node)
+	{
+		root_node = new MeshNode();
+		mesh_node = root_node;
+	}
+
+	if (node->mName.length != 0)
+		mesh_node->name = node->mName.C_Str();
+	else if (node->mNumMeshes > 0)
+		mesh_node->name = scene->mMeshes[node->mMeshes[0]]->mName.C_Str();
 
 	std::vector<Engine::Vertex> vertices;
 	std::vector<uint32_t> indices;
 
-	transform.local_model_matrix = convertAssimpMat4(node->mTransformation);
-	updateTransform();
-	materials.resize(node->mNumMeshes);
+	mesh_node->local_model_matrix = convertAssimpMat4(node->mTransformation);
+	//materials.resize(node->mNumMeshes);
 	for (int m = 0; m < node->mNumMeshes; m++)
 	{
 		vertices.clear();
@@ -123,13 +95,37 @@ void Entity::process_node(aiNode *node, const aiScene *scene)
 
 		std::shared_ptr<Engine::Mesh> engine_mesh = std::make_shared<Engine::Mesh>();
 		engine_mesh->setData(vertices, indices);
-		meshes.push_back(engine_mesh);
+		mesh_node->meshes.push_back(engine_mesh);
+
+		{
+			size_t mesh_hash = 0;
+			int id = 0;
+			std::string name = mesh_node->name;
+			Engine::Math::hash_combine(mesh_hash, name);
+			name = mesh->mName.C_Str();
+			Engine::Math::hash_combine(mesh_hash, name);
+			Engine::Math::hash_combine(mesh_hash, id);
+
+			while (getMesh(mesh_hash) != nullptr)
+			{
+				id++;
+				name = mesh_node->name;
+				Engine::Math::hash_combine(mesh_hash, name);
+				name = mesh->mName.C_Str();
+				Engine::Math::hash_combine(mesh_hash, name);
+				Engine::Math::hash_combine(mesh_hash, id);
+			}
+			meshes_id[mesh_hash] = engine_mesh;
+			engine_mesh->id = mesh_hash;
+		}
 
 		aiMaterial *mat = scene->mMaterials[mesh->mMaterialIndex];
-		
+
 		for (int p = 0; p < mat->mNumProperties; p++)
 			aiString name = mat->mProperties[p]->mKey;
 
+		std::shared_ptr<Material> engine_material = std::make_shared<Material>();
+		mesh_node->materials.push_back(engine_material);
 		unsigned int diffuse_count = mat->GetTextureCount(aiTextureType_DIFFUSE);
 		if (diffuse_count > 0)
 		{
@@ -149,7 +145,7 @@ void Entity::process_node(aiNode *node, const aiScene *scene)
 				tex->load(result_path.string().c_str());
 				if (tex->imageHandle == nullptr)
 					continue;
-				materials[m].albedo_tex_id = BindlessResources::addTexture(tex);
+				engine_material->albedo_tex_id = BindlessResources::addTexture(tex);
 			}
 		}
 
@@ -172,7 +168,7 @@ void Entity::process_node(aiNode *node, const aiScene *scene)
 				tex->load(result_path.string().c_str());
 				if (tex->imageHandle == nullptr)
 					continue;
-				materials[m].metalness_tex_id = BindlessResources::addTexture(tex);
+				engine_material->metalness_tex_id = BindlessResources::addTexture(tex);
 			}
 		}
 	}
@@ -180,11 +176,62 @@ void Entity::process_node(aiNode *node, const aiScene *scene)
 	for (int c = 0; c < node->mNumChildren; c++)
 	{
 		aiNode *child = node->mChildren[c];
-		std::shared_ptr<Entity> entity = std::make_shared<Entity>();
-		entity->path = path;
-		entity->parent = this;
-		entity->process_node(child, scene);
-		children.push_back(entity);
+		MeshNode *child_node = new MeshNode();
+		child_node->parent = mesh_node;
+		process_node(child_node, child, scene);
+		mesh_node->children.push_back(child_node);
 	}
 
+}
+
+void Model::save(const char *filename)
+{
+	std::ofstream file(filename, std::ios::binary);
+	cereal::BinaryOutputArchive archive(file);
+
+	this->save(archive);
+}
+
+/*
+void Model::load(const char *filename)
+{
+	std::ifstream file(filename, std::ios::binary);
+	cereal::BinaryInputArchive archive(file);
+
+	this->load(archive);
+	root_node->updateTransform();
+}
+*/
+
+Entity Model::createEntity(Scene *scene)
+{
+	return create_entity_node(root_node, scene);
+}
+
+Entity Model::create_entity_node(MeshNode *node, Scene *scene)
+{
+	Entity entity = scene->createEntity(node->name);
+	auto &transform_component = entity.getComponent<TransformComponent>();
+
+	auto &mesh_renderer = entity.addComponent<MeshRendererComponent>();
+
+
+	for (auto &mesh : node->meshes)
+	{
+		MeshRendererComponent::MeshId mesh_id;
+		mesh_id.model = this;
+		mesh_id.mesh_id = mesh->id;
+		mesh_renderer.meshes.push_back(mesh_id);
+	}
+
+	transform_component.setTransform(node->local_model_matrix);
+
+	for (int i = 0; i < node->children.size(); i++)
+	{
+		Entity child = create_entity_node(node->children[i], scene);
+		auto &child_transform_component = child.getComponent<TransformComponent>();
+		child_transform_component.parent = entity;
+		transform_component.children.push_back(child);
+	}
+	return entity;
 }

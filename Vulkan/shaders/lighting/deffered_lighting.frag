@@ -158,11 +158,13 @@ void main()
 	vec3 V = normalize(camera_position.xyz - P);
 	vec3 L;
 	float light_attenuation = 1.0;
+	/*
 	if (PushConstants.light_pos.w > 0)
 	{ 
 		// Directional light
 		L = normalize(PushConstants.light_pos.xyz);
 	} else
+	*/
 	{
 		// Punctual light
 		L = normalize(PushConstants.light_pos.xyz - P);

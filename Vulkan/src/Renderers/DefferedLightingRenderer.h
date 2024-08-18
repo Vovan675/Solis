@@ -5,6 +5,7 @@
 #include "RHI/Texture.h"
 #include "Camera.h"
 #include "RHI/Descriptors.h"
+#include "Scene/Scene.h"
 
 
 class DefferedLightingRenderer: public RendererBase
@@ -40,7 +41,7 @@ public:
 	DefferedLightingRenderer();
 	virtual ~DefferedLightingRenderer();
 
-	void fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index) override;
+	void renderLights(Scene *scene, CommandBuffer &command_buffer, uint32_t image_index);
 
 	void renderImgui();
 public:

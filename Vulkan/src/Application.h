@@ -3,7 +3,7 @@
 #include "RHI/Device.h"
 #include "Log.h"
 #include "Mesh.h"
-#include "Scene.h"
+#include "Scene/Scene.h"
 #include "RHI/Pipeline.h"
 #include "RHI/Shader.h"
 #include "RHI/Swapchain.h"
@@ -21,6 +21,7 @@
 #include "renderers/PostProcessingRenderer.h"
 #include "renderers/DebugRenderer.h"
 #include "renderers/SSAORenderer.h"
+#include "Editor/AssetBrowserPanel.h"
 #include "VulkanApp.h"
 
 class Application : public VulkanApp
@@ -46,7 +47,13 @@ private:
 	bool debug_rendering = false;
 	bool is_first_frame = true;
 
-	std::shared_ptr<Entity> selected_entity = nullptr;
+	Scene scene;
+
+	Entity selected_entity;
+
+	EntityRenderer entity_renderer;
+
+	AssetBrowserPanel asset_browser_panel;
 
 	std::shared_ptr<Texture> ibl_irradiance;
 	std::shared_ptr<Texture> ibl_prefilter;
@@ -57,8 +64,6 @@ private:
 	std::shared_ptr<PrefilterRenderer> prefilter_renderer;
 
 	std::shared_ptr<CubeMapRenderer> cubemap_renderer;
-	std::shared_ptr<MeshRenderer> mesh_renderer;
-	std::shared_ptr<MeshRenderer> mesh_renderer2;
 	std::shared_ptr<DefferedLightingRenderer> defferred_lighting_renderer;
 	std::shared_ptr<DefferedCompositeRenderer> deffered_composite_renderer;
 	std::shared_ptr<PostProcessingRenderer> post_renderer;
@@ -68,7 +73,6 @@ private:
 
 
 	std::vector<std::shared_ptr<RendererBase>> renderers;
-	std::vector<std::shared_ptr<EntityRenderer>> entities_renderers;
 
 
 	std::shared_ptr<Texture> shadow_map_depth;

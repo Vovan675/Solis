@@ -24,6 +24,7 @@ IncludeDir["STB_IMAGE"] = "vendor/stb"
 IncludeDir["ImGui"] = "vendor/imgui"
 IncludeDir["ImGuizmo"] = "vendor/imguizmo"
 IncludeDir["Cereal"] = "vendor/cereal/include"
+IncludeDir["Entt"] = "vendor/entt/include"
 
 LibDir = {}
 LibDir["Vulkan"] = "../vendor/Vulkan/Lib"
@@ -51,7 +52,8 @@ project "Vulkan"
 	files
 	{
 		"%{prj.name}/src/**.h",
-		"%{prj.name}/src/**.cpp"
+		"%{prj.name}/src/**.cpp",
+		"%{IncludeDir.Entt}/../natvis/**.natvis",
 	}
 
 	includedirs
@@ -65,7 +67,8 @@ project "Vulkan"
 		"%{IncludeDir.STB_IMAGE}",
 		"%{IncludeDir.ImGui}",
 		"%{IncludeDir.ImGuizmo}",
-		"%{IncludeDir.Cereal}"
+		"%{IncludeDir.Cereal}",
+		"%{IncludeDir.Entt}",
 	}
 
 	links

@@ -2,8 +2,9 @@
 #include "Application.h"
 #include "RHI/VkWrapper.h"
 #include "BindlessResources.h"
-#include "Entity.h"
+#include "Scene/Entity.h"
 #include "Rendering/Renderer.h"
+#include "Model.h"
 
 #include "assimp/Importer.hpp"
 #include "assimp/scene.h"
@@ -13,6 +14,8 @@
 #include "imgui.h"
 #include "ImGuizmo.h"
 #include "glm/gtc/type_ptr.hpp"
+#include <entt/entt.hpp>
+#include <filesystem>
 
 Application::Application()
 {
@@ -44,6 +47,7 @@ Application::Application()
 
 
 	// Cerberus
+	/*
 	if (0){
 		auto entity = std::make_shared<Entity>();
 		//entity->transform.local_model_matrix = glm::scale(glm::mat4(1), glm::vec3(0.01, 0.01, 0.01));
@@ -82,21 +86,20 @@ Application::Application()
 		entities_renderers.push_back(entity_renderer);
 		Scene::addEntity(entity);
 	}
+	*/
 
 	// Demo Scene
-	{
-		auto entity = std::make_shared<Entity>("assets/demo_scene.fbx");
-		entity->transform.local_model_matrix = glm::scale(glm::mat4(1), glm::vec3(0.004, 0.004, 0.004));
-		entity->updateTransform();
-		auto entity_renderer = std::make_shared<EntityRenderer>(camera, entity);
+	Model *model = new Model();
+	model->load("assets/demo_scene.fbx");
 
-		renderers.push_back(entity_renderer);
-		entities_renderers.push_back(entity_renderer);
-		Scene::addEntity(entity);
-	}
+	Entity entity = model->createEntity(&scene);
+	entity.getTransform().scale = glm::vec3(0.01);
 
-
-	//entity_renderer->setMaterial(mat1);
+	Entity light = scene.createEntity("Point Light");
+	auto &light_component = light.addComponent<LightComponent>();
+	light_component.color = glm::vec3(1, 0, 0);
+	light_component.intensity = 1.0f;
+	light_component.radius = 10.0f;
 
 	//renderers.push_back(entity_renderer);
 	//entities_renderers.push_back(entity_renderer);
@@ -105,10 +108,14 @@ Application::Application()
 	//entity->updateTransform();
 	//auto mesh = std::make_shared<Engine::Mesh>("assets/bistro/BistroExterior.fbx");
 	//auto mesh = std::make_shared<Engine::Mesh>("assets/barrels/source/Industrial_Updated.fbx");
-	auto mesh = std::make_shared<Engine::Mesh>("assets/model2.obj");
+	auto mesh = std::make_shared<Engine::Mesh>("assets/model2.obj"); // room
+	auto mesh_entity = scene.createEntity("Test Mesh Entity");
+	//auto& mesh_renderer_component = mesh_entity.addComponent<MeshRendererComponent>();
+	//mesh_renderer_component.meshes.push_back(mesh);
+
 	//mesh->save("test_save");
 	//mesh->load("test_save");
-	auto mesh2 = std::make_shared<Engine::Mesh>("assets/model.fbx");
+	//auto mesh2 = std::make_shared<Engine::Mesh>("assets/model.fbx");
 
 	lut_renderer = std::make_shared<LutRenderer>();
 	renderers.push_back(lut_renderer);
@@ -121,12 +128,6 @@ Application::Application()
 
 	cubemap_renderer = std::make_shared<CubeMapRenderer>();
 	renderers.push_back(cubemap_renderer);
-
-	mesh_renderer = std::make_shared<MeshRenderer>(mesh);
-	renderers.push_back(mesh_renderer);
-
-	mesh_renderer2 = std::make_shared<MeshRenderer>(mesh2);
-	renderers.push_back(mesh_renderer2);
 
 	imgui_renderer = std::make_shared<ImGuiRenderer>(window);
 	renderers.push_back(imgui_renderer);
@@ -162,16 +163,12 @@ Application::Application()
 		auto tex2 = new Texture(tex_description);
 		tex2->load("assets/albedo.png");
 
-		Material mat1;
-		mat1.albedo_tex_id = BindlessResources::addTexture(tex);
-		mesh_renderer->setMaterial(mat1);
-
-		Material mat2;
-		mat2.albedo_tex_id = BindlessResources::addTexture(tex2);
-		mesh_renderer2->setMaterial(mat2);
+		//Material mat2;
+		//mat2.albedo_tex_id = BindlessResources::addTexture(tex2);
+		//mesh_renderer2->setMaterial(mat2);
 	}
 
-	auto mesh_ball = std::make_shared<Engine::Mesh>("assets/ball.fbx");
+	//auto mesh_ball = std::make_shared<Engine::Mesh>("assets/ball.fbx");
 	int count_x = 5;
 	int count_y = 5;
 	/*
@@ -204,6 +201,11 @@ Application::Application()
 
 	shadows_vertex_shader = Shader::create("shaders/lighting/shadows.vert", Shader::VERTEX_SHADER);
 	shadows_fragment_shader = Shader::create("shaders/lighting/shadows.frag", Shader::FRAGMENT_SHADER);
+
+	scene.saveFile("assets/test_scene.scene");
+
+	scene = Scene();
+	scene.loadFile("assets/test_scene.scene");
 }
 
 void Application::createRenderTargets()
@@ -335,7 +337,7 @@ void Application::update(float delta_time)
 	}
 
 	float cam_far = camera->getFar();
-	if (ImGui::SliderFloat("Camera Far", &cam_far, 1.0f, 150.0f))
+	if (ImGui::SliderFloat("Camera Far", &cam_far, 1.0f, 300.0f))
 	{
 		camera->setFar(cam_far);
 	}
@@ -349,19 +351,23 @@ void Application::update(float delta_time)
 	// Hierarchy
 	ImGui::Begin("Hierarchy");
 	is_using_ui |= ImGui::IsWindowFocused();
-	auto &entities = Scene::getRootEntites();
+	auto entities_id = scene.getEntitiesWith<TransformComponent>();
 
-	std::function<void(std::shared_ptr<Entity>)> add_entity_tree = [&add_entity_tree, this] (std::shared_ptr<Entity> entity) {
+	std::function<void(entt::entity entity_id)> add_entity_tree = [&add_entity_tree, this] (entt::entity entity_id) {
 
+		ImGui::PushID((int)entity_id);;
 		ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_SpanFullWidth | ImGuiTreeNodeFlags_SpanAvailWidth;
 		
-		// Collapsable or not
-		flags |= entity->children.empty() ? ImGuiTreeNodeFlags_Leaf : ImGuiTreeNodeFlags_OpenOnArrow;
+		Entity entity(entity_id, &scene);
+		TransformComponent &transform = entity.getComponent<TransformComponent>();
 
-		// Highlighted or not
+		// Collapsable or not
+		flags |= transform.children.empty() ? ImGuiTreeNodeFlags_Leaf : ImGuiTreeNodeFlags_OpenOnArrow;
+
+		// Highlighted or not 
 		flags |= selected_entity == entity ? ImGuiTreeNodeFlags_Selected : 0;
 
-		std::string name = entity->name;
+		std::string name = transform.name;
 		if (name.empty())
 			name = "(Empty)";
 
@@ -375,22 +381,30 @@ void Application::update(float delta_time)
 
 		if (opened)
 		{
-			for (std::shared_ptr<Entity> child : entity->children)
+			for (entt::entity child_id : transform.children)
 			{
-				add_entity_tree(child);
+				add_entity_tree(child_id);
 			}
 			ImGui::TreePop();
 		}
+		ImGui::PopID();
 	};
 
-	if (ImGui::TreeNodeEx("root", ImGuiTreeNodeFlags_SpanFullWidth))
+	for (const auto &entity_id : entities_id)
 	{
-		for (const auto &entity : entities)
-		{
-			add_entity_tree(entity);
-		}
+		Entity entity(entity_id, &scene);
+		TransformComponent &transform = entity.getComponent<TransformComponent>();
+		if (transform.parent == entt::null)
+			add_entity_tree(entity_id);
+	}
 
-		ImGui::TreePop();
+	if (ImGui::Button("Create Light"))
+	{
+		Entity light = scene.createEntity("Point Light");
+		auto &light_component = light.addComponent<LightComponent>();
+		light_component.color = glm::vec3(1, 0, 0);
+		light_component.intensity = 1.0f;
+		light_component.radius = 10.0f;
 	}
 
 	ImGui::End();
@@ -398,9 +412,11 @@ void Application::update(float delta_time)
 	// Parameters
 	ImGui::Begin("Parameters");
 	is_using_ui |= ImGui::IsWindowFocused();
+	// TODO: fix
 	if (selected_entity)
 	{
-		if (!selected_entity->materials.empty())
+		/*
+			if (!selected_entity->materials.empty())
 		{
 			ImGui::Text("Materials");
 			for (int i = 0; i < selected_entity->materials.size(); i++)
@@ -433,6 +449,32 @@ void Application::update(float delta_time)
 				}
 			}
 		}
+		*/
+
+		if (selected_entity.hasComponent<LightComponent>())
+		{
+			auto &light = selected_entity.getComponent<LightComponent>();
+			/*
+			static int present_mode = light.position.w;
+			char *items[] = {"Point", "Directional"};
+			if (ImGui::BeginCombo("Light type", items[(int)light.position.w]))
+			{
+				for (int n = 0; n < IM_ARRAYSIZE(items); n++)
+				{
+					bool is_selected = (light.position.w == n);
+					if (ImGui::Selectable(items[n], is_selected))
+						light.position.w = n;
+					if (is_selected)
+						ImGui::SetItemDefaultFocus();
+				}
+				ImGui::EndCombo();
+			}
+			*/
+			//light.position.w = present_mode;
+			ImGui::SliderFloat3("Light Color", light.color.data.data, 0, 1);
+			ImGui::SliderFloat("Light Radius", &light.radius, 0.001f, 25);
+			ImGui::SliderFloat("Light Intensity", &light.intensity, 0.01f, 25);
+		}
 	}
 	ImGui::End();
 
@@ -445,6 +487,8 @@ void Application::update(float delta_time)
 	{
 		if (selected_entity)
 		{
+			auto &transform_component = selected_entity.getTransform();
+
 			ImGuizmo::SetDrawlist();
 			glm::vec2 swapchain_size = VkWrapper::swapchain->getSize();
 			ImGuizmo::SetRect(0, 0, swapchain_size.x, swapchain_size.y);
@@ -453,29 +497,36 @@ void Application::update(float delta_time)
 			proj[1][1] *= -1.0f;
 
 			glm::mat4 delta_transform;
-			glm::mat4 transform = selected_entity->transform.model_matrix;
+			glm::mat4 transform = selected_entity.getWorldTransformMatrix();
 
 			ImGuizmo::SetOrthographic(false);
-			ImGuizmo::Manipulate(glm::value_ptr(camera->getView()), glm::value_ptr(proj), ImGuizmo::TRANSLATE, ImGuizmo::WORLD, glm::value_ptr(transform), glm::value_ptr(delta_transform));
-
-			glm::vec3 dposition, drotation, dscale;
-			ImGuizmo::DecomposeMatrixToComponents(glm::value_ptr(delta_transform), glm::value_ptr(dposition), glm::value_ptr(drotation), glm::value_ptr(dscale));
-
-			glm::vec3 position, rotation, scale;
-			ImGuizmo::DecomposeMatrixToComponents(glm::value_ptr(selected_entity->transform.local_model_matrix), glm::value_ptr(position), glm::value_ptr(rotation), glm::value_ptr(scale));
-
-			//ImGuizmo::RecomposeMatrixFromComponents(glm::value_ptr(position), glm::value_ptr(rotation), glm::value_ptr(scale), glm::value_ptr(transform));
-			if (selected_entity->parent != nullptr)
+			if (ImGuizmo::Manipulate(glm::value_ptr(camera->getView()), glm::value_ptr(proj), ImGuizmo::TRANSLATE, ImGuizmo::WORLD, glm::value_ptr(transform), glm::value_ptr(delta_transform)))
 			{
-				selected_entity->transform.local_model_matrix = inverse(selected_entity->parent->transform.model_matrix) * transform;
-			} else
-			{
-				selected_entity->transform.local_model_matrix = transform;
+				/*
+				glm::vec3 dposition, drotation, dscale;
+				ImGuizmo::DecomposeMatrixToComponents(glm::value_ptr(delta_transform), glm::value_ptr(dposition), glm::value_ptr(drotation), glm::value_ptr(dscale));
+
+				glm::mat3 new_transform;
+				glm::vec3 position, rotation, scale;
+				ImGuizmo::DecomposeMatrixToComponents(glm::value_ptr(new_transform), glm::value_ptr(position), glm::value_ptr(rotation), glm::value_ptr(scale));
+
+				//ImGuizmo::RecomposeMatrixFromComponents(glm::value_ptr(position), glm::value_ptr(rotation), glm::value_ptr(scale), glm::value_ptr(transform));
+				*/
+
+				if (transform_component.parent != entt::null)
+				{
+					transform_component.setTransform(inverse(selected_entity.getParent().getTransform().getTransformMatrix()) * transform);
+				} else
+				{
+					transform_component.setTransform(transform);
+				}
 			}
-			selected_entity->updateTransform();
 		}
 	}
 	ImGui::End();
+
+	// Asset browser
+	is_using_ui |= asset_browser_panel.renderImGui();
 
 	if (!ImGuizmo::IsUsing() && !is_using_ui)
 	{
@@ -493,14 +544,6 @@ void Application::updateBuffers(float delta_time, uint32_t image_index)
 	// Update bindless resources if any
 	BindlessResources::updateSets();
 	Renderer::updateDefaultUniforms(image_index);
-
-	mesh_renderer->setRotation(glm::rotate(glm::quat(), glm::vec3(-glm::radians(90.0f), -glm::radians(90.0f), 0)));
-	mesh_renderer->setPosition(glm::vec3(-5, 0, 0));
-	mesh_renderer->setScale(glm::vec3(1));
-
-	double time = glfwGetTime();
-	mesh_renderer2->setPosition(glm::vec3(1, 0.3, 0));
-	mesh_renderer2->setScale(glm::vec3(0.02f, 0.02f, 0.02f));
 
 	ssao_renderer->ubo_raw_pass.near_plane = camera->getNear();
 	ssao_renderer->ubo_raw_pass.far_plane = camera->getFar();
@@ -682,13 +725,15 @@ void Application::render_GBuffer(CommandBuffer &command_buffer, uint32_t image_i
 								 },
 								 Renderer::getRenderTarget(RENDER_TARGET_GBUFFER_DEPTH_STENCIL));
 
-	for (const auto& entity : entities_renderers)
+	// Render meshes into gbuffer
+	auto entities_id = scene.getEntitiesWith<MeshRendererComponent>();
+	for (entt::entity entity_id : entities_id)
 	{
-		entity->fillCommandBuffer(command_buffer, image_index);
-	}
+		Entity entity(entity_id, &scene);
+		MeshRendererComponent &mesh_renderer_component = entity.getComponent<MeshRendererComponent>();
 
-	// Render mesh into gbuffer
-	mesh_renderer->fillCommandBuffer(command_buffer, image_index);
+		entity_renderer.renderEntity(command_buffer, entity, image_index);
+	}
 
 	VkWrapper::cmdEndRendering(command_buffer);
 }
@@ -709,7 +754,7 @@ void Application::render_lighting(CommandBuffer &command_buffer, uint32_t image_
 									Renderer::getRenderTarget(RENDER_TARGET_LIGHTING_SPECULAR)
 								 }, nullptr);
 
-	defferred_lighting_renderer->fillCommandBuffer(command_buffer, image_index);
+	defferred_lighting_renderer->renderLights(&scene, command_buffer, image_index);
 
 	VkWrapper::cmdEndRendering(command_buffer);
 }
@@ -738,63 +783,73 @@ void Application::render_deffered_composite(CommandBuffer &command_buffer, uint3
 
 void Application::render_shadows(CommandBuffer &command_buffer, uint32_t image_index)
 {
-	shadow_map->transitLayout(command_buffer, TEXTURE_LAYOUT_ATTACHMENT);
-
-	auto &light = defferred_lighting_renderer->lights[0];
-
-	std::vector<glm::mat4> faces_transforms;
-	faces_transforms.push_back(glm::lookAt(glm::vec3(light.position), glm::vec3(light.position) + glm::vec3(1, 0, 0), glm::vec3(0, -1, 0)));
-	faces_transforms.push_back(glm::lookAt(glm::vec3(light.position), glm::vec3(light.position) + glm::vec3(-1, 0, 0), glm::vec3(0, -1, 0)));
-	faces_transforms.push_back(glm::lookAt(glm::vec3(light.position), glm::vec3(light.position) + glm::vec3(0, 1, 0), glm::vec3(0, 0, 1)));
-	faces_transforms.push_back(glm::lookAt(glm::vec3(light.position), glm::vec3(light.position) + glm::vec3(0, -1, 0), glm::vec3(0, 0, -1)));
-	faces_transforms.push_back(glm::lookAt(glm::vec3(light.position), glm::vec3(light.position) + glm::vec3(0, 0, 1), glm::vec3(0, -1, 0)));
-	faces_transforms.push_back(glm::lookAt(glm::vec3(light.position), glm::vec3(light.position) + glm::vec3(0, 0, -1), glm::vec3(0, -1, 0)));
-
-	for (int face = 0; face < 6; face++)
+	auto light_entities_id = scene.getEntitiesWith<LightComponent>();
+	for (entt::entity light_entity_id : light_entities_id)
 	{
-		if (faces_transforms.size() <= face)
-			continue;
+		Entity light_entity(light_entity_id, &scene);
+		auto &light = light_entity.getComponent<LightComponent>();
 
-		//glm::mat4 light_projection = glm::orthoRH(-10.0f, 10.0f, 10.0f, -10.0f, 0.01f, 40.0f);
-		glm::mat4 light_projection = glm::perspectiveRH(glm::radians(90.0f), 1.0f, 0.1f, 40.0f);
-		glm::mat4 light_matrix = light_projection * faces_transforms[face];
+		light.shadow_map->transitLayout(command_buffer, TEXTURE_LAYOUT_ATTACHMENT);
 
-		VkWrapper::cmdBeginRendering(command_buffer, {}, shadow_map, face);
 
-		defferred_lighting_renderer->ubo_sphere.light_matrix = light_matrix;
+		glm::vec3 scale, position, skew;
+		glm::vec4 persp;
+		glm::quat rotation;
+		glm::decompose(light_entity.getWorldTransformMatrix(), scale, rotation, position, skew, persp);
 
-		for (const auto &entity : entities_renderers)
+		std::vector<glm::mat4> faces_transforms;
+		faces_transforms.push_back(glm::lookAt(position, position + glm::vec3(1, 0, 0), glm::vec3(0, -1, 0)));
+		faces_transforms.push_back(glm::lookAt(position, position + glm::vec3(-1, 0, 0), glm::vec3(0, -1, 0)));
+		faces_transforms.push_back(glm::lookAt(position, position + glm::vec3(0, 1, 0), glm::vec3(0, 0, 1)));
+		faces_transforms.push_back(glm::lookAt(position, position + glm::vec3(0, -1, 0), glm::vec3(0, 0, -1)));
+		faces_transforms.push_back(glm::lookAt(position, position + glm::vec3(0, 0, 1), glm::vec3(0, -1, 0)));
+		faces_transforms.push_back(glm::lookAt(position, position + glm::vec3(0, 0, -1), glm::vec3(0, -1, 0)));
+
+		for (int face = 0; face < 6; face++)
 		{
-			auto &p = VkWrapper::global_pipeline;
-			p->reset();
+			if (faces_transforms.size() <= face)
+				continue;
 
-			p->setVertexShader(shadows_vertex_shader);
-			p->setFragmentShader(shadows_fragment_shader);
+			//glm::mat4 light_projection = glm::orthoRH(-10.0f, 10.0f, 10.0f, -10.0f, 0.01f, 40.0f);
+			glm::mat4 light_projection = glm::perspectiveRH(glm::radians(90.0f), 1.0f, 0.1f, 40.0f);
+			glm::mat4 light_matrix = light_projection * faces_transforms[face];
 
-			p->setRenderTargets(VkWrapper::current_render_targets);
-			p->setUseBlending(false);
-			p->setCullMode(VK_CULL_MODE_FRONT_BIT);
+			VkWrapper::cmdBeginRendering(command_buffer, {}, light.shadow_map, face);
 
-			p->flush();
-			p->bind(command_buffer);
+			defferred_lighting_renderer->ubo_sphere.light_matrix = light_matrix;
 
-			//Renderer::bindShadersDescriptorSets(shadows_vertex_shader, shadows_fragment_shader, command_buffer, p->getPipelineLayout(), image_index);
-			
-			// Render entity
-			entity->renderEntityShadow(command_buffer, entity->getEntity().get(), image_index, light_matrix, light.position);
-		
-			p->unbind(command_buffer);
+			auto mesh_entities_id = scene.getEntitiesWith<MeshRendererComponent>();
+			for (entt::entity mesh_entity_id : mesh_entities_id)
+			{
+				Entity mesh_entity(mesh_entity_id, &scene);
+				MeshRendererComponent &mesh_renderer_component = mesh_entity.getComponent<MeshRendererComponent>();
+
+				auto &p = VkWrapper::global_pipeline;
+				p->reset();
+
+				p->setVertexShader(shadows_vertex_shader);
+				p->setFragmentShader(shadows_fragment_shader);
+
+				p->setRenderTargets(VkWrapper::current_render_targets);
+				p->setUseBlending(false);
+				p->setCullMode(VK_CULL_MODE_FRONT_BIT);
+
+				p->flush();
+				p->bind(command_buffer);
+
+				//Renderer::bindShadersDescriptorSets(shadows_vertex_shader, shadows_fragment_shader, command_buffer, p->getPipelineLayout(), image_index);
+
+				entity_renderer.renderEntityShadow(command_buffer, mesh_entity, image_index, light_matrix, position);
+
+				p->unbind(command_buffer);
+			}
+
+
+			VkWrapper::cmdEndRendering(command_buffer);
 		}
 
-		// Render mesh into gbuffer
-		//mesh_renderer->fillCommandBuffer(command_buffer, image_index);
-
-		VkWrapper::cmdEndRendering(command_buffer);
+		light.shadow_map->transitLayout(command_buffer, TEXTURE_LAYOUT_SHADER_READ);
 	}
-
-
-	shadow_map->transitLayout(command_buffer, TEXTURE_LAYOUT_SHADER_READ);
-	defferred_lighting_renderer->shadow_map_cubemap = shadow_map;
 }
 
 void Application::key_callback(GLFWwindow *window, int key, int scancode, int action, int mods)
@@ -814,4 +869,7 @@ void Application::key_callback(GLFWwindow *window, int key, int scancode, int ac
 		camera->inputs.down = is_pressed;
 	if (key == GLFW_KEY_LEFT_SHIFT)
 		camera->inputs.sprint = is_pressed;
+
+	if (key == GLFW_KEY_ESCAPE)
+		selected_entity = Entity();
 }

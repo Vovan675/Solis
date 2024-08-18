@@ -6,7 +6,7 @@ layout (binding = 0) uniform UBO
 {
 	mat4 light_space_matrix;
 	mat4 model;
-	vec4 light_pos;
+	vec3 light_pos;
 };
 
 layout (location = 0) out vec4 outPos;

@@ -62,6 +62,7 @@ namespace Engine
 	class Mesh
 	{
 	public:
+		size_t id = 0;
 		std::string filePath;
 		std::vector<Vertex> vertices;
 		std::vector<uint32_t> indices;
