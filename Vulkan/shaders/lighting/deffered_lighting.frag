@@ -31,7 +31,8 @@ layout(push_constant) uniform constants
 	vec4 light_color;
 	float light_intensity;
 	float light_range_square; // radius ^ 2
-	float padding[2];
+	float z_far;
+	float padding[1];
 } PushConstants;
 
 layout(location = 0) out vec3 outDiffuse;
@@ -116,7 +117,7 @@ vec3 sampling_offsets[20] = vec3[]
 float get_shadow_point(vec3 frag_pos, float bias)
 {
 	vec3 fragToLight = frag_pos - PushConstants.light_pos.xyz;
-	float current_depth = length(fragToLight) / 40.0f;
+	float current_depth = length(fragToLight) / PushConstants.z_far;
 
 	float shadow = 0.0;
 	
@@ -245,10 +246,6 @@ void main()
 	float Viz = V_SmithGGXCorrelated(NdotV, NdotL, roughness); 
 	vec3 F_specular = D * F * Viz;
 
-	//shadow = texture(shadow_map, vec3(inUV, 0)).r;
 	outDiffuse = shadow * NdotL * (vec3(1.0f) - F) * diffuse * light_attenuation * PushConstants.light_intensity * PushConstants.light_color.rgb;
 	outSpecular = shadow * NdotL * F_specular * light_attenuation * PushConstants.light_intensity * PushConstants.light_color.rgb;
-	//outDiffuse = vec3(shadow, LIGHT_TYPE, 0);
-	//outDiffuse = vec3(NdotL, 0, 0);
-
 }

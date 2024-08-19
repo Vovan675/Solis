@@ -84,6 +84,7 @@ void DefferedLightingRenderer::renderLights(Scene *scene, CommandBuffer &command
 		constants.light_color = glm::vec4(light.color, 1.0);
 		constants.light_range_square = pow(light.radius, 2);
 		constants.light_intensity = light.intensity;
+		constants.z_far = light.radius;
 
 		Renderer::setShadersUniformBuffer(p->getVertexShader(), p->getFragmentShader(), 1, &ubo, sizeof(UBO), image_index);
 		Renderer::setShadersUniformBuffer(p->getVertexShader(), p->getFragmentShader(), 0, &ubo_sphere, sizeof(UniformBufferObject), image_index);

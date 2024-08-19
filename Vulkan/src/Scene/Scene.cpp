@@ -26,6 +26,12 @@ Entity Scene::createEntity(std::string name, entt::entity id)
 
 void Scene::destroyEntity(entt::entity id)
 {
+	Entity entity(id, this);
+	
+	auto children = entity.getChildren();
+	for(auto &child : children)
+		destroyEntity(child);
+
 	registry.destroy(id);
 }
 
@@ -65,6 +71,7 @@ static void load(Archive &archive, MeshRendererComponent::MeshId &mesh_id)
 template<class Archive>
 static void save(Archive &archive, const LightComponent &light)
 {
+	archive(cereal::make_nvp("type", light.getType()));
 	archive(cereal::make_nvp("color", light.color));
 	archive(cereal::make_nvp("intensity", light.intensity));
 	archive(cereal::make_nvp("radius", light.radius));
@@ -73,6 +80,9 @@ static void save(Archive &archive, const LightComponent &light)
 template<class Archive>
 static void load(Archive &archive, LightComponent &light)
 {
+	LIGHT_TYPE type;
+	archive(cereal::make_nvp("type", type));
+	light.setType(type);
 	archive(cereal::make_nvp("color", light.color));
 	archive(cereal::make_nvp("intensity", light.intensity));
 	archive(cereal::make_nvp("radius", light.radius));
@@ -103,6 +113,7 @@ static void save(Archive &archive, const Entity &entity)
 		archive(type);
 		auto &mesh_renderer = entity.getComponent<MeshRendererComponent>();
 		archive(mesh_renderer.meshes);
+		archive(mesh_renderer.materials);
 	}
 
 	if (entity.hasComponent<LightComponent>())
@@ -138,6 +149,7 @@ static void load(Archive &archive, Entity &entity)
 		{
 			auto &mesh_renderer = entity.addComponent<MeshRendererComponent>();
 			archive(mesh_renderer.meshes);
+			archive(mesh_renderer.materials);
 		} else if(type == "LightComponent")
 		{
 			auto &component = entity.addComponent<LightComponent>();

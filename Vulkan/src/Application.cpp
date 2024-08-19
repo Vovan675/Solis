@@ -20,6 +20,7 @@
 #include "glm/gtc/matrix_transform.hpp"
 #include "glm/gtx/euler_angles.hpp"
 #include "glm/gtx/quaternion.hpp"
+#include "Filesystem.h"
 
 Application::Application()
 {
@@ -208,7 +209,7 @@ Application::Application()
 	shadows_fragment_shader_point = Shader::create("shaders/lighting/shadows.frag", Shader::FRAGMENT_SHADER, {{"LIGHT_TYPE", "0"}});
 	shadows_fragment_shader_directional = Shader::create("shaders/lighting/shadows.frag", Shader::FRAGMENT_SHADER, {{"LIGHT_TYPE", "1"}});
 
-	//scene.saveFile("assets/test_scene.scene");
+	scene.saveFile("assets/test_scene.scene");
 
 	//scene = Scene();
 	//scene.loadFile("assets/test_scene.scene");
@@ -271,6 +272,31 @@ void Application::update(float delta_time)
 	//ImGui::ShowDemoWindow();
 
 	ImGui::DockSpaceOverViewport(ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
+
+	if (ImGui::BeginMainMenuBar())
+	{
+		if (ImGui::BeginMenu("Scene"))
+		{
+			if (ImGui::MenuItem("Save"))
+			{
+				std::string path = Filesystem::saveFileDialog();
+				if (!path.empty())
+					scene.saveFile(path);
+			}
+
+			if (ImGui::MenuItem("Load"))
+			{
+				std::string path = Filesystem::openFileDialog();
+				if (!path.empty())
+				{
+					scene = Scene();
+					scene.loadFile(path);
+				}
+			}
+			ImGui::EndMenu();
+		}
+		ImGui::EndMainMenuBar();
+	}
 
 	// Debug Window
 	ImGui::Begin("Debug Window");
@@ -414,36 +440,42 @@ void Application::update(float delta_time)
 	// Parameters
 	ImGui::Begin("Parameters");
 	is_using_ui |= ImGui::IsWindowFocused();
-	// TODO: fix
 	if (selected_entity)
 	{
-		/*
-			if (!selected_entity->materials.empty())
+		if (selected_entity.hasComponent<MeshRendererComponent>())
 		{
+			auto &mesh_renderer = selected_entity.getComponent<MeshRendererComponent>();
 			ImGui::Text("Materials");
-			for (int i = 0; i < selected_entity->materials.size(); i++)
+			for (int i = 0; i < mesh_renderer.materials.size(); i++)
 			{
-				auto &mat = selected_entity->materials[i];
+				auto mat = mesh_renderer.materials[i];
 				std::string name = "Material " + i;
 				if (ImGui::TreeNode(name.c_str()))
 				{
-					bool use_texture = mat.albedo_tex_id >= 0;
+					bool use_texture = mat->albedo_tex_id >= 0;
 					if (ImGui::Checkbox("Use albedo texture", &use_texture))
 					{
-						mat.albedo_tex_id = use_texture ? 0: -1;
+						mat->albedo_tex_id = use_texture ? 0: -1;
 					} 
 					if (use_texture)
 					{
 						if (ImGui::Button("Select"))
 						{
-							// TODO: file dialog
+							std::string path = Filesystem::openFileDialog();
+							if (!path.empty())
+							{
+								TextureDescription tex_description{};
+								tex_description.imageFormat = VK_FORMAT_R8G8B8A8_SRGB;
+								tex_description.imageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
+								tex_description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+								auto *tex = new Texture(tex_description);
+								tex->load(path.c_str());
+								mat->albedo_tex_id = BindlessResources::addTexture(tex);
+							}
 						}
 					} else
 					{
-						if (ImGui::ColorEdit4("Color", mat.albedo.data.data))
-						{
-							
-						}
+						ImGui::ColorEdit4("Color", mat->albedo.data.data)
 					}
 					// TODO: edit all textures
 
@@ -451,7 +483,6 @@ void Application::update(float delta_time)
 				}
 			}
 		}
-		*/
 
 		if (selected_entity.hasComponent<LightComponent>())
 		{
@@ -472,7 +503,7 @@ void Application::update(float delta_time)
 			}
 			light.setType((LIGHT_TYPE)light_type);
 			ImGui::SliderFloat3("Light Color", light.color.data.data, 0, 1);
-			ImGui::SliderFloat("Light Radius", &light.radius, 0.001f, 25);
+			ImGui::SliderFloat("Light Radius", &light.radius, 0.001f, 40.0);
 			ImGui::SliderFloat("Light Intensity", &light.intensity, 0.01f, 25);
 		}
 	}
@@ -908,7 +939,7 @@ void Application::render_shadows(CommandBuffer &command_buffer, uint32_t image_i
 				if (faces_transforms.size() <= face)
 					continue;
 
-				glm::mat4 light_projection = glm::perspectiveRH(glm::radians(90.0f), 1.0f, 0.1f, 40.0f);
+				glm::mat4 light_projection = glm::perspectiveRH(glm::radians(90.0f), 1.0f, 0.1f, light.radius);
 				glm::mat4 light_matrix = light_projection * faces_transforms[face];
 
 				VkWrapper::cmdBeginRendering(command_buffer, {}, light.shadow_map, face);
@@ -932,7 +963,7 @@ void Application::render_shadows(CommandBuffer &command_buffer, uint32_t image_i
 					p->flush();
 					p->bind(command_buffer);
 
-					entity_renderer.renderEntityShadow(command_buffer, mesh_entity, image_index, light_matrix, position);
+					entity_renderer.renderEntityShadow(command_buffer, mesh_entity, image_index, light_matrix, position, light.radius);
 
 					p->unbind(command_buffer);
 				}
@@ -971,7 +1002,7 @@ void Application::render_shadows(CommandBuffer &command_buffer, uint32_t image_i
 					p->flush();
 					p->bind(command_buffer);
 
-					entity_renderer.renderEntityShadow(command_buffer, mesh_entity, image_index, light_matrix, position);
+					entity_renderer.renderEntityShadow(command_buffer, mesh_entity, image_index, light_matrix, position, 0);
 
 					p->unbind(command_buffer);
 				}

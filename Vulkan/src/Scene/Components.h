@@ -75,8 +75,8 @@ struct LightComponent
 		if (type == LIGHT_TYPE_POINT)
 		{
 			TextureDescription description;
-			description.width = 4096;
-			description.height = 4096;
+			description.width = shadow_map_size;
+			description.height = shadow_map_size;
 			description.imageFormat = VK_FORMAT_D32_SFLOAT_S8_UINT;
 			description.imageAspectFlags = VK_IMAGE_ASPECT_DEPTH_BIT;
 			description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
@@ -88,8 +88,8 @@ struct LightComponent
 		} else if (type == LIGHT_TYPE_DIRECTIONAL)
 		{
 			TextureDescription description;
-			description.width = 4096;
-			description.height = 4096;
+			description.width = shadow_map_size;
+			description.height = shadow_map_size;
 			description.imageFormat = VK_FORMAT_D32_SFLOAT_S8_UINT;
 			description.imageAspectFlags = VK_IMAGE_ASPECT_DEPTH_BIT;
 			description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
@@ -106,6 +106,8 @@ struct LightComponent
 	glm::vec3 color;
 	float intensity;
 	float radius;
+
+	float shadow_map_size = 4096;
 
 	std::shared_ptr<Texture> shadow_map;
 

@@ -18,7 +18,9 @@ public:
 	{
 		alignas(16) glm::mat4 light_space_matrix;
 		alignas(16) glm::mat4 model;
-		alignas(16) glm::vec3 light_pos;
+		glm::vec4 light_pos;
+		float z_far;
+		float padding[3];
 	};
 
 	EntityRenderer();
@@ -26,7 +28,7 @@ public:
 
 	void fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index) override;
 	void renderEntity(CommandBuffer &command_buffer, Entity entity, uint32_t image_index);
-	void renderEntityShadow(CommandBuffer &command_buffer, Entity entity, uint32_t image_index, glm::mat4 light_space, glm::vec3 light_pos);
+	void renderEntityShadow(CommandBuffer &command_buffer, Entity entity, uint32_t image_index, glm::mat4 light_space, glm::vec3 light_pos, float z_far);
 
 private:
 	void render_entity(CommandBuffer &command_buffer, Entity entity, uint32_t image_index);

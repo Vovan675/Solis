@@ -34,7 +34,8 @@ public:
 		glm::vec4 light_color;
 		float light_intensity;
 		float light_range_square; // radius ^ 2
-		float padding[2];
+		float z_far;
+		float padding[1];
 	} constants;
 
 	DefferedLightingRenderer();

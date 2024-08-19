@@ -224,6 +224,8 @@ Entity Model::create_entity_node(MeshNode *node, Scene *scene)
 		mesh_renderer.meshes.push_back(mesh_id);
 	}
 
+	mesh_renderer.materials = node->materials;
+
 	transform_component.setTransform(node->local_model_matrix);
 
 	for (int i = 0; i < node->children.size(); i++)

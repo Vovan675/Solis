@@ -40,11 +40,12 @@ void EntityRenderer::renderEntity(CommandBuffer &command_buffer, Entity entity, 
 	p->unbind(command_buffer);
 }
 
-void EntityRenderer::renderEntityShadow(CommandBuffer &command_buffer, Entity entity, uint32_t image_index, glm::mat4 light_space, glm::vec3 light_pos)
+void EntityRenderer::renderEntityShadow(CommandBuffer &command_buffer, Entity entity, uint32_t image_index, glm::mat4 light_space, glm::vec3 light_pos, float z_far)
 {
 	ShadowUBO ubo;
 	ubo.light_space_matrix = light_space;
-	ubo.light_pos = light_pos;
+	ubo.light_pos = glm::vec4(light_pos, 1.0);
+	ubo.z_far = z_far;
 
 	auto &p = VkWrapper::global_pipeline;
 
@@ -70,7 +71,7 @@ void EntityRenderer::renderEntityShadow(CommandBuffer &command_buffer, Entity en
 
 	for (auto child_id : transform.children)
 	{
-		renderEntityShadow(command_buffer, Entity(child_id, entity.getScene()), image_index, light_space, light_pos);
+		renderEntityShadow(command_buffer, Entity(child_id, entity.getScene()), image_index, light_space, light_pos, z_far);
 	}
 }
 

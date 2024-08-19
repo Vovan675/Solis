@@ -39,6 +39,7 @@ public:
 	}
 
 	Entity getParent() const { return Entity(getTransform().parent, scene); }
+	std::vector<entt::entity> getChildren() const { return getTransform().children; }
 
 	template<typename T, typename ...Args>
 	T &addComponent(Args &&...args) const
