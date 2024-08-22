@@ -211,8 +211,8 @@ Application::Application()
 
 	scene.saveFile("assets/test_scene.scene");
 
-	//scene = Scene();
-	//scene.loadFile("assets/test_scene.scene");
+	scene = Scene();
+	scene.loadFile("assets/test_scene.scene");
 }
 
 void Application::createRenderTargets()
@@ -475,7 +475,7 @@ void Application::update(float delta_time)
 						}
 					} else
 					{
-						ImGui::ColorEdit4("Color", mat->albedo.data.data)
+						ImGui::ColorEdit4("Color", mat->albedo.data.data);
 					}
 					// TODO: edit all textures
 

@@ -1,6 +1,5 @@
 #include "pch.h"
 #include "Entity.h"
-#include "CerealExtensions.h"
 #include "RHI/Texture.h"
 #include "BindlessResources.h"
 #include <filesystem>

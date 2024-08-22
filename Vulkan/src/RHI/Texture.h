@@ -2,7 +2,7 @@
 #include "vma/vk_mem_alloc.h"
 #include "Log.h"
 #include "Device.h"
-#include <cereal/cereal.hpp>
+#include <yaml-cpp/yaml.h>
 
 struct TextureDescription
 {

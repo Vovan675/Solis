@@ -46,9 +46,6 @@ public:
 	void load(const char *path);
 	void process_node(MeshNode *parent_node, aiNode *node, const aiScene *scene);
 
-	void save(const char *filename);
-	//void load(const char *filename);
-
 	Entity createEntity(Scene *scene);
 
 	std::shared_ptr<Engine::Mesh> getMesh(size_t id)
@@ -67,19 +64,5 @@ private:
 	std::string path;
 
 	std::unordered_map<size_t, std::shared_ptr<Engine::Mesh>> meshes_id;
-
-private:
-	friend class cereal::access;
-	template<class Archive>
-	void save(Archive &archive) const
-	{
-		//archive(root_node);
-	}
-
-	template<class Archive>
-	void load(Archive &archive)
-	{
-		//archive(root_node);
-	}
 };
 

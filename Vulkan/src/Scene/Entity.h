@@ -10,7 +10,9 @@ class Entity
 public:
 	Entity() = default;
 	Entity(entt::entity entity_id, Scene *scene) : entity_id(entity_id), scene(scene) {}
-	void updateTransform();
+
+	// TODO: return UUID
+	uint32_t getID() const { return (uint32_t)entity_id; }
 
 	Scene* getScene() const { return scene; }
 

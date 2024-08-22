@@ -19,3 +19,6 @@
 #include "glm/glm.hpp"
 #include "glm/gtc/matrix_transform.hpp"
 #include "glm/gtx/matrix_decompose.hpp"
+
+#define YAML_CPP_DLL
+#include "yaml-cpp/yaml.h"

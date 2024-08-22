@@ -184,25 +184,6 @@ void Model::process_node(MeshNode *mesh_node, aiNode *node, const aiScene *scene
 
 }
 
-void Model::save(const char *filename)
-{
-	std::ofstream file(filename, std::ios::binary);
-	cereal::BinaryOutputArchive archive(file);
-
-	this->save(archive);
-}
-
-/*
-void Model::load(const char *filename)
-{
-	std::ifstream file(filename, std::ios::binary);
-	cereal::BinaryInputArchive archive(file);
-
-	this->load(archive);
-	root_node->updateTransform();
-}
-*/
-
 Entity Model::createEntity(Scene *scene)
 {
 	return create_entity_node(root_node, scene);

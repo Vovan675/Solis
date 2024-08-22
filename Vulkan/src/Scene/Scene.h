@@ -27,7 +27,6 @@ private:
 	friend class Entity;
 	entt::registry registry;
 
-	friend class cereal::access;
 	template<class Archive>
 	void save(Archive &archive);
 

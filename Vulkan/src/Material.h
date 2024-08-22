@@ -1,7 +1,7 @@
 #pragma once
-#include "CerealExtensions.h"
-#include "RHI/Texture.h"
 #include "BindlessResources.h"
+#include "RHI/Texture.h"
+#include "YamlExtensions.h"
 
 class Material
 {
@@ -43,87 +43,82 @@ public:
 			push_constant.shading = glm::vec4(metalness, roughness, specular, 1.0f);
 			return push_constant;
 		}
-private:
-		friend class cereal::access;
-		template<class Archive>
-		void save(Archive &archive) const
+};
+
+namespace YAML
+{
+	static YAML::Emitter &operator <<(YAML::Emitter &out, const std::shared_ptr<Material> &mat)
+	{
+		out << YAML::BeginMap;
+		out << YAML::Key << "Albedo" << YAML::Value << mat->albedo;
+		out << YAML::Key << "Metalness" << YAML::Value << mat->metalness;
+		out << YAML::Key << "Roughness" << YAML::Value << mat->roughness;
+		out << YAML::Key << "Specular" << YAML::Value << mat->specular;
+		
+		std::string no_texture = "no";
+		if (mat->albedo_tex_id != -1)
+			out << YAML::Key << "AlbedoTexture" << YAML::Value << BindlessResources::getTexture(mat->albedo_tex_id)->getPath();
+
+		if (mat->metalness_tex_id != -1)
+			out << YAML::Key << "MetalnessTexture" << YAML::Value << BindlessResources::getTexture(mat->metalness_tex_id)->getPath();
+
+		if (mat->roughness_tex_id != -1)
+			out << YAML::Key << "RoughnessTexture" << YAML::Value << BindlessResources::getTexture(mat->roughness_tex_id)->getPath();
+
+		if (mat->specular_tex_id != -1)
+			out << YAML::Key << "SpecularTexture" << YAML::Value << BindlessResources::getTexture(mat->specular_tex_id)->getPath();
+		out << YAML::EndMap;
+		return out;
+	}
+
+	template<>
+	struct convert<std::shared_ptr<Material>>
+	{
+		static bool decode(const Node &node, std::shared_ptr<Material> &mat)
 		{
-			archive(cereal::make_nvp("albedo_value", albedo));
-			archive(cereal::make_nvp("metalness_value", metalness));
-			archive(cereal::make_nvp("roughness_value", roughness));
-			archive(cereal::make_nvp("specular_value", specular));
+			if (!node.IsMap())
+				return false;
 
-			// TODO: replace with albedo_tex->save(); archive(albedo_tex.path)
-			std::string no_texture = "no";
-			if (albedo_tex_id != -1)
-				archive(cereal::make_nvp("albedo_texture", BindlessResources::getTexture(albedo_tex_id)->getPath()));
-			else
-				archive(cereal::make_nvp("albedo_texture", no_texture));
-
-			if (metalness_tex_id != -1)
-				archive(cereal::make_nvp("metalness_texture", BindlessResources::getTexture(metalness_tex_id)->getPath()));
-			else
-				archive(cereal::make_nvp("metalness_texture", no_texture));
-
-			if (roughness_tex_id != -1)
-				archive(cereal::make_nvp("roughness_texture", BindlessResources::getTexture(roughness_tex_id)->getPath()));
-			else
-				archive(cereal::make_nvp("roughness_texture", no_texture));
-
-			if (specular_tex_id != -1)
-				archive(cereal::make_nvp("specular_texture", BindlessResources::getTexture(specular_tex_id)->getPath()));
-			else
-				archive(cereal::make_nvp("specular_texture", no_texture));
-		}
-
-		template<class Archive>
-		void load(Archive &archive)
-		{
-			archive(cereal::make_nvp("albedo_value", albedo));
-			archive(cereal::make_nvp("metalness_value", metalness));
-			archive(cereal::make_nvp("roughness_value", roughness));
-			archive(cereal::make_nvp("specular_value", specular));
+			mat = std::make_shared<Material>();
+			mat->albedo = node["Albedo"].as<glm::vec4>();
+			mat->metalness = node["Metalness"].as<float>();
+			mat->roughness = node["Roughness"].as<float>();
+			mat->specular = node["Specular"].as<float>();
 
 			TextureDescription tex_description{};
 			tex_description.imageFormat = VK_FORMAT_R8G8B8A8_SRGB;
 			tex_description.imageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
 			tex_description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-			
-			Texture *tex;
-			std::string tex_path;
 
-			std::string no_texture = "no";
-			archive(cereal::make_nvp("albedo_texture", tex_path));
-			if (tex_path != no_texture)
+			if (node["AlbedoTexture"])
 			{
-				tex = new Texture(tex_description);
-				tex->load(tex_path.c_str());
-				albedo_tex_id = BindlessResources::addTexture(tex);
+				auto *tex = new Texture(tex_description);
+				tex->load(node["AlbedoTexture"].as<std::string>().c_str());
+				mat->albedo_tex_id = BindlessResources::addTexture(tex);
 			}
 
-			archive(cereal::make_nvp("metalness_texture", tex_path));
-			if (tex_path != no_texture)
+			if (node["MetalnessTexture"])
 			{
-				tex = new Texture(tex_description);
-				tex->load(tex_path.c_str());
-				metalness_tex_id = BindlessResources::addTexture(tex);
+				auto *tex = new Texture(tex_description);
+				tex->load(node["MetalnessTexture"].as<std::string>().c_str());
+				mat->metalness_tex_id = BindlessResources::addTexture(tex);
 			}
 
-			archive(cereal::make_nvp("roughness_texture", tex_path));
-			if (tex_path != no_texture)
+			if (node["RoughnessTexture"])
 			{
-				tex = new Texture(tex_description);
-				tex->load(tex_path.c_str());
-				roughness_tex_id = BindlessResources::addTexture(tex);
+				auto *tex = new Texture(tex_description);
+				tex->load(node["RoughnessTexture"].as<std::string>().c_str());
+				mat->roughness_tex_id = BindlessResources::addTexture(tex);
 			}
 
-			archive(cereal::make_nvp("specular_texture", tex_path));
-			if (tex_path != no_texture)
+			if (node["SpecularTexture"])
 			{
-				tex = new Texture(tex_description);
-				tex->load(tex_path.c_str());
-				specular_tex_id = BindlessResources::addTexture(tex);
+				auto *tex = new Texture(tex_description);
+				tex->load(node["SpecularTexture"].as<std::string>().c_str());
+				mat->specular_tex_id = BindlessResources::addTexture(tex);
 			}
+
+			return true;
 		}
-
-};
+	};
+}

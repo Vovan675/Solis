@@ -3,11 +3,6 @@
 #include "assimp/Importer.hpp"
 #include "assimp/scene.h"
 #include "assimp/postprocess.h"
-#include "cereal/cereal.hpp"
-#include "cereal/archives/binary.hpp"
-#include "cereal/types/vector.hpp"
-#include "cereal/types/array.hpp"
-#include "CerealExtensions.h"
 
 namespace Engine
 {
@@ -114,20 +109,6 @@ namespace Engine
 		uint32_t verticesCount;
 		uint32_t indicesCount;
 	};
-
-	void Mesh::save(const char *filename)
-	{
-		std::ofstream file(filename, std::ios::binary);
-		cereal::BinaryOutputArchive archive(file);
-		this->save(archive);
-	}
-
-	void Mesh::load(const char *filename)
-	{
-		std::ifstream file(filename, std::ios::binary);
-		cereal::BinaryInputArchive archive(file);
-		this->load(archive);
-	}
 
 	void Mesh::create_buffers()
 	{

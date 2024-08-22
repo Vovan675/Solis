@@ -23,7 +23,7 @@ IncludeDir["Assimp"] = "vendor/Assimp/assimp/include"
 IncludeDir["STB_IMAGE"] = "vendor/stb"
 IncludeDir["ImGui"] = "vendor/imgui"
 IncludeDir["ImGuizmo"] = "vendor/imguizmo"
-IncludeDir["Cereal"] = "vendor/cereal/include"
+IncludeDir["YamlCpp"] = "vendor/yaml-cpp/include"
 IncludeDir["Entt"] = "vendor/entt/include"
 
 LibDir = {}
@@ -34,6 +34,7 @@ include "vendor/GLFW"
 include "vendor/Assimp"
 include "vendor/ImGui"
 include "vendor/ImGuizmo"
+include "vendor/yaml-cpp"
 group ""
 
 project "Vulkan"
@@ -53,6 +54,7 @@ project "Vulkan"
 	{
 		"%{prj.name}/src/**.h",
 		"%{prj.name}/src/**.cpp",
+		"%{IncludeDir.YamlCpp}/../**.natvis",
 		"%{IncludeDir.Entt}/../natvis/**.natvis",
 	}
 
@@ -67,7 +69,7 @@ project "Vulkan"
 		"%{IncludeDir.STB_IMAGE}",
 		"%{IncludeDir.ImGui}",
 		"%{IncludeDir.ImGuizmo}",
-		"%{IncludeDir.Cereal}",
+		"%{IncludeDir.YamlCpp}",
 		"%{IncludeDir.Entt}",
 	}
 
@@ -80,6 +82,12 @@ project "Vulkan"
 		"Assimp",
 		"ImGui",
 		"ImGuizmo",
+		"YamlCpp"
+	}
+
+	defines
+	{
+		"YAML_CPP_STATIC_DEFINE"
 	}
 
 	filter "system:windows"
