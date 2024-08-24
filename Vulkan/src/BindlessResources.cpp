@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "BindlessResources.h"
 #include "RHI/VkWrapper.h"
+#include "Assets/AssetManager.h"
 
 std::shared_ptr<Texture> BindlessResources::invalid_texture;
 
@@ -22,11 +23,7 @@ void BindlessResources::init()
 {
 	// Load invalid texture
 	TextureDescription description;
-	description.imageFormat = VK_FORMAT_R8G8B8A8_SRGB;
-	description.imageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
-	description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-	invalid_texture = std::make_shared<Texture>(description);
-	invalid_texture->load("assets/invalid_texture.png");
+	invalid_texture = AssetManager::getAsset<Texture>("assets/invalid_texture.png");
 
 	// By default all indices are empty
 	for (int i = MAX_BINDLESS_TEXTURES - 2; i >= 0; i--)
@@ -75,7 +72,6 @@ void BindlessResources::cleanup()
 	invalid_texture = nullptr;
 	// Descriptor sets will implicitly free
 	vkDestroyDescriptorPool(VkWrapper::device->logicalHandle, bindless_pool, nullptr);
-	vkDestroyDescriptorSetLayout(VkWrapper::device->logicalHandle, bindless_layout.layout, nullptr);
 }
 
 void BindlessResources::setTexture(uint32_t index, Texture *texture)

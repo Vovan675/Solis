@@ -2,6 +2,7 @@
 #include "Model.h"
 #include <filesystem>
 #include "EngineMath.h"
+#include "Assets/AssetManager.h"
 
 static glm::mat4 convertAssimpMat4(const aiMatrix4x4 &m)
 {
@@ -11,6 +12,12 @@ static glm::mat4 convertAssimpMat4(const aiMatrix4x4 &m)
 	o[2][0] = m.a3; o[2][1] = m.b3; o[2][2] = m.c3; o[2][3] = m.d3;
 	o[3][0] = m.a4; o[3][1] = m.b4; o[3][2] = m.c4; o[3][3] = m.d4;
 	return o;
+}
+
+Model::~Model()
+{
+	if (root_node)
+		delete root_node;
 }
 
 void Model::load(const char *path)
@@ -137,15 +144,14 @@ void Model::process_node(MeshNode *mesh_node, aiNode *node, const aiScene *scene
 				tex_description.imageFormat = VK_FORMAT_R8G8B8A8_SRGB;
 				tex_description.imageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
 				tex_description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-				auto tex = new Texture(tex_description);
 
 				std::filesystem::path result_path(path);
 				result_path = result_path.remove_filename();
 				result_path = result_path.concat(texture_path.C_Str());
-				tex->load(result_path.string().c_str());
+				auto tex = AssetManager::getAsset<Texture>(result_path.string());
 				if (tex->imageHandle == nullptr)
 					continue;
-				engine_material->albedo_tex_id = BindlessResources::addTexture(tex);
+				engine_material->albedo_tex_id = BindlessResources::addTexture(tex.get());
 			}
 		}
 
@@ -160,15 +166,14 @@ void Model::process_node(MeshNode *mesh_node, aiNode *node, const aiScene *scene
 				tex_description.imageFormat = VK_FORMAT_R8G8B8A8_SRGB;
 				tex_description.imageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
 				tex_description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-				auto tex = new Texture(tex_description);
 
 				std::filesystem::path result_path(path);
 				result_path = result_path.remove_filename();
 				result_path = result_path.concat(texture_path.C_Str());
-				tex->load(result_path.string().c_str());
+				auto tex = AssetManager::getAsset<Texture>(result_path.string());
 				if (tex->imageHandle == nullptr)
 					continue;
-				engine_material->metalness_tex_id = BindlessResources::addTexture(tex);
+				engine_material->metalness_tex_id = BindlessResources::addTexture(tex.get());
 			}
 		}
 	}
@@ -184,12 +189,12 @@ void Model::process_node(MeshNode *mesh_node, aiNode *node, const aiScene *scene
 
 }
 
-Entity Model::createEntity(Scene *scene)
+Entity Model::createEntity(std::shared_ptr<Model> model, Scene *scene)
 {
-	return create_entity_node(root_node, scene);
+	return create_entity_node(model, model->root_node, scene);
 }
 
-Entity Model::create_entity_node(MeshNode *node, Scene *scene)
+Entity Model::create_entity_node(std::shared_ptr<Model> model, MeshNode *node, Scene *scene)
 {
 	Entity entity = scene->createEntity(node->name);
 	auto &transform_component = entity.getComponent<TransformComponent>();
@@ -200,7 +205,7 @@ Entity Model::create_entity_node(MeshNode *node, Scene *scene)
 	for (auto &mesh : node->meshes)
 	{
 		MeshRendererComponent::MeshId mesh_id;
-		mesh_id.model = this;
+		mesh_id.model = model;
 		mesh_id.mesh_id = mesh->id;
 		mesh_renderer.meshes.push_back(mesh_id);
 	}
@@ -211,7 +216,7 @@ Entity Model::create_entity_node(MeshNode *node, Scene *scene)
 
 	for (int i = 0; i < node->children.size(); i++)
 	{
-		Entity child = create_entity_node(node->children[i], scene);
+		Entity child = create_entity_node(model, node->children[i], scene);
 		auto &child_transform_component = child.getComponent<TransformComponent>();
 		child_transform_component.parent = entity;
 		transform_component.children.push_back(child);

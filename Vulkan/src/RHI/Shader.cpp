@@ -66,7 +66,14 @@ Shader::Shader(const std::string& path, ShaderType type, std::vector<std::pair<c
 
 Shader::~Shader()
 {
-	vkDestroyShaderModule(VkWrapper::device->logicalHandle, handle, nullptr);
+	shutdown();
+}
+
+void Shader::shutdown()
+{
+	if (handle)
+		vkDestroyShaderModule(VkWrapper::device->logicalHandle, handle, nullptr);
+	handle = nullptr;
 }
 
 size_t Shader::getHash() const
@@ -109,6 +116,13 @@ void Shader::recompileAllShaders()
 	{
 		shader.second->recompile();
 	}
+}
+
+void Shader::destroyAllShaders()
+{
+	for (auto &shader : cached_shaders)
+		shader.second->shutdown();
+	cached_shaders.clear();
 }
 
 std::shared_ptr<Shader> Shader::create(const std::string &path, ShaderType type, std::vector<std::pair<const char *, const char *>> defines)

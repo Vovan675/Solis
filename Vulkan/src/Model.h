@@ -11,6 +11,12 @@
 
 struct MeshNode
 {
+	~MeshNode()
+	{
+		for (size_t i = 0; i < children.size(); i++)
+			delete children[i];
+	}
+
 	std::string name = "";
 	std::vector<std::shared_ptr<Engine::Mesh>> meshes;
 	std::vector<std::shared_ptr<Material>> materials;
@@ -37,16 +43,19 @@ struct MeshNode
 	}
 };
 
-// Model is a resource that contains one full model (for instance, fbx file). It can be used to get information about model and for creating entities from it
-class Model
+// Model is an asset that contains one full model (for instance, fbx file). It can be used to get information about model and for creating entities from it
+class Model : public Asset
 {
 public:
 	Model() = default;
+	~Model();
+
+	ASSET_TYPE getAssetType() const override { return ASSET_TYPE_MODEL; }
 
 	void load(const char *path);
 	void process_node(MeshNode *parent_node, aiNode *node, const aiScene *scene);
 
-	Entity createEntity(Scene *scene);
+	static Entity createEntity(std::shared_ptr<Model> model, Scene *scene);
 
 	std::shared_ptr<Engine::Mesh> getMesh(size_t id)
 	{
@@ -55,12 +64,14 @@ public:
 		return meshes_id[id];
 	}
 
+	MeshNode *getRootNode() const { return root_node; }
+
 	std::string getPath() const { return path; }
 
 private:
-	Entity create_entity_node(MeshNode *node, Scene *scene);
+	static Entity create_entity_node(std::shared_ptr<Model> model, MeshNode *node, Scene *scene);
 
-	MeshNode *root_node;
+	MeshNode *root_node = nullptr;
 	std::string path;
 
 	std::unordered_map<size_t, std::shared_ptr<Engine::Mesh>> meshes_id;

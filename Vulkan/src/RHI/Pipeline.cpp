@@ -22,11 +22,13 @@ void Pipeline::cleanup()
 		vkDestroyPipelineLayout(VkWrapper::device->logicalHandle, pipeline_layout, nullptr);
 		pipeline_layout = nullptr;
 	}
+	description = PipelineDescription{};
 }
 
 void Pipeline::create(const PipelineDescription &description)
 {
 	cleanup();
+	this->description = description;
 	hash = description.getHash();
 
 	// Shaders state

@@ -38,7 +38,7 @@ struct MeshRendererComponent
 {
 	struct MeshId
 	{
-		Model* model;
+		std::shared_ptr<Model> model;
 		size_t mesh_id = 0;
 
 		std::shared_ptr<Engine::Mesh> getMesh();

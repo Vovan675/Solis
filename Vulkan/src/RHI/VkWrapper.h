@@ -16,7 +16,7 @@ class VkWrapper
 {
 public:
 	static void init(GLFWwindow* window);
-	static void cleanup();
+	static void shutdown();
 
 	static void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VmaMemoryUsage memory_usage, VkBuffer &buffer, VmaAllocation &allocation)
 	{
@@ -26,8 +26,6 @@ public:
 		info.size = size;
 		info.usage = usage;
 		info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-		CHECK_ERROR(vkCreateBuffer(device->logicalHandle, &info, nullptr, &buffer));
 
 		VmaAllocationCreateInfo alloc_info{};
 		alloc_info.usage = memory_usage;

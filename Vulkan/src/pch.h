@@ -7,7 +7,9 @@
 #include <string>
 #include <iostream>
 #include <fstream>
+#include <filesystem>
 #include <memory.h>
+#include <Windows.h>
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
@@ -22,3 +24,5 @@
 
 #define YAML_CPP_DLL
 #include "yaml-cpp/yaml.h"
+
+#include "Log.h"

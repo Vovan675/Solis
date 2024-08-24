@@ -12,6 +12,9 @@ Renderer::DefaultUniforms Renderer::default_uniforms;
 DescriptorLayout Renderer::default_descriptor_layout;
 std::shared_ptr<Camera> Renderer::camera;
 
+std::vector<std::pair<RESOURCE_TYPE, void *>> Renderer::deletion_queue;
+int Renderer::current_frame = 0;
+uint32_t Renderer::timestamp_index = 0;
 
 void Renderer::init()
 {
@@ -20,6 +23,16 @@ void Renderer::init()
 	DescriptorLayoutBuilder layout_builder;
 	layout_builder.add_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER); // 0 - Default uniforms
 	default_descriptor_layout = layout_builder.build(VK_SHADER_STAGE_ALL);
+}
+
+void Renderer::shutdown()
+{
+	for (size_t i = 0; i < RENDER_TARGET_TEXTURES_COUNT; i++)
+		screen_resources[i] = nullptr;
+
+	descriptor_bindings.clear();
+
+	Renderer::endFrame(0);
 }
 
 void Renderer::recreateScreenResources()
@@ -93,6 +106,8 @@ void Renderer::recreateScreenResources()
 
 void Renderer::beginFrame(unsigned int image_index)
 {
+	current_frame = image_index;
+
 	// Update debug info
 	debug_info = RendererDebugInfo{};
 	debug_info.descriptors_count = descriptors.size();
@@ -110,7 +125,7 @@ void Renderer::beginFrame(unsigned int image_index)
 		}
 	}
 
-	debug_info.drawcalls = 0;
+	timestamp_index = 0;
 }
 
 void Renderer::endFrame(unsigned int image_index)
@@ -120,6 +135,59 @@ void Renderer::endFrame(unsigned int image_index)
 	{
 		offset.second[image_index] = 0;
 	}
+	
+	if (!deletion_queue.empty())
+	{
+		vkDeviceWaitIdle(VkWrapper::device->logicalHandle);
+		
+		for (auto resource : deletion_queue)
+		{
+			switch (resource.first)
+			{
+				case RESOURCE_TYPE_SAMPLER: 
+					vkDestroySampler(VkWrapper::device->logicalHandle, (VkSampler)resource.second, nullptr);
+					break;
+				case RESOURCE_TYPE_IMAGE_VIEW:
+					vkDestroyImageView(VkWrapper::device->logicalHandle, (VkImageView)resource.second, nullptr);
+					break;
+				case RESOURCE_TYPE_IMAGE:
+					vkDestroyImage(VkWrapper::device->logicalHandle, (VkImage)resource.second, nullptr);
+					break;
+				case RESOURCE_TYPE_MEMORY:
+					vmaFreeMemory(VkWrapper::allocator, (VmaAllocation)resource.second);
+					break;
+				case RESOURCE_TYPE_BUFFER:
+					vkDestroyBuffer(VkWrapper::device->logicalHandle, (VkBuffer)resource.second, nullptr);
+					break;
+			}
+		}
+		
+		deletion_queue.clear();
+	}
+
+	int count = timestamp_index;
+	if (count > 0)
+		vkGetQueryPoolResults(VkWrapper::device->logicalHandle, VkWrapper::device->query_pool, 0, count, VkWrapper::device->time_stamps.size() * sizeof(uint64_t), VkWrapper::device->time_stamps.data(), sizeof(uint64_t), VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT);
+}
+
+uint32_t Renderer::beginTimestamp()
+{
+	uint32_t current_timestep = timestamp_index;
+	vkCmdWriteTimestamp2(getCurrentCommandBuffer().get_buffer(), VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VkWrapper::device->query_pool, timestamp_index++);
+	timestamp_index++;
+	return current_timestep;
+}
+
+void Renderer::endTimestamp(uint32_t index)
+{
+	vkCmdWriteTimestamp2(getCurrentCommandBuffer().get_buffer(), VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VkWrapper::device->query_pool, index);
+}
+
+float Renderer::getTimestampTime(uint32_t index)
+{
+	float period = VkWrapper::device->physicalProperties.limits.timestampPeriod;
+	float delta_in_ms = (VkWrapper::device->time_stamps[index + 1] - VkWrapper::device->time_stamps[index]) * period / 1000000.0f;
+	return delta_in_ms;
 }
 
 void Renderer::setShadersUniformBuffer(std::shared_ptr<Shader> vertex_shader, std::shared_ptr<Shader> fragment_shader, unsigned int binding, void *params_struct, size_t params_size, unsigned int image_index)

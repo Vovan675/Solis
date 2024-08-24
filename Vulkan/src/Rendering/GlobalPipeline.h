@@ -8,6 +8,7 @@ class GlobalPipeline
 {
 public:
 	GlobalPipeline();
+	~GlobalPipeline();
 
 	void reset();
 	void flush();

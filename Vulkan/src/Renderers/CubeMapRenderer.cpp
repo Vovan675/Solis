@@ -2,6 +2,7 @@
 #include "CubeMapRenderer.h"
 #include "BindlessResources.h"
 #include "Rendering/Renderer.h"
+#include "Model.h"
 
 CubeMapRenderer::CubeMapRenderer(): RendererBase()
 {
@@ -14,9 +15,9 @@ CubeMapRenderer::CubeMapRenderer(): RendererBase()
 	cube_texture = std::make_shared<Texture>(tex_description);
 	cube_texture->load("assets/cubemap/");
 
-	mesh = std::make_shared<Engine::Mesh>("assets/cube.fbx");
+	auto model = AssetManager::getAsset<Model>("assets/cube.fbx");
+	mesh = model->getRootNode()->children[0]->meshes[0];
 
-	//mesh->setData(vertices, indices);
 
 	vertex_shader = Shader::create("shaders/cube.vert", Shader::VERTEX_SHADER);
 	fragment_shader = Shader::create("shaders/cube.frag", Shader::FRAGMENT_SHADER);

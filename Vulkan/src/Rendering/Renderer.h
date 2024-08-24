@@ -6,6 +6,8 @@
 #include "RHI/VkWrapper.h"
 #include "BindlessResources.h"
 #include "Camera.h"
+#include "Assets/Asset.h"
+#include <unordered_set>
 
 enum RENDER_TARGETS
 {
@@ -25,12 +27,28 @@ enum RENDER_TARGETS
 	RENDER_TARGET_TEXTURES_COUNT
 };
 
+enum RESOURCE_TYPE
+{
+	RESOURCE_TYPE_SAMPLER,
+	RESOURCE_TYPE_IMAGE_VIEW,
+	RESOURCE_TYPE_IMAGE,
+	RESOURCE_TYPE_MEMORY,
+	RESOURCE_TYPE_BUFFER
+};
+
+struct DebugTime
+{
+	uint32_t index = 0;
+	std::string name;
+};
+
 struct RendererDebugInfo
 {
-	size_t descriptors_count;
-	size_t descriptor_bindings_count;
-	size_t descriptors_max_offset;
-	size_t drawcalls;
+	size_t descriptors_count = 0;
+	size_t descriptor_bindings_count = 0;
+	size_t descriptors_max_offset = 0;
+	size_t drawcalls = 0;
+	std::vector<DebugTime> times;
 };
 
 class Renderer
@@ -41,11 +59,16 @@ public:
 	Renderer() = delete;
 
 	static void init();
+	static void shutdown();
 	static void recreateScreenResources();
 	static void beginFrame(unsigned int image_index);
 	static void endFrame(unsigned int image_index);
 	
 	static RendererDebugInfo getDebugInfo() { return debug_info; };
+
+	static uint32_t beginTimestamp();
+	static void endTimestamp(uint32_t index);
+	static float getTimestampTime(uint32_t index);
 
 	static std::shared_ptr<Texture> getRenderTarget(RENDER_TARGETS rt) { return screen_resources[rt]; }
 	static uint32_t getRenderTargetBindlessId(RENDER_TARGETS rt) { return BindlessResources::getTextureIndex(screen_resources[rt].get()); }
@@ -64,8 +87,12 @@ public:
 	static const DefaultUniforms getDefaultUniforms();
 
 	static VkDescriptorSetLayout getDefaultDescriptorLayout() { return default_descriptor_layout.layout; }
+	static CommandBuffer &getCurrentCommandBuffer() { return VkWrapper::command_buffers[current_frame]; }
+
+	static void deleteResource(RESOURCE_TYPE type, void *resource) { deletion_queue.push_back(std::make_pair(type, resource)); }
 
 	static void addDrawCalls(size_t count) { debug_info.drawcalls += count; }
+	static void addDebugTime(uint32_t index, std::string name) { debug_info.times.push_back({index, name}); }
 private:
 	static void ensureDescriptorsAllocated(DescriptorLayout descriptor_layout, size_t descriptor_hash, size_t offset);
 	
@@ -101,5 +128,27 @@ private:
 	static DefaultUniforms default_uniforms;
 	static DescriptorLayout default_descriptor_layout;
 	static std::shared_ptr<Camera> camera;
+
+	static std::vector<std::pair<RESOURCE_TYPE, void *>> deletion_queue;
+
+	static int current_frame;
+	static uint32_t timestamp_index;
 };
 
+struct GPUTimer
+{
+	GPUTimer(std::string name)
+	{
+		timestamp = Renderer::beginTimestamp();
+		Renderer::addDebugTime(timestamp, name);
+	}
+
+	~GPUTimer()
+	{
+		Renderer::endTimestamp(timestamp + 1);
+	}
+	uint32_t timestamp = 0;
+};
+
+#define GPU_TIME_SCOPED(name) GPUTimer gpu_timer__LINE__(name)
+#define GPU_TIME_SCOPED_FUNCTION() GPUTimer gpu_timer__LINE__(__FUNCTION__)

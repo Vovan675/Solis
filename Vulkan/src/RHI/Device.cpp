@@ -97,6 +97,7 @@ void Device::CreateLogicalDevice()
 	features12.descriptorBindingVariableDescriptorCount = true;
 	features12.descriptorBindingSampledImageUpdateAfterBind = true;
 	features12.runtimeDescriptorArray = true; // for GL_EXT_nonuniform_qualifier extension
+	features12.hostQueryReset = true;
 
 	// Enable dynamic rendering
 	VkPhysicalDeviceVulkan13Features features13{};
@@ -104,9 +105,6 @@ void Device::CreateLogicalDevice()
 	features13.dynamicRendering = true;
 	features13.synchronization2 = true;
 	features13.pNext = &features12;
-
-
-
 
 	VkPhysicalDeviceFeatures2 enabledFeatures{};
 	enabledFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
@@ -119,4 +117,12 @@ void Device::CreateLogicalDevice()
 	//Get queues from newly created device
 	vkGetDeviceQueue(logicalHandle, queueFamily.graphicsFamily.value(), 0, &graphicsQueue);
 	vkGetDeviceQueue(logicalHandle, queueFamily.presentFamily.value(), 0, &presentQueue);
+
+	// Create query pool for profiling
+	VkQueryPoolCreateInfo query_pool_info{};
+	query_pool_info.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
+	query_pool_info.queryType = VK_QUERY_TYPE_TIMESTAMP;
+	query_pool_info.queryCount = time_stamps.size();
+	vkCreateQueryPool(logicalHandle, &query_pool_info, nullptr, &query_pool);
+	time_stamps.fill(0);
 }

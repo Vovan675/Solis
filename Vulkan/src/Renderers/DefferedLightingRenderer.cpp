@@ -4,15 +4,16 @@
 #include "BindlessResources.h"
 #include "Rendering/Renderer.h"
 #include "Scene/Entity.h"
+#include "Model.h"
 
 DefferedLightingRenderer::DefferedLightingRenderer()
 {
-	icosphere_mesh = std::make_shared<Engine::Mesh>("assets/icosphere_3.fbx");
+	auto model = AssetManager::getAsset<Model>("assets/icosphere_3.fbx");
+	icosphere_mesh = model->getRootNode()->children[0]->meshes[0];
 
 	lighting_vertex_shader_point = Shader::create("shaders/lighting/deffered_lighting.vert", Shader::VERTEX_SHADER, {{"LIGHT_TYPE", "0"}});
 	lighting_fragment_shader_point = Shader::create("shaders/lighting/deffered_lighting.frag", Shader::FRAGMENT_SHADER, {{"LIGHT_TYPE", "0"}});
 
-	// TODO: CHECK WHY NOT WORKING
 	lighting_vertex_shader_directional = Shader::create("shaders/lighting/deffered_lighting.vert", Shader::VERTEX_SHADER, {{"LIGHT_TYPE", "1"}});
 	lighting_fragment_shader_directional = Shader::create("shaders/lighting/deffered_lighting.frag", Shader::FRAGMENT_SHADER, {{"LIGHT_TYPE", "1"}});
 }

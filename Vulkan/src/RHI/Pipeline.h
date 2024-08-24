@@ -65,5 +65,6 @@ public:
 	VkPipelineLayout pipeline_layout = nullptr;
 private:
 	size_t hash;
+	PipelineDescription description;
 };
 

@@ -2,6 +2,7 @@
 #include "BindlessResources.h"
 #include "RHI/Texture.h"
 #include "YamlExtensions.h"
+#include "Assets/AssetManager.h"
 
 class Material
 {
@@ -90,32 +91,29 @@ namespace YAML
 			tex_description.imageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
 			tex_description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 
+			// TODO: use asset manager
 			if (node["AlbedoTexture"])
 			{
-				auto *tex = new Texture(tex_description);
-				tex->load(node["AlbedoTexture"].as<std::string>().c_str());
-				mat->albedo_tex_id = BindlessResources::addTexture(tex);
+				auto tex = AssetManager::getAsset<Texture>(node["AlbedoTexture"].as<std::string>());
+				mat->albedo_tex_id = BindlessResources::addTexture(tex.get());
 			}
 
 			if (node["MetalnessTexture"])
 			{
-				auto *tex = new Texture(tex_description);
-				tex->load(node["MetalnessTexture"].as<std::string>().c_str());
-				mat->metalness_tex_id = BindlessResources::addTexture(tex);
+				auto tex = AssetManager::getAsset<Texture>(node["MetalnessTexture"].as<std::string>());
+				mat->metalness_tex_id = BindlessResources::addTexture(tex.get());
 			}
 
 			if (node["RoughnessTexture"])
 			{
-				auto *tex = new Texture(tex_description);
-				tex->load(node["RoughnessTexture"].as<std::string>().c_str());
-				mat->roughness_tex_id = BindlessResources::addTexture(tex);
+				auto tex = AssetManager::getAsset<Texture>(node["RoughnessTexture"].as<std::string>());
+				mat->roughness_tex_id = BindlessResources::addTexture(tex.get());
 			}
 
 			if (node["SpecularTexture"])
 			{
-				auto *tex = new Texture(tex_description);
-				tex->load(node["SpecularTexture"].as<std::string>().c_str());
-				mat->specular_tex_id = BindlessResources::addTexture(tex);
+				auto tex = AssetManager::getAsset<Texture>(node["SpecularTexture"].as<std::string>());
+				mat->specular_tex_id = BindlessResources::addTexture(tex.get());
 			}
 
 			return true;

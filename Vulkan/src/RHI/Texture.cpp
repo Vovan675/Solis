@@ -2,6 +2,7 @@
 #include "Texture.h"
 #include "VkWrapper.h"
 #include "BindlessResources.h"
+#include "Rendering/Renderer.h"
 #include "stb_image.h"
 #define TINYDDSLOADER_IMPLEMENTATION
 #include "tinyddsloader.h"
@@ -15,25 +16,28 @@ Texture::Texture(TextureDescription description)
 
 Texture::~Texture()
 {
-	// TODO: add GPU resources deletion queue
-	//cleanup();
+	cleanup();
 }
 
 void Texture::cleanup()
 {
 	this->path = "";
 	BindlessResources::removeTexture(this);
-	if (sampler != nullptr)
-		vkDestroySampler(VkWrapper::device->logicalHandle, sampler, nullptr);
+
+	if (sampler)
+		Renderer::deleteResource(RESOURCE_TYPE_SAMPLER, sampler);
+	sampler = nullptr;
 
 	for (auto &view : image_views)
 		view.cleanup();
 	image_views.clear();
 
-	if (imageHandle != nullptr && m_Description.destroy_image)
-		vkDestroyImage(VkWrapper::device->logicalHandle, imageHandle, nullptr);
-	if (allocation != nullptr)
-		vmaFreeMemory(VkWrapper::allocator, allocation);
+	if (imageHandle && m_Description.destroy_image)
+		Renderer::deleteResource(RESOURCE_TYPE_IMAGE, imageHandle);
+	imageHandle = nullptr;
+	if (allocation)
+		Renderer::deleteResource(RESOURCE_TYPE_MEMORY, allocation);
+	allocation = nullptr;
 }
 
 void Texture::fill()
@@ -853,5 +857,5 @@ void Texture::create_sampler()
 void Texture::ImageView::cleanup()
 {
 	if (image_view)
-		vkDestroyImageView(VkWrapper::device->logicalHandle, image_view, nullptr);
+		Renderer::deleteResource(RESOURCE_TYPE_IMAGE_VIEW, image_view);
 }

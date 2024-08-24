@@ -2,6 +2,7 @@
 #include "IrradianceRenderer.h"
 #include "BindlessResources.h"
 #include "Rendering/Renderer.h"
+#include "Model.h"
 
 IrradianceRenderer::IrradianceRenderer(): RendererBase()
 {
@@ -12,7 +13,8 @@ IrradianceRenderer::IrradianceRenderer(): RendererBase()
 	tex_description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 	tex_description.is_cube = true;
 	
-	mesh = std::make_shared<Engine::Mesh>("assets/cube.fbx");
+	auto model = AssetManager::getAsset<Model>("assets/cube.fbx");
+	mesh = model->getRootNode()->children[0]->meshes[0];
 
 	vertex_shader = Shader::create("shaders/ibl/cubemap_filter.vert", Shader::VERTEX_SHADER);
 	fragment_shader = Shader::create("shaders/ibl/irradiance.frag", Shader::FRAGMENT_SHADER);

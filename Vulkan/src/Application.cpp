@@ -21,6 +21,7 @@
 #include "glm/gtx/euler_angles.hpp"
 #include "glm/gtx/quaternion.hpp"
 #include "Filesystem.h"
+#include "Assets/AssetManager.h"
 
 Application::Application()
 {
@@ -32,7 +33,7 @@ Application::Application()
 	tex_description.imageFormat = VK_FORMAT_R8G8B8_SRGB;
 	tex_description.imageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
 	tex_description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-	auto tex = new Texture(tex_description);
+	//auto tex = new Texture(tex_description);
 	//tex->load("assets/bistro/Textures/Paris_StringLights_01_Green_Color_Emissive_BaseColor.dds");
 	//mat1.albedo_tex_id = BindlessResources::addTexture(tex);
 
@@ -94,10 +95,10 @@ Application::Application()
 	*/
 
 	// Demo Scene
-	Model *model = new Model();
-	model->load("assets/demo_scene.fbx");
+	auto model = AssetManager::getAsset<Model>("assets/demo_scene.fbx");
+	//auto model = AssetManager::getAsset<Model>("assets/sponza/sponza.obj");
 
-	Entity entity = model->createEntity(&scene);
+	Entity entity = model->createEntity(model, &scene);
 	entity.getTransform().scale = glm::vec3(0.01);
 
 	Entity light = scene.createEntity("Point Light");
@@ -114,7 +115,7 @@ Application::Application()
 	//entity->updateTransform();
 	//auto mesh = std::make_shared<Engine::Mesh>("assets/bistro/BistroExterior.fbx");
 	//auto mesh = std::make_shared<Engine::Mesh>("assets/barrels/source/Industrial_Updated.fbx");
-	auto mesh = std::make_shared<Engine::Mesh>("assets/model2.obj"); // room
+	//auto mesh = std::make_shared<Engine::Mesh>("assets/model2.obj"); // room
 	auto mesh_entity = scene.createEntity("Test Mesh Entity");
 	//auto& mesh_renderer_component = mesh_entity.addComponent<MeshRendererComponent>();
 	//mesh_renderer_component.meshes.push_back(mesh);
@@ -164,10 +165,10 @@ Application::Application()
 		tex_description.imageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
 		tex_description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 
-		auto tex = new Texture(tex_description);
-		tex->load("assets/albedo2.png");
-		auto tex2 = new Texture(tex_description);
-		tex2->load("assets/albedo.png");
+		//auto tex = new Texture(tex_description);
+		//tex->load("assets/albedo2.png");
+		//auto tex2 = new Texture(tex_description);
+		//tex2->load("assets/albedo.png");
 
 		//Material mat2;
 		//mat2.albedo_tex_id = BindlessResources::addTexture(tex2);
@@ -209,10 +210,12 @@ Application::Application()
 	shadows_fragment_shader_point = Shader::create("shaders/lighting/shadows.frag", Shader::FRAGMENT_SHADER, {{"LIGHT_TYPE", "0"}});
 	shadows_fragment_shader_directional = Shader::create("shaders/lighting/shadows.frag", Shader::FRAGMENT_SHADER, {{"LIGHT_TYPE", "1"}});
 
+	/*
 	scene.saveFile("assets/test_scene.scene");
 
 	scene = Scene();
 	scene.loadFile("assets/test_scene.scene");
+	*/
 }
 
 void Application::createRenderTargets()
@@ -316,6 +319,10 @@ void Application::update(float delta_time)
 		ImGui::Text("descriptor_bindings_count: %u", info.descriptor_bindings_count);
 		ImGui::Text("descriptors_max_offset: %u", info.descriptors_max_offset);
 		ImGui::Text("Draw Calls: %u", info.drawcalls);
+		for (const auto &time : info.times)
+		{
+			ImGui::Text((time.name + ": %f").c_str(), Renderer::getTimestampTime(time.index));
+		}
 		ImGui::TreePop();
 	}
 	
@@ -445,6 +452,11 @@ void Application::update(float delta_time)
 		if (selected_entity.hasComponent<MeshRendererComponent>())
 		{
 			auto &mesh_renderer = selected_entity.getComponent<MeshRendererComponent>();
+			for (auto &mesh_id : mesh_renderer.meshes)
+			{
+				auto mesh = mesh_id.getMesh();
+				debug_renderer->addBoundBox(mesh->bound_box * selected_entity.getWorldTransformMatrix());
+			}
 			ImGui::Text("Materials");
 			for (int i = 0; i < mesh_renderer.materials.size(); i++)
 			{
@@ -464,13 +476,8 @@ void Application::update(float delta_time)
 							std::string path = Filesystem::openFileDialog();
 							if (!path.empty())
 							{
-								TextureDescription tex_description{};
-								tex_description.imageFormat = VK_FORMAT_R8G8B8A8_SRGB;
-								tex_description.imageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
-								tex_description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-								auto *tex = new Texture(tex_description);
-								tex->load(path.c_str());
-								mat->albedo_tex_id = BindlessResources::addTexture(tex);
+								auto texture = AssetManager::getAsset<Texture>(path);
+								mat->albedo_tex_id = BindlessResources::addTexture(texture.get());
 							}
 						}
 					} else
@@ -674,10 +681,19 @@ void Application::recordCommands(CommandBuffer &command_buffer, uint32_t image_i
 
 void Application::cleanupResources()
 {
+	irradiance_renderer = nullptr;
+	prefilter_renderer = nullptr;
+	cubemap_renderer = nullptr;
+	imgui_renderer = nullptr;
+	defferred_lighting_renderer = nullptr;
+	deffered_composite_renderer = nullptr;
+	post_renderer = nullptr;
+	debug_renderer = nullptr;
+	ssao_renderer = nullptr;
 	ibl_brdf_lut = nullptr;
 	ibl_irradiance = nullptr;
 	ibl_prefilter = nullptr;
-
+	scene = Scene();
 	renderers.clear();
 }
 
@@ -744,6 +760,7 @@ void Application::onSwapchainRecreated(int width, int height)
 
 void Application::render_GBuffer(CommandBuffer &command_buffer, uint32_t image_index)
 {
+	GPU_TIME_SCOPED_FUNCTION();
 	Renderer::getRenderTarget(RENDER_TARGET_GBUFFER_ALBEDO)->transitLayout(command_buffer, TEXTURE_LAYOUT_ATTACHMENT);
 	Renderer::getRenderTarget(RENDER_TARGET_GBUFFER_NORMAL)->transitLayout(command_buffer, TEXTURE_LAYOUT_ATTACHMENT);
 	Renderer::getRenderTarget(RENDER_TARGET_GBUFFER_DEPTH_STENCIL)->transitLayout(command_buffer, TEXTURE_LAYOUT_ATTACHMENT);
@@ -773,6 +790,7 @@ void Application::render_GBuffer(CommandBuffer &command_buffer, uint32_t image_i
 
 void Application::render_lighting(CommandBuffer &command_buffer, uint32_t image_index)
 {
+	GPU_TIME_SCOPED_FUNCTION();
 	Renderer::getRenderTarget(RENDER_TARGET_GBUFFER_ALBEDO)->transitLayout(command_buffer, TEXTURE_LAYOUT_SHADER_READ);
 	Renderer::getRenderTarget(RENDER_TARGET_GBUFFER_NORMAL)->transitLayout(command_buffer, TEXTURE_LAYOUT_SHADER_READ);
 	Renderer::getRenderTarget(RENDER_TARGET_GBUFFER_DEPTH_STENCIL)->transitLayout(command_buffer, TEXTURE_LAYOUT_SHADER_READ);
@@ -794,11 +812,13 @@ void Application::render_lighting(CommandBuffer &command_buffer, uint32_t image_
 
 void Application::render_ssao(CommandBuffer &command_buffer, uint32_t image_index)
 {
+	GPU_TIME_SCOPED_FUNCTION();
 	ssao_renderer->fillCommandBuffer(command_buffer, image_index);
 }
 
 void Application::render_deffered_composite(CommandBuffer &command_buffer, uint32_t image_index)
 {
+	GPU_TIME_SCOPED_FUNCTION();
 	Renderer::getRenderTarget(RENDER_TARGET_LIGHTING_DIFFUSE)->transitLayout(command_buffer, TEXTURE_LAYOUT_SHADER_READ);
 	Renderer::getRenderTarget(RENDER_TARGET_LIGHTING_SPECULAR)->transitLayout(command_buffer, TEXTURE_LAYOUT_SHADER_READ);
 	Renderer::getRenderTarget(RENDER_TARGET_COMPOSITE)->transitLayout(command_buffer, TEXTURE_LAYOUT_ATTACHMENT);
@@ -910,6 +930,7 @@ void Application::update_cascades(LightComponent &light, glm::vec3 light_dir)
 
 void Application::render_shadows(CommandBuffer &command_buffer, uint32_t image_index)
 {
+	GPU_TIME_SCOPED_FUNCTION();
 	auto light_entities_id = scene.getEntitiesWith<LightComponent>();
 	for (entt::entity light_entity_id : light_entities_id)
 	{

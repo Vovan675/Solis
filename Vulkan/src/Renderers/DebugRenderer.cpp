@@ -96,6 +96,26 @@ void DebugRenderer::renderLines(CommandBuffer &command_buffer, uint32_t image_in
 	lines_index_count = 0;
 }
 
+void DebugRenderer::addBoundBox(BoundBox bbox)
+{
+	addLine(bbox.min, glm::vec3(bbox.max.x, bbox.min.y, bbox.min.z));
+	addLine(bbox.min, glm::vec3(bbox.min.x, bbox.max.y, bbox.min.z));
+	addLine(bbox.min, glm::vec3(bbox.min.x, bbox.min.y, bbox.max.z));
+
+	addLine(bbox.max, glm::vec3(bbox.min.x, bbox.max.y, bbox.max.z));
+	addLine(bbox.max, glm::vec3(bbox.max.x, bbox.min.y, bbox.max.z));
+	addLine(bbox.max, glm::vec3(bbox.max.x, bbox.max.y, bbox.min.z));
+
+	addLine(glm::vec3(bbox.min.x, bbox.max.y, bbox.min.z), glm::vec3(bbox.min.x, bbox.max.y, bbox.max.z));
+	addLine(glm::vec3(bbox.min.x, bbox.max.y, bbox.min.z), glm::vec3(bbox.max.x, bbox.max.y, bbox.min.z));
+
+	addLine(glm::vec3(bbox.max.x, bbox.max.y, bbox.min.z), glm::vec3(bbox.max.x, bbox.min.y, bbox.min.z));
+	addLine(glm::vec3(bbox.max.x, bbox.min.y, bbox.min.z), glm::vec3(bbox.max.x, bbox.min.y, bbox.max.z));
+
+	addLine(glm::vec3(bbox.min.x, bbox.min.y, bbox.max.z), glm::vec3(bbox.max.x, bbox.min.y, bbox.max.z));
+	addLine(glm::vec3(bbox.min.x, bbox.min.y, bbox.max.z), glm::vec3(bbox.min.x, bbox.max.y, bbox.max.z));
+}
+
 std::vector<glm::vec3> DebugRenderer::addCirlce(glm::vec3 center, glm::vec3 normal, float radius, int segments)
 {
 	std::vector<glm::vec3> circle_points;

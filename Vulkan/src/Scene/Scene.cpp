@@ -24,9 +24,7 @@ namespace YAML
 				return false;
 
 			std::string model_path = node["ModelPath"].as<std::string>();
-			// TODO: fix LEAK, maybe create manager
-			Model *model = new Model();
-			model->load(model_path.c_str());
+			auto model = AssetManager::getAsset<Model>(model_path);
 			mesh_id.model = model;
 			size_t model_mesh_id = node["MeshId"].as<size_t>();
 			mesh_id.mesh_id = model_mesh_id;

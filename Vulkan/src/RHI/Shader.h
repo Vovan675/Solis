@@ -37,6 +37,8 @@ class Shader
 public:
 	virtual ~Shader();
 
+	void shutdown();
+
 	VkShaderModule handle = nullptr;
 	enum ShaderType
 	{
@@ -50,6 +52,7 @@ public:
 
 	void recompile();
 	static void recompileAllShaders();
+	static void destroyAllShaders();
 
 	static std::shared_ptr<Shader> create(const std::string &path, ShaderType type, std::vector<std::pair<const char *, const char *>> defines = {});
 private:

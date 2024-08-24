@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "Buffer.h"
 #include "VkWrapper.h"
+#include "Rendering/Renderer.h"
 
 Buffer::Buffer(BufferDescription description)
 	: m_Description(description)
@@ -24,10 +25,17 @@ Buffer::Buffer(BufferDescription description)
 
 Buffer::~Buffer()
 {
-	if (is_mapped)
-		vmaUnmapMemory(VkWrapper::allocator, allocation);
-	vkDestroyBuffer(VkWrapper::device->logicalHandle, bufferHandle, nullptr);
-	vmaFreeMemory(VkWrapper::allocator, allocation);
+	if (allocation)
+	{
+		if (is_mapped)
+			vmaUnmapMemory(VkWrapper::allocator, allocation);
+		Renderer::deleteResource(RESOURCE_TYPE_MEMORY, allocation);
+		allocation = nullptr;
+	}
+
+	if (bufferHandle)
+		Renderer::deleteResource(RESOURCE_TYPE_BUFFER, bufferHandle);
+	bufferHandle = nullptr;
 }
 
 void Buffer::fill(const void* sourceData)

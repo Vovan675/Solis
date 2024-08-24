@@ -4,7 +4,7 @@
 
 struct DescriptorLayout
 {
-    VkDescriptorSetLayout layout;
+    VkDescriptorSetLayout layout = nullptr;
     size_t hash;
 };
 
@@ -14,6 +14,7 @@ struct DescriptorLayoutBuilder
 
     void add_binding(uint32_t binding, VkDescriptorType type, uint32_t count = 1);
     void clear();
+    static void clearAllCaches();
 
     DescriptorLayout build(VkShaderStageFlags stages, const void *pNext = nullptr, VkDescriptorSetLayoutCreateFlags flags = 0);
 private:
@@ -49,50 +50,6 @@ private:
 private:
     std::vector<VkDescriptorPool> free_pools;
     std::vector<VkDescriptorPool> used_pools;
-};
-
-class DescriptorLayoutCache
-{
-public:
-    void cleanup();
-
-    VkDescriptorSetLayout createDescriptorLayout(VkDescriptorSetLayoutCreateInfo *info);
-
-    struct DescriptorLayoutInfo
-    {
-        std::vector<VkDescriptorSetLayoutBinding> bindings;
-        bool operator ==(const DescriptorLayoutInfo &other) const;
-        size_t hash() const;
-    };
-
-private:
-
-    struct DescriptorLayoutHash
-    {
-        size_t operator()(const DescriptorLayoutInfo &i) const
-        {
-            return i.hash();
-        }
-    };
-
-    std::unordered_map<DescriptorLayoutInfo, VkDescriptorSetLayout, DescriptorLayoutHash> layout_cache;
-};
-
-class DescriptorBuilder
-{
-public:
-    static DescriptorBuilder begin(DescriptorLayoutCache *layout_cache, DescriptorAllocator *allocator);
-
-    DescriptorBuilder &bind_buffer(uint32_t binding, VkDescriptorType descriptor_type, VkShaderStageFlags stage_flags, VkDescriptorBufferInfo *buffer_info);
-    DescriptorBuilder &bind_image(uint32_t binding, VkDescriptorType descriptor_type, VkShaderStageFlags stage_flags, VkDescriptorImageInfo *image_info);
-
-    bool build(VkDescriptorSet &set, VkDescriptorSetLayout &layout);
-private:
-    std::vector<VkWriteDescriptorSet> writes;
-    std::vector<VkDescriptorSetLayoutBinding> bindings;
-
-    DescriptorLayoutCache *cache;
-    DescriptorAllocator *allocator;
 };
 
 struct DescriptorWriter

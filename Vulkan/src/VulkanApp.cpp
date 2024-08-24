@@ -2,6 +2,7 @@
 #include "VulkanApp.h"
 #include "imgui.h"
 #include "Rendering/Renderer.h"
+#include "Assets/AssetManager.h"
 
 VulkanApp::VulkanApp()
 {
@@ -23,6 +24,7 @@ VulkanApp::VulkanApp()
 
 	Log::Init();
 	VkWrapper::init(window);
+	AssetManager::init();
 
 	init_sync_objects();
 }
@@ -118,40 +120,47 @@ void VulkanApp::run()
 void VulkanApp::render(CommandBuffer &command_buffer, uint32_t image_index)
 {
 	command_buffer.open();
+	vkCmdResetQueryPool(command_buffer.get_buffer(), VkWrapper::device->query_pool, 0, VkWrapper::device->time_stamps.size());
+	{
+		GPU_TIME_SCOPED("GPU Time");
 
-	// Set swapchain color image layout for writing
-	VkWrapper::cmdImageMemoryBarrier(command_buffer,
-									VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, 0,
-									VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-									VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-									VkWrapper::swapchain->swapchain_images[image_index], VK_IMAGE_ASPECT_COLOR_BIT);
+		// Set swapchain color image layout for writing
+		VkWrapper::cmdImageMemoryBarrier(command_buffer,
+										VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, 0,
+										VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+										VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+										VkWrapper::swapchain->swapchain_images[image_index], VK_IMAGE_ASPECT_COLOR_BIT);
 
-	// Record commands (they do what they want + output to swapchain_textures)
-	recordCommands(command_buffer, image_index);
+		// Record commands (they do what they want + output to swapchain_textures)
+		recordCommands(command_buffer, image_index);
 
-	// Set swapchain color image layout for presenting
-	VkWrapper::cmdImageMemoryBarrier(command_buffer,
-									VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-									VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT,
-									VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-									VkWrapper::swapchain->swapchain_images[image_index], VK_IMAGE_ASPECT_COLOR_BIT);
+		// Set swapchain color image layout for presenting
+		VkWrapper::cmdImageMemoryBarrier(command_buffer,
+										VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+										VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT,
+										VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+										VkWrapper::swapchain->swapchain_images[image_index], VK_IMAGE_ASPECT_COLOR_BIT);
 
+	}
 	command_buffer.close();
 }
 
 void VulkanApp::cleanup()
 {
 	vkDeviceWaitIdle(VkWrapper::device->logicalHandle);
-	VkWrapper::cleanup();
+	AssetManager::shutdown();
 	cleanupResources();
 	cleanup_swapchain();
+	BindlessResources::cleanup();
+	Shader::destroyAllShaders();
+	Renderer::shutdown();
+	VkWrapper::shutdown();
 
 	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
 		vkDestroySemaphore(VkWrapper::device->logicalHandle, imageAvailableSemaphores[i], nullptr);
 		vkDestroySemaphore(VkWrapper::device->logicalHandle, renderFinishedSemaphores[i], nullptr);
 	}
-	VkWrapper::command_buffers.clear();
 
 	VkWrapper::device = nullptr;
 	vkDestroyInstance(VkWrapper::instance, nullptr);

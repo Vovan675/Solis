@@ -42,11 +42,16 @@ void VkWrapper::init(GLFWwindow *window)
 	Renderer::init();
 }
 
-void VkWrapper::cleanup()
+void VkWrapper::shutdown()
 {
-	BindlessResources::cleanup();
+	global_pipeline = nullptr;
+	DescriptorLayoutBuilder::clearAllCaches();
+	VkWrapper::command_buffers.clear();
 	vkDestroyCommandPool(device->logicalHandle, command_pool, nullptr);
 	global_descriptor_allocator->cleanup();
+	char *str = new char[5000];
+	vmaBuildStatsString(allocator, &str, true);
+
 	vmaDestroyAllocator(allocator);
 }
 

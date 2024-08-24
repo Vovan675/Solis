@@ -7,6 +7,11 @@ GlobalPipeline::GlobalPipeline()
 	reset();
 }
 
+GlobalPipeline::~GlobalPipeline()
+{
+	cached_pipelines.clear();
+}
+
 void GlobalPipeline::reset()
 {
 	current_description = PipelineDescription {};

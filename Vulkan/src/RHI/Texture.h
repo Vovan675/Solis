@@ -3,6 +3,7 @@
 #include "Log.h"
 #include "Device.h"
 #include <yaml-cpp/yaml.h>
+#include "Assets/Asset.h"
 
 struct TextureDescription
 {
@@ -33,7 +34,7 @@ enum TextureLayoutType
 	TEXTURE_LAYOUT_TRANSFER_DST,
 };
 
-class Texture
+class Texture : public Asset
 {
 public:
 	VkBuffer bufferHandle = nullptr;
@@ -43,6 +44,9 @@ public:
 public:
 	Texture(TextureDescription description);
 	virtual ~Texture();
+
+	ASSET_TYPE getAssetType() const override { return ASSET_TYPE_TEXTURE; }
+
 	void cleanup();
 	void fill();
 	void fill(const void* sourceData);
