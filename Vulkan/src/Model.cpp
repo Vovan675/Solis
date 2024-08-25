@@ -149,7 +149,7 @@ void Model::process_node(MeshNode *mesh_node, aiNode *node, const aiScene *scene
 				result_path = result_path.remove_filename();
 				result_path = result_path.concat(texture_path.C_Str());
 				auto tex = AssetManager::getAsset<Texture>(result_path.string());
-				if (tex->imageHandle == nullptr)
+				if (!tex || tex->imageHandle == nullptr)
 					continue;
 				engine_material->albedo_tex_id = BindlessResources::addTexture(tex.get());
 			}
@@ -171,7 +171,7 @@ void Model::process_node(MeshNode *mesh_node, aiNode *node, const aiScene *scene
 				result_path = result_path.remove_filename();
 				result_path = result_path.concat(texture_path.C_Str());
 				auto tex = AssetManager::getAsset<Texture>(result_path.string());
-				if (tex->imageHandle == nullptr)
+				if (!tex || tex->imageHandle == nullptr)
 					continue;
 				engine_material->metalness_tex_id = BindlessResources::addTexture(tex.get());
 			}

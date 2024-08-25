@@ -15,6 +15,7 @@ Device::Device(const VkInstance& instance)
 
 Device::~Device()
 {
+	vkDestroyQueryPool(logicalHandle, query_pool, nullptr);
 	vkDestroyDevice(logicalHandle, nullptr);
 }
 

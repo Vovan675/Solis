@@ -84,16 +84,10 @@ void Swapchain::create_swapchain(int width, int height)
 	swap_extent.width = std::clamp(swap_extent.width, surfaceCapabilities.minImageExtent.width, surfaceCapabilities.maxImageExtent.width);
 	swap_extent.height = std::clamp(swap_extent.height, surfaceCapabilities.minImageExtent.height, surfaceCapabilities.maxImageExtent.height);
 
-	uint32_t imageCount = surfaceCapabilities.minImageCount + 1;
-	if (surfaceCapabilities.maxImageCount != 0 && surfaceCapabilities.maxImageCount < imageCount)
-	{
-		imageCount = surfaceCapabilities.minImageCount;
-	}
-
 	VkSwapchainCreateInfoKHR info{};
 	info.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
 	info.surface = surface;
-	info.minImageCount = surfaceCapabilities.minImageCount;
+	info.minImageCount = MAX_FRAMES_IN_FLIGHT;
 	info.imageFormat = surface_format.format;
 	info.imageColorSpace = surface_format.colorSpace;
 	info.imageExtent = swap_extent;

@@ -80,6 +80,9 @@ private:
 
 	std::vector<std::shared_ptr<Texture>> shadow_maps;
 
+	std::shared_ptr<Shader> gbuffer_vertex_shader;
+	std::shared_ptr<Shader> gbuffer_fragment_shader;
+
 	std::shared_ptr<Shader> shadows_vertex_shader;
 	std::shared_ptr<Shader> shadows_fragment_shader_point;
 	std::shared_ptr<Shader> shadows_fragment_shader_directional;

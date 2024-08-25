@@ -21,44 +21,21 @@ void EntityRenderer::fillCommandBuffer(CommandBuffer &command_buffer, uint32_t i
 
 }
  
-void EntityRenderer::renderEntity(CommandBuffer &command_buffer, Entity entity, uint32_t image_index)
+void EntityRenderer::renderEntity(CommandBuffer &command_buffer, Entity entity)
 {
-	auto &p = VkWrapper::global_pipeline;
-	p->reset();
-
-	p->setVertexShader(vertex_shader);
-	p->setFragmentShader(fragment_shader);
-
-	p->setRenderTargets(VkWrapper::current_render_targets);
-	p->setUseBlending(false);
-
-	p->flush();
-	p->bind(command_buffer);
-
-	render_entity(command_buffer, entity, image_index);
-
-	p->unbind(command_buffer);
+	render_entity(command_buffer, entity);
 }
 
-void EntityRenderer::renderEntityShadow(CommandBuffer &command_buffer, Entity entity, uint32_t image_index, glm::mat4 light_space, glm::vec3 light_pos, float z_far)
+void EntityRenderer::renderEntityShadow(CommandBuffer &command_buffer, glm::mat4 &transform_matrix, MeshRendererComponent &mesh_renderer)
 {
-	ShadowUBO ubo;
-	ubo.light_space_matrix = light_space;
-	ubo.light_pos = glm::vec4(light_pos, 1.0);
-	ubo.z_far = z_far;
-
 	auto &p = VkWrapper::global_pipeline;
-
-	auto &mesh_renderer = entity.getComponent<MeshRendererComponent>();
-	auto &transform = entity.getComponent<TransformComponent>();
+	ShadowPushConstact push_constant;
+	push_constant.model = transform_matrix;
+	vkCmdPushConstants(command_buffer.get_buffer(), p->getPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(ShadowPushConstact), &push_constant);
 
 	for (int i = 0; i < mesh_renderer.meshes.size(); i++)
 	{
 		const std::shared_ptr<Engine::Mesh> mesh = mesh_renderer.meshes[i].getMesh();
-
-		ubo.model = entity.getWorldTransformMatrix();
-		Renderer::setShadersUniformBuffer(VkWrapper::global_pipeline->getVertexShader(), VkWrapper::global_pipeline->getFragmentShader(), 0, &ubo, sizeof(ShadowUBO), image_index);
-		Renderer::bindShadersDescriptorSets(VkWrapper::global_pipeline->getVertexShader(), VkWrapper::global_pipeline->getFragmentShader(), command_buffer, p->getPipelineLayout(), image_index);
 
 		// Render mesh
 		VkBuffer vertexBuffers[] = {mesh->vertexBuffer->bufferHandle};
@@ -68,18 +45,11 @@ void EntityRenderer::renderEntityShadow(CommandBuffer &command_buffer, Entity en
 		vkCmdDrawIndexed(command_buffer.get_buffer(), mesh->indices.size(), 1, 0, 0, 0);
 		Renderer::addDrawCalls(1);
 	}
-
-	for (auto child_id : transform.children)
-	{
-		renderEntityShadow(command_buffer, Entity(child_id, entity.getScene()), image_index, light_space, light_pos, z_far);
-	}
 }
 
-void EntityRenderer::render_entity(CommandBuffer &command_buffer, Entity entity, uint32_t image_index)
+void EntityRenderer::render_entity(CommandBuffer &command_buffer, Entity entity)
 {
 	auto &p = VkWrapper::global_pipeline;
-	Renderer::bindShadersDescriptorSets(vertex_shader, fragment_shader, command_buffer, p->getPipelineLayout(), image_index);
-
 	auto &mesh_renderer = entity.getComponent<MeshRendererComponent>();
 	auto &transform = entity.getComponent<TransformComponent>();
 
@@ -97,10 +67,5 @@ void EntityRenderer::render_entity(CommandBuffer &command_buffer, Entity entity,
 		vkCmdBindIndexBuffer(command_buffer.get_buffer(), mesh->indexBuffer->bufferHandle, 0, VK_INDEX_TYPE_UINT32);
 		vkCmdDrawIndexed(command_buffer.get_buffer(), mesh->indices.size(), 1, 0, 0, 0);
 		Renderer::addDrawCalls(1);
-	}
-
-	for (auto child_id : transform.children)
-	{
-		render_entity(command_buffer, Entity(child_id, entity.getScene()), image_index);
 	}
 }

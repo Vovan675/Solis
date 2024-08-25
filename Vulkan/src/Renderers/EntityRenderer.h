@@ -17,21 +17,25 @@ public:
 	struct ShadowUBO
 	{
 		alignas(16) glm::mat4 light_space_matrix;
-		alignas(16) glm::mat4 model;
 		glm::vec4 light_pos;
 		float z_far;
 		float padding[3];
+	};
+
+	struct ShadowPushConstact
+	{
+		alignas(16) glm::mat4 model;
 	};
 
 	EntityRenderer();
 	virtual ~EntityRenderer();
 
 	void fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index) override;
-	void renderEntity(CommandBuffer &command_buffer, Entity entity, uint32_t image_index);
-	void renderEntityShadow(CommandBuffer &command_buffer, Entity entity, uint32_t image_index, glm::mat4 light_space, glm::vec3 light_pos, float z_far);
+	void renderEntity(CommandBuffer &command_buffer, Entity entity);
+	void renderEntityShadow(CommandBuffer &command_buffer, glm::mat4 &transform_matrix, MeshRendererComponent &mesh_renderer);
 
 private:
-	void render_entity(CommandBuffer &command_buffer, Entity entity, uint32_t image_index);
+	void render_entity(CommandBuffer &command_buffer, Entity entityx);
 	std::shared_ptr<Shader> vertex_shader;
 	std::shared_ptr<Shader> fragment_shader;
 	std::shared_ptr<Material> default_material;

@@ -19,7 +19,7 @@ public:
 
 		auto std_path = std::filesystem::path(path);
 		std::string extension = std_path.extension().string();
-		if (extension == ".png" || extension == ".jpg" || extension == ".hdr")
+		if (extension == ".png" || extension == ".jpg" || extension == ".hdr" || extension == ".dds")
 		{
 			new_asset = load_texture_asset(path);
 		} else if (Assimp::Importer().IsExtensionSupported(extension))

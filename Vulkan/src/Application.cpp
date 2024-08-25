@@ -97,6 +97,7 @@ Application::Application()
 	// Demo Scene
 	auto model = AssetManager::getAsset<Model>("assets/demo_scene.fbx");
 	//auto model = AssetManager::getAsset<Model>("assets/sponza/sponza.obj");
+	//auto model = AssetManager::getAsset<Model>("assets/bistro/BistroExterior.fbx");
 
 	Entity entity = model->createEntity(model, &scene);
 	entity.getTransform().scale = glm::vec3(0.01);
@@ -205,6 +206,9 @@ Application::Application()
 	prefilter_renderer->cube_texture = cubemap_renderer->cube_texture;
 
 	//cubemap_renderer->cube_texture = ibl_irradiance;
+
+	gbuffer_vertex_shader = Shader::create("shaders/opaque.vert", Shader::VERTEX_SHADER);
+	gbuffer_fragment_shader = Shader::create("shaders/opaque.frag", Shader::FRAGMENT_SHADER);
 
 	shadows_vertex_shader = Shader::create("shaders/lighting/shadows.vert", Shader::VERTEX_SHADER);
 	shadows_fragment_shader_point = Shader::create("shaders/lighting/shadows.frag", Shader::FRAGMENT_SHADER, {{"LIGHT_TYPE", "0"}});
@@ -775,15 +779,30 @@ void Application::render_GBuffer(CommandBuffer &command_buffer, uint32_t image_i
 								 Renderer::getRenderTarget(RENDER_TARGET_GBUFFER_DEPTH_STENCIL));
 
 	// Render meshes into gbuffer
+	auto &p = VkWrapper::global_pipeline;
+	p->reset();
+
+	p->setVertexShader(gbuffer_vertex_shader);
+	p->setFragmentShader(gbuffer_fragment_shader);
+
+	p->setRenderTargets(VkWrapper::current_render_targets);
+	p->setUseBlending(false);
+
+	p->flush();
+	p->bind(command_buffer);
+
+	Renderer::bindShadersDescriptorSets(gbuffer_vertex_shader, gbuffer_fragment_shader, command_buffer, p->getPipelineLayout(), image_index);
+
 	auto entities_id = scene.getEntitiesWith<MeshRendererComponent>();
 	for (entt::entity entity_id : entities_id)
 	{
 		Entity entity(entity_id, &scene);
 		MeshRendererComponent &mesh_renderer_component = entity.getComponent<MeshRendererComponent>();
 
-		entity_renderer.renderEntity(command_buffer, entity, image_index);
+		entity_renderer.renderEntity(command_buffer, entity);
 	}
 
+	p->unbind(command_buffer);
 	VkWrapper::cmdEndRendering(command_buffer);
 }
 
@@ -965,30 +984,35 @@ void Application::render_shadows(CommandBuffer &command_buffer, uint32_t image_i
 
 				VkWrapper::cmdBeginRendering(command_buffer, {}, light.shadow_map, face);
 
-				auto mesh_entities_id = scene.getEntitiesWith<MeshRendererComponent>();
-				for (entt::entity mesh_entity_id : mesh_entities_id)
+				auto &p = VkWrapper::global_pipeline;
+				p->reset();
+
+				p->setVertexShader(shadows_vertex_shader);
+				p->setFragmentShader(shadows_fragment_shader_point);
+
+				p->setRenderTargets(VkWrapper::current_render_targets);
+				p->setUseBlending(false);
+				p->setCullMode(VK_CULL_MODE_FRONT_BIT);
+
+				p->flush();
+				p->bind(command_buffer);
+
+				EntityRenderer::ShadowUBO ubo;
+				ubo.light_space_matrix = light_matrix;
+				ubo.light_pos = glm::vec4(position, 1.0);
+				ubo.z_far = light.radius;
+
+				Renderer::setShadersUniformBuffer(VkWrapper::global_pipeline->getVertexShader(), VkWrapper::global_pipeline->getFragmentShader(), 0, &ubo, sizeof(EntityRenderer::ShadowUBO), image_index);
+				Renderer::bindShadersDescriptorSets(VkWrapper::global_pipeline->getVertexShader(), VkWrapper::global_pipeline->getFragmentShader(), command_buffer, p->getPipelineLayout(), image_index);
+
+				auto mesh_entities_view = scene.getEntitiesWith<TransformComponent, MeshRendererComponent>();
+				for (auto mesh_entity_id : mesh_entities_view)
 				{
-					Entity mesh_entity(mesh_entity_id, &scene);
-					MeshRendererComponent &mesh_renderer_component = mesh_entity.getComponent<MeshRendererComponent>();
-
-					auto &p = VkWrapper::global_pipeline;
-					p->reset();
-
-					p->setVertexShader(shadows_vertex_shader);
-					p->setFragmentShader(shadows_fragment_shader_point);
-
-					p->setRenderTargets(VkWrapper::current_render_targets);
-					p->setUseBlending(false);
-					p->setCullMode(VK_CULL_MODE_FRONT_BIT);
-
-					p->flush();
-					p->bind(command_buffer);
-
-					entity_renderer.renderEntityShadow(command_buffer, mesh_entity, image_index, light_matrix, position, light.radius);
-
-					p->unbind(command_buffer);
+					Entity entity(mesh_entity_id, &scene);
+					auto [transform, mesh] = mesh_entities_view.get<TransformComponent, MeshRendererComponent>(mesh_entity_id);
+					entity_renderer.renderEntityShadow(command_buffer, entity.getWorldTransformMatrix(), mesh);
 				}
-
+				p->unbind(command_buffer);
 
 				VkWrapper::cmdEndRendering(command_buffer);
 			}
@@ -1004,29 +1028,35 @@ void Application::render_shadows(CommandBuffer &command_buffer, uint32_t image_i
 
 				VkWrapper::cmdBeginRendering(command_buffer, {}, light.shadow_map, c);
 
-				auto mesh_entities_id = scene.getEntitiesWith<MeshRendererComponent>();
-				for (entt::entity mesh_entity_id : mesh_entities_id)
+				auto &p = VkWrapper::global_pipeline;
+				p->reset();
+
+				p->setVertexShader(shadows_vertex_shader);
+				p->setFragmentShader(shadows_fragment_shader_directional);
+
+				p->setRenderTargets(VkWrapper::current_render_targets);
+				p->setUseBlending(false);
+				p->setCullMode(VK_CULL_MODE_FRONT_BIT);
+
+				p->flush();
+				p->bind(command_buffer);
+
+				EntityRenderer::ShadowUBO ubo;
+				ubo.light_space_matrix = light_matrix;
+				ubo.light_pos = glm::vec4(position, 1.0);
+				ubo.z_far = 0;
+
+				Renderer::setShadersUniformBuffer(VkWrapper::global_pipeline->getVertexShader(), VkWrapper::global_pipeline->getFragmentShader(), 0, &ubo, sizeof(EntityRenderer::ShadowUBO), image_index);
+				Renderer::bindShadersDescriptorSets(VkWrapper::global_pipeline->getVertexShader(), VkWrapper::global_pipeline->getFragmentShader(), command_buffer, p->getPipelineLayout(), image_index);
+
+				auto mesh_entities_view = scene.getEntitiesWith<TransformComponent, MeshRendererComponent>();
+				for (auto mesh_entity_id : mesh_entities_view)
 				{
-					Entity mesh_entity(mesh_entity_id, &scene);
-					MeshRendererComponent &mesh_renderer_component = mesh_entity.getComponent<MeshRendererComponent>();
-
-					auto &p = VkWrapper::global_pipeline;
-					p->reset();
-
-					p->setVertexShader(shadows_vertex_shader);
-					p->setFragmentShader(shadows_fragment_shader_directional);
-
-					p->setRenderTargets(VkWrapper::current_render_targets);
-					p->setUseBlending(false);
-					p->setCullMode(VK_CULL_MODE_FRONT_BIT);
-
-					p->flush();
-					p->bind(command_buffer);
-
-					entity_renderer.renderEntityShadow(command_buffer, mesh_entity, image_index, light_matrix, position, 0);
-
-					p->unbind(command_buffer);
+					Entity entity(mesh_entity_id, &scene);
+					auto [transform, mesh] = mesh_entities_view.get<TransformComponent, MeshRendererComponent>(mesh_entity_id);
+					entity_renderer.renderEntityShadow(command_buffer, entity.getWorldTransformMatrix(), mesh);
 				}
+				p->unbind(command_buffer);
 				VkWrapper::cmdEndRendering(command_buffer);
 			}
 		}
