@@ -2,11 +2,13 @@
 #include "Shader.h"
 #include "EngineMath.h"
 #include "Descriptors.h"
+#include "Buffer.h"
 
 using namespace Engine::Math;
 
 struct PipelineDescription
 {
+	// Default Pipeline
 	std::shared_ptr<Shader> vertex_shader;
 	std::shared_ptr<Shader> fragment_shader;
 	bool use_vertices = true;
@@ -25,11 +27,25 @@ struct PipelineDescription
 	VkCullModeFlagBits cull_mode = VK_CULL_MODE_BACK_BIT;
 	VkPrimitiveTopology primitive_topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 
+	// Ray Tracing Pipeline
+	bool is_ray_tracing_pipeline = false;
+	std::shared_ptr<Shader> ray_generation_shader;
+	std::shared_ptr<Shader> miss_shader;
+	std::shared_ptr<Shader> closest_hit_shader;
+
 	size_t getHash() const
 	{
 		size_t hash = 0;
-		hash_combine(hash, vertex_shader->getHash());
-		hash_combine(hash, fragment_shader->getHash());
+		if (vertex_shader)
+			hash_combine(hash, vertex_shader->getHash());
+		if (fragment_shader)
+			hash_combine(hash, fragment_shader->getHash());
+		if (ray_generation_shader)
+			hash_combine(hash, ray_generation_shader->getHash());
+		if (miss_shader)
+			hash_combine(hash, miss_shader->getHash());
+		if (closest_hit_shader)
+			hash_combine(hash, closest_hit_shader->getHash());
 		hash_combine(hash, use_vertices);
 		hash_combine(hash, descriptor_layout.hash);
 		for (const auto &color_format : color_formats)
@@ -63,8 +79,14 @@ public:
 public:
 	VkPipeline pipeline = nullptr;
 	VkPipelineLayout pipeline_layout = nullptr;
-private:
+public:
 	size_t hash;
 	PipelineDescription description;
+
+	std::vector<VkRayTracingShaderGroupCreateInfoKHR> shaderGroups{};
+
+	std::shared_ptr<Buffer> raygenShaderBindingTable;
+	std::shared_ptr<Buffer> missShaderBindingTable;
+	std::shared_ptr<Buffer> hitShaderBindingTable;
 };
 

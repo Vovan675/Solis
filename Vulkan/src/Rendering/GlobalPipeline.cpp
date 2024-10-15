@@ -59,9 +59,25 @@ void GlobalPipeline::setBlendMode(VkBlendFactor srcColorBlendFactor, VkBlendFact
 	current_description.alphaBlendOp = alphaBlendOp;
 }
 
+std::vector<std::shared_ptr<Shader>> GlobalPipeline::getCurrentShaders()
+{
+	std::vector<std::shared_ptr<Shader>> shaders;
+	if (current_description.vertex_shader)
+		shaders.push_back(current_description.vertex_shader);
+	if (current_description.fragment_shader)
+		shaders.push_back(current_description.fragment_shader);
+	if (current_description.ray_generation_shader)
+		shaders.push_back(current_description.ray_generation_shader);
+	if (current_description.miss_shader)
+		shaders.push_back(current_description.miss_shader);
+	if (current_description.closest_hit_shader)
+		shaders.push_back(current_description.closest_hit_shader);
+	return shaders;
+}
+
 void GlobalPipeline::bind(const CommandBuffer &command_buffer)
 {
-	vkCmdBindPipeline(command_buffer.get_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, current_pipeline->pipeline);
+	vkCmdBindPipeline(command_buffer.get_buffer(), current_description.is_ray_tracing_pipeline ? VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR : VK_PIPELINE_BIND_POINT_GRAPHICS, current_pipeline->pipeline);
 	is_binded = true;
 }
 
@@ -72,7 +88,18 @@ void GlobalPipeline::unbind(const CommandBuffer & command_buffer)
 
 void GlobalPipeline::parse_descriptors()
 {
-	auto result_descriptors = VkWrapper::getMergedDescriptors(current_description.vertex_shader, current_description.fragment_shader);
+	std::vector<std::shared_ptr<Shader>> shaders;
+	if (current_description.vertex_shader)
+		shaders.push_back(current_description.vertex_shader);
+	if (current_description.fragment_shader)
+		shaders.push_back(current_description.fragment_shader);
+	if (current_description.ray_generation_shader)
+		shaders.push_back(current_description.ray_generation_shader);
+	if (current_description.miss_shader)
+		shaders.push_back(current_description.miss_shader);
+	if (current_description.closest_hit_shader)
+		shaders.push_back(current_description.closest_hit_shader);
+	auto result_descriptors = VkWrapper::getMergedDescriptors(shaders);
 
 	// Create desciptor ranges based on descriptors
 	const auto stage_to_vk = [](DescriptorStage stage) {
@@ -81,6 +108,12 @@ void GlobalPipeline::parse_descriptors()
 			vk_stage |= VK_SHADER_STAGE_VERTEX_BIT;
 		if (stage & DESCRIPTOR_STAGE_FRAGMENT_SHADER)
 			vk_stage |= VK_SHADER_STAGE_FRAGMENT_BIT;
+		if (stage & DESCRIPTOR_STAGE_RAY_GENERATION_SHADER)
+			vk_stage |= VK_SHADER_STAGE_RAYGEN_BIT_KHR;
+		if (stage & DESCRIPTOR_STAGE_MISS_SHADER)
+			vk_stage |= VK_SHADER_STAGE_MISS_BIT_KHR;
+		if (stage & DESCRIPTOR_STAGE_CLOSEST_HIT_SHADER)
+			vk_stage |= VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
 		return vk_stage;
 	};
 

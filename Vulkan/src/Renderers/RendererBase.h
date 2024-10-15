@@ -12,7 +12,7 @@ public:
 	virtual ~RendererBase() {}
 
 	// Add commands to command buffer
-	virtual void fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index) {}
+	virtual void fillCommandBuffer(CommandBuffer &command_buffer) {}
 private:
 };
 

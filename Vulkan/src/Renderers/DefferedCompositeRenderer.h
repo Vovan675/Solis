@@ -27,7 +27,7 @@ public:
 	DefferedCompositeRenderer();
 	virtual ~DefferedCompositeRenderer();
 
-	void fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index) override;
+	void fillCommandBuffer(CommandBuffer &command_buffer) override;
 
 	void renderImgui();
 private:

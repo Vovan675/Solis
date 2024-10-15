@@ -22,7 +22,7 @@ public:
 	PrefilterRenderer();
 	virtual ~PrefilterRenderer();
 
-	void fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index) override;
+	void fillCommandBuffer(CommandBuffer &command_buffer) override;
 
 	std::shared_ptr<Texture> cube_texture;
 private:

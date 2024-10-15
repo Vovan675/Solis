@@ -23,107 +23,35 @@
 #include "Filesystem.h"
 #include "Assets/AssetManager.h"
 
+#include "RHI/RayTracing/TopLevelAccelerationStructure.h"
+#include "Variables.h"
+
+
 Application::Application()
 {
 	camera = std::make_shared<Camera>();
 	Renderer::setCamera(camera);
 
-	Material mat1;
-	TextureDescription tex_description{};
-	tex_description.imageFormat = VK_FORMAT_R8G8B8_SRGB;
-	tex_description.imageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
-	tex_description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-	//auto tex = new Texture(tex_description);
-	//tex->load("assets/bistro/Textures/Paris_StringLights_01_Green_Color_Emissive_BaseColor.dds");
-	//mat1.albedo_tex_id = BindlessResources::addTexture(tex);
-
-	// Load mesh
-	//auto entity = std::make_shared<Entity>("assets/bistro/BistroExterior.fbx");
-	//auto entity = std::make_shared<Entity>("assets/sponza/sponza.obj");
-	//auto entity = std::make_shared<Entity>("assets/new_sponza/NewSponza_Main_glTF_002.gltf");
-	//auto entity = std::make_shared<Entity>("assets/model.fbx");
-	//auto entity = std::make_shared<Entity>("assets/barrels/source/Industrial_Updated.fbx");
-	//auto entity = std::make_shared<Entity>();
-	//entity->transform.scale = glm::vec3(0.01, 0.01, 0.01);
-	//entity->transform.local_model_matrix = glm::scale(glm::mat4(1), glm::vec3(0.01, 0.01, 0.01));
-	//entity->updateTransform();
-	//entity->save("assets/test.entity");
-	//entity->load("assets/test.entity");
-	//auto entity_renderer = std::make_shared<EntityRenderer>(camera, entity);
-
-
-	// Cerberus
-	/*
-	if (0){
-		auto entity = std::make_shared<Entity>();
-		//entity->transform.local_model_matrix = glm::scale(glm::mat4(1), glm::vec3(0.01, 0.01, 0.01));
-		//entity->updateTransform();
-		auto entity_renderer = std::make_shared<EntityRenderer>(camera, entity);
-		
-		Material *mat = nullptr;
-
-		std::shared_ptr<Entity> next = entity;
-		while(!mat && next)
-		{
-			if (!next->materials.empty())
-				mat = &next->materials[0];
-
-			if (!next->children.empty()) 
-				next = next->children[0];
-			else
-				next = nullptr;
-		}
-
-		if (mat && false)
-		{
-			TextureDescription tex_description{};
-			tex_description.imageFormat = VK_FORMAT_R8G8B8A8_SRGB;
-			tex_description.imageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
-			tex_description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-			auto tex = new Texture(tex_description);
-			tex->load("assets/cerberus/Textures/Cerberus_M.tga");
-			mat->metalness_tex_id = BindlessResources::addTexture(tex);
-			tex = new Texture(tex_description);
-			tex->load("assets/cerberus/Textures/Cerberus_R.tga");
-			mat->roughness_tex_id = BindlessResources::addTexture(tex);
-		}
-		entity->load("assets/cerberus/saved.mesh");
-		renderers.push_back(entity_renderer);
-		entities_renderers.push_back(entity_renderer);
-		Scene::addEntity(entity);
-	}
-	*/
-
 	// Demo Scene
-	auto model = AssetManager::getAsset<Model>("assets/demo_scene.fbx");
-	//auto model = AssetManager::getAsset<Model>("assets/sponza/sponza.obj");
-	//auto model = AssetManager::getAsset<Model>("assets/bistro/BistroExterior.fbx");
-
+	//auto model = AssetManager::getModelAsset("assets/demo_scene.fbx");
+	auto model = AssetManager::getModelAsset("assets/game/map.fbx");
+	//auto model = AssetManager::getModelAsset("assets/sponza/sponza.obj");
+	//auto model = AssetManager::getModelAsset("assets/new_sponza/NewSponza_Main_Yup_002.fbx");
+	//auto model = AssetManager::getModelAsset("assets/bistro/BistroExterior.fbx");
+	//auto model = AssetManager::getModelAsset("assets/hideout/source/FullSceneSubstance.fbx");
+	//auto model = AssetManager::getModelAsset("assets/pbr/source/Ref.fbx");
+	//model->saveFile("test_model.mesh");
+	//model->loadFile("test_model.mesh");
 	Entity entity = model->createEntity(model, &scene);
 	entity.getTransform().scale = glm::vec3(0.01);
 
 	Entity light = scene.createEntity("Point Light");
+	light.getTransform().setTransform(glm::eulerAngleXYX(3.14 / 4.0, 3.14 / 4.0, 0.0));
 	auto &light_component = light.addComponent<LightComponent>();
 	light_component.setType(LIGHT_TYPE_DIRECTIONAL);
 	light_component.color = glm::vec3(253.0f / 255, 251.0f / 255, 211.0f / 255);
 	light_component.intensity = 1.0f;
 	light_component.radius = 10.0f;
-
-	//renderers.push_back(entity_renderer);
-	//entities_renderers.push_back(entity_renderer);
-
-	//entity->transform.local_model_matrix = glm::scale(glm::mat4(1), glm::vec3(0.9, 0.9, 0.9));
-	//entity->updateTransform();
-	//auto mesh = std::make_shared<Engine::Mesh>("assets/bistro/BistroExterior.fbx");
-	//auto mesh = std::make_shared<Engine::Mesh>("assets/barrels/source/Industrial_Updated.fbx");
-	//auto mesh = std::make_shared<Engine::Mesh>("assets/model2.obj"); // room
-	auto mesh_entity = scene.createEntity("Test Mesh Entity");
-	//auto& mesh_renderer_component = mesh_entity.addComponent<MeshRendererComponent>();
-	//mesh_renderer_component.meshes.push_back(mesh);
-
-	//mesh->save("test_save");
-	//mesh->load("test_save");
-	//auto mesh2 = std::make_shared<Engine::Mesh>("assets/model.fbx");
 
 	lut_renderer = std::make_shared<LutRenderer>();
 	renderers.push_back(lut_renderer);
@@ -157,24 +85,6 @@ Application::Application()
 
 	onSwapchainRecreated(0, 0);
 	createRenderTargets();
-
-	// Load Textures
-	{
-		// For example I have textures
-		TextureDescription tex_description {};
-		tex_description.imageFormat = VK_FORMAT_R8G8B8A8_SRGB;
-		tex_description.imageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
-		tex_description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-
-		//auto tex = new Texture(tex_description);
-		//tex->load("assets/albedo2.png");
-		//auto tex2 = new Texture(tex_description);
-		//tex2->load("assets/albedo.png");
-
-		//Material mat2;
-		//mat2.albedo_tex_id = BindlessResources::addTexture(tex2);
-		//mesh_renderer2->setMaterial(mat2);
-	}
 
 	//auto mesh_ball = std::make_shared<Engine::Mesh>("assets/ball.fbx");
 	int count_x = 5;
@@ -214,12 +124,23 @@ Application::Application()
 	shadows_fragment_shader_point = Shader::create("shaders/lighting/shadows.frag", Shader::FRAGMENT_SHADER, {{"LIGHT_TYPE", "0"}});
 	shadows_fragment_shader_directional = Shader::create("shaders/lighting/shadows.frag", Shader::FRAGMENT_SHADER, {{"LIGHT_TYPE", "1"}});
 
-	/*
-	scene.saveFile("assets/test_scene.scene");
+	if (engine_ray_tracing)
+	{
+		ray_tracing_scene = std::make_shared<RayTracingScene>(&scene);
 
-	scene = Scene();
-	scene.loadFile("assets/test_scene.scene");
-	*/
+		TextureDescription tex_description = {};
+		tex_description.width = VkWrapper::swapchain->swap_extent.width;
+		tex_description.height = VkWrapper::swapchain->swap_extent.height;
+		tex_description.imageFormat = VK_FORMAT_B8G8R8A8_UNORM;
+		tex_description.imageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
+		tex_description.imageUsageFlags = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
+		storage_image = std::make_shared<Texture>(tex_description);
+		storage_image->fill();
+
+		raygen_shader = Shader::create("shaders/rt/raygen.rgen", Shader::RAY_GENERATION_SHADER);
+		miss_shader = Shader::create("shaders/rt/miss.rmiss", Shader::MISS_SHADER);
+		closest_hit_shader = Shader::create("shaders/rt/closesthit.rchit", Shader::CLOSEST_HIT_SHADER);
+	}
 }
 
 void Application::createRenderTargets()
@@ -230,8 +151,8 @@ void Application::createRenderTargets()
 
 	// Irradiance
 	TextureDescription description;
-	description.width = 2048;
-	description.height = 2048;
+	description.width = 256;
+	description.height = 256;
 	description.imageFormat = VkWrapper::swapchain->surface_format.format;
 	description.imageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
 	description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
@@ -261,6 +182,7 @@ void Application::createRenderTargets()
 	description.imageFormat = VK_FORMAT_R16G16_SFLOAT;
 	description.imageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
 	description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+	description.sampler_address_mode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
 	description.is_cube = false;
 	ibl_brdf_lut = std::make_shared<Texture>(description);
 	ibl_brdf_lut->fill();
@@ -309,6 +231,7 @@ void Application::update(float delta_time)
 	ImGui::Begin("Debug Window");
 	is_using_ui |= ImGui::IsWindowFocused();
 	ImGui::Text("FPS: %i (%f ms)", (int)(last_fps), 1.0f / last_fps * 1000);
+
 	if (ImGui::Button("Recompile shaders"))
 	{
 		// Wait for all operations complete
@@ -330,31 +253,31 @@ void Application::update(float delta_time)
 		ImGui::TreePop();
 	}
 	
-	ImGui::Checkbox("Debug", &debug_rendering);
+	ConVarSystem::drawConVarImGui(render_debug_rendering.getDescription());
 
-	if (debug_rendering)
+	if (render_debug_rendering)
 	{
-		static int present_mode = 2;
+		int mode = render_debug_rendering_mode;
 		char* items[] = { "All", "Final Composite", "Albedo", "Metalness", "Roughness", "Specular", "Normal", "Depth", "Position", "Light Diffuse", "Light Specular", "BRDF LUT", "SSAO" };
-		if (ImGui::BeginCombo("Preview Combo", items[present_mode]))
+		if (ImGui::BeginCombo("Preview Combo", items[mode]))
 		{
 			for (int n = 0; n < IM_ARRAYSIZE(items); n++)
 			{
-				bool is_selected = (present_mode == n);
+				bool is_selected = (mode == n);
 				if (ImGui::Selectable(items[n], is_selected))	
-					present_mode = n;
+					render_debug_rendering_mode = n;
 				if (is_selected)
 					ImGui::SetItemDefaultFocus();
 			}
 			ImGui::EndCombo();
 		}
-		debug_renderer->ubo.present_mode = present_mode;
+		debug_renderer->ubo.present_mode = render_debug_rendering_mode;
 	}
 
-	ImGui::Checkbox("Is First Frame", &is_first_frame);
+	ConVarSystem::drawImGui();
 
 	float cam_speed = camera->getSpeed();
-	if (ImGui::SliderFloat("Camera Speed", &cam_speed, 0.1f, 3.5f))
+	if (ImGui::SliderFloat("Camera Speed", &cam_speed, 0.1f, 10.0f))
 	{
 		camera->setSpeed(cam_speed);
 	}
@@ -448,79 +371,6 @@ void Application::update(float delta_time)
 
 	ImGui::End();
 
-	// Parameters
-	ImGui::Begin("Parameters");
-	is_using_ui |= ImGui::IsWindowFocused();
-	if (selected_entity)
-	{
-		if (selected_entity.hasComponent<MeshRendererComponent>())
-		{
-			auto &mesh_renderer = selected_entity.getComponent<MeshRendererComponent>();
-			for (auto &mesh_id : mesh_renderer.meshes)
-			{
-				auto mesh = mesh_id.getMesh();
-				debug_renderer->addBoundBox(mesh->bound_box * selected_entity.getWorldTransformMatrix());
-			}
-			ImGui::Text("Materials");
-			for (int i = 0; i < mesh_renderer.materials.size(); i++)
-			{
-				auto mat = mesh_renderer.materials[i];
-				std::string name = "Material " + i;
-				if (ImGui::TreeNode(name.c_str()))
-				{
-					bool use_texture = mat->albedo_tex_id >= 0;
-					if (ImGui::Checkbox("Use albedo texture", &use_texture))
-					{
-						mat->albedo_tex_id = use_texture ? 0: -1;
-					} 
-					if (use_texture)
-					{
-						if (ImGui::Button("Select"))
-						{
-							std::string path = Filesystem::openFileDialog();
-							if (!path.empty())
-							{
-								auto texture = AssetManager::getAsset<Texture>(path);
-								mat->albedo_tex_id = BindlessResources::addTexture(texture.get());
-							}
-						}
-					} else
-					{
-						ImGui::ColorEdit4("Color", mat->albedo.data.data);
-					}
-					// TODO: edit all textures
-
-					ImGui::TreePop();
-				}
-			}
-		}
-
-		if (selected_entity.hasComponent<LightComponent>())
-		{
-			auto &light = selected_entity.getComponent<LightComponent>();
-			int light_type = light.getType();
-			char *items[] = {"Point", "Directional"};
-			if (ImGui::BeginCombo("Light type", items[light_type]))
-			{
-				for (int n = 0; n < IM_ARRAYSIZE(items); n++)
-				{
-					bool is_selected = (light_type == n);
-					if (ImGui::Selectable(items[n], is_selected))
-						light_type = n;
-					if (is_selected)
-						ImGui::SetItemDefaultFocus();
-				}
-				ImGui::EndCombo();
-			}
-			light.setType((LIGHT_TYPE)light_type);
-			ImGui::SliderFloat3("Light Color", light.color.data.data, 0, 1);
-			ImGui::SliderFloat("Light Radius", &light.radius, 0.001f, 40.0);
-			ImGui::SliderFloat("Light Intensity", &light.intensity, 0.01f, 25);
-		}
-	}
-	ImGui::End();
-
-
 	const ImGuiViewport *viewport = ImGui::GetMainViewport();
 	ImGui::SetNextWindowPos(viewport->WorkPos);
 	ImGui::SetNextWindowSize(viewport->WorkSize);
@@ -567,6 +417,9 @@ void Application::update(float delta_time)
 	}
 	ImGui::End();
 
+	// Parameters
+	is_using_ui |= parameters_panel.renderImGui(selected_entity, debug_renderer);
+
 	// Asset browser
 	is_using_ui |= asset_browser_panel.renderImGui();
 
@@ -593,12 +446,17 @@ void Application::updateBuffers(float delta_time, uint32_t image_index)
 
 void Application::recordCommands(CommandBuffer &command_buffer, uint32_t image_index)
 {
-	if (is_first_frame)
+	if (engine_ray_tracing && render_ray_traced_shadows)
+		ray_tracing_scene->update();
+
+	if (render_first_frame)
 	{
+		render_first_frame = false;
+
 		// Render BRDF Lut
 		ibl_brdf_lut->transitLayout(command_buffer, TEXTURE_LAYOUT_ATTACHMENT);
 		VkWrapper::cmdBeginRendering(command_buffer, {ibl_brdf_lut}, nullptr);
-		lut_renderer->fillCommandBuffer(command_buffer, image_index);
+		lut_renderer->fillCommandBuffer(command_buffer);
 		VkWrapper::cmdEndRendering(command_buffer);
 		ibl_brdf_lut->transitLayout(command_buffer, TEXTURE_LAYOUT_SHADER_READ);
 		
@@ -621,7 +479,7 @@ void Application::recordCommands(CommandBuffer &command_buffer, uint32_t image_i
 			irradiance_renderer->constants.mvp = 
 				glm::perspective(glm::radians(90.0f), 1.0f, 0.01f, 512.0f) * views[face];
 			VkWrapper::cmdBeginRendering(command_buffer, {ibl_irradiance}, nullptr, face);
-			irradiance_renderer->fillCommandBuffer(command_buffer, image_index);
+			irradiance_renderer->fillCommandBuffer(command_buffer);
 			VkWrapper::cmdEndRendering(command_buffer);
 		}
 
@@ -640,23 +498,23 @@ void Application::recordCommands(CommandBuffer &command_buffer, uint32_t image_i
 
 				prefilter_renderer->constants_frag.roughness = roughness;
 				VkWrapper::cmdBeginRendering(command_buffer, {ibl_prefilter}, nullptr, face, mip);
-				prefilter_renderer->fillCommandBuffer(command_buffer, image_index);
+				prefilter_renderer->fillCommandBuffer(command_buffer);
 				VkWrapper::cmdEndRendering(command_buffer);
 			}
 		}
-
-		is_first_frame = false;
 
 		ibl_irradiance->generate_mipmaps(command_buffer);
 		ibl_prefilter->transitLayout(command_buffer, TEXTURE_LAYOUT_SHADER_READ);
 	}
 
-	render_shadows(command_buffer, image_index);
-
-	render_GBuffer(command_buffer, image_index);
-	render_lighting(command_buffer, image_index);
-	render_ssao(command_buffer, image_index);
-	render_deffered_composite(command_buffer, image_index);
+	if (::render_shadows)
+		render_shadows(command_buffer);
+	render_GBuffer(command_buffer);
+	if (render_ray_traced_shadows)
+		render_ray_tracing(command_buffer);
+	render_lighting(command_buffer);
+	render_ssao(command_buffer);
+	render_deffered_composite(command_buffer);
 
 	Renderer::getRenderTarget(RENDER_TARGET_COMPOSITE)->transitLayout(command_buffer, TEXTURE_LAYOUT_SHADER_READ);
 
@@ -664,20 +522,20 @@ void Application::recordCommands(CommandBuffer &command_buffer, uint32_t image_i
 	VkWrapper::cmdBeginRendering(command_buffer, {VkWrapper::swapchain->swapchain_textures[image_index]}, nullptr);
 
 	// Render post process
-	if (!debug_rendering)
+	if (!render_debug_rendering)
 	{
-		post_renderer->fillCommandBuffer(command_buffer, image_index);
+		post_renderer->fillCommandBuffer(command_buffer);
 	}
 
 	// Render debug textures
-	if (debug_rendering)
+	if (render_debug_rendering)
 	{
-		debug_renderer->fillCommandBuffer(command_buffer, image_index);
+		debug_renderer->fillCommandBuffer(command_buffer);
 	}
-	debug_renderer->renderLines(command_buffer, image_index);
+	debug_renderer->renderLines(command_buffer);
 
 	// Render imgui
-	imgui_renderer->fillCommandBuffer(command_buffer, image_index);
+	imgui_renderer->fillCommandBuffer(command_buffer);
 
 	VkWrapper::cmdEndRendering(command_buffer);
 	// End rendering to present
@@ -762,7 +620,7 @@ void Application::onSwapchainRecreated(int width, int height)
 	post_renderer->ubo.composite_final_tex_id = composite_final_id;
 }
 
-void Application::render_GBuffer(CommandBuffer &command_buffer, uint32_t image_index)
+void Application::render_GBuffer(CommandBuffer &command_buffer)
 {
 	GPU_TIME_SCOPED_FUNCTION();
 	Renderer::getRenderTarget(RENDER_TARGET_GBUFFER_ALBEDO)->transitLayout(command_buffer, TEXTURE_LAYOUT_ATTACHMENT);
@@ -791,7 +649,7 @@ void Application::render_GBuffer(CommandBuffer &command_buffer, uint32_t image_i
 	p->flush();
 	p->bind(command_buffer);
 
-	Renderer::bindShadersDescriptorSets(gbuffer_vertex_shader, gbuffer_fragment_shader, command_buffer, p->getPipelineLayout(), image_index);
+	Renderer::bindShadersDescriptorSets(p->getCurrentShaders(), command_buffer, p->getPipelineLayout());
 
 	auto entities_id = scene.getEntitiesWith<MeshRendererComponent>();
 	for (entt::entity entity_id : entities_id)
@@ -806,8 +664,109 @@ void Application::render_GBuffer(CommandBuffer &command_buffer, uint32_t image_i
 	VkWrapper::cmdEndRendering(command_buffer);
 }
 
+void Application::render_ray_tracing(CommandBuffer &command_buffer)
+{
+	GPU_TIME_SCOPED_FUNCTION();
+	if (!ray_tracing_scene || !ray_tracing_scene->getTopLevelAS().handle)
+		return;
 
-void Application::render_lighting(CommandBuffer &command_buffer, uint32_t image_index)
+	auto p = VkWrapper::global_pipeline;
+	p->reset();
+
+	p->setIsRayTracingPipeline(true);
+	p->setRayGenerationShader(raygen_shader);
+	p->setMissShader(miss_shader);
+	p->setClosestHitShader(closest_hit_shader);
+
+	p->flush();
+	p->bind(command_buffer);
+
+	// Uniforms
+	struct UBO 
+	{
+		glm::mat4 viewInverse;
+		glm::mat4 projInverse;
+	} ubo;
+
+	struct LightUBO
+	{
+		glm::vec4 dir_light_direction;
+	} ubo_light;
+
+	ubo.viewInverse = glm::inverse(camera->getView());
+	ubo.projInverse = glm::inverse(camera->getProj());
+
+	auto lights = scene.getEntitiesWith<LightComponent>();
+	for (auto entity_id : lights)
+	{
+		Entity light_entity(entity_id, &scene);
+		if (light_entity.getComponent<LightComponent>().getType() == LIGHT_TYPE_DIRECTIONAL)
+		{
+			glm::vec3 scale, position, skew;
+			glm::vec4 persp;
+			glm::quat rotation;
+			glm::decompose(light_entity.getWorldTransformMatrix(), scale, rotation, position, skew, persp);
+
+			ubo_light.dir_light_direction = rotation * glm::vec4(0, 0, -1, 1);
+			break;
+		}
+	}
+
+	auto &ray_traced_lighting = storage_image;
+	Renderer::setShadersAccelerationStructure(p->getCurrentShaders(), &ray_tracing_scene->getTopLevelAS().handle, 0);
+	Renderer::setShadersTexture(p->getCurrentShaders(), 1, ray_traced_lighting);
+	Renderer::setShadersUniformBuffer(p->getCurrentShaders(), 2, &ubo, sizeof(UBO));
+	Renderer::setShadersUniformBuffer(p->getCurrentShaders(), 6, &ubo_light, sizeof(LightUBO));
+
+	Renderer::setShadersStorageBuffer(p->getCurrentShaders(), 3, ray_tracing_scene->getObjDescs().data(), sizeof(RayTracingScene::ObjDesc) * ray_tracing_scene->getObjDescs().size());
+
+	Renderer::setShadersStorageBuffer(p->getCurrentShaders(), 4, ray_tracing_scene->getBigVertexBuffer());
+	Renderer::setShadersStorageBuffer(p->getCurrentShaders(), 5, ray_tracing_scene->getBigIndexBuffer());
+	Renderer::bindShadersDescriptorSets(p->getCurrentShaders(), command_buffer, p->getPipelineLayout(), true);
+
+	const uint32_t handleSizeAligned = VkWrapper::alignedSize(VkWrapper::device->physicalRayTracingProperties.shaderGroupHandleSize, VkWrapper::device->physicalRayTracingProperties.shaderGroupHandleAlignment);
+	VkStridedDeviceAddressRegionKHR raygenShaderSbtEntry{};
+	raygenShaderSbtEntry.deviceAddress = VkWrapper::getBufferDeviceAddress(p->current_pipeline->raygenShaderBindingTable->bufferHandle);
+	raygenShaderSbtEntry.stride = handleSizeAligned;
+	raygenShaderSbtEntry.size = handleSizeAligned;
+
+	VkStridedDeviceAddressRegionKHR missShaderSbtEntry{};
+	missShaderSbtEntry.deviceAddress = VkWrapper::getBufferDeviceAddress(p->current_pipeline->missShaderBindingTable->bufferHandle);
+	missShaderSbtEntry.stride = handleSizeAligned;
+	missShaderSbtEntry.size = handleSizeAligned;
+
+	VkStridedDeviceAddressRegionKHR hitShaderSbtEntry{};
+	hitShaderSbtEntry.deviceAddress = VkWrapper::getBufferDeviceAddress(p->current_pipeline->hitShaderBindingTable->bufferHandle);
+	hitShaderSbtEntry.stride = handleSizeAligned;
+	hitShaderSbtEntry.size = handleSizeAligned;
+
+	VkStridedDeviceAddressRegionKHR callableShaderSbtEntry{};
+
+	ray_traced_lighting->transitLayout(command_buffer, TEXTURE_LAYOUT_GENERAL);
+
+	auto vkCmdTraceRaysKHR = reinterpret_cast<PFN_vkCmdTraceRaysKHR>(vkGetDeviceProcAddr(VkWrapper::device->logicalHandle, "vkCmdTraceRaysKHR"));
+	vkCmdTraceRaysKHR(command_buffer.get_buffer(), &raygenShaderSbtEntry, &missShaderSbtEntry, &hitShaderSbtEntry, &callableShaderSbtEntry,
+					  VkWrapper::swapchain->swap_extent.width, VkWrapper::swapchain->swap_extent.height, 1);
+	p->unbind(command_buffer);
+
+	ray_traced_lighting->transitLayout(command_buffer, TEXTURE_LAYOUT_TRANSFER_SRC);
+
+	Renderer::getRenderTarget(RENDER_TARGET_RAY_TRACED_LIGHTING)->transitLayout(command_buffer, TEXTURE_LAYOUT_TRANSFER_DST);
+
+	VkImageCopy copyRegion{};
+	copyRegion.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+	copyRegion.srcOffset = {0, 0, 0};
+	copyRegion.dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+	copyRegion.dstOffset = {0, 0, 0};
+	copyRegion.extent = {VkWrapper::swapchain->swap_extent.width, VkWrapper::swapchain->swap_extent.height, 1};
+	vkCmdCopyImage(command_buffer.get_buffer(), storage_image->imageHandle, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, Renderer::getRenderTarget(RENDER_TARGET_RAY_TRACED_LIGHTING)->imageHandle, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
+
+	Renderer::getRenderTarget(RENDER_TARGET_RAY_TRACED_LIGHTING)->transitLayout(command_buffer, TEXTURE_LAYOUT_SHADER_READ);
+
+}
+
+
+void Application::render_lighting(CommandBuffer &command_buffer)
 {
 	GPU_TIME_SCOPED_FUNCTION();
 	Renderer::getRenderTarget(RENDER_TARGET_GBUFFER_ALBEDO)->transitLayout(command_buffer, TEXTURE_LAYOUT_SHADER_READ);
@@ -824,18 +783,18 @@ void Application::render_lighting(CommandBuffer &command_buffer, uint32_t image_
 									Renderer::getRenderTarget(RENDER_TARGET_LIGHTING_SPECULAR)
 								 }, nullptr);
 
-	defferred_lighting_renderer->renderLights(&scene, command_buffer, image_index);
+	defferred_lighting_renderer->renderLights(&scene, command_buffer);
 
 	VkWrapper::cmdEndRendering(command_buffer);
 }
 
-void Application::render_ssao(CommandBuffer &command_buffer, uint32_t image_index)
+void Application::render_ssao(CommandBuffer &command_buffer)
 {
 	GPU_TIME_SCOPED_FUNCTION();
-	ssao_renderer->fillCommandBuffer(command_buffer, image_index);
+	ssao_renderer->fillCommandBuffer(command_buffer);
 }
 
-void Application::render_deffered_composite(CommandBuffer &command_buffer, uint32_t image_index)
+void Application::render_deffered_composite(CommandBuffer &command_buffer)
 {
 	GPU_TIME_SCOPED_FUNCTION();
 	Renderer::getRenderTarget(RENDER_TARGET_LIGHTING_DIFFUSE)->transitLayout(command_buffer, TEXTURE_LAYOUT_SHADER_READ);
@@ -846,9 +805,9 @@ void Application::render_deffered_composite(CommandBuffer &command_buffer, uint3
 	VkWrapper::cmdBeginRendering(command_buffer, {Renderer::getRenderTarget(RENDER_TARGET_COMPOSITE)}, nullptr);
 
 	// Draw Sky on background
-	cubemap_renderer->fillCommandBuffer(command_buffer, image_index);
+	cubemap_renderer->fillCommandBuffer(command_buffer);
 	// Draw composite (discard sky pixels by depth)
-	deffered_composite_renderer->fillCommandBuffer(command_buffer, image_index);
+	deffered_composite_renderer->fillCommandBuffer(command_buffer);
 
 	VkWrapper::cmdEndRendering(command_buffer);
 }
@@ -947,7 +906,7 @@ void Application::update_cascades(LightComponent &light, glm::vec3 light_dir)
 	}
 }
 
-void Application::render_shadows(CommandBuffer &command_buffer, uint32_t image_index)
+void Application::render_shadows(CommandBuffer &command_buffer)
 {
 	GPU_TIME_SCOPED_FUNCTION();
 	auto light_entities_id = scene.getEntitiesWith<LightComponent>();
@@ -1002,8 +961,8 @@ void Application::render_shadows(CommandBuffer &command_buffer, uint32_t image_i
 				ubo.light_pos = glm::vec4(position, 1.0);
 				ubo.z_far = light.radius;
 
-				Renderer::setShadersUniformBuffer(VkWrapper::global_pipeline->getVertexShader(), VkWrapper::global_pipeline->getFragmentShader(), 0, &ubo, sizeof(EntityRenderer::ShadowUBO), image_index);
-				Renderer::bindShadersDescriptorSets(VkWrapper::global_pipeline->getVertexShader(), VkWrapper::global_pipeline->getFragmentShader(), command_buffer, p->getPipelineLayout(), image_index);
+				Renderer::setShadersUniformBuffer(p->getCurrentShaders(), 0, &ubo, sizeof(EntityRenderer::ShadowUBO));
+				Renderer::bindShadersDescriptorSets(p->getCurrentShaders(), command_buffer, p->getPipelineLayout());
 
 				auto mesh_entities_view = scene.getEntitiesWith<TransformComponent, MeshRendererComponent>();
 				for (auto mesh_entity_id : mesh_entities_view)
@@ -1046,8 +1005,8 @@ void Application::render_shadows(CommandBuffer &command_buffer, uint32_t image_i
 				ubo.light_pos = glm::vec4(position, 1.0);
 				ubo.z_far = 0;
 
-				Renderer::setShadersUniformBuffer(VkWrapper::global_pipeline->getVertexShader(), VkWrapper::global_pipeline->getFragmentShader(), 0, &ubo, sizeof(EntityRenderer::ShadowUBO), image_index);
-				Renderer::bindShadersDescriptorSets(VkWrapper::global_pipeline->getVertexShader(), VkWrapper::global_pipeline->getFragmentShader(), command_buffer, p->getPipelineLayout(), image_index);
+				Renderer::setShadersUniformBuffer(p->getCurrentShaders(), 0, &ubo, sizeof(EntityRenderer::ShadowUBO));
+				Renderer::bindShadersDescriptorSets(p->getCurrentShaders(), command_buffer, p->getPipelineLayout());
 
 				auto mesh_entities_view = scene.getEntitiesWith<TransformComponent, MeshRendererComponent>();
 				for (auto mesh_entity_id : mesh_entities_view)
@@ -1089,4 +1048,6 @@ void Application::key_callback(GLFWwindow *window, int key, int scancode, int ac
 		guizmo_tool_type = ImGuizmo::ROTATE;
 	if (key == GLFW_KEY_T)
 		guizmo_tool_type = ImGuizmo::TRANSLATE;
+	if (key == GLFW_KEY_Y)
+		guizmo_tool_type = ImGuizmo::SCALE;
 }

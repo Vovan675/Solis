@@ -3,7 +3,9 @@
 class Device
 {
 public:
-	VkPhysicalDeviceProperties physicalProperties;
+	VkPhysicalDeviceAccelerationStructurePropertiesKHR physicalAccelerationStructureProperties{};
+	VkPhysicalDeviceRayTracingPipelinePropertiesKHR physicalRayTracingProperties{};
+	VkPhysicalDeviceProperties2 physicalProperties{};
 	VkPhysicalDevice physicalHandle;
 	VkPhysicalDeviceMemoryProperties memory_properties;
 	VkDevice logicalHandle;

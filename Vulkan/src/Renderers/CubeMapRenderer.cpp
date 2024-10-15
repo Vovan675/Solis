@@ -15,7 +15,7 @@ CubeMapRenderer::CubeMapRenderer(): RendererBase()
 	cube_texture = std::make_shared<Texture>(tex_description);
 	cube_texture->load("assets/cubemap/");
 
-	auto model = AssetManager::getAsset<Model>("assets/cube.fbx");
+	auto model = AssetManager::getModelAsset("assets/cube.fbx");
 	mesh = model->getRootNode()->children[0]->meshes[0];
 
 
@@ -27,7 +27,7 @@ CubeMapRenderer::~CubeMapRenderer()
 {
 }
 
-void CubeMapRenderer::fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index)
+void CubeMapRenderer::fillCommandBuffer(CommandBuffer &command_buffer)
 {
 	auto &p = VkWrapper::global_pipeline;
 	p->reset();
@@ -42,8 +42,8 @@ void CubeMapRenderer::fillCommandBuffer(CommandBuffer &command_buffer, uint32_t 
 	p->bind(command_buffer);
 
 	// Uniforms
-	Renderer::setShadersTexture(vertex_shader, fragment_shader, 1, cube_texture, image_index);
-	Renderer::bindShadersDescriptorSets(vertex_shader, fragment_shader, command_buffer, p->getPipelineLayout(), image_index);
+	Renderer::setShadersTexture(p->getCurrentShaders(), 1, cube_texture);
+	Renderer::bindShadersDescriptorSets(p->getCurrentShaders(), command_buffer, p->getPipelineLayout());
 
 	// Render mesh
 	VkBuffer vertexBuffers[] = {mesh->vertexBuffer->bufferHandle};

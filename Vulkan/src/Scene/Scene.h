@@ -26,10 +26,4 @@ public:
 private:
 	friend class Entity;
 	entt::registry registry;
-
-	template<class Archive>
-	void save(Archive &archive);
-
-	template<class Archive>
-	void load(Archive &archive);
 };

@@ -13,7 +13,7 @@ PrefilterRenderer::PrefilterRenderer(): RendererBase()
 	tex_description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 	tex_description.is_cube = true;
 
-	auto model = AssetManager::getAsset<Model>("assets/cube.fbx");
+	auto model = AssetManager::getModelAsset("assets/cube.fbx");
 	mesh = model->getRootNode()->children[0]->meshes[0];
 
 	vertex_shader = Shader::create("shaders/ibl/cubemap_filter.vert", Shader::VERTEX_SHADER);
@@ -24,7 +24,7 @@ PrefilterRenderer::~PrefilterRenderer()
 {
 }
 
-void PrefilterRenderer::fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index)
+void PrefilterRenderer::fillCommandBuffer(CommandBuffer &command_buffer)
 {
 	auto &p = VkWrapper::global_pipeline;
 	p->reset();
@@ -39,8 +39,8 @@ void PrefilterRenderer::fillCommandBuffer(CommandBuffer &command_buffer, uint32_
 	p->bind(command_buffer);
 
 	// Uniforms
-	Renderer::setShadersTexture(vertex_shader, fragment_shader, 1, cube_texture, image_index);
-	Renderer::bindShadersDescriptorSets(vertex_shader, fragment_shader, command_buffer, p->getPipelineLayout(), image_index);
+	Renderer::setShadersTexture(p->getCurrentShaders(), 1, cube_texture);
+	Renderer::bindShadersDescriptorSets(p->getCurrentShaders(), command_buffer, p->getPipelineLayout());
 
 	vkCmdPushConstants(command_buffer.get_buffer(), p->getPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PushConstantVert), &constants_vert);
 	vkCmdPushConstants(command_buffer.get_buffer(), p->getPipelineLayout(), VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(PushConstantVert), sizeof(PushConstantFrag), &constants_frag);

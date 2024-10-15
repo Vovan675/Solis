@@ -16,7 +16,7 @@ EntityRenderer::~EntityRenderer()
 {
 }
 
-void EntityRenderer::fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index)
+void EntityRenderer::fillCommandBuffer(CommandBuffer &command_buffer)
 {
 
 }

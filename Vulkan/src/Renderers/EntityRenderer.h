@@ -30,7 +30,7 @@ public:
 	EntityRenderer();
 	virtual ~EntityRenderer();
 
-	void fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index) override;
+	void fillCommandBuffer(CommandBuffer &command_buffer) override;
 	void renderEntity(CommandBuffer &command_buffer, Entity entity);
 	void renderEntityShadow(CommandBuffer &command_buffer, glm::mat4 &transform_matrix, MeshRendererComponent &mesh_renderer);
 

@@ -14,7 +14,7 @@ public:
 	MeshRenderer(std::shared_ptr<Engine::Mesh> mesh);
 	virtual ~MeshRenderer();
 
-	void fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index) override;
+	void fillCommandBuffer(CommandBuffer &command_buffer) override;
 
 	void setPosition(glm::vec3 pos) { position = pos; }
 	void setRotation(glm::quat rot) { rotation = rot; }

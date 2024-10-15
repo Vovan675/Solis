@@ -66,7 +66,7 @@ void Texture::fill()
 		VmaAllocationCreateInfo alloc_info{};
 		alloc_info.usage = VMA_MEMORY_USAGE_GPU_ONLY;
 		vmaCreateImage(VkWrapper::allocator, &imageInfo, &alloc_info, &imageHandle, &allocation, nullptr);
-	
+
 		getImageView();
 		create_sampler();
 	} else
@@ -105,16 +105,7 @@ void Texture::fill(const void* sourceData)
 	VkDeviceSize image_size;
 	if (m_Description.is_cube == false)
 	{
-		image_size = m_Description.width * m_Description.height * get_bytes_per_channel() * get_channels_count();
-		if (m_Description.imageFormat == VK_FORMAT_BC1_RGB_UNORM_BLOCK)
-		{
-			unsigned int block_width = 4;
-			unsigned int block_height = 4;
-			unsigned int block_size = 8;
-			unsigned int blocks_width = (m_Description.width + block_width - 1) / block_width;
-			unsigned int blocks_height = (m_Description.height + block_height - 1) / block_height;
-			image_size = blocks_width * blocks_height * block_size;
-		}
+		image_size = get_image_size();
 		VkImageCreateInfo imageInfo{};
 		imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
 		imageInfo.imageType = VK_IMAGE_TYPE_2D;
@@ -137,7 +128,7 @@ void Texture::fill(const void* sourceData)
 		VkResult res = vmaCreateImage(VkWrapper::allocator, &imageInfo, &alloc_info, &imageHandle, &allocation, nullptr);
 	} else
 	{
-		image_size = m_Description.width * m_Description.height * get_bytes_per_channel() * get_channels_count() * 6;
+		image_size = get_image_size() * 6;
 		VkImageCreateInfo imageInfo{};
 		imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
 		imageInfo.imageType = VK_IMAGE_TYPE_2D;
@@ -220,14 +211,19 @@ void Texture::load(const char *path)
 			pixels = data->m_mem;
 
 			auto format = file.GetFormat();
-			if (format != tinyddsloader::DDSFile::DXGIFormat::BC1_UNorm)
-			{
-				return;
-			}
+			if (format == tinyddsloader::DDSFile::DXGIFormat::BC1_UNorm)
+				m_Description.imageFormat = VK_FORMAT_BC1_RGB_UNORM_BLOCK;
+			else if (format == tinyddsloader::DDSFile::DXGIFormat::BC3_UNorm)
+				m_Description.imageFormat = VK_FORMAT_BC3_UNORM_BLOCK;
+			else if (format == tinyddsloader::DDSFile::DXGIFormat::BC5_UNorm)
+				m_Description.imageFormat = VK_FORMAT_BC5_UNORM_BLOCK;
+			else if (format == tinyddsloader::DDSFile::DXGIFormat::BC7_UNorm)
+				m_Description.imageFormat = VK_FORMAT_BC7_UNORM_BLOCK;
+			else
+				CORE_ERROR("Invalid texture format");
 
 			m_Description.width = texWidth;
 			m_Description.height = texHeight;
-			m_Description.imageFormat = VK_FORMAT_BC1_RGB_UNORM_BLOCK;
 			m_Description.mipLevels = 1;
 			fill(pixels);
 		} else {
@@ -349,6 +345,10 @@ void Texture::transitLayout(CommandBuffer &command_buffer, TextureLayoutType new
 			src_stage_mask = VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT;
 			src_access_mask = VK_ACCESS_2_MEMORY_READ_BIT;
 			break;
+		case TEXTURE_LAYOUT_GENERAL:
+			src_stage_mask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+			src_access_mask = VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT;
+			break;
 		case TEXTURE_LAYOUT_ATTACHMENT:
 			if (is_depth_texture)
 			{
@@ -376,6 +376,10 @@ void Texture::transitLayout(CommandBuffer &command_buffer, TextureLayoutType new
 
 	switch (new_layout_type)
 	{
+		case TEXTURE_LAYOUT_GENERAL:
+			dst_stage_mask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+			dst_access_mask = VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT;
+			break;
 		case TEXTURE_LAYOUT_ATTACHMENT:
 			if (is_depth_texture)
 			{
@@ -490,6 +494,9 @@ VkImageLayout Texture::get_vk_layout(TextureLayoutType layout_type)
 	{
 		case TEXTURE_LAYOUT_UNDEFINED:
 			return VK_IMAGE_LAYOUT_UNDEFINED;
+			break;
+		case TEXTURE_LAYOUT_GENERAL:
+			return VK_IMAGE_LAYOUT_GENERAL;
 			break;
 		case TEXTURE_LAYOUT_ATTACHMENT:
 			return is_depth_texture ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
@@ -752,6 +759,34 @@ int Texture::get_bytes_per_channel() const
 	return 0;
 }
 
+VkDeviceSize Texture::get_image_size() const
+{
+	VkDeviceSize image_size = m_Description.width * m_Description.height * get_bytes_per_channel() * get_channels_count();
+
+	unsigned int block_width = 4;
+	unsigned int block_height = 4;
+	if (isCompressedFormat(m_Description.imageFormat))
+	{
+		unsigned int block_size = 8;
+		unsigned int blocks_width = (m_Description.width + block_width - 1) / block_width;
+		unsigned int blocks_height = (m_Description.height + block_height - 1) / block_height;
+
+		switch (m_Description.imageFormat)
+		{
+			case VK_FORMAT_BC1_RGB_UNORM_BLOCK:
+				block_size = 8;
+				break;
+			case VK_FORMAT_BC3_UNORM_BLOCK:
+			case VK_FORMAT_BC5_UNORM_BLOCK:
+			case VK_FORMAT_BC7_UNORM_BLOCK:
+				block_size = 16;
+				break;
+		}
+		image_size = blocks_width * blocks_height * block_size;
+	}
+	return image_size;
+}
+
 void Texture::generate_mipmaps(CommandBuffer &command_buffer) {
 	int faces = m_Description.is_cube ? 6 : 1;
 	VkImageMemoryBarrier barrier{};
@@ -841,7 +876,7 @@ void Texture::create_sampler()
 	samplerInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
 
 	samplerInfo.anisotropyEnable = m_Description.anisotropy ? VK_TRUE : VK_FALSE;
-	samplerInfo.maxAnisotropy = m_Description.anisotropy ? VkWrapper::device->physicalProperties.limits.maxSamplerAnisotropy : 1.0f;
+	samplerInfo.maxAnisotropy = m_Description.anisotropy ? VkWrapper::device->physicalProperties.properties.limits.maxSamplerAnisotropy : 1.0f;
 	samplerInfo.unnormalizedCoordinates = VK_FALSE;
 	samplerInfo.compareEnable = VK_FALSE;
 	samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;

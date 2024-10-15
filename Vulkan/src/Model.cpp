@@ -16,12 +16,20 @@ static glm::mat4 convertAssimpMat4(const aiMatrix4x4 &m)
 
 Model::~Model()
 {
+	cleanup();
+}
+
+void Model::cleanup()
+{
 	if (root_node)
 		delete root_node;
+	linear_nodes.clear();
+	meshes_id.clear();
 }
 
 void Model::load(const char *path)
 {
+	cleanup();
 	this->path = path;
 	Assimp::Importer importer;
 
@@ -30,7 +38,8 @@ void Model::load(const char *path)
 											 aiProcess_GenSmoothNormals |
 											 aiProcess_Triangulate |
 											 aiProcess_JoinIdenticalVertices |
-											 aiProcess_SortByPType);
+											 aiProcess_SortByPType |
+											 aiProcess_OptimizeMeshes);
 	process_node(nullptr, scene->mRootNode, scene);
 	root_node->updateTransform();
 }
@@ -40,6 +49,7 @@ void Model::process_node(MeshNode *mesh_node, aiNode *node, const aiScene *scene
 	if (!mesh_node)
 	{
 		root_node = new MeshNode();
+		linear_nodes.push_back(root_node);
 		mesh_node = root_node;
 	}
 
@@ -66,6 +76,7 @@ void Model::process_node(MeshNode *mesh_node, aiNode *node, const aiScene *scene
 			aiVector3D vertex = mesh->mVertices[v];
 
 			glm::vec3 normal(0, 0, 0);
+			glm::vec3 tangent(0, 0, 0);
 			glm::vec2 uv(0, 0);
 			glm::vec3 color(1, 1, 1);
 
@@ -73,6 +84,12 @@ void Model::process_node(MeshNode *mesh_node, aiNode *node, const aiScene *scene
 			{
 				aiVector3D aiNormal = mesh->mNormals[v];
 				normal = glm::vec3(aiNormal.x, aiNormal.y, aiNormal.z);
+			}
+
+			if (mesh->HasTangentsAndBitangents())
+			{
+				aiVector3D aiTangent = mesh->mTangents[v];
+				tangent = glm::vec3(aiTangent.x, aiTangent.y, aiTangent.z);
 			}
 
 			if (mesh->mTextureCoords[0] != nullptr)
@@ -86,7 +103,7 @@ void Model::process_node(MeshNode *mesh_node, aiNode *node, const aiScene *scene
 				aiColor4D *aiColor = mesh->mColors[v];
 				color = glm::vec3(aiColor->r, aiColor->g, aiColor->b);
 			}
-			vertices.emplace_back(Engine::Vertex{{vertex.x, vertex.y, vertex.z}, normal, uv, color});
+			vertices.emplace_back(Engine::Vertex{{vertex.x, vertex.y, vertex.z}, normal, tangent, uv, color});
 		}
 
 		for (int f = 0; f < mesh->mNumFaces; f++)
@@ -133,6 +150,8 @@ void Model::process_node(MeshNode *mesh_node, aiNode *node, const aiScene *scene
 
 		std::shared_ptr<Material> engine_material = std::make_shared<Material>();
 		mesh_node->materials.push_back(engine_material);
+
+		// Textures
 		unsigned int diffuse_count = mat->GetTextureCount(aiTextureType_DIFFUSE);
 		if (diffuse_count > 0)
 		{
@@ -148,7 +167,7 @@ void Model::process_node(MeshNode *mesh_node, aiNode *node, const aiScene *scene
 				std::filesystem::path result_path(path);
 				result_path = result_path.remove_filename();
 				result_path = result_path.concat(texture_path.C_Str());
-				auto tex = AssetManager::getAsset<Texture>(result_path.string());
+				auto tex = AssetManager::getTextureAsset(result_path.string(), tex_description);
 				if (!tex || tex->imageHandle == nullptr)
 					continue;
 				engine_material->albedo_tex_id = BindlessResources::addTexture(tex.get());
@@ -163,25 +182,100 @@ void Model::process_node(MeshNode *mesh_node, aiNode *node, const aiScene *scene
 			if (res == aiReturn_SUCCESS)
 			{
 				TextureDescription tex_description{};
-				tex_description.imageFormat = VK_FORMAT_R8G8B8A8_SRGB;
+				tex_description.imageFormat = VK_FORMAT_R8G8B8A8_UNORM;
 				tex_description.imageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
 				tex_description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 
 				std::filesystem::path result_path(path);
 				result_path = result_path.remove_filename();
 				result_path = result_path.concat(texture_path.C_Str());
-				auto tex = AssetManager::getAsset<Texture>(result_path.string());
+				auto tex = AssetManager::getTextureAsset(result_path.string(), tex_description);
 				if (!tex || tex->imageHandle == nullptr)
 					continue;
 				engine_material->metalness_tex_id = BindlessResources::addTexture(tex.get());
 			}
 		}
+
+		unsigned int roughness_count = mat->GetTextureCount(aiTextureType_SHININESS);
+		if (roughness_count > 0)
+		{
+			aiString texture_path;
+			aiReturn res = mat->GetTexture(aiTextureType_SHININESS, 0, &texture_path);
+			if (res == aiReturn_SUCCESS)
+			{
+				TextureDescription tex_description{};
+				tex_description.imageFormat = VK_FORMAT_R8G8B8A8_UNORM;
+				tex_description.imageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
+				tex_description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+
+				std::filesystem::path result_path(path);
+				result_path = result_path.remove_filename();
+				result_path = result_path.concat(texture_path.C_Str());
+				auto tex = AssetManager::getTextureAsset(result_path.string(), tex_description);
+				if (!tex || tex->imageHandle == nullptr)
+					continue;
+				engine_material->roughness_tex_id = BindlessResources::addTexture(tex.get());
+			}
+		}
+
+		unsigned int specular_count = mat->GetTextureCount(aiTextureType_SPECULAR);
+		if (specular_count > 0)
+		{
+			aiString texture_path;
+			aiReturn res = mat->GetTexture(aiTextureType_SPECULAR, 0, &texture_path);
+			if (res == aiReturn_SUCCESS)
+			{
+				TextureDescription tex_description{};
+				tex_description.imageFormat = VK_FORMAT_R8G8B8A8_UNORM;
+				tex_description.imageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
+				tex_description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+
+				std::filesystem::path result_path(path);
+				result_path = result_path.remove_filename();
+				result_path = result_path.concat(texture_path.C_Str());
+				auto tex = AssetManager::getTextureAsset(result_path.string(), tex_description);
+				if (!tex || tex->imageHandle == nullptr)
+					continue;
+				engine_material->specular_tex_id = BindlessResources::addTexture(tex.get());
+			}
+		}
+
+		unsigned int normals_count = mat->GetTextureCount(aiTextureType_NORMALS);
+		if (normals_count > 0)
+		{
+			aiString texture_path;
+			aiReturn res = mat->GetTexture(aiTextureType_NORMALS, 0, &texture_path);
+			if (res == aiReturn_SUCCESS)
+			{
+				TextureDescription tex_description{};
+				tex_description.imageFormat = VK_FORMAT_R8G8B8A8_UNORM;
+				tex_description.imageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
+				tex_description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+
+				std::filesystem::path result_path(path);
+				result_path = result_path.remove_filename();
+				result_path = result_path.concat(texture_path.C_Str());
+				auto tex = AssetManager::getTextureAsset(result_path.string(), tex_description);
+				if (!tex || tex->imageHandle == nullptr)
+					continue;
+				engine_material->normal_tex_id = BindlessResources::addTexture(tex.get());
+			}
+		}
+
+		// Parameters
+		aiColor3D aiColor;
+		if (mat->Get(AI_MATKEY_COLOR_DIFFUSE, aiColor) == aiReturn_SUCCESS)
+			engine_material->albedo = {aiColor.r, aiColor.g, aiColor.b, 1.0};
+		mat->Get(AI_MATKEY_METALLIC_FACTOR, engine_material->metalness);
+		mat->Get(AI_MATKEY_ROUGHNESS_FACTOR, engine_material->roughness);
+		mat->Get(AI_MATKEY_SPECULAR_FACTOR, engine_material->specular);
 	}
 
 	for (int c = 0; c < node->mNumChildren; c++)
 	{
 		aiNode *child = node->mChildren[c];
 		MeshNode *child_node = new MeshNode();
+		linear_nodes.push_back(child_node);
 		child_node->parent = mesh_node;
 		process_node(child_node, child, scene);
 		mesh_node->children.push_back(child_node);
@@ -192,6 +286,87 @@ void Model::process_node(MeshNode *mesh_node, aiNode *node, const aiScene *scene
 Entity Model::createEntity(std::shared_ptr<Model> model, Scene *scene)
 {
 	return create_entity_node(model, model->root_node, scene);
+}
+
+void Model::saveFile(const std::string &filename)
+{
+	FileStream stream(filename, std::ofstream::out | std::ofstream::binary);
+	save_mesh_node(stream, root_node);
+}
+
+void Model::loadFile(const std::string &filename)
+{
+	cleanup();
+	FileStream stream(filename, std::ofstream::in | std::ofstream::binary);
+	root_node = new MeshNode();
+	load_mesh_node(stream, root_node);
+}
+
+void Model::save_mesh_node(FileStream &stream, MeshNode *node)
+{
+	stream.write(node->name);
+	stream.write(node->local_model_matrix);
+	stream.write(node->global_model_matrix);
+
+	stream.write(node->meshes.size());
+	for (size_t i = 0; i < node->meshes.size(); i++)
+	{
+		auto &mesh = node->meshes[i];
+		mesh->serialize(stream);
+	}
+
+	stream.write(node->materials.size());
+	for (size_t i = 0; i < node->materials.size(); i++)
+	{
+		auto &mat = node->materials[i];
+		mat->serialize(stream);
+	}
+
+	stream.write(node->children.size());
+	for (size_t i = 0; i < node->children.size(); i++)
+	{
+		save_mesh_node(stream, node->children[i]);
+	}
+}
+
+void Model::load_mesh_node(FileStream &stream, MeshNode *node)
+{
+	linear_nodes.push_back(node);
+	stream.read(node->name);
+	stream.read(node->local_model_matrix);
+	stream.read(node->global_model_matrix);
+
+	size_t meshes_count;
+	stream.read(meshes_count);
+	node->meshes.resize(meshes_count);
+	for (size_t i = 0; i < meshes_count; i++)
+	{
+		auto &mesh = std::make_shared<Engine::Mesh>();
+		mesh->deserialize(stream);
+		node->meshes[i] = mesh;
+		meshes_id[mesh->id] = mesh;
+	}
+
+	size_t materials_count;
+	stream.read(materials_count);
+	node->materials.resize(materials_count);
+	for (size_t i = 0; i < materials_count; i++)
+	{
+		auto &mat = std::make_shared<Material>();
+		mat->deserialize(stream);
+		node->materials[i] = mat;
+	}
+
+	size_t children_count;
+	stream.read(children_count);
+	node->children.resize(children_count);
+	for (size_t i = 0; i < children_count; i++)
+	{
+		auto *child = new MeshNode();
+		child->parent = node;
+		load_mesh_node(stream, child);
+		node->children[i] = child;
+	}
 }
 
 Entity Model::create_entity_node(std::shared_ptr<Model> model, MeshNode *node, Scene *scene)

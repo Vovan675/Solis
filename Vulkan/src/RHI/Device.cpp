@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "Device.h"
 #include "Log.h"
+#include "Variables.h"
 
 static std::vector<const char*> s_ValidationLayers = {
 		"VK_LAYER_KHRONOS_validation"
@@ -54,7 +55,15 @@ void Device::CreatePhysicalDevice()
 	CORE_INFO("Selected graphics queue id: {}", queueFamily.graphicsFamily.value());
 	CORE_INFO("Selected present queue id: {}", queueFamily.presentFamily.value());
 
-	vkGetPhysicalDeviceProperties(physicalHandle, &physicalProperties);
+	physicalAccelerationStructureProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR;
+	
+	physicalRayTracingProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR;
+	physicalRayTracingProperties.pNext = &physicalAccelerationStructureProperties;
+
+	physicalProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+	physicalProperties.pNext = &physicalRayTracingProperties;
+
+	vkGetPhysicalDeviceProperties2(physicalHandle, &physicalProperties);
 	vkGetPhysicalDeviceMemoryProperties(physicalHandle, &memory_properties);
 }
 
@@ -83,22 +92,42 @@ void Device::CreateLogicalDevice()
 	info.ppEnabledLayerNames = s_ValidationLayers.data();
 
 	std::vector<const char*> extensions = {
-		VK_KHR_SWAPCHAIN_EXTENSION_NAME
+		VK_KHR_SWAPCHAIN_EXTENSION_NAME,
 	};
+
+	if (engine_ray_tracing)
+	{
+		extensions.push_back(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME); // For building acceleration structures
+		extensions.push_back(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME); // For vkCmdTraceRaysKHR
+
+		extensions.push_back(VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME);
+		extensions.push_back(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
+		extensions.push_back(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME);
+	}
+
 	info.enabledExtensionCount = extensions.size();
 	info.ppEnabledExtensionNames = extensions.data();
 
+	VkPhysicalDeviceRayTracingPipelineFeaturesKHR ray_tracing_pipeline_features{};
+	ray_tracing_pipeline_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
+	ray_tracing_pipeline_features.rayTracingPipeline = true;
+
+	VkPhysicalDeviceAccelerationStructureFeaturesKHR acceleration_structure_features{};
+	acceleration_structure_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
+	acceleration_structure_features.accelerationStructure = true;
+	acceleration_structure_features.pNext = &ray_tracing_pipeline_features;
 
 	VkPhysicalDeviceVulkan12Features features12{};
 	features12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
-	// TODO: enable bindless
-	//features12.bufferDeviceAddress = true;
-	//features12.descriptorIndexing = true;
+	features12.bufferDeviceAddress = true;
+	features12.descriptorIndexing = true;
 	features12.descriptorBindingPartiallyBound = true;
 	features12.descriptorBindingVariableDescriptorCount = true;
 	features12.descriptorBindingSampledImageUpdateAfterBind = true;
 	features12.runtimeDescriptorArray = true; // for GL_EXT_nonuniform_qualifier extension
 	features12.hostQueryReset = true;
+	if (engine_ray_tracing)
+		features12.pNext = &acceleration_structure_features;
 
 	// Enable dynamic rendering
 	VkPhysicalDeviceVulkan13Features features13{};

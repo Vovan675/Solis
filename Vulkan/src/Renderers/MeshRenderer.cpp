@@ -19,7 +19,7 @@ MeshRenderer::~MeshRenderer()
 {
 }
 
-void MeshRenderer::fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index)
+void MeshRenderer::fillCommandBuffer(CommandBuffer &command_buffer)
 {
 	auto &p = VkWrapper::global_pipeline;
 	p->reset();
@@ -34,7 +34,7 @@ void MeshRenderer::fillCommandBuffer(CommandBuffer &command_buffer, uint32_t ima
 	p->bind(command_buffer);
 
 	// Uniforms
-	Renderer::bindShadersDescriptorSets(vertex_shader, fragment_shader, command_buffer, p->getPipelineLayout(), image_index);
+	Renderer::bindShadersDescriptorSets(p->getCurrentShaders(), command_buffer, p->getPipelineLayout());
 
 	// Push constant
 	glm::mat4 model = glm::mat4_cast(rotation) * glm::translate(glm::mat4(1.0f), position) * glm::scale(glm::mat4(1.0f), scale) * mesh->root_transform;

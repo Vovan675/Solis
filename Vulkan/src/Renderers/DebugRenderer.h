@@ -27,8 +27,8 @@ public:
 	DebugRenderer();
 	virtual ~DebugRenderer();
 
-	void fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index) override;
-	void renderLines(CommandBuffer &command_buffer, uint32_t image_index);
+	void fillCommandBuffer(CommandBuffer &command_buffer) override;
+	void renderLines(CommandBuffer &command_buffer);
 
 	void addLine(glm::vec3 p0, glm::vec3 p1)
 	{

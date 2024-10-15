@@ -147,7 +147,7 @@ VkDescriptorPool DescriptorAllocator::create_pool()
 
 void DescriptorWriter::writeBuffer(uint32_t binding, VkDescriptorType type, VkBuffer buffer, VkDeviceSize size, VkDeviceSize offset)
 {
-	VkDescriptorBufferInfo& buffer_info = buffer_infos.emplace_back();
+	VkDescriptorBufferInfo &buffer_info = buffer_infos.emplace_back();
 	buffer_info.buffer = buffer;
 	buffer_info.offset = offset;
 	buffer_info.range = size;
@@ -164,7 +164,7 @@ void DescriptorWriter::writeBuffer(uint32_t binding, VkDescriptorType type, VkBu
 
 void DescriptorWriter::writeImage(uint32_t binding, VkDescriptorType type, VkImageView image, VkSampler sampler, VkImageLayout image_layout)
 {
-	VkDescriptorImageInfo& image_info = image_infos.emplace_back();
+	VkDescriptorImageInfo &image_info = image_infos.emplace_back();
 	image_info.imageView = image;
 	image_info.sampler = sampler;
 	image_info.imageLayout = image_layout;
@@ -179,10 +179,28 @@ void DescriptorWriter::writeImage(uint32_t binding, VkDescriptorType type, VkIma
 	writes.push_back(write);
 }
 
+void DescriptorWriter::writeAccelerationStructure(uint32_t binding, VkAccelerationStructureKHR *acceleration_structure)
+{
+	VkWriteDescriptorSetAccelerationStructureKHR &write_acceleration = acceleration_structure_infos.emplace_back();
+	write_acceleration.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR;
+	write_acceleration.accelerationStructureCount = 1;
+	write_acceleration.pAccelerationStructures = acceleration_structure;
+
+	VkWriteDescriptorSet write{};
+	write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	write.dstSet = nullptr; // Set later
+	write.dstBinding = binding;
+	write.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
+	write.descriptorCount = 1;
+	write.pNext = &write_acceleration;
+	writes.push_back(write);
+}
+
 void DescriptorWriter::clear()
 {
 	buffer_infos.clear();
 	image_infos.clear();
+	acceleration_structure_infos.clear();
 	writes.clear();
 }
 

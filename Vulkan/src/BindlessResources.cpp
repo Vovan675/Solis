@@ -23,7 +23,7 @@ void BindlessResources::init()
 {
 	// Load invalid texture
 	TextureDescription description;
-	invalid_texture = AssetManager::getAsset<Texture>("assets/invalid_texture.png");
+	invalid_texture = AssetManager::getTextureAsset("assets/invalid_texture.png");
 
 	// By default all indices are empty
 	for (int i = MAX_BINDLESS_TEXTURES - 2; i >= 0; i--)

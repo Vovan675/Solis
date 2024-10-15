@@ -20,11 +20,13 @@ Buffer::Buffer(BufferDescription description)
 		memory_usage = VMA_MEMORY_USAGE_CPU_ONLY;
 	}
 
-	VkWrapper::createBuffer(bufferSize, bufferUsageFlags, memory_usage, bufferHandle, allocation);
+	VkWrapper::createBuffer(bufferSize, bufferUsageFlags, memory_usage, bufferHandle, allocation, description.alignment);
 }
 
 Buffer::~Buffer()
 {
+	// TODO: fix device hung on big scenes. Maybe per frame deletion queue?
+	return;
 	if (allocation)
 	{
 		if (is_mapped)
@@ -47,7 +49,7 @@ void Buffer::fill(const void* sourceData)
 		// Staging buffer
 		VkBuffer stagingBuffer;
 		VmaAllocation stagingAllocation;
-		VkWrapper::createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VmaMemoryUsage::VMA_MEMORY_USAGE_CPU_ONLY, stagingBuffer, stagingAllocation);
+		VkWrapper::createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VmaMemoryUsage::VMA_MEMORY_USAGE_CPU_ONLY, stagingBuffer, stagingAllocation, m_Description.alignment);
 
 		// Map buffer memory to CPU accessible memory
 		void* data;
@@ -70,6 +72,11 @@ void Buffer::fill(const void* sourceData)
 		memcpy(data, sourceData, bufferSize);
 		vmaUnmapMemory(VkWrapper::allocator, allocation);
 	}
+}
+
+void Buffer::fill(uint64_t offset, const void *sourceData, uint64_t size)
+{
+	// TODO
 }
 
 void Buffer::map(void **data)

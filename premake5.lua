@@ -4,6 +4,7 @@ workspace "LearnVulkan"
 	configurations
 	{
 		"Debug",
+		"Fast Debug",
 		"Release"
 	}
 
@@ -94,6 +95,13 @@ project "Vulkan"
 		systemversion "latest"
 
 	filter "configurations:Debug"
+		symbols "On"
+		defines
+		{
+			"DEBUG"
+		}
+
+	filter "configurations:Fast Debug"
 		symbols "On"
 
 	filter "configurations:Release"

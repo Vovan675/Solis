@@ -14,7 +14,7 @@ PostProcessingRenderer::~PostProcessingRenderer()
 {
 }
 
-void PostProcessingRenderer::fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index)
+void PostProcessingRenderer::fillCommandBuffer(CommandBuffer &command_buffer)
 {
 	auto &p = VkWrapper::global_pipeline;
 	p->reset();
@@ -29,8 +29,8 @@ void PostProcessingRenderer::fillCommandBuffer(CommandBuffer &command_buffer, ui
 	p->bind(command_buffer);
 
 	// Uniforms
-	Renderer::setShadersUniformBuffer(vertex_shader, fragment_shader, 0, &ubo, sizeof(UBO), image_index);
-	Renderer::bindShadersDescriptorSets(vertex_shader, fragment_shader, command_buffer, p->getPipelineLayout(), image_index);
+	Renderer::setShadersUniformBuffer(p->getCurrentShaders(), 0, &ubo, sizeof(UBO));
+	Renderer::bindShadersDescriptorSets(p->getCurrentShaders(), command_buffer, p->getPipelineLayout());
 
 	// Render quad
 	vkCmdDraw(command_buffer.get_buffer(), 6, 1, 0, 0);

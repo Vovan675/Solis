@@ -28,6 +28,7 @@ class CommandBuffer;
 enum TextureLayoutType
 {
 	TEXTURE_LAYOUT_UNDEFINED,
+	TEXTURE_LAYOUT_GENERAL,
 	TEXTURE_LAYOUT_ATTACHMENT,
 	TEXTURE_LAYOUT_SHADER_READ,
 	TEXTURE_LAYOUT_TRANSFER_SRC,
@@ -63,6 +64,16 @@ public:
 	VkImageView getImageView(int mip = 0, int layer = -1);
 
 	VkFormat getImageFormat() const { return m_Description.imageFormat; }
+	VkImageUsageFlags getImageUsageFlags() const { return m_Description.imageUsageFlags; }
+
+	bool isCompressedFormat(VkFormat format) const
+	{ 
+		return
+			format == VK_FORMAT_BC1_RGB_UNORM_BLOCK ||
+			format == VK_FORMAT_BC3_UNORM_BLOCK ||
+			format == VK_FORMAT_BC5_UNORM_BLOCK ||
+			format == VK_FORMAT_BC7_UNORM_BLOCK;
+	}
 
 	bool isDepthTexture() const { return m_Description.imageAspectFlags & VK_IMAGE_ASPECT_DEPTH_BIT; }
 	void generate_mipmaps(CommandBuffer &command_buffer);
@@ -70,6 +81,7 @@ private:
 	VkImageLayout get_vk_layout(TextureLayoutType layout_type);
 	int get_channels_count() const;
 	int get_bytes_per_channel() const;
+	VkDeviceSize get_image_size() const;
 
 	void copy_buffer_to_image(CommandBuffer &command_buffer, VkBuffer buffer);
 	void create_sampler();

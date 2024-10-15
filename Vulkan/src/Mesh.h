@@ -1,6 +1,7 @@
 #pragma once
 #include "RHI/Buffer.h"
 #include "BoundBox.h"
+#include "Utils/Stream.h"
 #include "glm/glm.hpp"
 
 namespace Engine
@@ -9,6 +10,7 @@ namespace Engine
 	{
 		glm::vec3 pos;
 		glm::vec3 normal;
+		glm::vec3 tangent;
 		glm::vec2 uv;
 		glm::vec3 color;
 
@@ -22,9 +24,9 @@ namespace Engine
 			return desc;
 		}
 
-		static std::array<VkVertexInputAttributeDescription, 4> GetAttributeDescription()
+		static std::array<VkVertexInputAttributeDescription, 5> GetAttributeDescription()
 		{
-			std::array<VkVertexInputAttributeDescription, 4> descs {};
+			std::array<VkVertexInputAttributeDescription, 5> descs {};
 			// Position
 			descs[0].binding = 0;
 			descs[0].location = 0;
@@ -37,24 +39,24 @@ namespace Engine
 			descs[1].format = VK_FORMAT_R32G32B32_SFLOAT;
 			descs[1].offset = offsetof(Vertex, normal);
 
-			// UV
+			// Tangent
 			descs[2].binding = 0;
 			descs[2].location = 2;
-			descs[2].format = VK_FORMAT_R32G32_SFLOAT;
-			descs[2].offset = offsetof(Vertex, uv);
+			descs[2].format = VK_FORMAT_R32G32B32_SFLOAT;
+			descs[2].offset = offsetof(Vertex, tangent);
 
-			// Color
+			// UV
 			descs[3].binding = 0;
 			descs[3].location = 3;
-			descs[3].format = VK_FORMAT_R32G32B32_SFLOAT;
-			descs[3].offset = offsetof(Vertex, color);
-			return descs;
-		}
+			descs[3].format = VK_FORMAT_R32G32_SFLOAT;
+			descs[3].offset = offsetof(Vertex, uv);
 
-		template <class Archive>
-		void serialize(Archive &ar)
-		{
-			ar(pos, normal, uv, color);
+			// Color
+			descs[4].binding = 0;
+			descs[4].location = 4;
+			descs[4].format = VK_FORMAT_R32G32B32_SFLOAT;
+			descs[4].offset = offsetof(Vertex, color);
+			return descs;
 		}
 	};
 
@@ -63,7 +65,6 @@ namespace Engine
 	{
 	public:
 		size_t id = 0;
-		std::string filePath;
 		std::vector<Vertex> vertices;
 		std::vector<uint32_t> indices;
 
@@ -76,6 +77,9 @@ namespace Engine
 		Mesh() = default;
 		~Mesh() = default;
 		void setData(std::vector<Vertex> vertices, std::vector<uint32_t> indices);
+
+		void serialize(Stream &stream);
+		void deserialize(Stream &stream);
 	private:
 		void create_buffers();
 	};

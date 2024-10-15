@@ -68,7 +68,7 @@ void ImGuiRenderer::begin()
 	ImGui::NewFrame();
 }
 
-void ImGuiRenderer::fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index)
+void ImGuiRenderer::fillCommandBuffer(CommandBuffer &command_buffer)
 {
 	ImGui::Render();
 	ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), command_buffer.get_buffer());

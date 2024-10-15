@@ -58,7 +58,7 @@ SSAORenderer::SSAORenderer() : RendererBase()
 	fragment_shader_blur = Shader::create("shaders/ssao_blur.frag", Shader::FRAGMENT_SHADER);
 }
 
-void SSAORenderer::fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index)
+void SSAORenderer::fillCommandBuffer(CommandBuffer &command_buffer)
 {
 	// Raw Pass
 	Renderer::getRenderTarget(RENDER_TARGET_SSAO_RAW)->transitLayout(command_buffer, TEXTURE_LAYOUT_ATTACHMENT);
@@ -81,9 +81,9 @@ void SSAORenderer::fillCommandBuffer(CommandBuffer &command_buffer, uint32_t ima
 	p->bind(command_buffer);
 
 	// Uniforms
-	Renderer::setShadersUniformBuffer(vertex_shader, fragment_shader_raw, 0, &ubo_raw_pass, sizeof(UBO_RAW), image_index);
-	Renderer::setShadersTexture(vertex_shader, fragment_shader_raw, 1, ssao_noise, image_index);
-	Renderer::bindShadersDescriptorSets(vertex_shader, fragment_shader_raw, command_buffer, p->getPipelineLayout(), image_index);
+	Renderer::setShadersUniformBuffer(p->getCurrentShaders(), 0, &ubo_raw_pass, sizeof(UBO_RAW));
+	Renderer::setShadersTexture(p->getCurrentShaders(), 1, ssao_noise);
+	Renderer::bindShadersDescriptorSets(p->getCurrentShaders(), command_buffer, p->getPipelineLayout());
 
 	// Render quad
 	vkCmdDraw(command_buffer.get_buffer(), 6, 1, 0, 0);
@@ -118,8 +118,8 @@ void SSAORenderer::fillCommandBuffer(CommandBuffer &command_buffer, uint32_t ima
 
 	// Uniforms
 	ubo_blur_pass.raw_tex_id = Renderer::getRenderTargetBindlessId(RENDER_TARGET_SSAO_RAW);
-	Renderer::setShadersUniformBuffer(vertex_shader, fragment_shader_blur, 0, &ubo_blur_pass, sizeof(UBO_BLUR), image_index);
-	Renderer::bindShadersDescriptorSets(vertex_shader, fragment_shader_blur, command_buffer, p->getPipelineLayout(), image_index);
+	Renderer::setShadersUniformBuffer(p->getCurrentShaders(), 0, &ubo_blur_pass, sizeof(UBO_BLUR));
+	Renderer::bindShadersDescriptorSets(p->getCurrentShaders(), command_buffer, p->getPipelineLayout());
 
 	// Render quad
 	vkCmdDraw(command_buffer.get_buffer(), 6, 1, 0, 0);

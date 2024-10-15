@@ -1,0 +1,97 @@
+#extension GL_EXT_ray_tracing : require
+#include "rt/rt_common.h"
+
+// Uniforms and other structures remain unchanged
+
+layout(binding = 0, set = 0) uniform accelerationStructureEXT topLevelAS;
+layout(binding = 1, set = 0, rgba8) uniform image2D image;
+layout(binding = 2, set = 0) uniform CameraProperties 
+{
+    mat4 viewInverse;
+    mat4 projInverse;
+} cam;
+
+layout(binding = 6, set = 0) uniform Lights {
+    vec4 dir_light_direction;
+};
+
+layout(location = 0) rayPayloadEXT RayPayload payload;
+
+vec2 Hammersley(uint i, uint N) {
+    // Generate the i-th point within a unit disk using Hammersley sequence
+    float phi = float(i) * 2.0 * 3.141592653589793 / float(N); // Uniform angle distribution
+    float r = sqrt(float(i) / float(N)); // Radial distribution
+    return vec2(r * cos(phi), r * sin(phi)); // Convert to Cartesian coordinates
+}
+
+// Generate a good random rotation per pixel to avoid visible patterns
+mat2 randomRotation(vec2 p) {
+    float angle = fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453123) * 6.283185; // 2 * PI
+    float s = sin(angle); 
+    float c = cos(angle);
+    return mat2(c, -s, s, c); // 2D rotation matrix
+}
+
+void main() 
+{
+    const vec2 pixelCenter = vec2(gl_LaunchIDEXT.xy) + vec2(0.5);
+    const vec2 inUV = pixelCenter / vec2(gl_LaunchSizeEXT.xy);
+    vec2 d = inUV * 2.0 - 1.0;
+
+    vec4 origin = cam.viewInverse * vec4(0, 0, 0, 1);
+    vec4 target = cam.projInverse * vec4(d.x, d.y, 1, 1);
+    vec4 direction = cam.viewInverse * vec4(normalize(target.xyz), 0);
+
+    float tmin = 0.001;
+    float tmax = 10000.0;
+
+    payload.color = vec3(0, 0, 0);
+    payload.t = 0;
+
+    traceRayEXT(
+        topLevelAS, 
+        gl_RayFlagsOpaqueEXT, 
+        0xff, 
+        0, 0, 0, 
+        origin.xyz, 
+        tmin, direction.xyz, 
+        tmax, 0);
+
+    RayPayload prev_payload = payload;
+
+    vec3 light_dir = normalize(dir_light_direction.xyz);
+
+    if (prev_payload.color != vec3(0, 0, 0))
+    {
+        vec3 shadow_origin = origin.xyz + direction.xyz * payload.t;
+        int light_samples = 8;
+        float shadow_factor = 0.0f;
+
+        mat2 rotate = randomRotation(inUV);
+
+        for (uint i = 0; i < light_samples; i++)
+        {
+            // Sample the disk using Hammersley sequence and random rotation
+            vec2 offset = rotate * Hammersley(i + 1, light_samples + 1) * tan(radians(1.5) * 0.5); // Sun's angular size
+            
+            vec3 shadow_dir = normalize(light_dir + offset.x * vec3(1, 0, 0) + offset.y * vec3(0, 1, 0));
+
+            payload.color = vec3(0, 0, 0);
+            payload.t = 0;
+            traceRayEXT(
+                topLevelAS, 
+                gl_RayFlagsOpaqueEXT | gl_RayFlagsTerminateOnFirstHitEXT, 
+                0xff, 0, 0, 0, 
+                shadow_origin, tmin, shadow_dir, tmax, 0);
+
+            if (payload.color == vec3(0, 0, 0))
+            {
+                shadow_factor += 1.0f;
+            }
+        }
+        shadow_factor /= float(light_samples);
+        prev_payload.color *= vec3(shadow_factor);
+    }
+
+    imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(prev_payload.color, 0.0));
+}

@@ -41,14 +41,10 @@ public:
 	DefferedLightingRenderer();
 	virtual ~DefferedLightingRenderer();
 
-	void renderLights(Scene *scene, CommandBuffer &command_buffer, uint32_t image_index);
+	void renderLights(Scene *scene, CommandBuffer &command_buffer);
 
 	void renderImgui();
 public:
-	std::shared_ptr<Shader> lighting_vertex_shader_point;
-	std::shared_ptr<Shader> lighting_fragment_shader_point;
-	std::shared_ptr<Shader> lighting_vertex_shader_directional;
-	std::shared_ptr<Shader> lighting_fragment_shader_directional;
 	std::shared_ptr<Engine::Mesh> icosphere_mesh;
 
 	struct LightData

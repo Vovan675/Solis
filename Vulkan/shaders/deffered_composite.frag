@@ -26,6 +26,17 @@ vec4 SRGBtoLinear(vec4 srgb)
     return vec4(pow(srgb.rgb, vec3(2.2)), srgb.a);
 }
 
+vec4 LinearToSRGB(vec4 linear)
+{
+    return vec4(pow(linear.rgb, vec3(1.0/2.2)), linear.a);
+}
+
+// F - Fresnel Schlick
+vec3 F_Schlick(in vec3 f0, in float f90, in float u)
+{
+	return f0 + (f90 - f0) * pow(1.0f - u, 5.0f);
+}
+
 void main() {
     float depth = texture(textures[ubo.depth_tex_id], inUV).r;
 
@@ -38,15 +49,17 @@ void main() {
     vec3 light_diffuse = texture(textures[ubo.lighting_diffuse_tex_id], inUV).rgb;
     vec3 light_specular = texture(textures[ubo.lighting_specular_tex_id], inUV).rgb;
 
-    // IBL
-    vec3 f0 = vec3(0.04);
-
     vec4 shading = texture(textures[ubo.shading_tex_id], inUV).rgba;
 	float metalness = shading.r;
 	float roughness = clamp(shading.g, 0.045f, 1.0f);
 
+    // IBL
+    vec3 f0 = mix(vec3(0.04), albedo.rgb, metalness);
+    vec3 f = F_Schlick(f0, 1.0, roughness);
+    vec3 kd = (1.0 - f);
+
     vec3 irradiance = SRGBtoLinear(texture(irradiance_tex, normal)).rgb;
-    vec3 ibl_diffuse = irradiance * albedo.rgb * (1.0 - f0) * (1.0 - metalness);
+    vec3 ibl_diffuse = irradiance * albedo.rgb * kd;
 
     vec3 view_pos = getVSPosition(inUV, depth);
 	vec4 world_pos = inverse(view) * vec4(view_pos, 1.0);
@@ -56,16 +69,16 @@ void main() {
     vec3 brdf_lut = texture(textures[ubo.brdf_lut_tex_id], vec2(NdotV, 1.0 - roughness)).rgb;
 
     vec3 reflection = -normalize(reflect(v, normal));
-    float lod = roughness * 5; // num mip maps
+    float lod = roughness * textureQueryLevels(prefilter_tex); // num mip maps
 
     vec3 prefilter = SRGBtoLinear(textureLod(prefilter_tex, reflection, lod)).rgb;
 
     float ssao = texture(textures[ubo.ssao_tex_id], inUV).r;
-    vec3 specular_color = mix(f0, albedo.rgb, metalness);
 
     vec3 diffuse = ibl_diffuse * ssao;
-    vec3 specular = prefilter * (specular_color * brdf_lut.x + brdf_lut.y);
+    vec3 specular = prefilter * (f0 * brdf_lut.x + brdf_lut.y);
     vec3 ibl = diffuse + specular;
 
-    outColor = vec4(albedo.rgb * light_diffuse + light_specular + ibl * 0.01, albedo.a);
+    outColor = vec4(albedo.rgb * light_diffuse + light_specular + ibl * 0.5, albedo.a);
+    //outColor.rgb = LinearToSRGB(outColor).rgb;
 }

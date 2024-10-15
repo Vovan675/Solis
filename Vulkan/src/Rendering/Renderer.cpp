@@ -64,7 +64,7 @@ void Renderer::recreateScreenResources()
 
 	// Albedo
 	create_screen_texture(RENDER_TARGET_GBUFFER_ALBEDO, swapchain_format, VK_IMAGE_ASPECT_COLOR_BIT,
-						  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
+						  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
 
 
 	// Normal
@@ -82,6 +82,9 @@ void Renderer::recreateScreenResources()
 	///////////
 	// Lighting
 	///////////
+
+	create_screen_texture(RENDER_TARGET_RAY_TRACED_LIGHTING, swapchain_format, VK_IMAGE_ASPECT_COLOR_BIT,
+						  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
 
 	create_screen_texture(RENDER_TARGET_LIGHTING_DIFFUSE, VK_FORMAT_B10G11R11_UFLOAT_PACK32, VK_IMAGE_ASPECT_COLOR_BIT,
 						  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
@@ -185,21 +188,117 @@ void Renderer::endTimestamp(uint32_t index)
 
 float Renderer::getTimestampTime(uint32_t index)
 {
-	float period = VkWrapper::device->physicalProperties.limits.timestampPeriod;
+	float period = VkWrapper::device->physicalProperties.properties.limits.timestampPeriod;
 	float delta_in_ms = (VkWrapper::device->time_stamps[index + 1] - VkWrapper::device->time_stamps[index]) * period / 1000000.0f;
 	return delta_in_ms;
 }
 
-void Renderer::setShadersUniformBuffer(std::shared_ptr<Shader> vertex_shader, std::shared_ptr<Shader> fragment_shader, unsigned int binding, void *params_struct, size_t params_size, unsigned int image_index)
+void Renderer::setShadersAccelerationStructure(std::vector<std::shared_ptr<Shader>> shaders, VkAccelerationStructureKHR *acceleration_structure, unsigned int binding)
 {
-	auto descriptor_layout = VkWrapper::getDescriptorLayout(vertex_shader, fragment_shader);
+	auto descriptor_layout = VkWrapper::getDescriptorLayout(shaders);
 
 	size_t descriptor_hash = descriptor_layout.hash;
 	// Must also take shaders hashes into account because there could be the same descriptor layout but bindings have different sizes
-	hash_combine(descriptor_hash, vertex_shader->getHash());
-	hash_combine(descriptor_hash, fragment_shader->getHash());
+	hash_combine(descriptor_hash, VkWrapper::getShadersHash(shaders));
+	size_t offset = descriptors_offset[descriptor_hash][current_frame];
 
-	size_t offset = descriptors_offset[descriptor_hash][image_index];
+	ensureDescriptorsAllocated(descriptor_layout, descriptor_hash, offset);
+
+	VkDescriptorType descriptor_type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
+
+	// Update set
+	DescriptorWriter writer;
+	writer.writeAccelerationStructure(binding, acceleration_structure);
+	writer.updateSet(descriptors[descriptor_hash][current_frame].descriptor_per_offset[offset]);
+}
+
+void Renderer::setShadersStorageBuffer(std::vector<std::shared_ptr<Shader>> shaders, unsigned int binding, void *params_struct, size_t params_size)
+{
+	auto descriptor_layout = VkWrapper::getDescriptorLayout(shaders);
+
+	size_t descriptor_hash = descriptor_layout.hash;
+	// Must also take shaders hashes into account because there could be the same descriptor layout but bindings have different sizes
+	hash_combine(descriptor_hash, VkWrapper::getShadersHash(shaders));
+
+	size_t offset = descriptors_offset[descriptor_hash][current_frame];
+
+	ensureDescriptorsAllocated(descriptor_layout, descriptor_hash, offset);
+
+	size_t binding_hash = descriptor_hash;
+	hash_combine(binding_hash, binding);
+
+	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+	{
+		auto &current_binding_frame = descriptor_bindings[binding_hash][i];
+		// If there is no descriptor binding for this offset, then create buffer for it and map
+		if (current_binding_frame.bindings_per_offset.size() <= offset)
+		{
+			current_binding_frame.bindings_per_offset.resize(offset + 1);
+			auto &current_binding = current_binding_frame.bindings_per_offset[offset];
+
+			BufferDescription desc;
+			desc.size = params_size;
+			desc.useStagingBuffer = false;
+			desc.bufferUsageFlags = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+
+			current_binding.first = std::make_shared<Buffer>(desc);
+
+			// Map gpu memory on cpu memory
+			current_binding.first->map(&current_binding.second);
+
+			// Update set
+			DescriptorWriter writer;
+			writer.writeBuffer(binding, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, current_binding.first->bufferHandle, params_size);
+			writer.updateSet(descriptors[descriptor_hash][i].descriptor_per_offset[offset]);
+		}
+	}
+
+	auto &current_binding = descriptor_bindings[binding_hash][current_frame].bindings_per_offset[offset];
+	memcpy(current_binding.second, params_struct, params_size);
+}
+
+void Renderer::setShadersStorageBuffer(std::vector<std::shared_ptr<Shader>> shaders, unsigned int binding, std::shared_ptr<Buffer> buffer)
+{
+	auto descriptor_layout = VkWrapper::getDescriptorLayout(shaders);
+
+	size_t descriptor_hash = descriptor_layout.hash;
+	// Must also take shaders hashes into account because there could be the same descriptor layout but bindings have different sizes
+	hash_combine(descriptor_hash, VkWrapper::getShadersHash(shaders));
+
+	size_t offset = descriptors_offset[descriptor_hash][current_frame];
+
+	ensureDescriptorsAllocated(descriptor_layout, descriptor_hash, offset);
+
+	size_t binding_hash = descriptor_hash;
+	hash_combine(binding_hash, binding);
+
+	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+	{
+		auto &current_binding_frame = descriptor_bindings[binding_hash][i];
+		// If there is no descriptor binding for this offset, then create buffer for it and map
+		if (current_binding_frame.bindings_per_offset.size() <= offset)
+		{
+			current_binding_frame.bindings_per_offset.resize(offset + 1);
+			auto &current_binding = current_binding_frame.bindings_per_offset[offset];
+			current_binding.first = buffer;
+
+			// Update set
+			DescriptorWriter writer;
+			writer.writeBuffer(binding, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, current_binding.first->bufferHandle, buffer->getSize());
+			writer.updateSet(descriptors[descriptor_hash][i].descriptor_per_offset[offset]);
+		}
+	}
+}
+
+void Renderer::setShadersUniformBuffer(std::vector<std::shared_ptr<Shader>> shaders, unsigned int binding, void *params_struct, size_t params_size)
+{
+	auto descriptor_layout = VkWrapper::getDescriptorLayout(shaders);
+
+	size_t descriptor_hash = descriptor_layout.hash;
+	// Must also take shaders hashes into account because there could be the same descriptor layout but bindings have different sizes
+	hash_combine(descriptor_hash, VkWrapper::getShadersHash(shaders));
+
+	size_t offset = descriptors_offset[descriptor_hash][current_frame];
 
 	ensureDescriptorsAllocated(descriptor_layout, descriptor_hash, offset);
 
@@ -232,53 +331,61 @@ void Renderer::setShadersUniformBuffer(std::shared_ptr<Shader> vertex_shader, st
 		}
 	}
 
-	auto &current_binding = descriptor_bindings[binding_hash][image_index].bindings_per_offset[offset];
+	auto &current_binding = descriptor_bindings[binding_hash][current_frame].bindings_per_offset[offset];
 	memcpy(current_binding.second, params_struct, params_size);
 }
 
-void Renderer::setShadersTexture(std::shared_ptr<Shader> vertex_shader, std::shared_ptr<Shader> fragment_shader, unsigned int binding, std::shared_ptr<Texture> texture, unsigned int image_index, int mip, int face)
+void Renderer::setShadersTexture(std::vector<std::shared_ptr<Shader>> shaders, unsigned int binding, std::shared_ptr<Texture> texture, int mip, int face)
 {
-	auto descriptor_layout = VkWrapper::getDescriptorLayout(vertex_shader, fragment_shader);
+	auto descriptor_layout = VkWrapper::getDescriptorLayout(shaders);
 
 	size_t descriptor_hash = descriptor_layout.hash;
 	// Must also take shaders hashes into account because there could be the same descriptor layout but bindings have different sizes
-	hash_combine(descriptor_hash, vertex_shader->getHash());
-	hash_combine(descriptor_hash, fragment_shader->getHash());
-	size_t offset = descriptors_offset[descriptor_hash][image_index];
+	hash_combine(descriptor_hash, VkWrapper::getShadersHash(shaders));
+	size_t offset = descriptors_offset[descriptor_hash][current_frame];
 
 	ensureDescriptorsAllocated(descriptor_layout, descriptor_hash, offset);
 
+	VkDescriptorType descriptor_type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	VkImageLayout image_layout = texture->isDepthTexture() ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+	if (texture->getImageUsageFlags() & VK_IMAGE_USAGE_STORAGE_BIT)
+	{
+		descriptor_type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+		image_layout = VK_IMAGE_LAYOUT_GENERAL;
+	}
+
 	// Update set
 	DescriptorWriter writer;
-	writer.writeImage(binding, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, texture->getImageView(mip, face), texture->sampler, texture->isDepthTexture() ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	writer.updateSet(descriptors[descriptor_hash][image_index].descriptor_per_offset[offset]);
+	writer.writeImage(binding, descriptor_type, texture->getImageView(mip, face), texture->sampler, image_layout);
+	writer.updateSet(descriptors[descriptor_hash][current_frame].descriptor_per_offset[offset]);
 }
 
-void Renderer::bindShadersDescriptorSets(std::shared_ptr<Shader> vertex_shader, std::shared_ptr<Shader> fragment_shader, CommandBuffer &command_buffer, VkPipelineLayout pipeline_layout, unsigned int image_index)
+void Renderer::bindShadersDescriptorSets(std::vector<std::shared_ptr<Shader>> shaders, CommandBuffer &command_buffer, VkPipelineLayout pipeline_layout, bool is_ray_tracing)
 {
+	VkPipelineBindPoint bind_point = is_ray_tracing ? VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR : VK_PIPELINE_BIND_POINT_GRAPHICS;
 	// Bind bindless
-	vkCmdBindDescriptorSets(command_buffer.get_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout, 1, 1, BindlessResources::getDescriptorSet(), 0, nullptr);
+	vkCmdBindDescriptorSets(command_buffer.get_buffer(), bind_point, pipeline_layout, 1, 1, BindlessResources::getDescriptorSet(), 0, nullptr);
 
 	// Bind default uniforms
-	size_t default_uniforms_offset = descriptors_offset[0][image_index];
-	vkCmdBindDescriptorSets(command_buffer.get_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout, 2, 1, &descriptors[0][image_index].descriptor_per_offset[default_uniforms_offset], 0, nullptr);
+	size_t default_uniforms_offset = descriptors_offset[0][current_frame];
+	vkCmdBindDescriptorSets(command_buffer.get_buffer(), bind_point, pipeline_layout, 2, 1, &descriptors[0][current_frame].descriptor_per_offset[default_uniforms_offset], 0, nullptr);
 
 	// Bind custom descriptor
-	auto descriptor_layout = VkWrapper::getDescriptorLayout(vertex_shader, fragment_shader);
+	auto descriptor_layout = VkWrapper::getDescriptorLayout(shaders);
 
 	size_t descriptor_hash = descriptor_layout.hash;
 	// Must also take shaders hashes into account because there could be the same descriptor layout but bindings have different sizes
-	hash_combine(descriptor_hash, vertex_shader->getHash());
-	hash_combine(descriptor_hash, fragment_shader->getHash());
-	size_t offset = descriptors_offset[descriptor_hash][image_index];
+	hash_combine(descriptor_hash, VkWrapper::getShadersHash(shaders));
+	size_t offset = descriptors_offset[descriptor_hash][current_frame];
 
 	if (descriptors.find(descriptor_hash) != descriptors.end())
 	{
-		vkCmdBindDescriptorSets(command_buffer.get_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout, 0, 1, &descriptors[descriptor_hash][image_index].descriptor_per_offset[offset], 0, nullptr);
+		vkCmdBindDescriptorSets(command_buffer.get_buffer(), bind_point, pipeline_layout, 0, 1, &descriptors[descriptor_hash][current_frame].descriptor_per_offset[offset], 0, nullptr);
 	}
 
 	// After every bind increment offset (because bind was made for a draw that uses this uniforms and we cant write to it)
-	descriptors_offset[descriptor_hash][image_index] += 1;
+	descriptors_offset[descriptor_hash][current_frame] += 1;
 }
 
 void Renderer::updateDefaultUniforms(unsigned int image_index)

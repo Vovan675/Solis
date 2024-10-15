@@ -12,7 +12,7 @@ public:
 	LutRenderer();
 	virtual ~LutRenderer();
 
-	void fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index) override;
+	void fillCommandBuffer(CommandBuffer &command_buffer) override;
 
 private:
 	std::shared_ptr<Shader> vertex_shader;

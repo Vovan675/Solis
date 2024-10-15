@@ -18,7 +18,7 @@ public:
 	static void init(GLFWwindow* window);
 	static void shutdown();
 
-	static void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VmaMemoryUsage memory_usage, VkBuffer &buffer, VmaAllocation &allocation)
+	static void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VmaMemoryUsage memory_usage, VkBuffer &buffer, VmaAllocation &allocation, VkDeviceSize alignment = 0)
 	{
 		// Create buffer
 		VkBufferCreateInfo info{};
@@ -30,10 +30,33 @@ public:
 		VmaAllocationCreateInfo alloc_info{};
 		alloc_info.usage = memory_usage;
 
-		vmaCreateBuffer(allocator, &info, &alloc_info, &buffer, &allocation, nullptr);
+		if (alignment != 0)
+			vmaCreateBufferWithAlignment(allocator, &info, &alloc_info, alignment, &buffer, &allocation, nullptr);
+		else
+			vmaCreateBuffer(allocator, &info, &alloc_info, &buffer, &allocation, nullptr);
 	}
 
-	static void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
+	static void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, VkDeviceSize dst_offset = 0);
+
+	static uint32_t alignedSize(uint32_t value, uint32_t alignment)
+	{
+		return (value + alignment - 1) & ~(alignment - 1);
+	}
+
+	static uint64_t roundUp(uint64_t size, uint64_t granularity)
+	{
+		const auto divUp = (size + granularity - 1) / granularity;
+		return divUp * granularity;
+	}
+
+	static VkDeviceAddress getBufferDeviceAddress(VkBuffer buffer)
+	{
+		auto vkGetBufferDeviceAddressKHR = reinterpret_cast<PFN_vkGetBufferDeviceAddressKHR>(vkGetDeviceProcAddr(VkWrapper::device->logicalHandle, "vkGetBufferDeviceAddressKHR"));
+		VkBufferDeviceAddressInfoKHR bufferDeviceAI{};
+		bufferDeviceAI.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
+		bufferDeviceAI.buffer = buffer;
+		return vkGetBufferDeviceAddressKHR(VkWrapper::device->logicalHandle, &bufferDeviceAI);
+	};
 
 	static VkCommandBuffer beginSingleTimeCommands();
 	static void endSingleTimeCommands(VkCommandBuffer commandBuffer);
@@ -146,9 +169,10 @@ public:
 	static void cmdBeginRendering(CommandBuffer &command_buffer, const std::vector<std::shared_ptr<Texture>> &color_attachments, std::shared_ptr<Texture> depth_attachment, int layer = -1, int mip = 0);
 	static void cmdEndRendering(CommandBuffer &command_buffer);
 
-	static std::vector<Descriptor> getMergedDescriptors(std::shared_ptr<Shader> vertex_shader, std::shared_ptr<Shader> fragment_shader);
+	static size_t getShadersHash(std::vector<std::shared_ptr<Shader>> shaders);
+	static std::vector<Descriptor> getMergedDescriptors(std::vector<std::shared_ptr<Shader>> shaders);
 	static DescriptorLayout getDescriptorLayout(std::vector<Descriptor> descriptors);
-	static DescriptorLayout getDescriptorLayout(std::shared_ptr<Shader> vertex_shader, std::shared_ptr<Shader> fragment_shader);
+	static DescriptorLayout getDescriptorLayout(std::vector<std::shared_ptr<Shader>> shaders);
 
 private:
 	static void init_instance();

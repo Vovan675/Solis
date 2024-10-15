@@ -55,7 +55,7 @@ void VkWrapper::shutdown()
 	vmaDestroyAllocator(allocator);
 }
 
-void VkWrapper::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size)
+void VkWrapper::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, VkDeviceSize dst_offset)
 {
 	// Also i can create separate command pool for these short-living commands
 	VkCommandBufferAllocateInfo allocInfo{};
@@ -74,7 +74,7 @@ void VkWrapper::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize 
 	vkBeginCommandBuffer(commandBuffer, &beginInfo);
 	VkBufferCopy copyRegion{};
 	copyRegion.srcOffset = 0;
-	copyRegion.dstOffset = 0;
+	copyRegion.dstOffset = dst_offset;
 	copyRegion.size = size;
 	vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
 	vkEndCommandBuffer(commandBuffer);
@@ -229,36 +229,48 @@ void VkWrapper::cmdEndRendering(CommandBuffer &command_buffer)
 	current_render_targets.clear();
 }
 
-std::vector<Descriptor> VkWrapper::getMergedDescriptors(std::shared_ptr<Shader> vertex_shader, std::shared_ptr<Shader> fragment_shader)
+size_t VkWrapper::getShadersHash(std::vector<std::shared_ptr<Shader>> shaders)
 {
-	auto vs_descriptors = vertex_shader->getDescriptors();
-	auto fs_descriptors = fragment_shader->getDescriptors();
+	// TODO: sort by shader type for hashing?
+	size_t hash = 0;
+	for (size_t i = 0; i < shaders.size(); i++)
+		hash_combine(hash, shaders[i]->getHash());
+	return hash;
+}
 
-	auto merged_descriptors = vs_descriptors;
-
-	for (int i = 0; i < fs_descriptors.size(); i++)
+std::vector<Descriptor> VkWrapper::getMergedDescriptors(std::vector<std::shared_ptr<Shader>> shaders)
+{
+	auto merged_descriptors = shaders[0]->getDescriptors();
+	
+	auto merge_descriptor = [&merged_descriptors](std::vector<Descriptor> descriptors)
 	{
-		auto &other = fs_descriptors[i];
-
-		bool is_found = false;
-
-		for (auto &result : merged_descriptors)
+		for (int i = 0; i < descriptors.size(); i++)
 		{
-			// If this descriptor exists in other descriptor, then just merge their stages
-			if (result.type == other.type && result.set == other.set && result.binding == other.binding && result.first_member_offset == other.first_member_offset)
+			auto &other = descriptors[i];
+
+			bool is_found = false;
+
+			for (auto &result : merged_descriptors)
 			{
-				result.stage = (DescriptorStage)(result.stage | other.stage);
-				is_found = true;
-				break;
+				// If this descriptor exists in other descriptor, then just merge their stages
+				if (result.type == other.type && result.set == other.set && result.binding == other.binding && result.first_member_offset == other.first_member_offset)
+				{
+					result.stage = (DescriptorStage)(result.stage | other.stage);
+					is_found = true;
+					break;
+				}
+			}
+
+			// This is unique descriptor
+			if (!is_found)
+			{
+				merged_descriptors.push_back(other);
 			}
 		}
-
-		// This is unique descriptor
-		if (!is_found)
-		{
-			merged_descriptors.push_back(other);
-		}
-	}
+	};
+	
+	for (size_t i = 1; i < shaders.size(); i++)
+		merge_descriptor(shaders[i]->getDescriptors());
 
 	return merged_descriptors;
 }
@@ -278,20 +290,24 @@ DescriptorLayout VkWrapper::getDescriptorLayout(std::vector<Descriptor> descript
 		VkDescriptorType descriptor_type;
 		if (descriptor.type == DESCRIPTOR_TYPE_UNIFORM_BUFFER)
 			descriptor_type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		else if (descriptor.type == DESCRIPTOR_TYPE_STORAGE_BUFFER)
+			descriptor_type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 		else if (descriptor.type == DESCRIPTOR_TYPE_SAMPLER)
 			descriptor_type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		else if (descriptor.type == DESCRIPTOR_TYPE_STORAGE_IMAGE)
+			descriptor_type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+		else if (descriptor.type == DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE)
+			descriptor_type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
 		else
 			continue;
 		layout_builder.add_binding(descriptor.binding, descriptor_type);
 	}
-	return layout_builder.build(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
+	return layout_builder.build(VK_SHADER_STAGE_ALL);
 }
 
-DescriptorLayout VkWrapper::getDescriptorLayout(std::shared_ptr<Shader> vertex_shader, std::shared_ptr<Shader> fragment_shader)
+DescriptorLayout VkWrapper::getDescriptorLayout(std::vector<std::shared_ptr<Shader>> shaders)
 {
-	size_t hash = 0;
-	hash_combine(hash, vertex_shader->getHash());
-	hash_combine(hash, fragment_shader->getHash());
+	size_t hash = getShadersHash(shaders);
 
 	// Try to find cached
 	auto cached_layout = cached_merged_descriptor_layouts.find(hash);
@@ -300,7 +316,7 @@ DescriptorLayout VkWrapper::getDescriptorLayout(std::shared_ptr<Shader> vertex_s
 		return cached_layout->second;
 	}
 
-	DescriptorLayout new_layout = getDescriptorLayout(getMergedDescriptors(vertex_shader, fragment_shader));
+	DescriptorLayout new_layout = getDescriptorLayout(getMergedDescriptors(shaders));
 	cached_merged_descriptor_layouts[hash] = new_layout;
 	return new_layout;
 }
@@ -323,9 +339,14 @@ void VkWrapper::init_instance()
 	info.enabledExtensionCount = extensionsCount;
 	info.ppEnabledExtensionNames = extensionsName;
 
-
-	info.enabledLayerCount = s_ValidationLayers.size();
-	info.ppEnabledLayerNames = s_ValidationLayers.data();
+	#ifdef DEBUG
+		info.enabledLayerCount = s_ValidationLayers.size();
+		info.ppEnabledLayerNames = s_ValidationLayers.data();
+	#else
+		info.enabledLayerCount = 0;
+		info.ppEnabledLayerNames = nullptr;
+	#endif
+	
 	CHECK_ERROR(vkCreateInstance(&info, nullptr, &instance));
 }
 
@@ -336,6 +357,7 @@ void VkWrapper::init_vma()
 	allocator_create_info.physicalDevice = device->physicalHandle;
 	allocator_create_info.device = device->logicalHandle;
 	allocator_create_info.instance = instance;
+	allocator_create_info.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
 	
 	vmaCreateAllocator(&allocator_create_info, &allocator);
 }

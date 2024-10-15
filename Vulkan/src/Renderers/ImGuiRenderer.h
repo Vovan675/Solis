@@ -13,7 +13,7 @@ public:
 	virtual ~ImGuiRenderer();
 
 	void begin();
-	void fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index) override;
+	void fillCommandBuffer(CommandBuffer &command_buffer) override;
 private:
 	VkDescriptorPool descriptor_pool;
 };

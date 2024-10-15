@@ -16,6 +16,8 @@ enum RENDER_TARGETS
 	RENDER_TARGET_GBUFFER_DEPTH_STENCIL,
 	RENDER_TARGET_GBUFFER_SHADING, // R - metalness, G - roughness, B - specular, A - ?
 
+	RENDER_TARGET_RAY_TRACED_LIGHTING,
+
 	RENDER_TARGET_LIGHTING_DIFFUSE,
 	RENDER_TARGET_LIGHTING_SPECULAR,
 
@@ -73,13 +75,21 @@ public:
 	static std::shared_ptr<Texture> getRenderTarget(RENDER_TARGETS rt) { return screen_resources[rt]; }
 	static uint32_t getRenderTargetBindlessId(RENDER_TARGETS rt) { return BindlessResources::getTextureIndex(screen_resources[rt].get()); }
 
-	static void setShadersUniformBuffer(std::shared_ptr<Shader> vertex_shader, std::shared_ptr<Shader> fragment_shader,
-										unsigned int binding, void* params_struct, size_t params_size, unsigned int image_index);
+	static void setShadersAccelerationStructure(std::vector<std::shared_ptr<Shader>> shaders,
+												VkAccelerationStructureKHR *acceleration_structure, unsigned int binding);
 
-	static void setShadersTexture(std::shared_ptr<Shader> vertex_shader, std::shared_ptr<Shader> fragment_shader,
-										unsigned int binding, std::shared_ptr<Texture> texture, unsigned int image_index, int mip = -1, int face = -1);
+	static void setShadersStorageBuffer(std::vector<std::shared_ptr<Shader>> shaders,
+										unsigned int binding, void *params_struct, size_t params_size);
 
-	static void bindShadersDescriptorSets(std::shared_ptr<Shader> vertex_shader, std::shared_ptr<Shader> fragment_shader, CommandBuffer &command_buffer, VkPipelineLayout pipeline_layout, unsigned int image_index);
+	static void setShadersStorageBuffer(std::vector<std::shared_ptr<Shader>> shaders, unsigned int binding, std::shared_ptr<Buffer> buffer);
+
+	static void setShadersUniformBuffer(std::vector<std::shared_ptr<Shader>> shaders,
+										unsigned int binding, void* params_struct, size_t params_size);
+
+	static void setShadersTexture(std::vector<std::shared_ptr<Shader>> shaders,
+										unsigned int binding, std::shared_ptr<Texture> texture, int mip = -1, int face = -1);
+
+	static void bindShadersDescriptorSets(std::vector<std::shared_ptr<Shader>> shaders, CommandBuffer &command_buffer, VkPipelineLayout pipeline_layout, bool is_ray_tracing = false);
 
 	// Default Uniforms
 	static void setCamera(std::shared_ptr<Camera> camera) { Renderer::camera = camera; }
@@ -88,6 +98,7 @@ public:
 
 	static VkDescriptorSetLayout getDefaultDescriptorLayout() { return default_descriptor_layout.layout; }
 	static CommandBuffer &getCurrentCommandBuffer() { return VkWrapper::command_buffers[current_frame]; }
+	static int getCurrentFrameIndex() { return current_frame; }
 
 	static void deleteResource(RESOURCE_TYPE type, void *resource) { deletion_queue.push_back(std::make_pair(type, resource)); }
 

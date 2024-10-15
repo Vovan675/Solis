@@ -15,7 +15,7 @@ LutRenderer::~LutRenderer()
 {
 }
 
-void LutRenderer::fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index)
+void LutRenderer::fillCommandBuffer(CommandBuffer &command_buffer)
 {
 	auto &p = VkWrapper::global_pipeline;
 	p->reset();

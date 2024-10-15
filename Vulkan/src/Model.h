@@ -6,6 +6,7 @@
 #include "assimp/postprocess.h"
 #include "assimp/material.h"
 #include "assimp/pbrmaterial.h"
+#include "Utils/FileStream.h"
 #include "Scene/Entity.h"
 #include "Material.h"
 
@@ -49,6 +50,7 @@ class Model : public Asset
 public:
 	Model() = default;
 	~Model();
+	void cleanup();
 
 	ASSET_TYPE getAssetType() const override { return ASSET_TYPE_MODEL; }
 
@@ -65,13 +67,20 @@ public:
 	}
 
 	MeshNode *getRootNode() const { return root_node; }
+	std::vector<MeshNode *> &getLinearNodes() { return linear_nodes; }
 
 	std::string getPath() const { return path; }
 
+	void saveFile(const std::string &filename);
+	void loadFile(const std::string &filename);
+
 private:
+	void save_mesh_node(FileStream &stream, MeshNode *node);
+	void load_mesh_node(FileStream &stream, MeshNode *node);
 	static Entity create_entity_node(std::shared_ptr<Model> model, MeshNode *node, Scene *scene);
 
 	MeshNode *root_node = nullptr;
+	std::vector<MeshNode *> linear_nodes = {};
 	std::string path;
 
 	std::unordered_map<size_t, std::shared_ptr<Engine::Mesh>> meshes_id;

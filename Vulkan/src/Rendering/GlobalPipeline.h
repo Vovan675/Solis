@@ -43,6 +43,18 @@ public:
 		}
 	}
 
+	void setIsRayTracingPipeline(bool is_ray_tracing) { current_description.is_ray_tracing_pipeline = is_ray_tracing; }
+
+	void setRayGenerationShader(std::shared_ptr<Shader> shader) { current_description.ray_generation_shader = shader; }
+	void setMissShader(std::shared_ptr<Shader> shader) { current_description.miss_shader = shader; }
+	void setClosestHitShader(std::shared_ptr<Shader> shader) { current_description.closest_hit_shader = shader; }
+
+	std::shared_ptr<Shader> getRayGenerationShader() const { return current_description.ray_generation_shader; }
+	std::shared_ptr<Shader> getMissShader() const { return current_description.miss_shader; }
+	std::shared_ptr<Shader> getClosestHitShader() const { return current_description.closest_hit_shader; }
+
+	std::vector<std::shared_ptr<Shader>> getCurrentShaders();
+
 	void bind(const CommandBuffer &command_buffer);
 	void unbind(const CommandBuffer& command_buffer);
 
@@ -50,7 +62,7 @@ public:
 private:
 	void parse_descriptors();
 
-private:
+public:
 	bool is_binded = false;
 	PipelineDescription current_description;
 	std::shared_ptr<Pipeline> current_pipeline;

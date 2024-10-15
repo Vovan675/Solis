@@ -40,7 +40,7 @@ DebugRenderer::~DebugRenderer()
 {
 }
 
-void DebugRenderer::fillCommandBuffer(CommandBuffer &command_buffer, uint32_t image_index)
+void DebugRenderer::fillCommandBuffer(CommandBuffer &command_buffer)
 {
 	auto &p = VkWrapper::global_pipeline;
 	p->reset();
@@ -56,8 +56,8 @@ void DebugRenderer::fillCommandBuffer(CommandBuffer &command_buffer, uint32_t im
 	p->bind(command_buffer);
 
 	// Uniforms
-	Renderer::setShadersUniformBuffer(vertex_shader, fragment_shader, 0, &ubo, sizeof(PresentUBO), image_index);
-	Renderer::bindShadersDescriptorSets(vertex_shader, fragment_shader, command_buffer, p->getPipelineLayout(), image_index);
+	Renderer::setShadersUniformBuffer(p->getCurrentShaders(), 0, &ubo, sizeof(PresentUBO));
+	Renderer::bindShadersDescriptorSets(p->getCurrentShaders(), command_buffer, p->getPipelineLayout());
 
 	// Render quad
 	vkCmdDraw(command_buffer.get_buffer(), 6, 1, 0, 0);
@@ -65,7 +65,7 @@ void DebugRenderer::fillCommandBuffer(CommandBuffer &command_buffer, uint32_t im
 	p->unbind(command_buffer);
 }
 
-void DebugRenderer::renderLines(CommandBuffer &command_buffer, uint32_t image_index)
+void DebugRenderer::renderLines(CommandBuffer &command_buffer)
 {
 	auto &p = VkWrapper::global_pipeline;
 	p->reset();
@@ -83,7 +83,7 @@ void DebugRenderer::renderLines(CommandBuffer &command_buffer, uint32_t image_in
 	p->bind(command_buffer);
 
 	// Uniforms
-	Renderer::bindShadersDescriptorSets(vertex_shader_lines, fragment_shader_lines, command_buffer, p->getPipelineLayout(), image_index);
+	Renderer::bindShadersDescriptorSets(p->getCurrentShaders(), command_buffer, p->getPipelineLayout());
 
 	VkBuffer vertexBuffers[] = {lines_vertex_buffer->bufferHandle};
 	VkDeviceSize offsets[] = {0};

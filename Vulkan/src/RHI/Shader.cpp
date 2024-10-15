@@ -163,7 +163,7 @@ std::string Shader::read_file(const std::string& fileName)
 	file.read(binary.data(), size);
 	file.close();
 
-	std::string start = "#version 450 \n"
+	std::string start = "#version 460 \n"
 		"#extension GL_GOOGLE_include_directive : enable \n"
 		"#extension GL_EXT_nonuniform_qualifier : enable \n";
 
@@ -176,7 +176,7 @@ std::vector<uint32_t> Shader::compile_glsl(const std::string& glslSource, Shader
 	shaderc::Compiler compiler;
 	shaderc::CompileOptions options;
 	options.SetOptimizationLevel(shaderc_optimization_level_zero);
-	options.SetTargetEnvironment(shaderc_target_env_vulkan, shaderc_env_version_vulkan_1_0);
+	options.SetTargetEnvironment(shaderc_target_env_vulkan, shaderc_env_version_vulkan_1_3);
 	options.SetIncluder(std::make_unique<ShaderIncluder>());
 
 	for (const auto &define : defines)
@@ -185,13 +185,23 @@ std::vector<uint32_t> Shader::compile_glsl(const std::string& glslSource, Shader
 	}
 
 	shaderc_shader_kind kind;
-	if (type == FRAGMENT_SHADER)
+	switch (type)
 	{
-		kind = shaderc_fragment_shader;
-	}
-	else
-	{
-		kind = shaderc_vertex_shader;
+		case VERTEX_SHADER:
+			kind = shaderc_vertex_shader;
+			break;
+		case FRAGMENT_SHADER:
+			kind = shaderc_fragment_shader;
+			break;
+		case RAY_GENERATION_SHADER:
+			kind = shaderc_raygen_shader;
+			break;
+		case MISS_SHADER:
+			kind = shaderc_miss_shader;
+			break;
+		case CLOSEST_HIT_SHADER:
+			kind = shaderc_closesthit_shader;
+			break;
 	}
 
 	// Preprocess source
@@ -232,19 +242,42 @@ void Shader::init_descriptors(const std::vector<uint32_t> &spirv)
 	spvc_resources_get_resource_list_for_type(resources, SPVC_RESOURCE_TYPE_UNIFORM_BUFFER, &list, &count);
 	parse_spv_resources(list, count, SPVC_RESOURCE_TYPE_UNIFORM_BUFFER);
 
+	spvc_resources_get_resource_list_for_type(resources, SPVC_RESOURCE_TYPE_STORAGE_BUFFER, &list, &count);
+	parse_spv_resources(list, count, SPVC_RESOURCE_TYPE_STORAGE_BUFFER);
+
 	spvc_resources_get_resource_list_for_type(resources, SPVC_RESOURCE_TYPE_SAMPLED_IMAGE, &list, &count);
 	parse_spv_resources(list, count, SPVC_RESOURCE_TYPE_SAMPLED_IMAGE);
-	
+
+	spvc_resources_get_resource_list_for_type(resources, SPVC_RESOURCE_TYPE_STORAGE_IMAGE, &list, &count);
+	parse_spv_resources(list, count, SPVC_RESOURCE_TYPE_STORAGE_IMAGE);
+
+	spvc_resources_get_resource_list_for_type(resources, SPVC_RESOURCE_TYPE_ACCELERATION_STRUCTURE, &list, &count);
+	parse_spv_resources(list, count, SPVC_RESOURCE_TYPE_ACCELERATION_STRUCTURE);
+
 	spvc_context_destroy(context);
 }
 
 void Shader::parse_spv_resources(const spvc_reflected_resource *resources, size_t count, spvc_resource_type resource_type)
 {
 	DescriptorStage stage;
-	if (type == VERTEX_SHADER)
-		stage = DESCRIPTOR_STAGE_VERTEX_SHADER;
-	else if (type == FRAGMENT_SHADER)
-		stage = DESCRIPTOR_STAGE_FRAGMENT_SHADER;
+	switch (type)
+	{
+		case VERTEX_SHADER:
+			stage = DESCRIPTOR_STAGE_VERTEX_SHADER;
+			break;
+		case FRAGMENT_SHADER:
+			stage = DESCRIPTOR_STAGE_FRAGMENT_SHADER;
+			break;
+		case RAY_GENERATION_SHADER:
+			stage = DESCRIPTOR_STAGE_RAY_GENERATION_SHADER;
+			break;
+		case MISS_SHADER:
+			stage = DESCRIPTOR_STAGE_MISS_SHADER;
+			break;
+		case CLOSEST_HIT_SHADER:
+			stage = DESCRIPTOR_STAGE_CLOSEST_HIT_SHADER;
+			break;
+	}
 
 	DescriptorType descriptor_type;
 
@@ -252,8 +285,14 @@ void Shader::parse_spv_resources(const spvc_reflected_resource *resources, size_
 		descriptor_type = DESCRIPTOR_TYPE_PUSH_CONSTANT;
 	else if (resource_type == SPVC_RESOURCE_TYPE_UNIFORM_BUFFER)
 		descriptor_type = DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	else if (resource_type == SPVC_RESOURCE_TYPE_STORAGE_BUFFER)
+		descriptor_type = DESCRIPTOR_TYPE_STORAGE_BUFFER;
 	else if (resource_type == SPVC_RESOURCE_TYPE_SAMPLED_IMAGE)
 		descriptor_type = DESCRIPTOR_TYPE_SAMPLER;
+	else if (resource_type == SPVC_RESOURCE_TYPE_STORAGE_IMAGE)
+		descriptor_type = DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	else if (resource_type == SPVC_RESOURCE_TYPE_ACCELERATION_STRUCTURE)
+		descriptor_type = DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE;
 
 	for (size_t i = 0; i < count; i++)
 	{
@@ -264,7 +303,7 @@ void Shader::parse_spv_resources(const spvc_reflected_resource *resources, size_
 		size_t size = 0;
 
 		unsigned int first_member_offset = 0;
-		if (resource_type == SPVC_RESOURCE_TYPE_PUSH_CONSTANT || resource_type == SPVC_RESOURCE_TYPE_UNIFORM_BUFFER)
+		if (resource_type == SPVC_RESOURCE_TYPE_PUSH_CONSTANT || resource_type == SPVC_RESOURCE_TYPE_UNIFORM_BUFFER || resource_type == SPVC_RESOURCE_TYPE_STORAGE_BUFFER)
 		{
 			spvc_compiler_get_declared_struct_size(compiler, struct_type, &size);
 
