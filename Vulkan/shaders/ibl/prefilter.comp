@@ -4,7 +4,7 @@ layout(binding=1, rgba32f) restrict writeonly uniform imageCube prefilterMap;
 
 layout(push_constant) uniform constants
 {
-	layout(offset = 64) float roughness;
+	float roughness;
 } PushConstants;
 
 float RadicalInverse_VdC(uint bits) 

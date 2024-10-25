@@ -483,7 +483,6 @@ void Application::recordCommands(CommandBuffer &command_buffer, uint32_t image_i
 		// Render IBL prefilter
 		{
 			GPU_SCOPE("render_ibl_prefilter", &command_buffer);
-			ibl_prefilter->transitLayout(command_buffer, TEXTURE_LAYOUT_ATTACHMENT);
 
 			for (int mip = 0; mip < 5; mip++)
 			{
