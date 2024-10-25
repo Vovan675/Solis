@@ -1,3 +1,4 @@
+#include "common.h"
 layout(location = 0) in vec3 inPos;
 layout(location = 1) in vec3 inNormal;
 layout(location = 2) in vec2 inUV;
@@ -35,10 +36,10 @@ void main()
 	{
 		vec3 normal = texture(textures[normal_tex_id], inUV).rgb;
 		normal = normalize(normal * 2.0 - 1.0);
-		outNormal.rgb = normalize(inTBN * -normal);
+		outNormal.rgb = normalize(inTBN * normal);
 	}
 
-	#if 0
+	#if 1
 		outShading.r = metalness_tex_id >= 0 ? texture(textures[metalness_tex_id], inUV).r : shading.r;
 		outShading.g = roughness_tex_id >= 0 ? texture(textures[roughness_tex_id], inUV).r : shading.g;
 		outShading.b = specular_tex_id >= 0 ? texture(textures[specular_tex_id], inUV).r : shading.b;
@@ -47,5 +48,7 @@ void main()
 		outShading.g = specular_tex_id >= 0 ? texture(textures[specular_tex_id], inUV).g : shading.g;
 		outShading.b = shading.b;
 	#endif
+	//outShading.r = 1;
+	//outShading.g = 0.15;
 	outShading.a = 1.0;
 }

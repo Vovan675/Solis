@@ -4,6 +4,7 @@
 #include "RHI/Shader.h"
 #include "RHI/Buffer.h"
 #include "RHI/VkWrapper.h"
+#include "RHI/VkUtils.h"
 #include "BindlessResources.h"
 #include "Camera.h"
 #include "Assets/Asset.h"
@@ -87,13 +88,13 @@ public:
 										unsigned int binding, void* params_struct, size_t params_size);
 
 	static void setShadersTexture(std::vector<std::shared_ptr<Shader>> shaders,
-										unsigned int binding, std::shared_ptr<Texture> texture, int mip = -1, int face = -1);
+										unsigned int binding, std::shared_ptr<Texture> texture, int mip = -1, int face = -1, bool is_uav = false);
 
-	static void bindShadersDescriptorSets(std::vector<std::shared_ptr<Shader>> shaders, CommandBuffer &command_buffer, VkPipelineLayout pipeline_layout, bool is_ray_tracing = false);
+	static void bindShadersDescriptorSets(std::vector<std::shared_ptr<Shader>> shaders, CommandBuffer &command_buffer, VkPipelineLayout pipeline_layout, VkPipelineBindPoint bind_point = VK_PIPELINE_BIND_POINT_GRAPHICS);
 
 	// Default Uniforms
 	static void setCamera(std::shared_ptr<Camera> camera) { Renderer::camera = camera; }
-	static void updateDefaultUniforms(unsigned int image_index);
+	static void updateDefaultUniforms(float delta_time, unsigned int image_index);
 	static const DefaultUniforms getDefaultUniforms();
 
 	static VkDescriptorSetLayout getDefaultDescriptorLayout() { return default_descriptor_layout.layout; }
@@ -135,6 +136,7 @@ private:
 		glm::mat4 iprojection;
 		glm::vec4 camera_position;
 		glm::vec4 swapchain_size;
+		float time = 0;
 	};
 	static DefaultUniforms default_uniforms;
 	static DescriptorLayout default_descriptor_layout;
@@ -146,20 +148,32 @@ private:
 	static uint32_t timestamp_index;
 };
 
-struct GPUTimer
+struct GPUScope
 {
-	GPUTimer(std::string name)
+	GPUScope(const char *name, CommandBuffer *command_buffer = nullptr, glm::vec3 color = glm::vec3(0.7, 0.7, 0.7))
 	{
 		timestamp = Renderer::beginTimestamp();
 		Renderer::addDebugTime(timestamp, name);
+		if (command_buffer)
+		{
+			this->command_buffer = command_buffer;
+			VkUtils::cmdBeginDebugLabel(*command_buffer, name, color);
+		}
 	}
 
-	~GPUTimer()
+	~GPUScope()
 	{
 		Renderer::endTimestamp(timestamp + 1);
+		if (command_buffer)
+			VkUtils::cmdEndDebugLabel(*command_buffer);
 	}
+
 	uint32_t timestamp = 0;
+	CommandBuffer *command_buffer = nullptr;
 };
 
-#define GPU_TIME_SCOPED(name) GPUTimer gpu_timer__LINE__(name)
-#define GPU_TIME_SCOPED_FUNCTION() GPUTimer gpu_timer__LINE__(__FUNCTION__)
+#define GPU_PROFILE_SCOPE(name) GPUScope gpu_scope__LINE__(name)
+#define GPU_PROFILE_SCOPE_FUNCTION(name) GPUScope gpu_scope__LINE__(name)
+
+#define GPU_SCOPE_FUNCTION(command_buffer) GPUScope gpu_scope__LINE__(__FUNCTION__, command_buffer)
+#define GPU_SCOPE(name, command_buffer) GPUScope gpu_scope__LINE__(name, command_buffer)

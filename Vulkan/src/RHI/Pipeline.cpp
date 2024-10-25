@@ -150,6 +150,19 @@ void Pipeline::create(const PipelineDescription &description)
 		raygenShaderBindingTable->fill(shaderHandleStorage.data());
 		missShaderBindingTable->fill(shaderHandleStorage.data() + handleSizeAligned);
 		hitShaderBindingTable->fill(shaderHandleStorage.data() + handleSizeAligned * 2);
+	} else if (description.is_compute_pipeline)
+	{
+		VkPipelineShaderStageCreateInfo compShaderStageInfo{};
+		compShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+		compShaderStageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+		compShaderStageInfo.module = description.compute_shader->handle;
+		compShaderStageInfo.pName = "main";
+
+		VkComputePipelineCreateInfo pipelineInfo{};
+		pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+		pipelineInfo.layout = pipeline_layout;
+		pipelineInfo.stage = compShaderStageInfo;
+		CHECK_ERROR(vkCreateComputePipelines(VkWrapper::device->logicalHandle, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline));
 	} else
 	{
 		// Shaders state

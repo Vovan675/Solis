@@ -13,7 +13,7 @@
 #include "renderers/LutRenderer.h"
 #include "renderers/IrradianceRenderer.h"
 #include "renderers/PrefilterRenderer.h"
-#include "renderers/CubeMapRenderer.h"
+#include "renderers/SkyRenderer.h"
 #include "renderers/MeshRenderer.h"
 #include "renderers/ImGuiRenderer.h"
 #include "renderers/DefferedLightingRenderer.h"
@@ -71,7 +71,7 @@ private:
 	std::shared_ptr<IrradianceRenderer> irradiance_renderer;
 	std::shared_ptr<PrefilterRenderer> prefilter_renderer;
 
-	std::shared_ptr<CubeMapRenderer> cubemap_renderer;
+	std::shared_ptr<SkyRenderer> sky_renderer;
 	std::shared_ptr<DefferedLightingRenderer> defferred_lighting_renderer;
 	std::shared_ptr<DefferedCompositeRenderer> deffered_composite_renderer;
 	std::shared_ptr<PostProcessingRenderer> post_renderer;

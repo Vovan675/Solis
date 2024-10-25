@@ -1,12 +1,6 @@
-layout (location=0) in vec3 dir;
-layout (location=0) out vec4 outColor;
-
-layout (binding=1) uniform samplerCube texSampler;
-
-layout (set=1, binding=0) uniform sampler2D textures[];
-
-const float PI = 3.14159265359;
-const float TwoPI = 2 * PI;
+#include "common.h"
+layout (binding=2) uniform samplerCube texSampler;
+layout(binding=1, rgba32f) uniform imageCube irradianceMap;
 
 float RadicalInverse_VdC(uint bits) 
 {
@@ -29,21 +23,25 @@ vec3 sampleHemisphere(float u1, float u2)
 	return vec3(cos(TwoPI * u2) * u1p, sin(TwoPI * u2) * u1p, u1);
 }
 
+layout(local_size_x=32, local_size_y=32, local_size_z=1) in;
 void main()
 {
-	vec3 N = normalize(dir);
+	uvec2 idx = gl_GlobalInvocationID.xy;
+	vec2 size = imageSize(irradianceMap);
+	vec3 N = getCubemapNormal(size);
 
-	vec3 up = vec3(0.0, 1.0, 0.0);
-	vec3 right = normalize(cross(up, N));
-	up = normalize(cross(N, right));
+	vec3 up;
+	vec3 right;
+	computeBasis(N, up, right);
 
 	vec3 irradiance = vec3(0.0);
 	int samples_count = 0;
 
-	#if 1
+	#if 0
 		float step_phi = (2.0 * PI) / 180.0;
 		float step_theta = (0.5 * PI) / 64.0;
-
+		step_phi = 0.025;
+		step_theta = 0.025;
 		for(float phi = 0.0f; phi < 2.0 * PI; phi += step_phi)
 		{
 			for(float theta = 0.0f; theta < 0.5 * PI; theta += step_theta)
@@ -55,9 +53,10 @@ void main()
 				samples_count++;
 			}
 		}
-		outColor = vec4(PI * irradiance / float(samples_count), 1.0);
+		irradiance = PI * irradiance / float(samples_count);
 	#else
-		samples_count = 64;
+		samples_count = 64 * 256;
+		samples_count = 4096;
 		for (int i = 0; i < samples_count; i++)
 		{
         	vec2 Xi = Hammersley(i, samples_count);
@@ -66,7 +65,7 @@ void main()
 			float cosTheta = max(0.0, dot(N, sample_dir));
 			irradiance += texture(texSampler, sample_dir).rgb * cosTheta;
 		}
-		outColor = vec4(PI * irradiance / float(samples_count), 1.0);
+		irradiance = PI * irradiance / float(samples_count);
 	#endif
-
+	imageStore(irradianceMap, ivec3(gl_GlobalInvocationID), vec4(irradiance, 1));
 }

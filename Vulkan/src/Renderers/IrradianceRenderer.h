@@ -9,21 +9,13 @@
 class IrradianceRenderer: public RendererBase
 {
 public:
-	struct PushConstant
-	{
-		glm::mat4 mvp = glm::mat4(1.0f);
-	} constants;
-
 	IrradianceRenderer();
-	virtual ~IrradianceRenderer();
 
 	void fillCommandBuffer(CommandBuffer &command_buffer) override;
 
 	std::shared_ptr<Texture> cube_texture;
+	std::shared_ptr<Texture> output_irradiance_texture;
 private:
-	std::shared_ptr<Shader> vertex_shader;
-	std::shared_ptr<Shader> fragment_shader;
-
-	std::shared_ptr<Engine::Mesh> mesh;
+	std::shared_ptr<Shader> compute_shader;
 };
 

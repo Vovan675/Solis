@@ -270,6 +270,7 @@ void Texture::load(const char *path)
 		if (!neg_y)
 			CORE_ERROR("Loading texture error");
 
+		m_Description.imageFormat = VK_FORMAT_R8G8B8A8_SRGB;
 		m_Description.width = texWidth;
 		m_Description.height = texHeight;
 		m_Description.mipLevels = std::floor(std::log2(std::max(texWidth, texHeight))) + 1;
@@ -305,6 +306,11 @@ void Texture::fill_raw(VkImage image)
 	cleanup();
 	imageHandle = image;
 	getImageView();
+}
+
+void Texture::setDebugName(const char *name)
+{
+	VkUtils::setDebugName(VK_OBJECT_TYPE_IMAGE, (uint64_t)imageHandle, name);
 }
 
 void Texture::transitLayout(CommandBuffer &command_buffer, TextureLayoutType new_layout_type, int mip)

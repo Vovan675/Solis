@@ -175,33 +175,44 @@ std::vector<uint32_t> Shader::compile_glsl(const std::string& glslSource, Shader
 	// Create compiler
 	shaderc::Compiler compiler;
 	shaderc::CompileOptions options;
-	options.SetOptimizationLevel(shaderc_optimization_level_zero);
+	options.SetOptimizationLevel(shaderc_optimization_level_zero); // TODO: toggle
+	//options.SetOptimizationLevel(shaderc_optimization_level_performance);
 	options.SetTargetEnvironment(shaderc_target_env_vulkan, shaderc_env_version_vulkan_1_3);
 	options.SetIncluder(std::make_unique<ShaderIncluder>());
 
-	for (const auto &define : defines)
-	{
-		options.AddMacroDefinition(define.first, define.second);
-	}
 
 	shaderc_shader_kind kind;
 	switch (type)
 	{
 		case VERTEX_SHADER:
 			kind = shaderc_vertex_shader;
+			options.AddMacroDefinition("VERTEX_SHADER");
 			break;
 		case FRAGMENT_SHADER:
 			kind = shaderc_fragment_shader;
+			options.AddMacroDefinition("FRAGMENT_SHADER");
+			break;
+		case COMPUTE_SHADER:
+			kind = shaderc_compute_shader;
+			options.AddMacroDefinition("COMPUTE_SHADER");
 			break;
 		case RAY_GENERATION_SHADER:
 			kind = shaderc_raygen_shader;
+			options.AddMacroDefinition("RAY_GENERATION_SHADER");
 			break;
 		case MISS_SHADER:
 			kind = shaderc_miss_shader;
+			options.AddMacroDefinition("MISS_SHADER");
 			break;
 		case CLOSEST_HIT_SHADER:
 			kind = shaderc_closesthit_shader;
+			options.AddMacroDefinition("CLOSEST_HIT_SHADER");
 			break;
+	}
+
+	for (const auto &define : defines)
+	{
+		options.AddMacroDefinition(define.first, define.second);
 	}
 
 	// Preprocess source
@@ -267,6 +278,9 @@ void Shader::parse_spv_resources(const spvc_reflected_resource *resources, size_
 			break;
 		case FRAGMENT_SHADER:
 			stage = DESCRIPTOR_STAGE_FRAGMENT_SHADER;
+			break;
+		case COMPUTE_SHADER:
+			stage = DESCRIPTOR_STAGE_COMPUTE_SHADER;
 			break;
 		case RAY_GENERATION_SHADER:
 			stage = DESCRIPTOR_STAGE_RAY_GENERATION_SHADER;

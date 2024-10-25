@@ -6,10 +6,12 @@ enum DescriptorStage : uint32_t
 	// Default pipeline
 	DESCRIPTOR_STAGE_VERTEX_SHADER = 2 << 0,
 	DESCRIPTOR_STAGE_FRAGMENT_SHADER = 2 << 1,
+	// Compute pipeline
+	DESCRIPTOR_STAGE_COMPUTE_SHADER = 2 << 2,
 	// Ray tracing pipeline
-	DESCRIPTOR_STAGE_RAY_GENERATION_SHADER = 2 << 2,
-	DESCRIPTOR_STAGE_MISS_SHADER = 2 << 3,
-	DESCRIPTOR_STAGE_CLOSEST_HIT_SHADER = 2 << 4,
+	DESCRIPTOR_STAGE_RAY_GENERATION_SHADER = 2 << 3,
+	DESCRIPTOR_STAGE_MISS_SHADER = 2 << 4,
+	DESCRIPTOR_STAGE_CLOSEST_HIT_SHADER = 2 << 5,
 };
 
 enum DescriptorType
@@ -53,6 +55,8 @@ public:
 		// Default pipeline
 		VERTEX_SHADER,
 		FRAGMENT_SHADER,
+		// Compute pipeline
+		COMPUTE_SHADER,
 		// Ray tracing pipeline
 		RAY_GENERATION_SHADER,
 		MISS_SHADER,

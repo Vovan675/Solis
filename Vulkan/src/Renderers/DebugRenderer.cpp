@@ -24,7 +24,7 @@ DebugRenderer::DebugRenderer()
 
 	lines_index_buffer = std::make_shared<Buffer>(desc);
 	lines_index_buffer->fill(indices);
-
+	lines_index_buffer->setDebugName("Lines Index Buffer");
 
 	vertices = new Engine::Vertex[256];
 	
@@ -34,6 +34,7 @@ DebugRenderer::DebugRenderer()
 
 	lines_vertex_buffer = std::make_shared<Buffer>(desc);
 	lines_vertex_buffer->map((void **)&vertices);
+	lines_vertex_buffer->setDebugName("Lines Vertex Buffer");
 }
 
 DebugRenderer::~DebugRenderer()

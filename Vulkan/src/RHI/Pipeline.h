@@ -27,6 +27,10 @@ struct PipelineDescription
 	VkCullModeFlagBits cull_mode = VK_CULL_MODE_BACK_BIT;
 	VkPrimitiveTopology primitive_topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 
+	// Compute Pipeline
+	bool is_compute_pipeline = false;
+	std::shared_ptr<Shader> compute_shader;
+	
 	// Ray Tracing Pipeline
 	bool is_ray_tracing_pipeline = false;
 	std::shared_ptr<Shader> ray_generation_shader;

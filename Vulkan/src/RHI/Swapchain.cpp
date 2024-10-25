@@ -2,6 +2,7 @@
 #include "Swapchain.h"
 #include "Log.h"
 #include "VkWrapper.h"
+#include "Variables.h"
 
 Swapchain::Swapchain(VkSurfaceKHR surface): surface(surface)
 {
@@ -74,9 +75,14 @@ void Swapchain::create_swapchain(int width, int height)
 	for (const auto& mode : presentModes)
 	{
 		// vsync
-		if (mode == VK_PRESENT_MODE_FIFO_KHR)
+		if (render_vsync)
 		{
-			presentMode = mode;
+			if (mode == VK_PRESENT_MODE_FIFO_KHR)
+				presentMode = mode;
+		} else
+		{
+			if (mode == VK_PRESENT_MODE_IMMEDIATE_KHR)
+				presentMode = mode;
 		}
 	}
 

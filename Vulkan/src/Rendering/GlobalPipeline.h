@@ -43,6 +43,9 @@ public:
 		}
 	}
 
+	void setIsComputePipeline(bool is_compute) { current_description.is_compute_pipeline = is_compute; }
+	void setComputeShader(std::shared_ptr<Shader> shader) { current_description.compute_shader = shader; }
+
 	void setIsRayTracingPipeline(bool is_ray_tracing) { current_description.is_ray_tracing_pipeline = is_ray_tracing; }
 
 	void setRayGenerationShader(std::shared_ptr<Shader> shader) { current_description.ray_generation_shader = shader; }

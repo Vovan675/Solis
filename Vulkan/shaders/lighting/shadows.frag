@@ -13,8 +13,8 @@ layout (binding = 0) uniform UBO
 
 void main()
 {
-    float lightDistance = length(inPos.xyz - light_pos.xyz);
 	#if LIGHT_TYPE == 0
+    	float lightDistance = length(inPos.xyz - light_pos.xyz);
 		gl_FragDepth = lightDistance / z_far;
 	#endif
 }

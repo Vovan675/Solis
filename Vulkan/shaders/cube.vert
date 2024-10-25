@@ -43,5 +43,5 @@ void main()
 	//dir = pos[idx].xyz;
 	gl_Position = projection * mat4(mat3(view)) * vec4(inPosition, 1.0);
 
-	dir = vec3(vec4(inPosition, 1.0));
+	dir = normalize(vec3(vec4(inPosition, 1.0)));
 }

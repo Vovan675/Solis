@@ -2,6 +2,7 @@
 #include "Buffer.h"
 #include "VkWrapper.h"
 #include "Rendering/Renderer.h"
+#include "VkUtils.h"
 
 Buffer::Buffer(BufferDescription description)
 	: m_Description(description)
@@ -84,4 +85,9 @@ void Buffer::map(void **data)
 	// Map buffer memory to CPU accessible memory
 	vmaMapMemory(VkWrapper::allocator, allocation, data);
 	is_mapped = true;
+}
+
+void Buffer::setDebugName(const char *name)
+{
+	VkUtils::setDebugName(VK_OBJECT_TYPE_BUFFER, (uint64_t)bufferHandle, name);
 }

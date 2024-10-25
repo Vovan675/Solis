@@ -3,6 +3,7 @@
 #include "VkWrapper.h"
 #include "BindlessResources.h"
 #include "Rendering/Renderer.h"
+#include "VkUtils.h"
 
 VkInstance VkWrapper::instance;
 std::shared_ptr<Device> VkWrapper::device;
@@ -27,6 +28,7 @@ void VkWrapper::init(GLFWwindow *window)
 	device = std::make_shared<Device>(instance);
 	init_vma();
 	init_command_buffers();
+	VkUtils::init();
 
 	VkSurfaceKHR surface;
 	CHECK_ERROR(glfwCreateWindowSurface(instance, window, nullptr, &surface));
@@ -327,6 +329,12 @@ void VkWrapper::init_instance()
 	uint32_t extensionsCount = 0;
 	const char **extensionsName = glfwGetRequiredInstanceExtensions(&extensionsCount);
 
+	std::vector<const char *> extensions;
+	extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+
+	for (int i = 0; i < extensionsCount; i++)
+		extensions.push_back(extensionsName[i]);
+
 	VkApplicationInfo appInfo{};
 	appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
 	appInfo.pApplicationName = "Hello Vulkan";
@@ -336,8 +344,8 @@ void VkWrapper::init_instance()
 	VkInstanceCreateInfo info{};
 	info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
 	info.pApplicationInfo = &appInfo;
-	info.enabledExtensionCount = extensionsCount;
-	info.ppEnabledExtensionNames = extensionsName;
+	info.enabledExtensionCount = extensions.size();
+	info.ppEnabledExtensionNames = extensions.data();
 
 	#ifdef DEBUG
 		info.enabledLayerCount = s_ValidationLayers.size();

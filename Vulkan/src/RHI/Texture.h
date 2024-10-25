@@ -59,6 +59,8 @@ public:
 	uint32_t getWidth(int mip = 0) const { return m_Description.width >> mip; }
 	uint32_t getHeight(int mip = 0) const { return m_Description.height >> mip; }
 
+	void setDebugName(const char *name);
+
 	void transitLayout(CommandBuffer &command_buffer, TextureLayoutType new_layout_type, int mip = -1);
 	
 	VkImageView getImageView(int mip = 0, int layer = -1);

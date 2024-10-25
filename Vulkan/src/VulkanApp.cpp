@@ -122,7 +122,7 @@ void VulkanApp::render(CommandBuffer &command_buffer, uint32_t image_index)
 	command_buffer.open();
 	vkCmdResetQueryPool(command_buffer.get_buffer(), VkWrapper::device->query_pool, 0, VkWrapper::device->time_stamps.size());
 	{
-		GPU_TIME_SCOPED("GPU Time");
+		GPU_SCOPE_FUNCTION(&command_buffer);
 
 		// Set swapchain color image layout for writing
 		VkWrapper::cmdImageMemoryBarrier(command_buffer,

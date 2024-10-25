@@ -6,51 +6,31 @@
 
 PrefilterRenderer::PrefilterRenderer(): RendererBase()
 {
-	// Load image
-	TextureDescription tex_description{};
-	tex_description.imageFormat = VK_FORMAT_R8G8B8A8_SRGB;
-	tex_description.imageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
-	tex_description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-	tex_description.is_cube = true;
-
-	auto model = AssetManager::getModelAsset("assets/cube.fbx");
-	mesh = model->getRootNode()->children[0]->meshes[0];
-
-	vertex_shader = Shader::create("shaders/ibl/cubemap_filter.vert", Shader::VERTEX_SHADER);
-	fragment_shader = Shader::create("shaders/ibl/prefilter.frag", Shader::FRAGMENT_SHADER);
-}
-
-PrefilterRenderer::~PrefilterRenderer()
-{
+	compute_shader = Shader::create("shaders/ibl/prefilter.comp", Shader::COMPUTE_SHADER);
 }
 
 void PrefilterRenderer::fillCommandBuffer(CommandBuffer &command_buffer)
 {
+	cube_texture->transitLayout(command_buffer, TEXTURE_LAYOUT_SHADER_READ);
+	output_prefilter_texture->transitLayout(command_buffer, TEXTURE_LAYOUT_GENERAL);
 	auto &p = VkWrapper::global_pipeline;
 	p->reset();
 
-	p->setVertexShader(vertex_shader);
-	p->setFragmentShader(fragment_shader);
-
-	p->setRenderTargets(VkWrapper::current_render_targets);
-	p->setCullMode(VK_CULL_MODE_BACK_BIT);
+	p->setIsComputePipeline(true);
+	p->setComputeShader(compute_shader);
 
 	p->flush();
 	p->bind(command_buffer);
 
 	// Uniforms
-	Renderer::setShadersTexture(p->getCurrentShaders(), 1, cube_texture);
-	Renderer::bindShadersDescriptorSets(p->getCurrentShaders(), command_buffer, p->getPipelineLayout());
+	Renderer::setShadersTexture(p->getCurrentShaders(), 1, output_prefilter_texture, -1, -1, true);
+	Renderer::setShadersTexture(p->getCurrentShaders(), 2, cube_texture);
+	Renderer::bindShadersDescriptorSets(p->getCurrentShaders(), command_buffer, p->getPipelineLayout(), VK_PIPELINE_BIND_POINT_COMPUTE);
 
-	vkCmdPushConstants(command_buffer.get_buffer(), p->getPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PushConstantVert), &constants_vert);
-	vkCmdPushConstants(command_buffer.get_buffer(), p->getPipelineLayout(), VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(PushConstantVert), sizeof(PushConstantFrag), &constants_frag);
+	vkCmdPushConstants(command_buffer.get_buffer(), p->getPipelineLayout(), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PushConstantFrag), &constants_frag);
 
-	// Render mesh
-	VkBuffer vertexBuffers[] = {mesh->vertexBuffer->bufferHandle};
-	VkDeviceSize offsets[] = {0};
-	vkCmdBindVertexBuffers(command_buffer.get_buffer(), 0, 1, vertexBuffers, offsets);
-	vkCmdBindIndexBuffer(command_buffer.get_buffer(), mesh->indexBuffer->bufferHandle, 0, VK_INDEX_TYPE_UINT32);
-	vkCmdDrawIndexed(command_buffer.get_buffer(), mesh->indices.size(), 1, 0, 0, 0);
+
+	vkCmdDispatch(command_buffer.get_buffer(), output_prefilter_texture->getWidth() / 32, output_prefilter_texture->getHeight() / 32, 6);
 
 	p->unbind(command_buffer);
 }

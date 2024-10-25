@@ -243,7 +243,7 @@ void main()
 			// Directional light
 			L = normalize(PushConstants.light_pos.xyz);
 			#if USE_SHADOWS == 1
-				float bias = max(0.001, 0.001 * (1.0 - dot(N, L)));
+				float bias = max(0.002, 0.002 * (1.0 - dot(N, L)));
 				shadow = get_shadow_dir(P, bias);
 			#endif
 		#endif

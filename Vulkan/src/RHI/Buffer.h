@@ -26,6 +26,8 @@ public:
 	void map(void** data);
 
 	uint64_t getSize() const { return m_Description.size; }
+
+	void setDebugName(const char *name);
 private:
 	BufferDescription m_Description;
 	bool is_mapped = false;

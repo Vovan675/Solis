@@ -21,6 +21,7 @@
 #include "glm/gtx/euler_angles.hpp"
 #include "glm/gtx/quaternion.hpp"
 #include "Filesystem.h"
+#include "Utils/Math.h"
 #include "Assets/AssetManager.h"
 
 #include "RHI/RayTracing/TopLevelAccelerationStructure.h"
@@ -34,12 +35,12 @@ Application::Application()
 
 	// Demo Scene
 	//auto model = AssetManager::getModelAsset("assets/demo_scene.fbx");
-	auto model = AssetManager::getModelAsset("assets/game/map.fbx");
+	//auto model = AssetManager::getModelAsset("assets/game/map.fbx");
 	//auto model = AssetManager::getModelAsset("assets/sponza/sponza.obj");
 	//auto model = AssetManager::getModelAsset("assets/new_sponza/NewSponza_Main_Yup_002.fbx");
 	//auto model = AssetManager::getModelAsset("assets/bistro/BistroExterior.fbx");
 	//auto model = AssetManager::getModelAsset("assets/hideout/source/FullSceneSubstance.fbx");
-	//auto model = AssetManager::getModelAsset("assets/pbr/source/Ref.fbx");
+	auto model = AssetManager::getModelAsset("assets/pbr/source/Ref.fbx");
 	//model->saveFile("test_model.mesh");
 	//model->loadFile("test_model.mesh");
 	Entity entity = model->createEntity(model, &scene);
@@ -62,8 +63,8 @@ Application::Application()
 	prefilter_renderer = std::make_shared<PrefilterRenderer>();
 	renderers.push_back(prefilter_renderer);
 
-	cubemap_renderer = std::make_shared<CubeMapRenderer>();
-	renderers.push_back(cubemap_renderer);
+	sky_renderer = std::make_shared<SkyRenderer>();
+	renderers.push_back(sky_renderer);
 
 	imgui_renderer = std::make_shared<ImGuiRenderer>(window);
 	renderers.push_back(imgui_renderer);
@@ -112,8 +113,8 @@ Application::Application()
 	}
 	*/
 
-	irradiance_renderer->cube_texture = cubemap_renderer->cube_texture;
-	prefilter_renderer->cube_texture = cubemap_renderer->cube_texture;
+	irradiance_renderer->cube_texture = sky_renderer->cube_texture;
+	prefilter_renderer->cube_texture = sky_renderer->cube_texture;
 
 	//cubemap_renderer->cube_texture = ibl_irradiance;
 
@@ -151,28 +152,30 @@ void Application::createRenderTargets()
 
 	// Irradiance
 	TextureDescription description;
-	description.width = 256;
-	description.height = 256;
-	description.imageFormat = VkWrapper::swapchain->surface_format.format;
+	description.width = 32;
+	description.height = 32;
+	description.imageFormat = VK_FORMAT_R32G32B32A32_SFLOAT;
 	description.imageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
-	description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+	description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
 	description.is_cube = true;
 	description.mipLevels = std::floor(std::log2(std::max(description.width, description.height))) + 1;
 	ibl_irradiance = std::make_shared<Texture>(description);
 	ibl_irradiance->fill();
+	ibl_irradiance->setDebugName("IBL Irradiance Image");
 
 	deffered_composite_renderer->irradiance_cubemap = ibl_irradiance;
 
 	// Prefilter
 	description.width = 128;
 	description.height = 128;
-	description.imageFormat = VkWrapper::swapchain->surface_format.format;
+	description.imageFormat = VK_FORMAT_R32G32B32A32_SFLOAT;
 	description.imageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
-	description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+	description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
 	description.is_cube = true;
 	description.mipLevels = 5;
 	ibl_prefilter = std::make_shared<Texture>(description);
 	ibl_prefilter->fill();
+	ibl_prefilter->setDebugName("IBL Prefilter Image");
 
 	deffered_composite_renderer->prefilter_cubemap = ibl_prefilter;
 
@@ -186,6 +189,7 @@ void Application::createRenderTargets()
 	description.is_cube = false;
 	ibl_brdf_lut = std::make_shared<Texture>(description);
 	ibl_brdf_lut->fill();
+	ibl_brdf_lut->setDebugName("IBL BRDF LUT Image");
 
 	uint32_t ibl_brdf_lut_id = BindlessResources::addTexture(ibl_brdf_lut.get());
 	debug_renderer->ubo.brdf_lut_id = ibl_brdf_lut_id;
@@ -297,6 +301,7 @@ void Application::update(float delta_time)
 	post_renderer->renderImgui();
 	ssao_renderer->renderImgui();
 	defferred_lighting_renderer->renderImgui();
+	sky_renderer->renderImgui();
 
 	ImGui::End();
 
@@ -438,7 +443,7 @@ void Application::updateBuffers(float delta_time, uint32_t image_index)
 {
 	// Update bindless resources if any
 	BindlessResources::updateSets();
-	Renderer::updateDefaultUniforms(image_index);
+	Renderer::updateDefaultUniforms(delta_time, image_index);
 
 	ssao_renderer->ubo_raw_pass.near_plane = camera->getNear();
 	ssao_renderer->ubo_raw_pass.far_plane = camera->getFar();
@@ -449,63 +454,53 @@ void Application::recordCommands(CommandBuffer &command_buffer, uint32_t image_i
 	if (engine_ray_tracing && render_ray_traced_shadows)
 		ray_tracing_scene->update();
 
+
+	sky_renderer->setMode(SKY_MODE_PROCEDURAL);
+	bool is_sky_dirty = sky_renderer->isDirty();
+	sky_renderer->renderCubemap(command_buffer);
+
 	if (render_first_frame)
 	{
-		render_first_frame = false;
-
 		// Render BRDF Lut
 		ibl_brdf_lut->transitLayout(command_buffer, TEXTURE_LAYOUT_ATTACHMENT);
 		VkWrapper::cmdBeginRendering(command_buffer, {ibl_brdf_lut}, nullptr);
 		lut_renderer->fillCommandBuffer(command_buffer);
 		VkWrapper::cmdEndRendering(command_buffer);
 		ibl_brdf_lut->transitLayout(command_buffer, TEXTURE_LAYOUT_SHADER_READ);
-		
+	}
 
-		std::vector<glm::mat4> views = {
-			glm::rotate(glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f)), glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f)),
-
-			glm::rotate(glm::rotate(glm::mat4(1.0f), glm::radians(-90.0f), glm::vec3(0.0f, 1.0f, 0.0f)), glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f)),
-			glm::rotate(glm::mat4(1.0f), glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f)),
-			glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f)),
-			glm::rotate(glm::mat4(1.0f), glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f)),
-			glm::rotate(glm::mat4(1.0f), glm::radians(180.0f), glm::vec3(0.0f, 0.0f, 1.0f)),
-		};
-
+	if (render_first_frame || is_sky_dirty)
+	{
 		// Render IBL irradiance
-		ibl_irradiance->transitLayout(command_buffer, TEXTURE_LAYOUT_ATTACHMENT);
-
-		for (int face = 0; face < 6; face++)
 		{
-			irradiance_renderer->constants.mvp = 
-				glm::perspective(glm::radians(90.0f), 1.0f, 0.01f, 512.0f) * views[face];
-			VkWrapper::cmdBeginRendering(command_buffer, {ibl_irradiance}, nullptr, face);
+			GPU_SCOPE("render_ibl_irradiance", &command_buffer);
+			irradiance_renderer->output_irradiance_texture = ibl_irradiance;
 			irradiance_renderer->fillCommandBuffer(command_buffer);
-			VkWrapper::cmdEndRendering(command_buffer);
 		}
 
 		ibl_irradiance->transitLayout(command_buffer, TEXTURE_LAYOUT_SHADER_READ);
 
 		// Render IBL prefilter
-		ibl_prefilter->transitLayout(command_buffer, TEXTURE_LAYOUT_ATTACHMENT);
-
-		for (int mip = 0; mip < 5; mip++)
 		{
-			float roughness = (float)mip / (float)(5 - 1);
-			for (int face = 0; face < 6; face++)
-			{
-				prefilter_renderer->constants_vert.mvp =
-					glm::perspective(glm::radians(90.0f), 1.0f, 0.01f, 512.0f) * views[face];
+			GPU_SCOPE("render_ibl_prefilter", &command_buffer);
+			ibl_prefilter->transitLayout(command_buffer, TEXTURE_LAYOUT_ATTACHMENT);
 
+			for (int mip = 0; mip < 5; mip++)
+			{
+				float roughness = (float)mip / (float)(5 - 1);
+				prefilter_renderer->output_prefilter_texture = ibl_prefilter;
 				prefilter_renderer->constants_frag.roughness = roughness;
-				VkWrapper::cmdBeginRendering(command_buffer, {ibl_prefilter}, nullptr, face, mip);
 				prefilter_renderer->fillCommandBuffer(command_buffer);
-				VkWrapper::cmdEndRendering(command_buffer);
 			}
 		}
 
-		ibl_irradiance->generate_mipmaps(command_buffer);
+		{
+			GPU_SCOPE("render_ibl_irradiance_mipmaps", &command_buffer);
+			ibl_irradiance->generate_mipmaps(command_buffer);
+		}
 		ibl_prefilter->transitLayout(command_buffer, TEXTURE_LAYOUT_SHADER_READ);
 	}
+	render_first_frame = false;
 
 	if (::render_shadows)
 		render_shadows(command_buffer);
@@ -545,7 +540,7 @@ void Application::cleanupResources()
 {
 	irradiance_renderer = nullptr;
 	prefilter_renderer = nullptr;
-	cubemap_renderer = nullptr;
+	sky_renderer = nullptr;
 	imgui_renderer = nullptr;
 	defferred_lighting_renderer = nullptr;
 	deffered_composite_renderer = nullptr;
@@ -622,7 +617,7 @@ void Application::onSwapchainRecreated(int width, int height)
 
 void Application::render_GBuffer(CommandBuffer &command_buffer)
 {
-	GPU_TIME_SCOPED_FUNCTION();
+	GPU_SCOPE_FUNCTION(&command_buffer);
 	Renderer::getRenderTarget(RENDER_TARGET_GBUFFER_ALBEDO)->transitLayout(command_buffer, TEXTURE_LAYOUT_ATTACHMENT);
 	Renderer::getRenderTarget(RENDER_TARGET_GBUFFER_NORMAL)->transitLayout(command_buffer, TEXTURE_LAYOUT_ATTACHMENT);
 	Renderer::getRenderTarget(RENDER_TARGET_GBUFFER_DEPTH_STENCIL)->transitLayout(command_buffer, TEXTURE_LAYOUT_ATTACHMENT);
@@ -666,7 +661,7 @@ void Application::render_GBuffer(CommandBuffer &command_buffer)
 
 void Application::render_ray_tracing(CommandBuffer &command_buffer)
 {
-	GPU_TIME_SCOPED_FUNCTION();
+	GPU_SCOPE_FUNCTION(&command_buffer);
 	if (!ray_tracing_scene || !ray_tracing_scene->getTopLevelAS().handle)
 		return;
 
@@ -714,7 +709,7 @@ void Application::render_ray_tracing(CommandBuffer &command_buffer)
 
 	auto &ray_traced_lighting = storage_image;
 	Renderer::setShadersAccelerationStructure(p->getCurrentShaders(), &ray_tracing_scene->getTopLevelAS().handle, 0);
-	Renderer::setShadersTexture(p->getCurrentShaders(), 1, ray_traced_lighting);
+	Renderer::setShadersTexture(p->getCurrentShaders(), 1, ray_traced_lighting, -1, -1, true);
 	Renderer::setShadersUniformBuffer(p->getCurrentShaders(), 2, &ubo, sizeof(UBO));
 	Renderer::setShadersUniformBuffer(p->getCurrentShaders(), 6, &ubo_light, sizeof(LightUBO));
 
@@ -722,7 +717,7 @@ void Application::render_ray_tracing(CommandBuffer &command_buffer)
 
 	Renderer::setShadersStorageBuffer(p->getCurrentShaders(), 4, ray_tracing_scene->getBigVertexBuffer());
 	Renderer::setShadersStorageBuffer(p->getCurrentShaders(), 5, ray_tracing_scene->getBigIndexBuffer());
-	Renderer::bindShadersDescriptorSets(p->getCurrentShaders(), command_buffer, p->getPipelineLayout(), true);
+	Renderer::bindShadersDescriptorSets(p->getCurrentShaders(), command_buffer, p->getPipelineLayout(), VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR);
 
 	const uint32_t handleSizeAligned = VkWrapper::alignedSize(VkWrapper::device->physicalRayTracingProperties.shaderGroupHandleSize, VkWrapper::device->physicalRayTracingProperties.shaderGroupHandleAlignment);
 	VkStridedDeviceAddressRegionKHR raygenShaderSbtEntry{};
@@ -768,7 +763,7 @@ void Application::render_ray_tracing(CommandBuffer &command_buffer)
 
 void Application::render_lighting(CommandBuffer &command_buffer)
 {
-	GPU_TIME_SCOPED_FUNCTION();
+	GPU_SCOPE_FUNCTION(&command_buffer);
 	Renderer::getRenderTarget(RENDER_TARGET_GBUFFER_ALBEDO)->transitLayout(command_buffer, TEXTURE_LAYOUT_SHADER_READ);
 	Renderer::getRenderTarget(RENDER_TARGET_GBUFFER_NORMAL)->transitLayout(command_buffer, TEXTURE_LAYOUT_SHADER_READ);
 	Renderer::getRenderTarget(RENDER_TARGET_GBUFFER_DEPTH_STENCIL)->transitLayout(command_buffer, TEXTURE_LAYOUT_SHADER_READ);
@@ -790,13 +785,13 @@ void Application::render_lighting(CommandBuffer &command_buffer)
 
 void Application::render_ssao(CommandBuffer &command_buffer)
 {
-	GPU_TIME_SCOPED_FUNCTION();
+	GPU_SCOPE_FUNCTION(&command_buffer);
 	ssao_renderer->fillCommandBuffer(command_buffer);
 }
 
 void Application::render_deffered_composite(CommandBuffer &command_buffer)
 {
-	GPU_TIME_SCOPED_FUNCTION();
+	GPU_SCOPE_FUNCTION(&command_buffer);
 	Renderer::getRenderTarget(RENDER_TARGET_LIGHTING_DIFFUSE)->transitLayout(command_buffer, TEXTURE_LAYOUT_SHADER_READ);
 	Renderer::getRenderTarget(RENDER_TARGET_LIGHTING_SPECULAR)->transitLayout(command_buffer, TEXTURE_LAYOUT_SHADER_READ);
 	Renderer::getRenderTarget(RENDER_TARGET_COMPOSITE)->transitLayout(command_buffer, TEXTURE_LAYOUT_ATTACHMENT);
@@ -805,7 +800,7 @@ void Application::render_deffered_composite(CommandBuffer &command_buffer)
 	VkWrapper::cmdBeginRendering(command_buffer, {Renderer::getRenderTarget(RENDER_TARGET_COMPOSITE)}, nullptr);
 
 	// Draw Sky on background
-	cubemap_renderer->fillCommandBuffer(command_buffer);
+	sky_renderer->fillCommandBuffer(command_buffer);
 	// Draw composite (discard sky pixels by depth)
 	deffered_composite_renderer->fillCommandBuffer(command_buffer);
 
@@ -908,7 +903,7 @@ void Application::update_cascades(LightComponent &light, glm::vec3 light_dir)
 
 void Application::render_shadows(CommandBuffer &command_buffer)
 {
-	GPU_TIME_SCOPED_FUNCTION();
+	GPU_SCOPE_FUNCTION(&command_buffer);
 	auto light_entities_id = scene.getEntitiesWith<LightComponent>();
 	for (entt::entity light_entity_id : light_entities_id)
 	{

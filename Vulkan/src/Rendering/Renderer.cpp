@@ -49,7 +49,7 @@ void Renderer::recreateScreenResources()
 
 	auto swapchain_format = VkWrapper::swapchain->surface_format.format;
 
-	auto create_screen_texture = [&description](RENDER_TARGETS rt, VkFormat format, VkImageAspectFlags aspect_flags, VkImageUsageFlags usage_flags, bool anisotropy = false, VkSamplerAddressMode sampler_address_mode = VK_SAMPLER_ADDRESS_MODE_REPEAT)
+	auto create_screen_texture = [&description](RENDER_TARGETS rt, VkFormat format, VkImageAspectFlags aspect_flags, VkImageUsageFlags usage_flags, const char *name = nullptr, bool anisotropy = false, VkSamplerAddressMode sampler_address_mode = VK_SAMPLER_ADDRESS_MODE_REPEAT)
 	{
 		description.imageFormat = format;
 		description.imageAspectFlags = aspect_flags;
@@ -58,53 +58,55 @@ void Renderer::recreateScreenResources()
 		description.anisotropy = anisotropy;
 		screen_resources[rt] = std::make_shared<Texture>(description);
 		screen_resources[rt]->fill();
+		if (name)
+			screen_resources[rt]->setDebugName(name);
 
 		BindlessResources::addTexture(screen_resources[rt].get());
 	};
 
 	// Albedo
 	create_screen_texture(RENDER_TARGET_GBUFFER_ALBEDO, swapchain_format, VK_IMAGE_ASPECT_COLOR_BIT,
-						  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
+						  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, "GBuffer Albedo Image");
 
 
 	// Normal
 	create_screen_texture(RENDER_TARGET_GBUFFER_NORMAL, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT,
-						  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, false, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
+						  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, "GBuffer Normal Image", false, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
 
 	// Depth-Stencil
 	create_screen_texture(RENDER_TARGET_GBUFFER_DEPTH_STENCIL, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_IMAGE_ASPECT_DEPTH_BIT,
-						  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, false, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
+						  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, "GBuffer DepthStencil Image", false, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
 
 	// Shading
 	create_screen_texture(RENDER_TARGET_GBUFFER_SHADING, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT,
-						  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
+						  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, "GBuffer Shading Image");
 
 	///////////
 	// Lighting
 	///////////
 
 	create_screen_texture(RENDER_TARGET_RAY_TRACED_LIGHTING, swapchain_format, VK_IMAGE_ASPECT_COLOR_BIT,
-						  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
+						  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, "Ray Traced Lighting Image");
 
 	create_screen_texture(RENDER_TARGET_LIGHTING_DIFFUSE, VK_FORMAT_B10G11R11_UFLOAT_PACK32, VK_IMAGE_ASPECT_COLOR_BIT,
-						  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
+						  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, "Lighting Diffuse Image");
 
 	create_screen_texture(RENDER_TARGET_LIGHTING_SPECULAR, VK_FORMAT_B10G11R11_UFLOAT_PACK32, VK_IMAGE_ASPECT_COLOR_BIT,
-						  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
+						  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, "Lighting Specular Image");
 
 
 	create_screen_texture(RENDER_TARGET_SSAO_RAW, VK_FORMAT_R8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT,
-						  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
+						  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, "SSAO Raw Image");
 
 	create_screen_texture(RENDER_TARGET_SSAO, VK_FORMAT_R8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT,
-						  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
+						  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, "SSAO Image");
 
 	/////////////
 	// Composite
 	/////////////
 
 	create_screen_texture(RENDER_TARGET_COMPOSITE, swapchain_format, VK_IMAGE_ASPECT_COLOR_BIT,
-						  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
+						  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, "Composite Image");
 }
 
 void Renderer::beginFrame(unsigned int image_index)
@@ -335,7 +337,7 @@ void Renderer::setShadersUniformBuffer(std::vector<std::shared_ptr<Shader>> shad
 	memcpy(current_binding.second, params_struct, params_size);
 }
 
-void Renderer::setShadersTexture(std::vector<std::shared_ptr<Shader>> shaders, unsigned int binding, std::shared_ptr<Texture> texture, int mip, int face)
+void Renderer::setShadersTexture(std::vector<std::shared_ptr<Shader>> shaders, unsigned int binding, std::shared_ptr<Texture> texture, int mip, int face, bool is_uav)
 {
 	auto descriptor_layout = VkWrapper::getDescriptorLayout(shaders);
 
@@ -349,7 +351,7 @@ void Renderer::setShadersTexture(std::vector<std::shared_ptr<Shader>> shaders, u
 	VkDescriptorType descriptor_type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 	VkImageLayout image_layout = texture->isDepthTexture() ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-	if (texture->getImageUsageFlags() & VK_IMAGE_USAGE_STORAGE_BIT)
+	if (is_uav && texture->getImageUsageFlags() & VK_IMAGE_USAGE_STORAGE_BIT)
 	{
 		descriptor_type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
 		image_layout = VK_IMAGE_LAYOUT_GENERAL;
@@ -361,9 +363,8 @@ void Renderer::setShadersTexture(std::vector<std::shared_ptr<Shader>> shaders, u
 	writer.updateSet(descriptors[descriptor_hash][current_frame].descriptor_per_offset[offset]);
 }
 
-void Renderer::bindShadersDescriptorSets(std::vector<std::shared_ptr<Shader>> shaders, CommandBuffer &command_buffer, VkPipelineLayout pipeline_layout, bool is_ray_tracing)
+void Renderer::bindShadersDescriptorSets(std::vector<std::shared_ptr<Shader>> shaders, CommandBuffer &command_buffer, VkPipelineLayout pipeline_layout, VkPipelineBindPoint bind_point)
 {
-	VkPipelineBindPoint bind_point = is_ray_tracing ? VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR : VK_PIPELINE_BIND_POINT_GRAPHICS;
 	// Bind bindless
 	vkCmdBindDescriptorSets(command_buffer.get_buffer(), bind_point, pipeline_layout, 1, 1, BindlessResources::getDescriptorSet(), 0, nullptr);
 
@@ -388,7 +389,7 @@ void Renderer::bindShadersDescriptorSets(std::vector<std::shared_ptr<Shader>> sh
 	descriptors_offset[descriptor_hash][current_frame] += 1;
 }
 
-void Renderer::updateDefaultUniforms(unsigned int image_index)
+void Renderer::updateDefaultUniforms(float delta_time, unsigned int image_index)
 {
 	default_uniforms.view = camera->getView();
 	default_uniforms.iview = glm::inverse(camera->getView());
@@ -396,6 +397,7 @@ void Renderer::updateDefaultUniforms(unsigned int image_index)
 	default_uniforms.iprojection = glm::inverse(camera->getProj());
 	default_uniforms.camera_position = glm::vec4(camera->getPosition(), 1.0);
 	default_uniforms.swapchain_size = glm::vec4(VkWrapper::swapchain->getSize(), 1.0f / VkWrapper::swapchain->getSize());
+	default_uniforms.time += delta_time;
 
 	// After every updating (changing) increment offset because we can't override previous descriptor layout that is used in this frame
 	descriptors_offset[0][image_index] += 1;

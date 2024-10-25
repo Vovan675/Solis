@@ -55,6 +55,7 @@ namespace Engine
 
 		vertexBuffer = std::make_shared<Buffer>(vertexDesc);
 		vertexBuffer->fill(vertices.data());
+		vertexBuffer->setDebugName("Vertex Buffer");
 
 		// Create Index buffer
 		BufferDescription indexDesc;
@@ -65,5 +66,6 @@ namespace Engine
 
 		indexBuffer = std::make_shared<Buffer>(indexDesc);
 		indexBuffer->fill(indices.data());
+		indexBuffer->setDebugName("Index Buffer");
 	}
 }

@@ -1,6 +1,7 @@
 #pragma once
 #include "ConsoleVariables.h"
 
+extern AutoConVarBool render_vsync;
 extern AutoConVarBool render_debug_rendering;
 extern AutoConVarInt render_debug_rendering_mode;
 extern AutoConVarBool render_first_frame;
