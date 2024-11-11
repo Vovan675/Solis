@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "AssetBrowserPanel.h"
+#include "imgui/IconsFontAwesome6.h"
 #include <imgui.h>
 #include <filesystem>
 
@@ -11,7 +12,7 @@ static std::string get_file_entension(const std::string &filename)
 bool AssetBrowserPanel::renderImGui()
 {
 	// Asset browser
-	ImGui::Begin("Asset Browser");
+	ImGui::Begin((std::string(ICON_FA_FOLDER) + " Asset Browser###Asset Browser").c_str());
 	bool is_used = ImGui::IsWindowFocused();
 
 	if (ImGui::TreeNode("..."))

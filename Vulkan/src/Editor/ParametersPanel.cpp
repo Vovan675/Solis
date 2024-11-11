@@ -2,11 +2,12 @@
 #include "ParametersPanel.h"
 #include "Filesystem.h"
 #include "imgui.h"
+#include "imgui/IconsFontAwesome6.h"
 
 
 bool ParametersPanel::renderImGui(Entity entity, std::shared_ptr<DebugRenderer> debug_renderer)
 {
-	ImGui::Begin("Parameters");
+	ImGui::Begin((std::string(ICON_FA_PEN) + " Parameters###Parameters").c_str());
 	bool is_using_ui = ImGui::IsWindowFocused();
 	if (entity)
 	{

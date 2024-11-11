@@ -13,7 +13,8 @@ DescriptorLayout Renderer::default_descriptor_layout;
 std::shared_ptr<Camera> Renderer::camera;
 
 std::vector<std::pair<RESOURCE_TYPE, void *>> Renderer::deletion_queue;
-int Renderer::current_frame = 0;
+int Renderer::current_frame_in_flight = 0;
+uint64_t Renderer::current_frame = 0;
 uint32_t Renderer::timestamp_index = 0;
 
 void Renderer::init()
@@ -107,11 +108,15 @@ void Renderer::recreateScreenResources()
 
 	create_screen_texture(RENDER_TARGET_COMPOSITE, swapchain_format, VK_IMAGE_ASPECT_COLOR_BIT,
 						  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, "Composite Image");
+
+	create_screen_texture(RENDER_TARGET_FINAL, swapchain_format, VK_IMAGE_ASPECT_COLOR_BIT,
+						  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, "Final Image");
 }
 
 void Renderer::beginFrame(unsigned int image_index)
 {
-	current_frame = image_index;
+	current_frame++;
+	current_frame_in_flight = image_index;
 
 	// Update debug info
 	debug_info = RendererDebugInfo{};
@@ -202,7 +207,7 @@ void Renderer::setShadersAccelerationStructure(std::vector<std::shared_ptr<Shade
 	size_t descriptor_hash = descriptor_layout.hash;
 	// Must also take shaders hashes into account because there could be the same descriptor layout but bindings have different sizes
 	hash_combine(descriptor_hash, VkWrapper::getShadersHash(shaders));
-	size_t offset = descriptors_offset[descriptor_hash][current_frame];
+	size_t offset = descriptors_offset[descriptor_hash][current_frame_in_flight];
 
 	ensureDescriptorsAllocated(descriptor_layout, descriptor_hash, offset);
 
@@ -211,7 +216,7 @@ void Renderer::setShadersAccelerationStructure(std::vector<std::shared_ptr<Shade
 	// Update set
 	DescriptorWriter writer;
 	writer.writeAccelerationStructure(binding, acceleration_structure);
-	writer.updateSet(descriptors[descriptor_hash][current_frame].descriptor_per_offset[offset]);
+	writer.updateSet(descriptors[descriptor_hash][current_frame_in_flight].descriptor_per_offset[offset]);
 }
 
 void Renderer::setShadersStorageBuffer(std::vector<std::shared_ptr<Shader>> shaders, unsigned int binding, void *params_struct, size_t params_size)
@@ -222,7 +227,7 @@ void Renderer::setShadersStorageBuffer(std::vector<std::shared_ptr<Shader>> shad
 	// Must also take shaders hashes into account because there could be the same descriptor layout but bindings have different sizes
 	hash_combine(descriptor_hash, VkWrapper::getShadersHash(shaders));
 
-	size_t offset = descriptors_offset[descriptor_hash][current_frame];
+	size_t offset = descriptors_offset[descriptor_hash][current_frame_in_flight];
 
 	ensureDescriptorsAllocated(descriptor_layout, descriptor_hash, offset);
 
@@ -255,7 +260,7 @@ void Renderer::setShadersStorageBuffer(std::vector<std::shared_ptr<Shader>> shad
 		}
 	}
 
-	auto &current_binding = descriptor_bindings[binding_hash][current_frame].bindings_per_offset[offset];
+	auto &current_binding = descriptor_bindings[binding_hash][current_frame_in_flight].bindings_per_offset[offset];
 	memcpy(current_binding.second, params_struct, params_size);
 }
 
@@ -267,7 +272,7 @@ void Renderer::setShadersStorageBuffer(std::vector<std::shared_ptr<Shader>> shad
 	// Must also take shaders hashes into account because there could be the same descriptor layout but bindings have different sizes
 	hash_combine(descriptor_hash, VkWrapper::getShadersHash(shaders));
 
-	size_t offset = descriptors_offset[descriptor_hash][current_frame];
+	size_t offset = descriptors_offset[descriptor_hash][current_frame_in_flight];
 
 	ensureDescriptorsAllocated(descriptor_layout, descriptor_hash, offset);
 
@@ -300,7 +305,7 @@ void Renderer::setShadersUniformBuffer(std::vector<std::shared_ptr<Shader>> shad
 	// Must also take shaders hashes into account because there could be the same descriptor layout but bindings have different sizes
 	hash_combine(descriptor_hash, VkWrapper::getShadersHash(shaders));
 
-	size_t offset = descriptors_offset[descriptor_hash][current_frame];
+	size_t offset = descriptors_offset[descriptor_hash][current_frame_in_flight];
 
 	ensureDescriptorsAllocated(descriptor_layout, descriptor_hash, offset);
 
@@ -333,7 +338,7 @@ void Renderer::setShadersUniformBuffer(std::vector<std::shared_ptr<Shader>> shad
 		}
 	}
 
-	auto &current_binding = descriptor_bindings[binding_hash][current_frame].bindings_per_offset[offset];
+	auto &current_binding = descriptor_bindings[binding_hash][current_frame_in_flight].bindings_per_offset[offset];
 	memcpy(current_binding.second, params_struct, params_size);
 }
 
@@ -344,7 +349,7 @@ void Renderer::setShadersTexture(std::vector<std::shared_ptr<Shader>> shaders, u
 	size_t descriptor_hash = descriptor_layout.hash;
 	// Must also take shaders hashes into account because there could be the same descriptor layout but bindings have different sizes
 	hash_combine(descriptor_hash, VkWrapper::getShadersHash(shaders));
-	size_t offset = descriptors_offset[descriptor_hash][current_frame];
+	size_t offset = descriptors_offset[descriptor_hash][current_frame_in_flight];
 
 	ensureDescriptorsAllocated(descriptor_layout, descriptor_hash, offset);
 
@@ -360,7 +365,7 @@ void Renderer::setShadersTexture(std::vector<std::shared_ptr<Shader>> shaders, u
 	// Update set
 	DescriptorWriter writer;
 	writer.writeImage(binding, descriptor_type, texture->getImageView(mip, face), texture->sampler, image_layout);
-	writer.updateSet(descriptors[descriptor_hash][current_frame].descriptor_per_offset[offset]);
+	writer.updateSet(descriptors[descriptor_hash][current_frame_in_flight].descriptor_per_offset[offset]);
 }
 
 void Renderer::bindShadersDescriptorSets(std::vector<std::shared_ptr<Shader>> shaders, CommandBuffer &command_buffer, VkPipelineLayout pipeline_layout, VkPipelineBindPoint bind_point)
@@ -369,8 +374,8 @@ void Renderer::bindShadersDescriptorSets(std::vector<std::shared_ptr<Shader>> sh
 	vkCmdBindDescriptorSets(command_buffer.get_buffer(), bind_point, pipeline_layout, 1, 1, BindlessResources::getDescriptorSet(), 0, nullptr);
 
 	// Bind default uniforms
-	size_t default_uniforms_offset = descriptors_offset[0][current_frame];
-	vkCmdBindDescriptorSets(command_buffer.get_buffer(), bind_point, pipeline_layout, 2, 1, &descriptors[0][current_frame].descriptor_per_offset[default_uniforms_offset], 0, nullptr);
+	size_t default_uniforms_offset = descriptors_offset[0][current_frame_in_flight];
+	vkCmdBindDescriptorSets(command_buffer.get_buffer(), bind_point, pipeline_layout, 2, 1, &descriptors[0][current_frame_in_flight].descriptor_per_offset[default_uniforms_offset], 0, nullptr);
 
 	// Bind custom descriptor
 	auto descriptor_layout = VkWrapper::getDescriptorLayout(shaders);
@@ -378,15 +383,15 @@ void Renderer::bindShadersDescriptorSets(std::vector<std::shared_ptr<Shader>> sh
 	size_t descriptor_hash = descriptor_layout.hash;
 	// Must also take shaders hashes into account because there could be the same descriptor layout but bindings have different sizes
 	hash_combine(descriptor_hash, VkWrapper::getShadersHash(shaders));
-	size_t offset = descriptors_offset[descriptor_hash][current_frame];
+	size_t offset = descriptors_offset[descriptor_hash][current_frame_in_flight];
 
 	if (descriptors.find(descriptor_hash) != descriptors.end())
 	{
-		vkCmdBindDescriptorSets(command_buffer.get_buffer(), bind_point, pipeline_layout, 0, 1, &descriptors[descriptor_hash][current_frame].descriptor_per_offset[offset], 0, nullptr);
+		vkCmdBindDescriptorSets(command_buffer.get_buffer(), bind_point, pipeline_layout, 0, 1, &descriptors[descriptor_hash][current_frame_in_flight].descriptor_per_offset[offset], 0, nullptr);
 	}
 
 	// After every bind increment offset (because bind was made for a draw that uses this uniforms and we cant write to it)
-	descriptors_offset[descriptor_hash][current_frame] += 1;
+	descriptors_offset[descriptor_hash][current_frame_in_flight] += 1;
 }
 
 void Renderer::updateDefaultUniforms(float delta_time, unsigned int image_index)

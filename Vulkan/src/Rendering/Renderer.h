@@ -26,6 +26,7 @@ enum RENDER_TARGETS
 	RENDER_TARGET_SSAO,
 
 	RENDER_TARGET_COMPOSITE,
+	RENDER_TARGET_FINAL,
 
 	RENDER_TARGET_TEXTURES_COUNT
 };
@@ -98,8 +99,9 @@ public:
 	static const DefaultUniforms getDefaultUniforms();
 
 	static VkDescriptorSetLayout getDefaultDescriptorLayout() { return default_descriptor_layout.layout; }
-	static CommandBuffer &getCurrentCommandBuffer() { return VkWrapper::command_buffers[current_frame]; }
-	static int getCurrentFrameIndex() { return current_frame; }
+	static CommandBuffer &getCurrentCommandBuffer() { return VkWrapper::command_buffers[current_frame_in_flight]; }
+	static int getCurrentFrameInFlight() { return current_frame_in_flight; }
+	static int getCurrentFrame() { return current_frame; }
 
 	static void deleteResource(RESOURCE_TYPE type, void *resource) { deletion_queue.push_back(std::make_pair(type, resource)); }
 
@@ -144,7 +146,8 @@ private:
 
 	static std::vector<std::pair<RESOURCE_TYPE, void *>> deletion_queue;
 
-	static int current_frame;
+	static int current_frame_in_flight;
+	static uint64_t current_frame;
 	static uint32_t timestamp_index;
 };
 

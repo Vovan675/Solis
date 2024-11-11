@@ -1,22 +1,29 @@
 #include "pch.h"
-#include "ImGuiRenderer.h"
+#include "ImGuiWrapper.h"
 #include "imgui/imgui_impl_vulkan.h"
 #include "imgui/imgui_impl_glfw.h"
+#include "Editor/GuiUtils.h"
+#include "Rendering/Renderer.h"
 
-ImGuiRenderer::ImGuiRenderer(GLFWwindow* window) : RendererBase()
+#define MAX_UNUSED_SET_FRAMES 10
+
+VkDescriptorPool ImGuiWrapper::descriptor_pool;
+std::unordered_map<VkImageView, ImGuiWrapper::DescriptorSetUsage> ImGuiWrapper::image_view_to_descriptor_set;
+
+void ImGuiWrapper::init(GLFWwindow *window)
 {
 	// create descriptor pool for IMGUI
 	VkDescriptorPoolSize pool_sizes[] = {{ VK_DESCRIPTOR_TYPE_SAMPLER, 1000 },
-		{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000 },
-		{ VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000 },
-		{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000 },
-		{ VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000 },
-		{ VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000 },
-		{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000 },
-		{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000 },
-		{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000 },
-		{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000 },
-		{ VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000 }};
+										 { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000 },
+										 { VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000 },
+										 { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000 },
+										 { VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000 },
+										 { VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000 },
+										 { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000 },
+										 { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000 },
+										 { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000 },
+										 { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000 },
+										 { VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000 }};
 
 	VkDescriptorPoolCreateInfo pool_info = {};
 	pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -50,26 +57,54 @@ ImGuiRenderer::ImGuiRenderer(GLFWwindow* window) : RendererBase()
 	init_info.PipelineRenderingCreateInfo = pipeline_rendering_create_info;
 	ImGui_ImplVulkan_Init(&init_info);
 
-	ImGuiIO &io = ImGui::GetIO();
-	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+	GuiUtils::init();
 }
 
-ImGuiRenderer::~ImGuiRenderer()
+void ImGuiWrapper::shutdown()
 {
 	ImGui_ImplVulkan_Shutdown();
 	ImGui_ImplGlfw_Shutdown();
 	vkDestroyDescriptorPool(VkWrapper::device->logicalHandle, descriptor_pool, nullptr);
 }
 
-void ImGuiRenderer::begin()
+void ImGuiWrapper::begin()
 {
+	std::vector<VkImageView> deleted_keys;
+	for (auto &pair : image_view_to_descriptor_set)
+	{
+		if (Renderer::getCurrentFrame() - pair.second.last_access_frame > MAX_UNUSED_SET_FRAMES)
+		{
+			ImGui_ImplVulkan_RemoveTexture(pair.second.set);
+			deleted_keys.push_back(pair.first);
+		}
+	}
+
+	for (auto key : deleted_keys)
+		image_view_to_descriptor_set.erase(key);
+
 	ImGui_ImplVulkan_NewFrame();
 	ImGui_ImplGlfw_NewFrame();
 	ImGui::NewFrame();
 }
 
-void ImGuiRenderer::fillCommandBuffer(CommandBuffer &command_buffer)
+void ImGuiWrapper::render(CommandBuffer & command_buffer)
 {
 	ImGui::Render();
 	ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), command_buffer.get_buffer());
+}
+
+VkDescriptorSet ImGuiWrapper::getTextureDescriptorSet(std::shared_ptr<Texture> tex)
+{
+	if (image_view_to_descriptor_set.find(tex->getImageView()) != image_view_to_descriptor_set.end())
+	{
+		auto &set_usage = image_view_to_descriptor_set[tex->getImageView()];
+		set_usage.last_access_frame = Renderer::getCurrentFrame();
+		return set_usage.set;
+	}
+
+	DescriptorSetUsage set_usage;
+	set_usage.set = ImGui_ImplVulkan_AddTexture(tex->sampler, tex->getImageView(), VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL);
+	set_usage.last_access_frame = Renderer::getCurrentFrame();
+	image_view_to_descriptor_set[tex->getImageView()] = set_usage;
+	return set_usage.set;
 }

@@ -337,8 +337,8 @@ void VkWrapper::init_instance()
 
 	VkApplicationInfo appInfo{};
 	appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-	appInfo.pApplicationName = "Hello Vulkan";
-	appInfo.pEngineName = "Hello engine";
+	appInfo.pApplicationName = "Vulkan Application";
+	appInfo.pEngineName = "Vulkan engine";
 	appInfo.apiVersion = VK_API_VERSION_1_3;
 
 	VkInstanceCreateInfo info{};

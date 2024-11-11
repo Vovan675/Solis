@@ -1,3 +1,5 @@
+#include "common.h"
+
 layout(location = 0) in vec2 inUV;
 
 layout(location = 0) out vec4 outColor;
@@ -29,5 +31,5 @@ void main() {
     vec4 value = vec4(1, 1, 1, 1);
     vec4 composite_final = texture(textures[ubo.composite_final_tex_id], uv);
     value = composite_final * vignette;
-    outColor = vec4(value.rgb, 1.0);
+    outColor = vec4(LinearToSRGB(value).rgb, 1.0);
 }

@@ -66,3 +66,13 @@ vec3 getCubemapNormal(vec2 resolution)
     return normalize(normal);
 }
 #endif
+
+vec4 SRGBtoLinear(vec4 srgb)
+{
+    return vec4(pow(srgb.rgb, vec3(2.2)), srgb.a);
+}
+
+vec4 LinearToSRGB(vec4 linear)
+{
+    return vec4(pow(linear.rgb, vec3(1.0/2.2)), linear.a);
+}

@@ -65,7 +65,7 @@ void Swapchain::create_swapchain(int width, int height)
 	//Choose best format and present mode
 	for (const auto& format : surfaceFormats)
 	{
-		if (format.format == VK_FORMAT_B8G8R8A8_SRGB && format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
+		if (format.format == VK_FORMAT_B8G8R8A8_UNORM)
 		{
 			surface_format = format;
 		}

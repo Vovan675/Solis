@@ -91,6 +91,7 @@ void SkyRenderer::fillCommandBuffer(CommandBuffer &command_buffer)
 
 	p->setVertexShader(Shader::create("shaders/cube.vert", Shader::VERTEX_SHADER));
 	p->setFragmentShader(Shader::create("shaders/cube.frag", Shader::FRAGMENT_SHADER));
+	p->setUseBlending(false);
 
 	p->setRenderTargets(VkWrapper::current_render_targets);
 	p->setCullMode(VK_CULL_MODE_FRONT_BIT);

@@ -1,4 +1,4 @@
-#include "pch.h"
+﻿#include "pch.h"
 #include "Application.h"
 #include "RHI/VkWrapper.h"
 #include "BindlessResources.h"
@@ -27,6 +27,7 @@
 #include "RHI/RayTracing/TopLevelAccelerationStructure.h"
 #include "Variables.h"
 
+#include "Editor/GuiUtils.h"
 
 Application::Application()
 {
@@ -66,8 +67,7 @@ Application::Application()
 	sky_renderer = std::make_shared<SkyRenderer>();
 	renderers.push_back(sky_renderer);
 
-	imgui_renderer = std::make_shared<ImGuiRenderer>(window);
-	renderers.push_back(imgui_renderer);
+	ImGuiWrapper::init(window);
 
 	defferred_lighting_renderer = std::make_shared<DefferedLightingRenderer>();
 	renderers.push_back(defferred_lighting_renderer);
@@ -198,14 +198,11 @@ void Application::createRenderTargets()
 
 void Application::update(float delta_time)
 {
-	static bool prev_is_using_ui = false;
-	bool is_using_ui = false;
-	imgui_renderer->begin();
+	ImGuiWrapper::begin();
 
-	//ImGui::ShowDemoWindow();
-
-	ImGui::DockSpaceOverViewport(ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
-
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0);
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+	ImGui::PushFont(GuiUtils::roboto_regular_small);
 	if (ImGui::BeginMainMenuBar())
 	{
 		if (ImGui::BeginMenu("Scene"))
@@ -230,11 +227,96 @@ void Application::update(float delta_time)
 		}
 		ImGui::EndMainMenuBar();
 	}
+	float menu_bar_height = ImGui::GetFrameHeight();
+	ImGui::PopFont();
+	ImGui::PopStyleVar();
+	ImGui::PopStyleVar();
+
+	//ImGui::ShowStyleEditor();
+	//ImGui::ShowDemoWindow();
+
+	ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDocking;
+
+	ImGuiViewport* viewport = ImGui::GetMainViewport();
+
+	ImGui::SetNextWindowPos({viewport->Pos.x, viewport->Pos.y + menu_bar_height});
+	ImGui::SetNextWindowSize({viewport->Size.x, viewport->Size.y - menu_bar_height});
+	ImGui::SetNextWindowViewport(viewport->ID);
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0);
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+	ImGui::PushStyleColor(ImGuiCol_MenuBarBg, ImVec4{ 0.0f, 0.0f, 0.0f, 0.0f });
+	window_flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
+	window_flags |= ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
+
+
+	ImGui::Begin("DockSpace", nullptr, window_flags);
+	ImGui::PopStyleColor();
+	ImGui::PopStyleVar();
+	ImGui::PopStyleVar();
+
+
+	ImGui::DockSpace(ImGui::GetID("EngineDockSpace"));
+
+	// Viewport
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+	ImGui::Begin((std::string(ICON_FA_EXPAND) + " Viewport###Viewport").c_str());
+	ImGui::PopStyleVar();
+
+	static bool prev_is_viewport_focused = false;
+	bool is_viewport_focused = ImGui::IsWindowFocused();
+
+	ImVec2 viewport_offset = ImGui::GetCursorPos();
+	ImVec2 viewport_pos = ImGui::GetWindowPos();
+	viewport_pos.x += viewport_offset.x;
+	viewport_pos.y += viewport_offset.y;
+
+	auto &viewport_texture = Renderer::getRenderTarget(RENDER_TARGET_FINAL);
+	ImVec2 viewport_size = ImGui::GetContentRegionAvail();
+	ImGui::Image(ImGuiWrapper::getTextureDescriptorSet(viewport_texture), viewport_size);
+
+	// ImGuizmo
+	if (selected_entity)
+	{
+		auto &transform_component = selected_entity.getTransform();
+
+		ImGuizmo::SetDrawlist();
+		ImGuizmo::SetRect(viewport_pos.x, viewport_pos.y, viewport_size.x, viewport_size.y);
+
+		glm::mat4 proj = camera->getProj();
+		proj[1][1] *= -1.0f;
+
+		glm::mat4 delta_transform;
+		glm::mat4 transform = selected_entity.getWorldTransformMatrix();
+
+		ImGuizmo::SetOrthographic(false);
+		if (ImGuizmo::Manipulate(glm::value_ptr(camera->getView()), glm::value_ptr(proj), guizmo_tool_type, ImGuizmo::WORLD, glm::value_ptr(transform), glm::value_ptr(delta_transform)))
+		{
+			//
+			glm::vec3 dposition, drotation, dscale;
+			ImGuizmo::DecomposeMatrixToComponents(glm::value_ptr(delta_transform), glm::value_ptr(dposition), glm::value_ptr(drotation), glm::value_ptr(dscale));
+
+			glm::mat3 new_transform;
+			glm::vec3 position, rotation, scale;
+			ImGuizmo::DecomposeMatrixToComponents(glm::value_ptr(new_transform), glm::value_ptr(position), glm::value_ptr(rotation), glm::value_ptr(scale));
+
+			//ImGuizmo::RecomposeMatrixFromComponents(glm::value_ptr(position), glm::value_ptr(rotation), glm::value_ptr(scale), glm::value_ptr(transform));
+			//
+
+			if (transform_component.parent != entt::null)
+			{
+				transform_component.setTransform(inverse(selected_entity.getParent().getTransform().getTransformMatrix()) * transform);
+			} else
+			{
+				transform_component.setTransform(transform);
+			}
+		}
+	}
+
+	GuiUtils::draw_stats_bar(delta_time, viewport_pos);
+	ImGui::End();
 
 	// Debug Window
-	ImGui::Begin("Debug Window");
-	is_using_ui |= ImGui::IsWindowFocused();
-	ImGui::Text("FPS: %i (%f ms)", (int)(last_fps), 1.0f / last_fps * 1000);
+	ImGui::Begin((std::string(ICON_FA_CUBES) + " Debug Window###Debug Window").c_str());
 
 	if (ImGui::Button("Recompile shaders"))
 	{
@@ -284,18 +366,21 @@ void Application::update(float delta_time)
 	if (ImGui::SliderFloat("Camera Speed", &cam_speed, 0.1f, 10.0f))
 	{
 		camera->setSpeed(cam_speed);
+		camera->updateMatrices();
 	}
 
 	float cam_near = camera->getNear();
 	if (ImGui::SliderFloat("Camera Near", &cam_near, 0.01f, 3.5f))
 	{
 		camera->setNear(cam_near);
+		camera->updateMatrices();
 	}
 
 	float cam_far = camera->getFar();
 	if (ImGui::SliderFloat("Camera Far", &cam_far, 1.0f, 300.0f))
 	{
 		camera->setFar(cam_far);
+		camera->updateMatrices();
 	}
 
 	post_renderer->renderImgui();
@@ -306,8 +391,7 @@ void Application::update(float delta_time)
 	ImGui::End();
 
 	// Hierarchy
-	ImGui::Begin("Hierarchy");
-	is_using_ui |= ImGui::IsWindowFocused();
+	ImGui::Begin((std::string(ICON_FA_LIST_UL) + " Hierarchy###Hierarchy").c_str());
 	auto entities_id = scene.getEntitiesWith<TransformComponent>();
 
 	std::function<void(entt::entity entity_id)> add_entity_tree = [&add_entity_tree, this] (entt::entity entity_id) {
@@ -376,67 +460,23 @@ void Application::update(float delta_time)
 
 	ImGui::End();
 
-	const ImGuiViewport *viewport = ImGui::GetMainViewport();
-	ImGui::SetNextWindowPos(viewport->WorkPos);
-	ImGui::SetNextWindowSize(viewport->WorkSize);
-
-	if (ImGui::Begin("Fullscreen window", 0, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoFocusOnAppearing))
-	{
-		if (selected_entity)
-		{
-			auto &transform_component = selected_entity.getTransform();
-
-			ImGuizmo::SetDrawlist();
-			glm::vec2 swapchain_size = VkWrapper::swapchain->getSize();
-			ImGuizmo::SetRect(0, 0, swapchain_size.x, swapchain_size.y);
-
-			glm::mat4 proj = camera->getProj();
-			proj[1][1] *= -1.0f;
-
-			glm::mat4 delta_transform;
-			glm::mat4 transform = selected_entity.getWorldTransformMatrix();
-
-			ImGuizmo::SetOrthographic(false);
-			if (ImGuizmo::Manipulate(glm::value_ptr(camera->getView()), glm::value_ptr(proj), guizmo_tool_type, ImGuizmo::WORLD, glm::value_ptr(transform), glm::value_ptr(delta_transform)))
-			{
-				/*
-				glm::vec3 dposition, drotation, dscale;
-				ImGuizmo::DecomposeMatrixToComponents(glm::value_ptr(delta_transform), glm::value_ptr(dposition), glm::value_ptr(drotation), glm::value_ptr(dscale));
-
-				glm::mat3 new_transform;
-				glm::vec3 position, rotation, scale;
-				ImGuizmo::DecomposeMatrixToComponents(glm::value_ptr(new_transform), glm::value_ptr(position), glm::value_ptr(rotation), glm::value_ptr(scale));
-
-				//ImGuizmo::RecomposeMatrixFromComponents(glm::value_ptr(position), glm::value_ptr(rotation), glm::value_ptr(scale), glm::value_ptr(transform));
-				*/
-
-				if (transform_component.parent != entt::null)
-				{
-					transform_component.setTransform(inverse(selected_entity.getParent().getTransform().getTransformMatrix()) * transform);
-				} else
-				{
-					transform_component.setTransform(transform);
-				}
-			}
-		}
-	}
 	ImGui::End();
 
 	// Parameters
-	is_using_ui |= parameters_panel.renderImGui(selected_entity, debug_renderer);
+	parameters_panel.renderImGui(selected_entity, debug_renderer);
 
 	// Asset browser
-	is_using_ui |= asset_browser_panel.renderImGui();
-
-	if (!ImGuizmo::IsUsing() && !is_using_ui)
+	asset_browser_panel.renderImGui();
+	
+	if (!ImGuizmo::IsUsing() && is_viewport_focused)
 	{
 		double mouse_x, mouse_y;
 		glfwGetCursorPos(window, &mouse_x, &mouse_y);
-		bool mouse_pressed = prev_is_using_ui != is_using_ui ? 0 : glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_1) == GLFW_PRESS;
+		bool mouse_pressed = prev_is_viewport_focused != is_viewport_focused ? 0 : glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_1) == GLFW_PRESS;
 		camera->update(delta_time, glm::vec2(mouse_x, mouse_y), mouse_pressed);
 	}
 
-	prev_is_using_ui = is_using_ui;
+	prev_is_viewport_focused = is_viewport_focused;
 }
 
 void Application::updateBuffers(float delta_time, uint32_t image_index)
@@ -513,7 +553,7 @@ void Application::recordCommands(CommandBuffer &command_buffer, uint32_t image_i
 	Renderer::getRenderTarget(RENDER_TARGET_COMPOSITE)->transitLayout(command_buffer, TEXTURE_LAYOUT_SHADER_READ);
 
 	// Begin rendering to present (just output texture)
-	VkWrapper::cmdBeginRendering(command_buffer, {VkWrapper::swapchain->swapchain_textures[image_index]}, nullptr);
+	VkWrapper::cmdBeginRendering(command_buffer, {Renderer::getRenderTarget(RENDER_TARGET_FINAL)}, nullptr);
 
 	// Render post process
 	if (!render_debug_rendering)
@@ -527,9 +567,12 @@ void Application::recordCommands(CommandBuffer &command_buffer, uint32_t image_i
 		debug_renderer->fillCommandBuffer(command_buffer);
 	}
 	debug_renderer->renderLines(command_buffer);
+	VkWrapper::cmdEndRendering(command_buffer);
+	Renderer::getRenderTarget(RENDER_TARGET_FINAL)->transitLayout(command_buffer, TEXTURE_LAYOUT_SHADER_READ);
 
 	// Render imgui
-	imgui_renderer->fillCommandBuffer(command_buffer);
+	VkWrapper::cmdBeginRendering(command_buffer, {VkWrapper::swapchain->swapchain_textures[image_index]}, nullptr);
+	ImGuiWrapper::render(command_buffer);
 
 	VkWrapper::cmdEndRendering(command_buffer);
 	// End rendering to present
@@ -540,7 +583,7 @@ void Application::cleanupResources()
 	irradiance_renderer = nullptr;
 	prefilter_renderer = nullptr;
 	sky_renderer = nullptr;
-	imgui_renderer = nullptr;
+	ImGuiWrapper::shutdown();
 	defferred_lighting_renderer = nullptr;
 	deffered_composite_renderer = nullptr;
 	post_renderer = nullptr;

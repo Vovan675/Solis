@@ -21,6 +21,7 @@ void PostProcessingRenderer::fillCommandBuffer(CommandBuffer &command_buffer)
 
 	p->setVertexShader(vertex_shader);
 	p->setFragmentShader(fragment_shader);
+	p->setUseBlending(false);
 
 	p->setRenderTargets(VkWrapper::current_render_targets);
 	p->setUseVertices(false);

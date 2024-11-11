@@ -21,16 +21,6 @@ layout(set=0, binding=0) uniform UBO
 layout (set=0, binding=1) uniform samplerCube irradiance_tex;
 layout (set=0, binding=2) uniform samplerCube prefilter_tex;
 
-vec4 SRGBtoLinear(vec4 srgb)
-{
-    return vec4(pow(srgb.rgb, vec3(2.2)), srgb.a);
-}
-
-vec4 LinearToSRGB(vec4 linear)
-{
-    return vec4(pow(linear.rgb, vec3(1.0/2.2)), linear.a);
-}
-
 // F - Fresnel Schlick
 vec3 F_Schlick(in vec3 f0, in float f90, in float u)
 {
@@ -78,7 +68,6 @@ void main() {
     vec3 diffuse = ibl_diffuse * ssao;
     vec3 specular = prefilter * (f0 * brdf_lut.x + brdf_lut.y);
     vec3 ibl = diffuse + specular;
-
-    outColor = vec4(albedo.rgb * light_diffuse + light_specular + ibl * 0.5, albedo.a);
+    outColor = vec4(albedo.rgb * light_diffuse + light_specular + ibl * 0.5, 1);
     //outColor.rgb = LinearToSRGB(outColor).rgb;
 }

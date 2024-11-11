@@ -10,8 +10,10 @@
 #include <filesystem>
 #include <memory.h>
 #include <Windows.h>
+#include <dwmapi.h>
 
 #define GLFW_INCLUDE_VULKAN
+#define GLFW_EXPOSE_NATIVE_WIN32
 #include <GLFW/glfw3.h>
 #include "vulkan/vulkan.h"
 

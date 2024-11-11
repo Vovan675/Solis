@@ -15,7 +15,7 @@
 #include "renderers/PrefilterRenderer.h"
 #include "renderers/SkyRenderer.h"
 #include "renderers/MeshRenderer.h"
-#include "renderers/ImGuiRenderer.h"
+#include "imgui/ImGuiWrapper.h"
 #include "renderers/DefferedLightingRenderer.h"
 #include "renderers/DefferedCompositeRenderer.h"
 #include "renderers/PostProcessingRenderer.h"
@@ -76,7 +76,6 @@ private:
 	std::shared_ptr<DefferedCompositeRenderer> deffered_composite_renderer;
 	std::shared_ptr<PostProcessingRenderer> post_renderer;
 	std::shared_ptr<DebugRenderer> debug_renderer;
-	std::shared_ptr<ImGuiRenderer> imgui_renderer;
 	std::shared_ptr<SSAORenderer> ssao_renderer;
 
 	std::vector<std::shared_ptr<RendererBase>> renderers;

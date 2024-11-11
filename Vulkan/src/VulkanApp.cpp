@@ -3,12 +3,17 @@
 #include "imgui.h"
 #include "Rendering/Renderer.h"
 #include "Assets/AssetManager.h"
+#include "GLFW/glfw3native.h"
+
+#ifndef DWMWA_USE_IMMERSIVE_DARK_MODE
+#define DWMWA_USE_IMMERSIVE_DARK_MODE 20
+#endif
 
 VulkanApp::VulkanApp()
 {
 	glfwInit();
-	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API); //FUCK OFF OPENGL
-	window = glfwCreateWindow(1920, 1080, "Hello Vulkan", nullptr, nullptr);
+	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API); //FUCK OFF OPENG
+	window = glfwCreateWindow(1920, 1080, "Vulkan Renderer", nullptr, nullptr);
 	glfwSwapInterval(0);
 
 	glfwSetWindowUserPointer(window, this);
@@ -21,6 +26,10 @@ VulkanApp::VulkanApp()
 	{
 		static_cast<VulkanApp *>(glfwGetWindowUserPointer(window))->key_callback(window, key, scancode, action, mods);
 	});
+
+	HWND hwnd = glfwGetWin32Window(window);
+	BOOL is_dark_mode = true;
+	DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &is_dark_mode, sizeof(is_dark_mode));
 
 	Log::Init();
 	VkWrapper::init(window);
@@ -51,13 +60,6 @@ void VulkanApp::run()
 		} else if (result != VK_SUCCESS)
 		{
 			CORE_CRITICAL("Failed to acquire next image");
-		}
-
-		last_fps_timer -= delta_seconds;
-		if (last_fps_timer <= 0)
-		{
-			last_fps_timer = 0.3;
-			last_fps = 1.0f / delta_seconds;
 		}
 
 		update(delta_seconds);
