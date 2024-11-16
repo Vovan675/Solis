@@ -15,12 +15,14 @@ workspace "LearnVulkan"
 
 outputdir = "%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}"
 
+VULKAN_SDK = os.getenv("VULKAN_SDK")
+
 IncludeDir = {}
 IncludeDir["GLFW"] = "vendor/GLFW/include"
 IncludeDir["GLM"] = "vendor/glm"
-IncludeDir["Vulkan"] = "vendor/Vulkan/include"
+IncludeDir["Vulkan"] = "%{VULKAN_SDK}/include"
 IncludeDir["SpdLog"] = "vendor/SpdLog/include"
-IncludeDir["Assimp"] = "vendor/Assimp/assimp/include"
+IncludeDir["Assimp"] = "vendor/Assimp/include"
 IncludeDir["STB_IMAGE"] = "vendor/stb"
 IncludeDir["ImGui"] = "vendor/imgui"
 IncludeDir["ImGuizmo"] = "vendor/imguizmo"
@@ -28,7 +30,7 @@ IncludeDir["YamlCpp"] = "vendor/yaml-cpp/include"
 IncludeDir["Entt"] = "vendor/entt/include"
 
 LibDir = {}
-LibDir["Vulkan"] = "../vendor/Vulkan/Lib"
+LibDir["Vulkan"] = "%{VULKAN_SDK}/Lib"
 
 group "Dependencies"
 include "vendor/GLFW"

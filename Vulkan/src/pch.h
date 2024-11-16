@@ -17,6 +17,7 @@
 #include <GLFW/glfw3.h>
 #include "vulkan/vulkan.h"
 
+#define GLM_ENABLE_EXPERIMENTAL
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
