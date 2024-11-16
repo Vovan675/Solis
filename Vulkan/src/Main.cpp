@@ -1,9 +1,9 @@
 #include "pch.h"
-#include "Application.h"
+#include "EditorApplication.h"
 
 int main()
 {
-	Application app;
+	EditorApplication app;
 	app.run();
 	return 0;
 }

@@ -3,96 +3,42 @@
 #include "RHI/Device.h"
 #include "Log.h"
 #include "Mesh.h"
-#include "Scene/Scene.h"
 #include "RHI/Pipeline.h"
 #include "RHI/Shader.h"
 #include "RHI/Swapchain.h"
 #include "RHI/Texture.h"
 #include "RHI/VkWrapper.h"
-#include "renderers/EntityRenderer.h"
-#include "renderers/LutRenderer.h"
-#include "renderers/IrradianceRenderer.h"
-#include "renderers/PrefilterRenderer.h"
-#include "renderers/SkyRenderer.h"
-#include "renderers/MeshRenderer.h"
-#include "imgui/ImGuiWrapper.h"
-#include "renderers/DefferedLightingRenderer.h"
-#include "renderers/DefferedCompositeRenderer.h"
-#include "renderers/PostProcessingRenderer.h"
-#include "renderers/DebugRenderer.h"
-#include "renderers/SSAORenderer.h"
-#include "Editor/AssetBrowserPanel.h"
-#include "Editor/ParametersPanel.h"
-#include "VulkanApp.h"
-#include "imgui.h"
-#include "ImGuizmo.h"
-#include "RHI/RayTracing/RayTracingScene.h"
-#include "ConsoleVariables.h"
 
-class Application : public VulkanApp
+class Application
 {
 public:
 	Application();
+	void run();
 protected:
-	void createRenderTargets();
-	void update(float delta_time) override;
-	void updateBuffers(float delta_time, uint32_t image_index) override;
-	void recordCommands(CommandBuffer &command_buffer, uint32_t image_index) override;
-	void cleanupResources() override;
-	void onSwapchainRecreated(int width, int height) override;
+	virtual void update(float delta_time) {}
+	virtual void updateBuffers(float delta_time) {}
+	virtual void recordCommands(CommandBuffer &command_buffer) {}
+	virtual void cleanupResources() {}
 private:
-	void render_GBuffer(CommandBuffer &command_buffer);
-	void render_ray_tracing(CommandBuffer &command_buffer);
-	void render_lighting(CommandBuffer &command_buffer);
-	void render_ssao(CommandBuffer &command_buffer);
-	void render_deffered_composite(CommandBuffer &command_buffer);
-	void render_shadows(CommandBuffer &command_buffer);
-	void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods) override;
+	void render(CommandBuffer &command_buffer);
 
-	void update_cascades(LightComponent &light, glm::vec3 light_dir);
+	void cleanup();
+
+	void cleanup_swapchain();
+	void recreate_swapchain();
+	virtual void onViewportSizeChanged(int width, int height) {}
+
+	void init_sync_objects();
+
+	void framebuffer_resize_callback(GLFWwindow *window, int width, int height) { framebuffer_resized = true; }
+	virtual void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods) {}
+protected:
+	GLFWwindow *window;
 private:
-	ImGuizmo::OPERATION guizmo_tool_type = ImGuizmo::TRANSLATE;
+	bool framebuffer_resized = false;
 
-	Scene scene;
-	std::shared_ptr<RayTracingScene> ray_tracing_scene;
-
-	Entity selected_entity;
-
-	EntityRenderer entity_renderer;
-
-	AssetBrowserPanel asset_browser_panel;
-	ParametersPanel parameters_panel;
-
-	std::shared_ptr<Texture> ibl_irradiance;
-	std::shared_ptr<Texture> ibl_prefilter;
-	std::shared_ptr<Texture> ibl_brdf_lut;
-
-	std::shared_ptr<LutRenderer> lut_renderer;
-	std::shared_ptr<IrradianceRenderer> irradiance_renderer;
-	std::shared_ptr<PrefilterRenderer> prefilter_renderer;
-
-	std::shared_ptr<SkyRenderer> sky_renderer;
-	std::shared_ptr<DefferedLightingRenderer> defferred_lighting_renderer;
-	std::shared_ptr<DefferedCompositeRenderer> deffered_composite_renderer;
-	std::shared_ptr<PostProcessingRenderer> post_renderer;
-	std::shared_ptr<DebugRenderer> debug_renderer;
-	std::shared_ptr<SSAORenderer> ssao_renderer;
-
-	std::vector<std::shared_ptr<RendererBase>> renderers;
-
-	std::vector<std::shared_ptr<Texture>> shadow_maps;
-
-	std::shared_ptr<Shader> gbuffer_vertex_shader;
-	std::shared_ptr<Shader> gbuffer_fragment_shader;
-
-	std::shared_ptr<Shader> shadows_vertex_shader;
-	std::shared_ptr<Shader> shadows_fragment_shader_point;
-	std::shared_ptr<Shader> shadows_fragment_shader_directional;
-
-	std::shared_ptr<Texture> storage_image;
-	std::shared_ptr<Shader> raygen_shader;
-	std::shared_ptr<Shader> miss_shader;
-	std::shared_ptr<Shader> closest_hit_shader;
-
-	std::shared_ptr<Camera> camera;
+	std::vector<VkSemaphore> imageAvailableSemaphores;
+	std::vector<VkSemaphore> renderFinishedSemaphores;
+	int current_frame = 0;
 };
+

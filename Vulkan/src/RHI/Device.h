@@ -17,8 +17,8 @@ public:
 
 	VkQueue graphicsQueue;
 	VkQueue presentQueue;
-	VkQueryPool query_pool;
-	std::array<uint64_t, 256> time_stamps;
+	std::vector<VkQueryPool> query_pools;
+	std::vector<std::array<uint64_t, 256>> time_stamps;
 public:
 	Device(const VkInstance& instance);
 	virtual ~Device();

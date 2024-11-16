@@ -65,8 +65,11 @@ public:
 	static void init();
 	static void shutdown();
 	static void recreateScreenResources();
-	static void beginFrame(unsigned int image_index);
+	static void setViewportSize(glm::ivec2 size);
+	static glm::ivec2 getViewportSize() { return viewport_size; }
+	static void beginFrame(unsigned int current_frame_in_flight, unsigned int current_image_index);
 	static void endFrame(unsigned int image_index);
+	static void deleteResources(unsigned int frame_in_flight);
 	
 	static RendererDebugInfo getDebugInfo() { return debug_info; };
 
@@ -95,15 +98,16 @@ public:
 
 	// Default Uniforms
 	static void setCamera(std::shared_ptr<Camera> camera) { Renderer::camera = camera; }
-	static void updateDefaultUniforms(float delta_time, unsigned int image_index);
+	static void updateDefaultUniforms(float delta_time);
 	static const DefaultUniforms getDefaultUniforms();
 
 	static VkDescriptorSetLayout getDefaultDescriptorLayout() { return default_descriptor_layout.layout; }
 	static CommandBuffer &getCurrentCommandBuffer() { return VkWrapper::command_buffers[current_frame_in_flight]; }
 	static int getCurrentFrameInFlight() { return current_frame_in_flight; }
+	static int getCurrentImageIndex() { return current_image_index; }
 	static int getCurrentFrame() { return current_frame; }
 
-	static void deleteResource(RESOURCE_TYPE type, void *resource) { deletion_queue.push_back(std::make_pair(type, resource)); }
+	static void deleteResource(RESOURCE_TYPE type, void *resource) { deletion_queue[current_frame_in_flight].push_back(std::make_pair(type, resource)); }
 
 	static void addDrawCalls(size_t count) { debug_info.drawcalls += count; }
 	static void addDebugTime(uint32_t index, std::string name) { debug_info.times.push_back({index, name}); }
@@ -144,11 +148,13 @@ private:
 	static DescriptorLayout default_descriptor_layout;
 	static std::shared_ptr<Camera> camera;
 
-	static std::vector<std::pair<RESOURCE_TYPE, void *>> deletion_queue;
+	static std::array<std::vector<std::pair<RESOURCE_TYPE, void *>>, MAX_FRAMES_IN_FLIGHT> deletion_queue;
 
 	static int current_frame_in_flight;
+	static int current_image_index;
 	static uint64_t current_frame;
 	static uint32_t timestamp_index;
+	static glm::ivec2 viewport_size;
 };
 
 struct GPUScope
@@ -176,7 +182,7 @@ struct GPUScope
 };
 
 #define GPU_PROFILE_SCOPE(name) GPUScope gpu_scope__LINE__(name)
-#define GPU_PROFILE_SCOPE_FUNCTION(name) GPUScope gpu_scope__LINE__(name)
+#define GPU_PROFILE_SCOPE_FUNCTION() GPUScope gpu_scope__LINE__(__FUNCTION__)
 
 #define GPU_SCOPE_FUNCTION(command_buffer) GPUScope gpu_scope__LINE__(__FUNCTION__, command_buffer)
 #define GPU_SCOPE(name, command_buffer) GPUScope gpu_scope__LINE__(name, command_buffer)

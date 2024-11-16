@@ -26,8 +26,7 @@ Buffer::Buffer(BufferDescription description)
 
 Buffer::~Buffer()
 {
-	// TODO: fix device hung on big scenes. Maybe per frame deletion queue?
-	return;
+	// TODO: fix device hung on big scenes. Maybe per frame deletion queue? Check if issue exists
 	if (allocation)
 	{
 		if (is_mapped)

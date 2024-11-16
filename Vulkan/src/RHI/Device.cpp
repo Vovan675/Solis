@@ -2,6 +2,7 @@
 #include "Device.h"
 #include "Log.h"
 #include "Variables.h"
+#include "VkWrapper.h"
 
 static std::vector<const char*> s_ValidationLayers = {
 		"VK_LAYER_KHRONOS_validation"
@@ -10,13 +11,17 @@ static std::vector<const char*> s_ValidationLayers = {
 Device::Device(const VkInstance& instance) 
 	: m_InstanceHandle(instance)
 {
+	query_pools.resize(MAX_FRAMES_IN_FLIGHT);
+	time_stamps.resize(MAX_FRAMES_IN_FLIGHT);
+
 	CreatePhysicalDevice();
 	CreateLogicalDevice();
 }
 
 Device::~Device()
 {
-	vkDestroyQueryPool(logicalHandle, query_pool, nullptr);
+	for (size_t i = 0; i < query_pools.size(); i++)
+		vkDestroyQueryPool(logicalHandle, query_pools[i], nullptr);
 	vkDestroyDevice(logicalHandle, nullptr);
 }
 
@@ -149,10 +154,13 @@ void Device::CreateLogicalDevice()
 	vkGetDeviceQueue(logicalHandle, queueFamily.presentFamily.value(), 0, &presentQueue);
 
 	// Create query pool for profiling
-	VkQueryPoolCreateInfo query_pool_info{};
-	query_pool_info.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
-	query_pool_info.queryType = VK_QUERY_TYPE_TIMESTAMP;
-	query_pool_info.queryCount = time_stamps.size();
-	vkCreateQueryPool(logicalHandle, &query_pool_info, nullptr, &query_pool);
-	time_stamps.fill(0);
+	for (size_t i = 0; i < query_pools.size(); i++)
+	{
+		VkQueryPoolCreateInfo query_pool_info{};
+		query_pool_info.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
+		query_pool_info.queryType = VK_QUERY_TYPE_TIMESTAMP;
+		query_pool_info.queryCount = time_stamps[i].size();
+		vkCreateQueryPool(logicalHandle, &query_pool_info, nullptr, &query_pools[i]);
+		time_stamps[i].fill(0);
+	}
 }

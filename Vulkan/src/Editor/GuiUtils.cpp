@@ -94,6 +94,9 @@ void GuiUtils::draw_stats_bar(float delta_time, ImVec2 pos)
 
 	ImGui::Text("FPS: %i (%f ms)", (int)(last_fps), 1.0f / last_fps * 1000);
 	
+	glm::ivec2 viewport_size = Renderer::getViewportSize();
+	ImGui::Text("Render Size: %i %i", viewport_size.x, viewport_size.y);
+	
 	ImGui::EndChild();
 	ImGui::PopStyleColor();
 	ImGui::PopStyleVar();

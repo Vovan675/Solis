@@ -374,18 +374,18 @@ Entity Model::create_entity_node(std::shared_ptr<Model> model, MeshNode *node, S
 	Entity entity = scene->createEntity(node->name);
 	auto &transform_component = entity.getComponent<TransformComponent>();
 
-	auto &mesh_renderer = entity.addComponent<MeshRendererComponent>();
-
-
-	for (auto &mesh : node->meshes)
+	if (!node->meshes.empty())
 	{
-		MeshRendererComponent::MeshId mesh_id;
-		mesh_id.model = model;
-		mesh_id.mesh_id = mesh->id;
-		mesh_renderer.meshes.push_back(mesh_id);
+		auto &mesh_renderer = entity.addComponent<MeshRendererComponent>();
+		for (auto &mesh : node->meshes)
+		{
+			MeshRendererComponent::MeshId mesh_id;
+			mesh_id.model = model;
+			mesh_id.mesh_id = mesh->id;
+			mesh_renderer.meshes.push_back(mesh_id);
+		}
+		mesh_renderer.materials = node->materials;
 	}
-
-	mesh_renderer.materials = node->materials;
 
 	transform_component.setTransform(node->local_model_matrix);
 

@@ -58,7 +58,7 @@ public:
 	{
 		orientation = glm::quat(glm::vec3(pitch, yaw, 0));
 		view = glm::inverse(glm::translate(glm::mat4(1.0f), position) * glm::toMat4(orientation));
-		proj = glm::perspectiveRH(glm::radians(45.0f), VkWrapper::swapchain->swap_extent.width / (float)VkWrapper::swapchain->swap_extent.height, near_plane, far_plane);
+		proj = glm::perspectiveRH(glm::radians(45.0f), aspect, near_plane, far_plane);
 		proj[1][1] *= -1.0f;
 	}
 
@@ -70,6 +70,9 @@ public:
 
 	void setFar(float far_plane) { this->far_plane = far_plane; }
 	float getFar() const { return far_plane; }
+
+	void setAspect(float aspect) { this->aspect = aspect; }
+	float getAspect() const { return aspect; }
 
 	const glm::vec3 &getPosition() const { return position; }
 	const glm::mat4 &getView() const { return view; }
@@ -92,6 +95,7 @@ private:
 	glm::mat4 proj;
 	glm::quat orientation;
 	float pitch, yaw;
+	float aspect;
 
 	glm::vec2 prev_mouse_pos;
 

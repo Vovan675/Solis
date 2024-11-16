@@ -6,6 +6,7 @@
 #include "RHI/Texture.h"
 #include "Material.h"
 
+struct MeshNode;
 class Model;
 
 struct TransformComponent
@@ -45,6 +46,8 @@ struct MeshRendererComponent
 	};
 	std::vector<MeshId> meshes;
 	std::vector<std::shared_ptr<Material>> materials;
+
+	void setFromMeshNode(std::shared_ptr<Model> model, MeshNode *mesh_node);
 };
 
 enum LIGHT_TYPE
@@ -103,9 +106,9 @@ struct LightComponent
 		}
 	}
 
-	glm::vec3 color;
-	float intensity;
-	float radius;
+	glm::vec3 color = glm::vec3(1, 1, 1);
+	float intensity = 1.0f;
+	float radius = 1.0f;
 
 	float shadow_map_size = 4096;
 
@@ -113,7 +116,7 @@ struct LightComponent
 
 private:
 	LIGHT_TYPE type = LIGHT_TYPE_POINT;
-	friend class Application;
+	friend class EditorApplication;
 	friend class DefferedLightingRenderer;
 	struct CascadeData
 	{

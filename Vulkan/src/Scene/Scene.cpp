@@ -109,6 +109,9 @@ void Scene::destroyEntity(entt::entity id)
 {
 	Entity entity(id, this);
 	
+	if (entity.getParent())
+		entity.getParent().removeChild(id);
+
 	auto children = entity.getChildren();
 	for(auto &child : children)
 		destroyEntity(child);

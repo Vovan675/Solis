@@ -12,13 +12,17 @@ Renderer::DefaultUniforms Renderer::default_uniforms;
 DescriptorLayout Renderer::default_descriptor_layout;
 std::shared_ptr<Camera> Renderer::camera;
 
-std::vector<std::pair<RESOURCE_TYPE, void *>> Renderer::deletion_queue;
+std::array<std::vector<std::pair<RESOURCE_TYPE, void *>>, MAX_FRAMES_IN_FLIGHT> Renderer::deletion_queue;
 int Renderer::current_frame_in_flight = 0;
+int Renderer::current_image_index = 0;
 uint64_t Renderer::current_frame = 0;
 uint32_t Renderer::timestamp_index = 0;
 
+glm::ivec2 Renderer::viewport_size;
+
 void Renderer::init()
 {
+	viewport_size = VkWrapper::swapchain->getSize();
 	recreateScreenResources();
 
 	DescriptorLayoutBuilder layout_builder;
@@ -33,14 +37,15 @@ void Renderer::shutdown()
 
 	descriptor_bindings.clear();
 
+	deleteResources(current_frame_in_flight);
 	Renderer::endFrame(0);
 }
 
 void Renderer::recreateScreenResources()
 {
 	TextureDescription description;
-	description.width = VkWrapper::swapchain->swap_extent.width;
-	description.height = VkWrapper::swapchain->swap_extent.height;
+	description.width = viewport_size.x;
+	description.height = viewport_size.y;
 	description.mipLevels = 1;
 	description.numSamples = VK_SAMPLE_COUNT_1_BIT;
 
@@ -113,10 +118,19 @@ void Renderer::recreateScreenResources()
 						  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, "Final Image");
 }
 
-void Renderer::beginFrame(unsigned int image_index)
+void Renderer::setViewportSize(glm::ivec2 size)
+{
+	if (viewport_size == size)
+		return;
+	viewport_size = size;
+	recreateScreenResources();
+}
+
+void Renderer::beginFrame(unsigned int current_frame_in_flight, unsigned int current_image_index)
 {
 	current_frame++;
-	current_frame_in_flight = image_index;
+	Renderer::current_frame_in_flight = current_frame_in_flight;
+	Renderer::current_image_index = current_image_index;
 
 	// Update debug info
 	debug_info = RendererDebugInfo{};
@@ -136,6 +150,8 @@ void Renderer::beginFrame(unsigned int image_index)
 	}
 
 	timestamp_index = 0;
+
+	deleteResources(current_frame_in_flight);
 }
 
 void Renderer::endFrame(unsigned int image_index)
@@ -146,11 +162,18 @@ void Renderer::endFrame(unsigned int image_index)
 		offset.second[image_index] = 0;
 	}
 	
-	if (!deletion_queue.empty())
+	int count = timestamp_index;
+	if (count > 0)
+		vkGetQueryPoolResults(VkWrapper::device->logicalHandle, VkWrapper::device->query_pools[current_frame_in_flight], 0, count, VkWrapper::device->time_stamps[current_frame_in_flight].size() * sizeof(uint64_t), VkWrapper::device->time_stamps[current_frame_in_flight].data(), sizeof(uint64_t), VK_QUERY_RESULT_64_BIT);
+}
+
+void Renderer::deleteResources(unsigned int frame_in_flight)
+{
+	if (!deletion_queue[frame_in_flight].empty())
 	{
 		vkDeviceWaitIdle(VkWrapper::device->logicalHandle);
-		
-		for (auto resource : deletion_queue)
+
+		for (auto resource : deletion_queue[frame_in_flight])
 		{
 			switch (resource.first)
 			{
@@ -171,32 +194,28 @@ void Renderer::endFrame(unsigned int image_index)
 					break;
 			}
 		}
-		
-		deletion_queue.clear();
-	}
 
-	int count = timestamp_index;
-	if (count > 0)
-		vkGetQueryPoolResults(VkWrapper::device->logicalHandle, VkWrapper::device->query_pool, 0, count, VkWrapper::device->time_stamps.size() * sizeof(uint64_t), VkWrapper::device->time_stamps.data(), sizeof(uint64_t), VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT);
+		deletion_queue[frame_in_flight].clear();
+	}
 }
 
 uint32_t Renderer::beginTimestamp()
 {
 	uint32_t current_timestep = timestamp_index;
-	vkCmdWriteTimestamp2(getCurrentCommandBuffer().get_buffer(), VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VkWrapper::device->query_pool, timestamp_index++);
+	vkCmdWriteTimestamp2(getCurrentCommandBuffer().get_buffer(), VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VkWrapper::device->query_pools[current_frame_in_flight], timestamp_index++);
 	timestamp_index++;
 	return current_timestep;
 }
 
 void Renderer::endTimestamp(uint32_t index)
 {
-	vkCmdWriteTimestamp2(getCurrentCommandBuffer().get_buffer(), VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VkWrapper::device->query_pool, index);
+	vkCmdWriteTimestamp2(getCurrentCommandBuffer().get_buffer(), VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VkWrapper::device->query_pools[current_frame_in_flight], index);
 }
 
 float Renderer::getTimestampTime(uint32_t index)
 {
 	float period = VkWrapper::device->physicalProperties.properties.limits.timestampPeriod;
-	float delta_in_ms = (VkWrapper::device->time_stamps[index + 1] - VkWrapper::device->time_stamps[index]) * period / 1000000.0f;
+	float delta_in_ms = (VkWrapper::device->time_stamps[current_frame_in_flight][index + 1] - VkWrapper::device->time_stamps[current_frame_in_flight][index]) * period / 1000000.0f;
 	return delta_in_ms;
 }
 
@@ -394,7 +413,7 @@ void Renderer::bindShadersDescriptorSets(std::vector<std::shared_ptr<Shader>> sh
 	descriptors_offset[descriptor_hash][current_frame_in_flight] += 1;
 }
 
-void Renderer::updateDefaultUniforms(float delta_time, unsigned int image_index)
+void Renderer::updateDefaultUniforms(float delta_time)
 {
 	default_uniforms.view = camera->getView();
 	default_uniforms.iview = glm::inverse(camera->getView());
@@ -405,9 +424,9 @@ void Renderer::updateDefaultUniforms(float delta_time, unsigned int image_index)
 	default_uniforms.time += delta_time;
 
 	// After every updating (changing) increment offset because we can't override previous descriptor layout that is used in this frame
-	descriptors_offset[0][image_index] += 1;
+	descriptors_offset[0][current_frame_in_flight] += 1;
 
-	size_t offset = descriptors_offset[0][image_index];
+	size_t offset = descriptors_offset[0][current_frame_in_flight];
 
 	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
@@ -443,7 +462,7 @@ void Renderer::updateDefaultUniforms(float delta_time, unsigned int image_index)
 		}
 	}
 
-	auto &current_binding = descriptor_bindings[0][image_index].bindings_per_offset[offset];
+	auto &current_binding = descriptor_bindings[0][current_frame_in_flight].bindings_per_offset[offset];
 	memcpy(current_binding.second, &default_uniforms, sizeof(DefaultUniforms));
 }
 

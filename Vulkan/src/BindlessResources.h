@@ -11,6 +11,7 @@ public:
 	static const VkDescriptorSetLayout *getDescriptorLayout() { return &bindless_layout.layout; }
 	static const VkDescriptorSet *getDescriptorSet() { return &bindless_set; }
 
+	static void beginFrame();
 	static void setTexture(uint32_t index, Texture *texture);
 	static uint32_t addTexture(Texture *texture);
 	static Texture *getTexture(uint32_t index);

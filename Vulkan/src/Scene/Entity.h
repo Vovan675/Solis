@@ -43,10 +43,25 @@ public:
 	Entity getParent() const { return Entity(getTransform().parent, scene); }
 	std::vector<entt::entity> getChildren() const { return getTransform().children; }
 
+	void removeChild(entt::entity child)
+	{
+		auto &childs = getTransform().children;
+		auto found = std::find(childs.begin(), childs.end(), child);
+		if (found != childs.end())
+			childs.erase(found);
+	}
+
 	template<typename T, typename ...Args>
 	T &addComponent(Args &&...args) const
 	{
+		if (hasComponent<T>()) return getComponent<T>();
 		return scene->registry.emplace_or_replace<T>(entity_id, args...);
+	}
+
+	template<typename T>
+	void removeComponent() const
+	{
+		scene->registry.remove<T>(entity_id);
 	}
 
 	template<typename T>

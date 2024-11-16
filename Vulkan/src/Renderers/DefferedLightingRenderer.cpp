@@ -161,30 +161,4 @@ void DefferedLightingRenderer::renderLights(Scene *scene, CommandBuffer &command
 
 void DefferedLightingRenderer::renderImgui()
 {
-	for (int i = 0; i < lights.size(); i++)
-	{
-		LightData &light = lights[i];
-		ImGui::PushID(i);
-		static int present_mode = light.position.w;
-		char *items[] = {"Point", "Directional"};
-		if (ImGui::BeginCombo("Light type", items[(int)light.position.w]))
-		{
-			for (int n = 0; n < IM_ARRAYSIZE(items); n++)
-			{
-				bool is_selected = (light.position.w == n);
-				if (ImGui::Selectable(items[n], is_selected))
-					light.position.w = n;
-				if (is_selected)
-					ImGui::SetItemDefaultFocus();
-			}
-			ImGui::EndCombo();
-		}
-		//light.position.w = present_mode;
-		ImGui::SliderFloat3("Light Position", light.position.data.data, -8, 8);
-		ImGui::SliderFloat3("Light Color", light.color.data.data, 0, 1);
-		ImGui::SliderFloat("Light Radius", &light.radius, 0.001f, 25);
-		ImGui::SliderFloat("Light Intensity", &light.intensity, 0.01f, 25);
-		ImGui::Separator();
-		ImGui::PopID();
-	}
 }

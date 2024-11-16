@@ -3,7 +3,49 @@
 #include "Filesystem.h"
 #include "imgui.h"
 #include "imgui/IconsFontAwesome6.h"
+#include "Model.h"
 
+
+template <typename C, typename F>
+static void drawComponent(Entity entity, const char *title, F func)
+{
+	if (entity.hasComponent<C>())
+	{
+		bool close = true;
+		if (ImGui::CollapsingHeader(title, &close, ImGuiTreeNodeFlags_DefaultOpen))
+		{
+			func(entity.getComponent<C>());
+		}
+		if (!close)
+		{
+			entity.removeComponent<C>();
+		}
+	}
+}
+
+static void alignForWidth(float width, float alignment = 0.5f)
+{
+	float avail = ImGui::GetContentRegionAvail().x;
+	float off = (avail - width) * alignment;
+	if (off > 0.0f)
+		ImGui::SetCursorPosX(ImGui::GetCursorPosX() + off);
+}
+
+static bool centeredButton(const char *label, float alignment = 0.5f)
+{
+	ImGuiStyle& style = ImGui::GetStyle();
+	float width = ImGui::CalcTextSize(label).x + style.FramePadding.x * 2.0f;
+	alignForWidth(width, alignment);
+	return ImGui::Button(label);
+}
+
+template <typename C>
+static void addComponentButton(Entity entity, const char *title)
+{
+	bool selected = entity.hasComponent<C>();
+	if (ImGui::Selectable(title, false, selected ? ImGuiSelectableFlags_Disabled : 0))
+		entity.addComponent<C>();
+}
 
 bool ParametersPanel::renderImGui(Entity entity, std::shared_ptr<DebugRenderer> debug_renderer)
 {
@@ -11,15 +53,38 @@ bool ParametersPanel::renderImGui(Entity entity, std::shared_ptr<DebugRenderer> 
 	bool is_using_ui = ImGui::IsWindowFocused();
 	if (entity)
 	{
-		if (entity.hasComponent<MeshRendererComponent>())
-		{
-			auto &mesh_renderer = entity.getComponent<MeshRendererComponent>();
+		drawComponent<MeshRendererComponent>(entity, "Mesh Renderer", [&](MeshRendererComponent &mesh_renderer) {
 			for (auto &mesh_id : mesh_renderer.meshes)
 			{
 				auto mesh = mesh_id.getMesh();
 				debug_renderer->addBoundBox(mesh->bound_box * entity.getWorldTransformMatrix());
 			}
-			ImGui::Text("Materials");
+
+			ImGui::SeparatorText("Mesh Settings");
+			if (mesh_renderer.meshes.empty())
+				ImGui::TextColored(ImVec4(1, 0, 0, 1), "No mesh");
+
+			// TODO: Select mesh (one piece of already loaded model asset)
+			if (ImGui::Button("Select mesh"))
+			{
+				std::string path = Filesystem::openFileDialog();
+				if (!path.empty())
+				{
+					auto model = AssetManager::getModelAsset(path);
+					mesh_renderer.meshes.clear();
+					auto &linear_nodes = model->getLinearNodes();
+					for (auto node : linear_nodes)
+					{
+						if (!node->meshes.empty())
+						{
+							mesh_renderer.setFromMeshNode(model, node);
+							break;
+						}
+					}
+				}
+			}
+
+			ImGui::SeparatorText("Materials");
 			for (int i = 0; i < mesh_renderer.materials.size(); i++)
 			{
 				auto mat = mesh_renderer.materials[i];
@@ -77,11 +142,9 @@ bool ParametersPanel::renderImGui(Entity entity, std::shared_ptr<DebugRenderer> 
 					ImGui::TreePop();
 				}
 			}
-		}
+		});
 
-		if (entity.hasComponent<LightComponent>())
-		{
-			auto &light = entity.getComponent<LightComponent>();
+		drawComponent<LightComponent>(entity, "Light", [](LightComponent &light) {
 			int light_type = light.getType();
 			char *items[] = {"Point", "Directional"};
 			if (ImGui::BeginCombo("Light type", items[light_type]))
@@ -97,9 +160,19 @@ bool ParametersPanel::renderImGui(Entity entity, std::shared_ptr<DebugRenderer> 
 				ImGui::EndCombo();
 			}
 			light.setType((LIGHT_TYPE)light_type);
-			ImGui::SliderFloat3("Light Color", light.color.data.data, 0, 1);
+			ImGui::ColorEdit3("Light Color", light.color.data.data);
 			ImGui::SliderFloat("Light Radius", &light.radius, 0.001f, 40.0);
 			ImGui::SliderFloat("Light Intensity", &light.intensity, 0.01f, 25);
+		});
+
+
+		if (centeredButton("Add component..."))
+			ImGui::OpenPopup("add_component_popup");
+		if (ImGui::BeginPopup("add_component_popup"))
+		{
+			addComponentButton<MeshRendererComponent>(entity, "Mesh Renderer");
+			addComponentButton<LightComponent>(entity, "Light");
+			ImGui::EndPopup();
 		}
 	}
 	ImGui::End();

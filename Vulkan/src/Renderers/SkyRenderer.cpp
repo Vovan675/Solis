@@ -114,9 +114,11 @@ void SkyRenderer::fillCommandBuffer(CommandBuffer &command_buffer)
 
 void SkyRenderer::renderImgui()
 {
-	ImGui::SliderFloat("Sun Dir X", &procedural_uniforms.sun_direction.x, -1.0, 1.0f);
-	ImGui::SliderFloat("Sun Dir Y", &procedural_uniforms.sun_direction.y, -1.0, 1.0f);
-	ImGui::SliderFloat("Sun Dir Z", &procedural_uniforms.sun_direction.z, -1.0, 1.0f);
+	ConVarSystem::drawConVarImGui(render_automatic_sun_position.getDescription());
+	if (!render_automatic_sun_position)
+	{
+		ImGui::SliderFloat3("Sun Dir", procedural_uniforms.sun_direction.data.data, -1.0f, 1.0f);
+	}
 }
 
 void SkyRenderer::setMode(SKY_MODE mode)

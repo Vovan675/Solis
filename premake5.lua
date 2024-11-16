@@ -83,7 +83,8 @@ project "Vulkan"
 		"Assimp",
 		"ImGui",
 		"ImGuizmo",
-		"YamlCpp"
+		"YamlCpp",
+		"Dwmapi",
 	}
 
 	defines
