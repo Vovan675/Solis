@@ -9,12 +9,12 @@ class Entity
 {
 public:
 	Entity() = default;
-	Entity(entt::entity entity_id, Scene *scene) : entity_id(entity_id), scene(scene) {}
+	Entity(entt::entity entity_id) : entity_id(entity_id), scene(Scene::current_scene) {}
 
 	// TODO: return UUID
 	uint32_t getID() const { return (uint32_t)entity_id; }
 
-	Scene* getScene() const { return scene; }
+	std::weak_ptr<Scene> getScene() const { return scene; }
 
 	TransformComponent &getTransform() const { return getComponent<TransformComponent>(); }
 
@@ -24,7 +24,7 @@ public:
 		glm::mat4 world_transform = transform_component.getTransformMatrix();
 		if (transform_component.parent != entt::null)
 		{
-			Entity parent(transform_component.parent, scene);
+			Entity parent(transform_component.parent);
 			world_transform = parent.getWorldTransformMatrix() * world_transform;
 		}
 
@@ -40,7 +40,7 @@ public:
 		return normalize(rotation * direction);
 	}
 
-	Entity getParent() const { return Entity(getTransform().parent, scene); }
+	Entity getParent() const { return Entity(getTransform().parent); }
 	std::vector<entt::entity> getChildren() const { return getTransform().children; }
 
 	void removeChild(entt::entity child)
@@ -86,6 +86,6 @@ public:
 
 private:
 	entt::entity entity_id = entt::null;
-	Scene* scene = nullptr;
+	std::shared_ptr<Scene> scene;
 };
 

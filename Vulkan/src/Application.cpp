@@ -3,6 +3,7 @@
 #include "imgui.h"
 #include "Rendering/Renderer.h"
 #include "Assets/AssetManager.h"
+#include "Scene/Scene.h"
 #include "GLFW/glfw3native.h"
 
 #ifndef DWMWA_USE_IMMERSIVE_DARK_MODE
@@ -144,6 +145,7 @@ void Application::render(CommandBuffer &command_buffer)
 
 void Application::cleanup()
 {
+	Scene::closeScene();
 	vkDeviceWaitIdle(VkWrapper::device->logicalHandle);
 	AssetManager::shutdown();
 	cleanupResources();

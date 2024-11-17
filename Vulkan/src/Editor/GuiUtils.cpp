@@ -55,13 +55,17 @@ void GuiUtils::init()
 
 	ImGuiIO &io = ImGui::GetIO();
 	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-	roboto_regular_medium = io.Fonts->AddFontFromFileTTF("assets/fonts/Roboto-Regular.ttf", 18);
+
 	ImFontConfig config { };
 	config.MergeMode = true;
 
 	ImWchar icon_ranges[] = { ICON_MIN_FA, ICON_MAX_FA, 0 };
-	auto icons = io.Fonts->AddFontFromFileTTF("assets/fonts/fa-solid-900.ttf", 14, &config, icon_ranges);
+
+	roboto_regular_medium = io.Fonts->AddFontFromFileTTF("assets/fonts/Roboto-Regular.ttf", 18);
+	io.Fonts->AddFontFromFileTTF("assets/fonts/fa-solid-900.ttf", 18, &config, icon_ranges);
+
 	roboto_regular_small = io.Fonts->AddFontFromFileTTF("assets/fonts/Roboto-Regular.ttf", 14);
+	io.Fonts->AddFontFromFileTTF("assets/fonts/fa-solid-900.ttf", 14, &config, icon_ranges);
 	io.FontDefault = roboto_regular_medium;
 	io.Fonts->Build();
 }

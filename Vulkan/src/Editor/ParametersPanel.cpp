@@ -108,6 +108,25 @@ bool ParametersPanel::renderImGui(Entity entity, std::shared_ptr<DebugRenderer> 
 									mat->albedo_tex_id = BindlessResources::addTexture(texture.get());
 								}
 							}
+
+							// TODO: make for all, unify using struct for payload
+							if (ImGui::BeginDragDropTarget())
+							{
+								if (const ImGuiPayload *payload = ImGui::AcceptDragDropPayload("DND_ASSET_PATH", ImGuiDragDropFlags_AcceptPeekOnly))
+								{
+									const char *payload_str = (const char *)payload->Data;
+									std::string extension = std::filesystem::path(payload_str).extension().string();
+									if (extension == ".png" || extension == ".jpg")
+									{
+										if (payload = ImGui::AcceptDragDropPayload("DND_ASSET_PATH"))
+										{
+											auto texture = AssetManager::getTextureAsset(payload_str);
+											mat->albedo_tex_id = BindlessResources::addTexture(texture.get());
+										}
+									}
+								}
+								ImGui::EndDragDropTarget();
+							}
 						} else
 						{
 							ImGui::ColorEdit4("Color", mat->albedo.data.data);

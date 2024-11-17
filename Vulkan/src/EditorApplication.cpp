@@ -44,11 +44,11 @@ EditorApplication::EditorApplication()
 	auto model = AssetManager::getModelAsset("assets/pbr/source/Ref.fbx");
 	//model->saveFile("test_model.mesh");
 	//model->loadFile("test_model.mesh");
-	Entity entity = model->createEntity(model, &scene);
+	Entity entity = model->createEntity(model);
 	entity.getTransform().scale = glm::vec3(0.01);
 	entity.addComponent<LightComponent>();
 
-	Entity light = scene.createEntity("Point Light");
+	Entity light = Scene::getCurrentScene()->createEntity("Point Light");
 	light.getTransform().setTransform(glm::eulerAngleXYX(3.14 / 4.0, 3.14 / 4.0, 0.0));
 	auto &light_component = light.addComponent<LightComponent>();
 	light_component.setType(LIGHT_TYPE_DIRECTIONAL);
@@ -128,7 +128,7 @@ EditorApplication::EditorApplication()
 
 	if (engine_ray_tracing)
 	{
-		ray_tracing_scene = std::make_shared<RayTracingScene>(&scene);
+		ray_tracing_scene = std::make_shared<RayTracingScene>(nullptr);
 
 		TextureDescription tex_description = {};
 		tex_description.width = VkWrapper::swapchain->swap_extent.width;
@@ -212,7 +212,7 @@ void EditorApplication::update(float delta_time)
 			{
 				std::string path = Filesystem::saveFileDialog();
 				if (!path.empty())
-					scene.saveFile(path);
+					Scene::getCurrentScene()->saveFile(path);
 			}
 
 			if (ImGui::MenuItem("Load"))
@@ -220,8 +220,7 @@ void EditorApplication::update(float delta_time)
 				std::string path = Filesystem::openFileDialog();
 				if (!path.empty())
 				{
-					scene = Scene();
-					scene.loadFile(path);
+					Scene::getCurrentScene()->loadFile(path);
 				}
 			}
 			ImGui::EndMenu();
@@ -394,10 +393,10 @@ void EditorApplication::update(float delta_time)
 	sky_renderer->renderImgui();
 	if (render_automatic_sun_position)
 	{
-		auto entities_id = scene.getEntitiesWith<LightComponent>();
+		auto entities_id = Scene::getCurrentScene()->getEntitiesWith<LightComponent>();
 		for (const auto &entity_id : entities_id)
 		{
-			Entity entity(entity_id, &scene);
+			Entity entity(entity_id);
 			
 			LightComponent &light = entity.getComponent<LightComponent>();
 			if (light.getType() != LIGHT_TYPE_DIRECTIONAL)
@@ -411,7 +410,7 @@ void EditorApplication::update(float delta_time)
 
 	// Hierarchy
 	ImGui::Begin((std::string(ICON_FA_LIST_UL) + " Hierarchy###Hierarchy").c_str());
-	auto entities_id = scene.getEntitiesWith<TransformComponent>();
+	auto entities_id = Scene::getCurrentScene()->getEntitiesWith<TransformComponent>();
 
 	std::vector<entt::entity> entities_to_delete;
 	std::function<void(entt::entity entity_id)> add_entity_tree = [&add_entity_tree, &entities_to_delete, this] (entt::entity entity_id) {
@@ -419,7 +418,7 @@ void EditorApplication::update(float delta_time)
 		ImGui::PushID((int)entity_id);;
 		ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_SpanFullWidth | ImGuiTreeNodeFlags_SpanAvailWidth;
 		
-		Entity entity(entity_id, &scene);
+		Entity entity(entity_id);
 		TransformComponent &transform = entity.getComponent<TransformComponent>();
 
 		// Collapsable or not
@@ -464,18 +463,18 @@ void EditorApplication::update(float delta_time)
 
 	for (const auto &entity_id : entities_id)
 	{
-		Entity entity(entity_id, &scene);
+		Entity entity(entity_id);
 		TransformComponent &transform = entity.getComponent<TransformComponent>();
 		if (transform.parent == entt::null)
 			add_entity_tree(entity_id);
 	}
 
 	for (auto &entity_id : entities_to_delete)
-		scene.destroyEntity(entity_id);
+		Scene::getCurrentScene()->destroyEntity(entity_id);
 
 	if (ImGui::Button("Create Entity"))
 	{
-		Entity entity = scene.createEntity("New Entity");
+		Entity entity = Scene::getCurrentScene()->createEntity("New Entity");
 	}
 
 	ImGui::End();
@@ -616,7 +615,6 @@ void EditorApplication::cleanupResources()
 	ibl_brdf_lut = nullptr;
 	ibl_irradiance = nullptr;
 	ibl_prefilter = nullptr;
-	scene = Scene();
 	renderers.clear();
 }
 
@@ -712,10 +710,10 @@ void EditorApplication::render_GBuffer(CommandBuffer &command_buffer)
 
 	Renderer::bindShadersDescriptorSets(p->getCurrentShaders(), command_buffer, p->getPipelineLayout());
 
-	auto entities_id = scene.getEntitiesWith<MeshRendererComponent>();
+	auto entities_id = Scene::getCurrentScene()->getEntitiesWith<MeshRendererComponent>();
 	for (entt::entity entity_id : entities_id)
 	{
-		Entity entity(entity_id, &scene);
+		Entity entity(entity_id);
 		MeshRendererComponent &mesh_renderer_component = entity.getComponent<MeshRendererComponent>();
 
 		entity_renderer.renderEntity(command_buffer, entity);
@@ -757,10 +755,10 @@ void EditorApplication::render_ray_tracing(CommandBuffer &command_buffer)
 	ubo.viewInverse = glm::inverse(camera->getView());
 	ubo.projInverse = glm::inverse(camera->getProj());
 
-	auto lights = scene.getEntitiesWith<LightComponent>();
+	auto lights = Scene::getCurrentScene()->getEntitiesWith<LightComponent>();
 	for (auto entity_id : lights)
 	{
-		Entity light_entity(entity_id, &scene);
+		Entity light_entity(entity_id);
 		if (light_entity.getComponent<LightComponent>().getType() == LIGHT_TYPE_DIRECTIONAL)
 		{
 			glm::vec3 scale, position, skew;
@@ -844,7 +842,7 @@ void EditorApplication::render_lighting(CommandBuffer &command_buffer)
 									Renderer::getRenderTarget(RENDER_TARGET_LIGHTING_SPECULAR)
 								 }, nullptr);
 
-	defferred_lighting_renderer->renderLights(&scene, command_buffer);
+	defferred_lighting_renderer->renderLights(nullptr, command_buffer);
 
 	VkWrapper::cmdEndRendering(command_buffer);
 }
@@ -970,10 +968,10 @@ void EditorApplication::update_cascades(LightComponent &light, glm::vec3 light_d
 void EditorApplication::render_shadows(CommandBuffer &command_buffer)
 {
 	GPU_SCOPE_FUNCTION(&command_buffer);
-	auto light_entities_id = scene.getEntitiesWith<LightComponent>();
+	auto light_entities_id = Scene::getCurrentScene()->getEntitiesWith<LightComponent>();
 	for (entt::entity light_entity_id : light_entities_id)
 	{
-		Entity light_entity(light_entity_id, &scene);
+		Entity light_entity(light_entity_id);
 		auto &light = light_entity.getComponent<LightComponent>();
 
 		light.shadow_map->transitLayout(command_buffer, TEXTURE_LAYOUT_ATTACHMENT);
@@ -1025,10 +1023,10 @@ void EditorApplication::render_shadows(CommandBuffer &command_buffer)
 				Renderer::setShadersUniformBuffer(p->getCurrentShaders(), 0, &ubo, sizeof(EntityRenderer::ShadowUBO));
 				Renderer::bindShadersDescriptorSets(p->getCurrentShaders(), command_buffer, p->getPipelineLayout());
 
-				auto mesh_entities_view = scene.getEntitiesWith<TransformComponent, MeshRendererComponent>();
+				auto mesh_entities_view = Scene::getCurrentScene()->getEntitiesWith<TransformComponent, MeshRendererComponent>();
 				for (auto mesh_entity_id : mesh_entities_view)
 				{
-					Entity entity(mesh_entity_id, &scene);
+					Entity entity(mesh_entity_id);
 					auto [transform, mesh] = mesh_entities_view.get<TransformComponent, MeshRendererComponent>(mesh_entity_id);
 					entity_renderer.renderEntityShadow(command_buffer, entity.getWorldTransformMatrix(), mesh);
 				}
@@ -1069,10 +1067,10 @@ void EditorApplication::render_shadows(CommandBuffer &command_buffer)
 				Renderer::setShadersUniformBuffer(p->getCurrentShaders(), 0, &ubo, sizeof(EntityRenderer::ShadowUBO));
 				Renderer::bindShadersDescriptorSets(p->getCurrentShaders(), command_buffer, p->getPipelineLayout());
 
-				auto mesh_entities_view = scene.getEntitiesWith<TransformComponent, MeshRendererComponent>();
+				auto mesh_entities_view = Scene::getCurrentScene()->getEntitiesWith<TransformComponent, MeshRendererComponent>();
 				for (auto mesh_entity_id : mesh_entities_view)
 				{
-					Entity entity(mesh_entity_id, &scene);
+					Entity entity(mesh_entity_id);
 					auto [transform, mesh] = mesh_entities_view.get<TransformComponent, MeshRendererComponent>(mesh_entity_id);
 					entity_renderer.renderEntityShadow(command_buffer, entity.getWorldTransformMatrix(), mesh);
 				}

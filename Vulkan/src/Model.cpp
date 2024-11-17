@@ -283,9 +283,9 @@ void Model::process_node(MeshNode *mesh_node, aiNode *node, const aiScene *scene
 
 }
 
-Entity Model::createEntity(std::shared_ptr<Model> model, Scene *scene)
+Entity Model::createEntity(std::shared_ptr<Model> model)
 {
-	return create_entity_node(model, model->root_node, scene);
+	return create_entity_node(model, model->root_node, Scene::getCurrentScene());
 }
 
 void Model::saveFile(const std::string &filename)
@@ -369,7 +369,7 @@ void Model::load_mesh_node(FileStream &stream, MeshNode *node)
 	}
 }
 
-Entity Model::create_entity_node(std::shared_ptr<Model> model, MeshNode *node, Scene *scene)
+Entity Model::create_entity_node(std::shared_ptr<Model> model, MeshNode *node, std::shared_ptr<Scene> scene)
 {
 	Entity entity = scene->createEntity(node->name);
 	auto &transform_component = entity.getComponent<TransformComponent>();

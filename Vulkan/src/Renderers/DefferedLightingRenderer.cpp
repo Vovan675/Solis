@@ -34,12 +34,12 @@ void DefferedLightingRenderer::renderLights(Scene *scene, CommandBuffer &command
 
 	if (engine_ray_tracing && render_ray_traced_shadows && render_shadows)
 	{
-		auto entities_id = scene->getEntitiesWith<LightComponent>();
+		auto entities_id = Scene::getCurrentScene()->getEntitiesWith<LightComponent>();
 		LightComponent *light_component = nullptr;
 		glm::vec3 dir;
 		for (entt::entity entity_id : entities_id)
 		{
-			Entity entity(entity_id, scene);
+			Entity entity(entity_id);
 			auto &light = entity.getComponent<LightComponent>();
 				
 			if (light.getType() == LIGHT_TYPE_DIRECTIONAL)
@@ -88,10 +88,10 @@ void DefferedLightingRenderer::renderLights(Scene *scene, CommandBuffer &command
 	{
 		std::vector<std::pair<const char *, const char *>> shader_defines;
 
-		auto entities_id = scene->getEntitiesWith<LightComponent>();
+		auto entities_id = Scene::getCurrentScene()->getEntitiesWith<LightComponent>();
 		for (entt::entity entity_id : entities_id)
 		{
-			Entity entity(entity_id, scene);
+			Entity entity(entity_id);
 			auto &light = entity.getComponent<LightComponent>();
 
 			shader_defines.clear();

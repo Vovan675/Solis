@@ -57,7 +57,7 @@ public:
 	void load(const char *path);
 	void process_node(MeshNode *parent_node, aiNode *node, const aiScene *scene);
 
-	static Entity createEntity(std::shared_ptr<Model> model, Scene *scene);
+	static Entity createEntity(std::shared_ptr<Model> model);
 
 	std::shared_ptr<Engine::Mesh> getMesh(size_t id)
 	{
@@ -77,7 +77,7 @@ public:
 private:
 	void save_mesh_node(FileStream &stream, MeshNode *node);
 	void load_mesh_node(FileStream &stream, MeshNode *node);
-	static Entity create_entity_node(std::shared_ptr<Model> model, MeshNode *node, Scene *scene);
+	static Entity create_entity_node(std::shared_ptr<Model> model, MeshNode *node, std::shared_ptr<Scene> scene);
 
 	MeshNode *root_node = nullptr;
 	std::vector<MeshNode *> linear_nodes = {};

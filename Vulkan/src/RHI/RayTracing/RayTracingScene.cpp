@@ -23,10 +23,10 @@ void RayTracingScene::build_blas()
 	big_desc.bufferUsageFlags = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 	big_index_buffer = std::make_shared<Buffer>(big_desc);
 
-	auto entities = scene->getEntitiesWith<MeshRendererComponent>();
+	auto entities = Scene::getCurrentScene()->getEntitiesWith<MeshRendererComponent>();
 	for (auto &entity_id : entities)
 	{
-		Entity entity(entity_id, scene);
+		Entity entity(entity_id);
 		auto &mesh_renderer = entity.getComponent<MeshRendererComponent>();
 		for (auto &mesh_node : mesh_renderer.meshes)
 		{
@@ -64,10 +64,10 @@ void RayTracingScene::build_blas()
 			transform_buffer->fill(&transformMatrix);
 		}
 
-		auto entities = scene->getEntitiesWith<MeshRendererComponent>();
+		auto entities = Scene::getCurrentScene()->getEntitiesWith<MeshRendererComponent>();
 		for (auto &entity_id : entities)
 		{
-			Entity entity(entity_id, scene);
+			Entity entity(entity_id);
 			auto &mesh_renderer = entity.getComponent<MeshRendererComponent>();
 			for (auto &mesh_node : mesh_renderer.meshes)
 			{
@@ -122,11 +122,11 @@ void RayTracingScene::build_tlas()
 	// Create TLAS
 	{
 		obj_descs.clear();
-		auto entities = scene->getEntitiesWith<MeshRendererComponent>();
+		auto entities = Scene::getCurrentScene()->getEntitiesWith<MeshRendererComponent>();
 		int object_id = 0;
 		for (auto &entity_id : entities)
 		{
-			Entity entity(entity_id, scene);
+			Entity entity(entity_id);
 			auto &mesh_renderer = entity.getComponent<MeshRendererComponent>();
 			int material_id = 0;
 			for (auto &mesh_node : mesh_renderer.meshes)

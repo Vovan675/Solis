@@ -23,7 +23,12 @@ public:
 	void saveFile(const std::string &filename);
 	void loadFile(const std::string &filename);
 
+	static std::shared_ptr<Scene> getCurrentScene() { return current_scene; }
+	static std::shared_ptr<Scene> loadScene(const std::string &filename);
+	static void closeScene();
 private:
 	friend class Entity;
 	entt::registry registry;
+
+	static std::shared_ptr<Scene> current_scene;
 };

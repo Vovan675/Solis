@@ -53,7 +53,6 @@ private:
 private:
 	ImGuizmo::OPERATION guizmo_tool_type = ImGuizmo::TRANSLATE;
 
-	Scene scene;
 	std::shared_ptr<RayTracingScene> ray_tracing_scene;
 
 	Entity selected_entity;

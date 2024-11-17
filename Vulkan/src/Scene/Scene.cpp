@@ -86,6 +86,8 @@ namespace YAML
 	}
 }
 
+std::shared_ptr<Scene> Scene::current_scene = std::make_shared<Scene>();
+
 Entity Scene::createEntity(std::string name)
 {
 	return createEntity(name, entt::null);
@@ -102,12 +104,12 @@ Entity Scene::createEntity(std::string name, entt::entity id)
 	auto &transform_component = registry.emplace<TransformComponent>(entity_id);
 	transform_component.name = name;
 
-	return Entity(entity_id, this);
+	return Entity(entity_id);
 }
 
 void Scene::destroyEntity(entt::entity id)
 {
-	Entity entity(id, this);
+	Entity entity(id);
 	
 	if (entity.getParent())
 		entity.getParent().removeChild(id);
@@ -128,7 +130,7 @@ void Scene::saveFile(const std::string &filename)
 	auto entities_id = registry.group<entt::entity>();
 	for (entt::entity entity_id : entities_id)
 	{
-		Entity entity(entity_id, this);
+		Entity entity(entity_id);
 		out << entity;
 	}
 	out << YAML::EndSeq;
@@ -137,7 +139,7 @@ void Scene::saveFile(const std::string &filename)
 void Scene::loadFile(const std::string &filename)
 {
 	std::ifstream file(filename);
-	YAML::Node node = YAML::LoadFile(filename);;
+	YAML::Node node = YAML::LoadFile(filename);
 	
 	for (auto entity : node)
 	{
@@ -175,4 +177,16 @@ void Scene::loadFile(const std::string &filename)
 			c.radius = comp["Radius"].as<float>();
 		}
 	}
+}
+
+std::shared_ptr<Scene> Scene::loadScene(const std::string &filename)
+{
+	current_scene = std::make_shared<Scene>();
+	current_scene->loadFile(filename);
+	return current_scene;
+}
+
+void Scene::closeScene()
+{
+	current_scene = nullptr;
 }
