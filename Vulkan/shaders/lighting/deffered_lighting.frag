@@ -50,11 +50,10 @@ vec3 F_Schlick(in vec3 f0, in float f90, in float u)
 }
 
 // D
-float D_GGX(float NdotH, float m)
+float D_GGX(float NdotH, float a2)
 {
-	float m2 = m * m;
-	float f = (NdotH * m2 - NdotH) * NdotH + 1.0f;
-	return m2 / (PI * f * f);
+	float f = (NdotH * a2 - NdotH) * NdotH + 1.0f;
+	return a2 / (PI * f * f);
 }
 
 // V
@@ -250,8 +249,8 @@ void main()
 	#endif
 	vec3 H = normalize(V + L);
 
-	float NdotL = clamp(dot(N, L), 0.001f, 1.0f);
-	float NdotV = clamp(abs(dot(N, V)), 0.001f, 1.0f);
+	float NdotL = clamp(dot(N, L), 0.0f, 1.0f);
+	float NdotV = clamp(abs(dot(N, V)), 1e-4, 1.0f);
 	float NdotH = clamp(dot(N, H), 0.0f, 1.0f);
 	float LdotH = clamp(dot(L, H), 0.0f, 1.0f);
 
@@ -261,7 +260,7 @@ void main()
 
 	// Specular BRDF
 	vec3 F = F_Schlick(F0, F90, LdotH);
-	float D = D_GGX(NdotH, roughness);
+	float D = D_GGX(NdotH, roughness * roughness);
 	float Viz = V_SmithGGXCorrelated(NdotV, NdotL, roughness); 
 	vec3 F_specular = D * F * Viz;
 

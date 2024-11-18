@@ -91,5 +91,5 @@ void main() {
     {   
         value = vec4(ssao, ssao, ssao, 1.0);
     }
-    outColor = vec4(value.rgb, 1.0);
+    outColor = vec4(LinearToSRGB(value).rgb, 1.0);
 }

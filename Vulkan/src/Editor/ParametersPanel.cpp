@@ -158,6 +158,9 @@ bool ParametersPanel::renderImGui(Entity entity, std::shared_ptr<DebugRenderer> 
 					}
 					// TODO: edit all textures
 
+					ImGui::DragFloat("Metalness", &mat->metalness, 0.1, 0, 1.0);
+					ImGui::DragFloat("Roughness", &mat->roughness, 0.1, 0, 1.0);
+					ImGui::DragFloat("Specular", &mat->specular, 0.1, 0, 1.0);
 					ImGui::TreePop();
 				}
 			}

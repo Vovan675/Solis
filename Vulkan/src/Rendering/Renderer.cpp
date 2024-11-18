@@ -71,7 +71,7 @@ void Renderer::recreateScreenResources()
 	};
 
 	// Albedo
-	create_screen_texture(RENDER_TARGET_GBUFFER_ALBEDO, swapchain_format, VK_IMAGE_ASPECT_COLOR_BIT,
+	create_screen_texture(RENDER_TARGET_GBUFFER_ALBEDO, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT,
 						  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, "GBuffer Albedo Image");
 
 
@@ -111,7 +111,7 @@ void Renderer::recreateScreenResources()
 	// Composite
 	/////////////
 
-	create_screen_texture(RENDER_TARGET_COMPOSITE, swapchain_format, VK_IMAGE_ASPECT_COLOR_BIT,
+	create_screen_texture(RENDER_TARGET_COMPOSITE, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT,
 						  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, "Composite Image");
 
 	create_screen_texture(RENDER_TARGET_FINAL, swapchain_format, VK_IMAGE_ASPECT_COLOR_BIT,
