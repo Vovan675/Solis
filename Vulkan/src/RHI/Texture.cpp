@@ -11,7 +11,7 @@
 Texture::Texture(TextureDescription description)
 	: m_Description(description)
 {
-
+	resource = std::make_shared<TextureResource>();
 }
 
 Texture::~Texture()
@@ -23,21 +23,7 @@ void Texture::cleanup()
 {
 	this->path = "";
 	BindlessResources::removeTexture(this);
-
-	if (sampler)
-		Renderer::deleteResource(RESOURCE_TYPE_SAMPLER, sampler);
-	sampler = nullptr;
-
-	for (auto &view : image_views)
-		view.cleanup();
-	image_views.clear();
-
-	if (imageHandle && m_Description.destroy_image)
-		Renderer::deleteResource(RESOURCE_TYPE_IMAGE, imageHandle);
-	imageHandle = nullptr;
-	if (allocation)
-		Renderer::deleteResource(RESOURCE_TYPE_MEMORY, allocation);
-	allocation = nullptr;
+	resource->destroy();
 }
 
 void Texture::fill()
@@ -65,7 +51,7 @@ void Texture::fill()
 
 		VmaAllocationCreateInfo alloc_info{};
 		alloc_info.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-		vmaCreateImage(VkWrapper::allocator, &imageInfo, &alloc_info, &imageHandle, &allocation, nullptr);
+		vmaCreateImage(VkWrapper::allocator, &imageInfo, &alloc_info, &resource->imageHandle, &resource->allocation, nullptr);
 
 		getImageView();
 		create_sampler();
@@ -92,7 +78,7 @@ void Texture::fill()
 
 		VmaAllocationCreateInfo alloc_info{};
 		alloc_info.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-		vmaCreateImage(VkWrapper::allocator, &imageInfo, &alloc_info, &imageHandle, &allocation, nullptr);
+		vmaCreateImage(VkWrapper::allocator, &imageInfo, &alloc_info, &resource->imageHandle, &resource->allocation, nullptr);
 
 		getImageView();
 		create_sampler();
@@ -125,7 +111,7 @@ void Texture::fill(const void* sourceData)
 
 		VmaAllocationCreateInfo alloc_info{};
 		alloc_info.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-		VkResult res = vmaCreateImage(VkWrapper::allocator, &imageInfo, &alloc_info, &imageHandle, &allocation, nullptr);
+		VkResult res = vmaCreateImage(VkWrapper::allocator, &imageInfo, &alloc_info, &resource->imageHandle, &resource->allocation, nullptr);
 	} else
 	{
 		image_size = get_image_size() * 6;
@@ -149,7 +135,7 @@ void Texture::fill(const void* sourceData)
 
 		VmaAllocationCreateInfo alloc_info{};
 		alloc_info.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-		vmaCreateImage(VkWrapper::allocator, &imageInfo, &alloc_info, &imageHandle, &allocation, nullptr);
+		vmaCreateImage(VkWrapper::allocator, &imageInfo, &alloc_info, &resource->imageHandle, &resource->allocation, nullptr);
 	}
 
 	// Create staging buffer
@@ -304,13 +290,13 @@ void Texture::load(const char *path)
 void Texture::fill_raw(VkImage image)
 {
 	cleanup();
-	imageHandle = image;
+	resource->imageHandle = image;
 	getImageView();
 }
 
 void Texture::setDebugName(const char *name)
 {
-	VkUtils::setDebugName(VK_OBJECT_TYPE_IMAGE, (uint64_t)imageHandle, name);
+	VkUtils::setDebugName(VK_OBJECT_TYPE_IMAGE, (uint64_t)resource->imageHandle, name);
 }
 
 void Texture::transitLayout(CommandBuffer &command_buffer, TextureLayoutType new_layout_type, int mip)
@@ -417,7 +403,7 @@ void Texture::transitLayout(CommandBuffer &command_buffer, TextureLayoutType new
 									src_stage_mask, src_access_mask,
 									dst_stage_mask, dst_access_mask,
 									old_layout, new_layout,
-									imageHandle, aspect_flags,
+									resource->imageHandle, aspect_flags,
 									difference_mip_count, layer_count,
 									difference_mip_index, 0);
 
@@ -430,7 +416,7 @@ void Texture::transitLayout(CommandBuffer &command_buffer, TextureLayoutType new
 VkImageView Texture::getImageView(int mip, int layer)
 {
 	// Find already created
-	for (const auto &view : image_views)
+	for (const auto &view : resource->image_views)
 	{
 		if (view.mip == mip && view.layer == layer)
 			return view.image_view;
@@ -439,7 +425,7 @@ VkImageView Texture::getImageView(int mip, int layer)
 	// Otherwise create new
 	VkImageViewCreateInfo viewInfo{};
 	viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-	viewInfo.image = imageHandle;
+	viewInfo.image = resource->imageHandle;
 	viewInfo.format = m_Description.imageFormat;
 	viewInfo.subresourceRange.aspectMask = m_Description.imageAspectFlags;
 
@@ -484,12 +470,12 @@ VkImageView Texture::getImageView(int mip, int layer)
 	VkImageView image_view;
 	CHECK_ERROR(vkCreateImageView(VkWrapper::device->logicalHandle, &viewInfo, nullptr, &image_view));
 
-	ImageView view;
+	TextureResource::ImageView view;
 	view.mip = mip;
 	view.layer = layer;
 	view.image_view = image_view;
 
-	image_views.push_back(view);
+	resource->image_views.push_back(view);
 	return image_view;
 }
 
@@ -797,7 +783,7 @@ void Texture::generate_mipmaps(CommandBuffer &command_buffer) {
 	int faces = m_Description.is_cube ? 6 : 1;
 	VkImageMemoryBarrier barrier{};
 	barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-	barrier.image = imageHandle;
+	barrier.image = resource->imageHandle;
 	barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 	barrier.subresourceRange.baseArrayLayer = 0;
 	barrier.subresourceRange.layerCount = faces; // Barrier all faces at once
@@ -830,8 +816,8 @@ void Texture::generate_mipmaps(CommandBuffer &command_buffer) {
 		blit.dstSubresource.layerCount = faces; // All cubemap faces at once
 
 		vkCmdBlitImage(command_buffer.get_buffer(),
-			imageHandle, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-			imageHandle, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			resource->imageHandle, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			resource->imageHandle, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 			1, &blit,
 			VK_FILTER_LINEAR);
 
@@ -867,7 +853,7 @@ void Texture::copy_buffer_to_image(CommandBuffer &command_buffer, VkBuffer buffe
 		1
 	};
 
-	vkCmdCopyBufferToImage(command_buffer.get_buffer(), buffer, imageHandle, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+	vkCmdCopyBufferToImage(command_buffer.get_buffer(), buffer, resource->imageHandle, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 }
 
 void Texture::create_sampler()
@@ -892,11 +878,37 @@ void Texture::create_sampler()
 	samplerInfo.maxLod = m_Description.mipLevels;
 
 
-	CHECK_ERROR(vkCreateSampler(VkWrapper::device->logicalHandle, &samplerInfo, nullptr, &sampler));
+	CHECK_ERROR(vkCreateSampler(VkWrapper::device->logicalHandle, &samplerInfo, nullptr, &resource->sampler));
 }
 
-void Texture::ImageView::cleanup()
+std::shared_ptr<Texture> Texture::create(TextureDescription description)
+{
+	auto texture = std::shared_ptr<Texture>(new Texture(description));
+	gpu_resource_manager.registerResource(texture->resource);
+	return texture;
+}
+
+void TextureResource::ImageView::cleanup()
 {
 	if (image_view)
 		Renderer::deleteResource(RESOURCE_TYPE_IMAGE_VIEW, image_view);
+}
+
+void TextureResource::destroy()
+{
+	if (sampler)
+		Renderer::deleteResource(RESOURCE_TYPE_SAMPLER, sampler);
+	sampler = nullptr;
+
+	for (auto &view : image_views)
+		view.cleanup();
+	image_views.clear();
+
+	if (imageHandle)
+		Renderer::deleteResource(RESOURCE_TYPE_IMAGE, imageHandle);
+	imageHandle = nullptr;
+
+	if (allocation)
+		Renderer::deleteResource(RESOURCE_TYPE_MEMORY, allocation);
+	allocation = nullptr;
 }

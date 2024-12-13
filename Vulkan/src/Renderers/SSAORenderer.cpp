@@ -17,7 +17,7 @@ SSAORenderer::SSAORenderer() : RendererBase()
 	desc.filtering = VK_FILTER_NEAREST;
 	desc.anisotropy = false;
 	
-	ssao_noise = std::make_shared<Texture>(desc);
+	ssao_noise = Texture::create(desc);
 
 	std::default_random_engine generator(0);
 	std::uniform_real_distribution<float> randomFloats(0.0f, 1.0f);
@@ -53,32 +53,23 @@ SSAORenderer::SSAORenderer() : RendererBase()
 
 	ssao_noise->fill(ssao_noise_data.data());
 
-	vertex_shader = Shader::create("shaders/quad.vert", Shader::VERTEX_SHADER);
 	fragment_shader_raw = Shader::create("shaders/ssao.frag", Shader::FRAGMENT_SHADER);
 	fragment_shader_blur = Shader::create("shaders/ssao_blur.frag", Shader::FRAGMENT_SHADER);
 }
 
 void SSAORenderer::fillCommandBuffer(CommandBuffer &command_buffer)
 {
+	ubo_raw_pass.normal_tex_id = Renderer::getRenderTargetBindlessId(RENDER_TARGET_GBUFFER_NORMAL);
+	ubo_raw_pass.depth_tex_id = Renderer::getRenderTargetBindlessId(RENDER_TARGET_GBUFFER_DEPTH_STENCIL);
+	ubo_blur_pass.raw_tex_id = Renderer::getRenderTargetBindlessId(RENDER_TARGET_SSAO_RAW);
+
 	// Raw Pass
 	Renderer::getRenderTarget(RENDER_TARGET_SSAO_RAW)->transitLayout(command_buffer, TEXTURE_LAYOUT_ATTACHMENT);
 
 	VkWrapper::cmdBeginRendering(command_buffer, {Renderer::getRenderTarget(RENDER_TARGET_SSAO_RAW)}, nullptr);
 
 	auto &p = VkWrapper::global_pipeline;
-	p->reset();
-
-	p->setVertexShader(vertex_shader);
-	p->setFragmentShader(fragment_shader_raw);
-
-	p->setRenderTargets(VkWrapper::current_render_targets);
-
-	p->setUseBlending(false);
-	p->setDepthTest(false);
-	p->setUseVertices(false);
-
-	p->flush();
-	p->bind(command_buffer);
+	p->bindScreenQuadPipeline(command_buffer, fragment_shader_raw);
 
 	// Uniforms
 	Renderer::setShadersUniformBuffer(p->getCurrentShaders(), 0, &ubo_raw_pass, sizeof(UBO_RAW));
@@ -99,19 +90,7 @@ void SSAORenderer::fillCommandBuffer(CommandBuffer &command_buffer)
 	VkWrapper::cmdBeginRendering(command_buffer, {Renderer::getRenderTarget(RENDER_TARGET_SSAO)}, nullptr);
 
 	p = VkWrapper::global_pipeline;
-	p->reset();
-
-	p->setVertexShader(vertex_shader);
-	p->setFragmentShader(fragment_shader_blur);
-
-	p->setRenderTargets(VkWrapper::current_render_targets);
-
-	p->setUseBlending(false);
-	p->setDepthTest(false);
-	p->setUseVertices(false);
-
-	p->flush();
-	p->bind(command_buffer);
+	p->bindScreenQuadPipeline(command_buffer, fragment_shader_blur);
 
 	// Bindless
 	vkCmdBindDescriptorSets(command_buffer.get_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, p->getPipelineLayout(), 1, 1, BindlessResources::getDescriptorSet(), 0, nullptr);

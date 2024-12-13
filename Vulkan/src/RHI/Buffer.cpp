@@ -26,6 +26,11 @@ Buffer::Buffer(BufferDescription description)
 
 Buffer::~Buffer()
 {
+	destroy();
+}
+
+void Buffer::destroy()
+{
 	// TODO: fix device hung on big scenes. Maybe per frame deletion queue? Check if issue exists
 	if (allocation)
 	{
@@ -89,4 +94,11 @@ void Buffer::map(void **data)
 void Buffer::setDebugName(const char *name)
 {
 	VkUtils::setDebugName(VK_OBJECT_TYPE_BUFFER, (uint64_t)bufferHandle, name);
+}
+
+std::shared_ptr<Buffer> Buffer::create(BufferDescription description)
+{
+	auto buffer = std::shared_ptr<Buffer>(new Buffer(description));
+	gpu_resource_manager.registerResource(buffer);
+	return buffer;
 }

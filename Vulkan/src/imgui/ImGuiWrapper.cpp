@@ -103,7 +103,7 @@ VkDescriptorSet ImGuiWrapper::getTextureDescriptorSet(std::shared_ptr<Texture> t
 	}
 
 	DescriptorSetUsage set_usage;
-	set_usage.set = ImGui_ImplVulkan_AddTexture(tex->sampler, tex->getImageView(), VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL);
+	set_usage.set = ImGui_ImplVulkan_AddTexture(tex->getSampler(), tex->getImageView(), VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL);
 	set_usage.last_access_frame = Renderer::getCurrentFrame();
 	image_view_to_descriptor_set[tex->getImageView()] = set_usage;
 	return set_usage.set;

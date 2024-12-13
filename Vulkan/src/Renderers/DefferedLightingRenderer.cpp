@@ -19,6 +19,11 @@ DefferedLightingRenderer::~DefferedLightingRenderer()
 
 void DefferedLightingRenderer::renderLights(Scene *scene, CommandBuffer &command_buffer)
 {
+	ubo.albedo_tex_id = Renderer::getRenderTargetBindlessId(RENDER_TARGET_GBUFFER_ALBEDO);
+	ubo.normal_tex_id = Renderer::getRenderTargetBindlessId(RENDER_TARGET_GBUFFER_NORMAL);
+	ubo.depth_tex_id = Renderer::getRenderTargetBindlessId(RENDER_TARGET_GBUFFER_DEPTH_STENCIL);
+	ubo.shading_tex_id = Renderer::getRenderTargetBindlessId(RENDER_TARGET_GBUFFER_SHADING);
+
 	// Render Lights radiance
 	auto &p = VkWrapper::global_pipeline;
 	p->reset();

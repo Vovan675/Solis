@@ -43,7 +43,7 @@ public:
 		accDesc.bufferUsageFlags = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR;
 
 		auto &bottomAS = blases.emplace_back();
-		auto accBuffer = std::make_shared<Buffer>(accDesc);
+		auto accBuffer = Buffer::create(accDesc);
 		bottomAS.buffer = accBuffer->bufferHandle;
 
 		VkAccelerationStructureCreateInfoKHR accelerationStructureCreateInfo{};
@@ -59,7 +59,7 @@ public:
 		scratchDesc.useStagingBuffer = true;
 		scratchDesc.bufferUsageFlags = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
 
-		auto scratchBuffer = std::make_shared<Buffer>(scratchDesc);
+		auto scratchBuffer = Buffer::create(scratchDesc);
 
 		VkAccelerationStructureBuildGeometryInfoKHR accelerationBuildGeometryInfo{};
 		accelerationBuildGeometryInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
@@ -123,7 +123,7 @@ public:
 		instanceDesc.bufferUsageFlags = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
 		instanceDesc.alignment = 16;
 
-		auto instanceBuffer = std::make_shared<Buffer>(instanceDesc);
+		auto instanceBuffer = Buffer::create(instanceDesc);
 		instanceBuffer->fill(instances.data());
 
 		VkDeviceOrHostAddressConstKHR instanceDataDeviceAddress{};
@@ -167,7 +167,7 @@ public:
 			accDesc.useStagingBuffer = true;
 			accDesc.bufferUsageFlags = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR;
 
-			acc_buffer = std::make_shared<Buffer>(accDesc);
+			acc_buffer = Buffer::create(accDesc);
 			buffer = acc_buffer->bufferHandle;
 
 			VkAccelerationStructureCreateInfoKHR accelerationStructureCreateInfo{};
@@ -185,7 +185,7 @@ public:
 		scratchDesc.useStagingBuffer = true;
 		scratchDesc.bufferUsageFlags = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
 
-		auto scratchBuffer = std::make_shared<Buffer>(scratchDesc);
+		auto scratchBuffer = Buffer::create(scratchDesc);
 
 		VkAccelerationStructureBuildGeometryInfoKHR accelerationBuildGeometryInfo{};
 		accelerationBuildGeometryInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;

@@ -21,9 +21,6 @@ public:
 		uint32_t ssao_tex_id = 0;
 	} ubo;
 
-	std::shared_ptr<Texture> irradiance_cubemap;
-	std::shared_ptr<Texture> prefilter_cubemap;
-
 	DefferedCompositeRenderer();
 	virtual ~DefferedCompositeRenderer();
 
@@ -31,7 +28,5 @@ public:
 
 	void renderImgui();
 private:
-	std::shared_ptr<Shader> vertex_shader;
-	std::shared_ptr<Shader> fragment_shader;
 };
 

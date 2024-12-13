@@ -21,8 +21,11 @@
 #include "renderers/PostProcessingRenderer.h"
 #include "renderers/DebugRenderer.h"
 #include "renderers/SSAORenderer.h"
+#include "Editor/ViewportPanel.h"
 #include "Editor/AssetBrowserPanel.h"
 #include "Editor/ParametersPanel.h"
+#include "Editor/HierarchyPanel.h"
+#include "Editor/DebugPanel.h"
 #include "Application.h"
 #include "imgui.h"
 #include "ImGuizmo.h"
@@ -34,12 +37,10 @@ class EditorApplication : public Application
 public:
 	EditorApplication();
 protected:
-	void createRenderTargets();
 	void update(float delta_time) override;
 	void updateBuffers(float delta_time) override;
 	void recordCommands(CommandBuffer &command_buffer) override;
 	void cleanupResources() override;
-	void onViewportSizeChanged();
 private:
 	void render_GBuffer(CommandBuffer &command_buffer);
 	void render_ray_tracing(CommandBuffer &command_buffer);
@@ -47,24 +48,20 @@ private:
 	void render_ssao(CommandBuffer &command_buffer);
 	void render_deffered_composite(CommandBuffer &command_buffer);
 	void render_shadows(CommandBuffer &command_buffer);
-	void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods) override;
 
 	void update_cascades(LightComponent &light, glm::vec3 light_dir);
 private:
-	ImGuizmo::OPERATION guizmo_tool_type = ImGuizmo::TRANSLATE;
-
 	std::shared_ptr<RayTracingScene> ray_tracing_scene;
-
-	Entity selected_entity;
 
 	EntityRenderer entity_renderer;
 
+	EditorContext context;
+
+	ViewportPanel viewport_panel;
 	AssetBrowserPanel asset_browser_panel;
 	ParametersPanel parameters_panel;
-
-	std::shared_ptr<Texture> ibl_irradiance;
-	std::shared_ptr<Texture> ibl_prefilter;
-	std::shared_ptr<Texture> ibl_brdf_lut;
+	HierarchyPanel hierarchy_panel;
+	DebugPanel debug_panel;
 
 	std::shared_ptr<LutRenderer> lut_renderer;
 	std::shared_ptr<IrradianceRenderer> irradiance_renderer;
@@ -79,8 +76,6 @@ private:
 
 	std::vector<std::shared_ptr<RendererBase>> renderers;
 
-	std::vector<std::shared_ptr<Texture>> shadow_maps;
-
 	std::shared_ptr<Shader> gbuffer_vertex_shader;
 	std::shared_ptr<Shader> gbuffer_fragment_shader;
 
@@ -92,6 +87,4 @@ private:
 	std::shared_ptr<Shader> raygen_shader;
 	std::shared_ptr<Shader> miss_shader;
 	std::shared_ptr<Shader> closest_hit_shader;
-
-	std::shared_ptr<Camera> camera;
 };

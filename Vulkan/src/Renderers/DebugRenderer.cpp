@@ -5,9 +5,6 @@
 
 DebugRenderer::DebugRenderer()
 {
-	vertex_shader = Shader::create("shaders/quad.vert", Shader::VERTEX_SHADER);
-	fragment_shader = Shader::create("shaders/debug_quad.frag", Shader::FRAGMENT_SHADER);
-
 	vertex_shader_lines = Shader::create("shaders/debug_lines.vert", Shader::VERTEX_SHADER);
 	fragment_shader_lines = Shader::create("shaders/debug_lines.frag", Shader::FRAGMENT_SHADER);
 
@@ -22,7 +19,7 @@ DebugRenderer::DebugRenderer()
 	desc.useStagingBuffer = true;
 	desc.bufferUsageFlags = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
 
-	lines_index_buffer = std::make_shared<Buffer>(desc);
+	lines_index_buffer = Buffer::create(desc);
 	lines_index_buffer->fill(indices);
 	lines_index_buffer->setDebugName("Lines Index Buffer");
 
@@ -32,7 +29,7 @@ DebugRenderer::DebugRenderer()
 	desc.useStagingBuffer = false;
 	desc.bufferUsageFlags = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
 
-	lines_vertex_buffer = std::make_shared<Buffer>(desc);
+	lines_vertex_buffer = Buffer::create(desc);
 	lines_vertex_buffer->map((void **)&vertices);
 	lines_vertex_buffer->setDebugName("Lines Vertex Buffer");
 }
@@ -43,18 +40,18 @@ DebugRenderer::~DebugRenderer()
 
 void DebugRenderer::fillCommandBuffer(CommandBuffer &command_buffer)
 {
+	ubo.albedo_tex_id = Renderer::getRenderTargetBindlessId(RENDER_TARGET_GBUFFER_ALBEDO);
+	ubo.shading_tex_id = Renderer::getRenderTargetBindlessId(RENDER_TARGET_GBUFFER_SHADING);
+	ubo.normal_tex_id = Renderer::getRenderTargetBindlessId(RENDER_TARGET_GBUFFER_NORMAL);
+	ubo.depth_tex_id = Renderer::getRenderTargetBindlessId(RENDER_TARGET_GBUFFER_DEPTH_STENCIL);
+	ubo.light_diffuse_id = Renderer::getRenderTargetBindlessId(RENDER_TARGET_LIGHTING_DIFFUSE);
+	ubo.light_specular_id = Renderer::getRenderTargetBindlessId(RENDER_TARGET_LIGHTING_SPECULAR);
+	ubo.brdf_lut_id = Renderer::getRenderTargetBindlessId(RENDER_TARGET_BRDF_LUT);
+	ubo.ssao_id = Renderer::getRenderTargetBindlessId(RENDER_TARGET_SSAO);
+	ubo.composite_final_tex_id = Renderer::getRenderTargetBindlessId(RENDER_TARGET_COMPOSITE);
+
 	auto &p = VkWrapper::global_pipeline;
-	p->reset();
-
-	p->setVertexShader(vertex_shader);
-	p->setFragmentShader(fragment_shader);
-
-	p->setRenderTargets(VkWrapper::current_render_targets);
-	p->setUseVertices(false);
-	p->setUseBlending(false);
-
-	p->flush();
-	p->bind(command_buffer);
+	p->bindScreenQuadPipeline(command_buffer, Shader::create("shaders/debug_quad.frag", Shader::FRAGMENT_SHADER));
 
 	// Uniforms
 	Renderer::setShadersUniformBuffer(p->getCurrentShaders(), 0, &ubo, sizeof(PresentUBO));

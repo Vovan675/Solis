@@ -5,10 +5,14 @@
 #include "Assets/AssetManager.h"
 #include "Scene/Scene.h"
 #include "GLFW/glfw3native.h"
+#include "RHI/GPUResourceManager.h"
 
 #ifndef DWMWA_USE_IMMERSIVE_DARK_MODE
 #define DWMWA_USE_IMMERSIVE_DARK_MODE 20
 #endif
+
+Input input;
+GPUResourceManager gpu_resource_manager;
 
 Application::Application()
 {
@@ -32,6 +36,7 @@ Application::Application()
 	BOOL is_dark_mode = true;
 	DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &is_dark_mode, sizeof(is_dark_mode));
 
+	input.init(window);
 	Log::Init();
 	VkWrapper::init(window);
 	AssetManager::init();
@@ -153,6 +158,8 @@ void Application::cleanup()
 	BindlessResources::cleanup();
 	Shader::destroyAllShaders();
 	Renderer::shutdown();
+	gpu_resource_manager.cleanup();
+	Renderer::deleteResources(Renderer::getCurrentFrameInFlight()); // TODO: investigate why needed after, why there is twice deletion of the same
 	VkWrapper::shutdown();
 
 	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)

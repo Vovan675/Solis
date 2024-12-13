@@ -77,6 +77,22 @@ std::vector<std::shared_ptr<Shader>> GlobalPipeline::getCurrentShaders()
 	return shaders;
 }
 
+void GlobalPipeline::bindScreenQuadPipeline(const CommandBuffer &command_buffer, std::shared_ptr<Shader> fragment_shader)
+{
+	reset();
+
+	setVertexShader(Shader::create("shaders/quad.vert", Shader::VERTEX_SHADER));
+	setFragmentShader(fragment_shader);
+	setRenderTargets(VkWrapper::current_render_targets);
+
+	setUseVertices(false);
+	setUseBlending(false);
+	setDepthTest(false);
+
+	flush();
+	bind(command_buffer);
+}
+
 void GlobalPipeline::bind(const CommandBuffer &command_buffer)
 {
 	VkPipelineBindPoint bind_point = VK_PIPELINE_BIND_POINT_GRAPHICS;

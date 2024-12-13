@@ -4,6 +4,7 @@
 #include "Device.h"
 #include <yaml-cpp/yaml.h>
 #include "Assets/Asset.h"
+#include "GPUResourceManager.h"
 
 struct TextureDescription
 {
@@ -19,8 +20,6 @@ struct TextureDescription
 	VkSamplerAddressMode sampler_address_mode = VK_SAMPLER_ADDRESS_MODE_REPEAT;
 	VkFilter filtering = VK_FILTER_LINEAR;
 	bool anisotropy = false;
-
-	bool destroy_image = true; // primary used for swapchain images
 };
 
 class CommandBuffer;
@@ -35,15 +34,40 @@ enum TextureLayoutType
 	TEXTURE_LAYOUT_TRANSFER_DST,
 };
 
-class Texture : public Asset
+class TextureResource : public GPUResource
 {
 public:
+	virtual ~TextureResource()
+	{
+		destroy();
+	}
+
+	virtual void destroy();
+
 	VkBuffer bufferHandle = nullptr;
 	VmaAllocation allocation = nullptr;
 	VkImage imageHandle = nullptr;
 	VkSampler sampler = nullptr;
+
+	struct ImageView
+	{
+		void cleanup();
+
+		int mip = 0;
+		int layer = 0;
+		// ImageView needs to gain some information about how to render into this image
+		VkImageView image_view = nullptr;
+	};
+	std::vector<ImageView> image_views;
+};
+
+class Texture : public Asset
+{
 public:
+	std::shared_ptr<TextureResource> resource;
+private:
 	Texture(TextureDescription description);
+public:
 	virtual ~Texture();
 
 	ASSET_TYPE getAssetType() const override { return ASSET_TYPE_TEXTURE; }
@@ -54,6 +78,9 @@ public:
 	void load(const char* path);
 
 	void fill_raw(VkImage image);
+
+	VkSampler getSampler() { return resource->sampler; }
+	std::weak_ptr<TextureResource> getRawResource() { return resource; }
 
 	std::string getPath() const { return path; }
 	uint32_t getWidth(int mip = 0) const { return m_Description.width >> mip; }
@@ -79,6 +106,10 @@ public:
 
 	bool isDepthTexture() const { return m_Description.imageAspectFlags & VK_IMAGE_ASPECT_DEPTH_BIT; }
 	void generate_mipmaps(CommandBuffer &command_buffer);
+
+	bool isValid() const { return resource->imageHandle != nullptr; }
+
+	static std::shared_ptr<Texture> create(TextureDescription description);
 private:
 	VkImageLayout get_vk_layout(TextureLayoutType layout_type);
 	int get_channels_count() const;
@@ -87,18 +118,7 @@ private:
 
 	void copy_buffer_to_image(CommandBuffer &command_buffer, VkBuffer buffer);
 	void create_sampler();
-
-	struct ImageView
-	{
-		void cleanup();
-
-		int mip = 0;
-		int layer = 0;
-		// ImageView needs to gain some information about how to render into this image
-		VkImageView image_view = nullptr;
-	};
 private:
-	std::vector<ImageView> image_views;
 	TextureDescription m_Description;
 	std::vector<TextureLayoutType> current_layouts; // Image layouts for each mip map
 	std::string path = "";

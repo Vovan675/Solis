@@ -58,6 +58,8 @@ public:
 
 	std::vector<std::shared_ptr<Shader>> getCurrentShaders();
 
+	void bindScreenQuadPipeline(const CommandBuffer &command_buffer, std::shared_ptr<Shader> fragment_shader);
+
 	void bind(const CommandBuffer &command_buffer);
 	void unbind(const CommandBuffer& command_buffer);
 

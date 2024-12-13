@@ -17,6 +17,10 @@ Swapchain::~Swapchain()
 
 void Swapchain::cleanup()
 {
+	// dont destroy image because it will be destroyed with swapchain implicitly
+	for (auto &tex : swapchain_textures)
+		tex->getRawResource().lock()->imageHandle = nullptr;
+
 	swapchain_textures.clear();
 
 	if (swapchain_handle != 0)
@@ -128,9 +132,9 @@ void Swapchain::create_resources()
 		desc.height = swap_extent.height;
 		desc.imageFormat = surface_format.format;
 		desc.imageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
-		desc.destroy_image = false; // dont destroy image because it will be destroyed with swapchain implicitly
-		std::shared_ptr<Texture> tex = std::make_shared<Texture>(desc);
+		std::shared_ptr<Texture> tex = Texture::create(desc);
 		tex->fill_raw(swapchain_images[i]);
+		tex->setDebugName("Swapchain Texture");
 		swapchain_textures.push_back(tex);
 	}
 }

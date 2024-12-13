@@ -25,7 +25,5 @@ public:
 
 	void renderImgui();
 private:
-	std::shared_ptr<Shader> vertex_shader;
-	std::shared_ptr<Shader> fragment_shader;
 };
 

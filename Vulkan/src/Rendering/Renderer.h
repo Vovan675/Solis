@@ -28,6 +28,10 @@ enum RENDER_TARGETS
 	RENDER_TARGET_COMPOSITE,
 	RENDER_TARGET_FINAL,
 
+	RENDER_TARGET_IBL_IRRADIANCE,
+	RENDER_TARGET_IBL_PREFILER,
+	RENDER_TARGET_BRDF_LUT,
+
 	RENDER_TARGET_TEXTURES_COUNT
 };
 
@@ -112,6 +116,7 @@ public:
 	static void addDrawCalls(size_t count) { debug_info.drawcalls += count; }
 	static void addDebugTime(uint32_t index, std::string name) { debug_info.times.push_back({index, name}); }
 private:
+	static void recreateDefaultResources();
 	static void ensureDescriptorsAllocated(DescriptorLayout descriptor_layout, size_t descriptor_hash, size_t offset);
 	
 	static RendererDebugInfo debug_info;

@@ -142,9 +142,9 @@ void Pipeline::create(const PipelineDescription &description)
 		accDesc.bufferUsageFlags = bufferUsageFlags;
 		accDesc.alignment = VkWrapper::device->physicalRayTracingProperties.shaderGroupBaseAlignment;
 
-		raygenShaderBindingTable = std::make_shared<Buffer>(accDesc);
-		missShaderBindingTable = std::make_shared<Buffer>(accDesc);
-		hitShaderBindingTable = std::make_shared<Buffer>(accDesc);
+		raygenShaderBindingTable = Buffer::create(accDesc);
+		missShaderBindingTable = Buffer::create(accDesc);
+		hitShaderBindingTable = Buffer::create(accDesc);
 
 		// Copy handles
 		raygenShaderBindingTable->fill(shaderHandleStorage.data());

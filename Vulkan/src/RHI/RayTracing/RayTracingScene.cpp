@@ -16,12 +16,12 @@ void RayTracingScene::build_blas()
 	big_desc.size = sizeof(Engine::Vertex) * blas_size;
 	big_desc.useStagingBuffer = true;
 	big_desc.bufferUsageFlags = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-	big_vertex_buffer = std::make_shared<Buffer>(big_desc);
+	big_vertex_buffer = Buffer::create(big_desc);
 
 	big_desc.size = sizeof(uint32_t) * blas_size;
 	big_desc.useStagingBuffer = true;
 	big_desc.bufferUsageFlags = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-	big_index_buffer = std::make_shared<Buffer>(big_desc);
+	big_index_buffer = Buffer::create(big_desc);
 
 	auto entities = Scene::getCurrentScene()->getEntitiesWith<MeshRendererComponent>();
 	for (auto &entity_id : entities)
@@ -60,7 +60,7 @@ void RayTracingScene::build_blas()
 			transformDesc.bufferUsageFlags = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
 			transformDesc.alignment = 16;
 
-			transform_buffer = std::make_shared<Buffer>(transformDesc);
+			transform_buffer = Buffer::create(transformDesc);
 			transform_buffer->fill(&transformMatrix);
 		}
 

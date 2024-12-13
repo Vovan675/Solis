@@ -17,7 +17,7 @@ SkyRenderer::SkyRenderer(): RendererBase()
 	tex_description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 	tex_description.is_cube = true;
 
-	cube_texture = std::make_shared<Texture>(tex_description);
+	cube_texture = Texture::create(tex_description);
 	setMode(SKY_MODE_PROCEDURAL);
 
 	auto model = AssetManager::getModelAsset("assets/cube.fbx");

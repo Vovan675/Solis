@@ -34,7 +34,6 @@ private:
 	std::shared_ptr<Texture> ssao_noise;
 	std::vector<glm::vec3> ssao_kernel;
 
-	std::shared_ptr<Shader> vertex_shader;
 	std::shared_ptr<Shader> fragment_shader_raw;
 	std::shared_ptr<Shader> fragment_shader_blur;
 };

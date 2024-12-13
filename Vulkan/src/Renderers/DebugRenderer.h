@@ -42,9 +42,6 @@ public:
 	std::vector<glm::vec3> addCirlce(glm::vec3 center, glm::vec3 normal, float radius, int segments);
 	void addArrow(glm::vec3 p0, glm::vec3 p1, float arrow_size);
 private:
-	std::shared_ptr<Shader> vertex_shader;
-	std::shared_ptr<Shader> fragment_shader;
-
 	std::shared_ptr<Shader> vertex_shader_lines;
 	std::shared_ptr<Shader> fragment_shader_lines;
 

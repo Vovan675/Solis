@@ -6,8 +6,6 @@
 
 PostProcessingRenderer::PostProcessingRenderer()
 {
-	vertex_shader = Shader::create("shaders/quad.vert", Shader::VERTEX_SHADER);
-	fragment_shader = Shader::create("shaders/post_processing.frag", Shader::FRAGMENT_SHADER);
 }
 
 PostProcessingRenderer::~PostProcessingRenderer()
@@ -16,24 +14,15 @@ PostProcessingRenderer::~PostProcessingRenderer()
 
 void PostProcessingRenderer::fillCommandBuffer(CommandBuffer &command_buffer)
 {
+	ubo.composite_final_tex_id = Renderer::getRenderTargetBindlessId(RENDER_TARGET_COMPOSITE);
+
 	auto &p = VkWrapper::global_pipeline;
-	p->reset();
-
-	p->setVertexShader(vertex_shader);
-	p->setFragmentShader(fragment_shader);
-	p->setUseBlending(false);
-
-	p->setRenderTargets(VkWrapper::current_render_targets);
-	p->setUseVertices(false);
-
-	p->flush();
-	p->bind(command_buffer);
+	p->bindScreenQuadPipeline(command_buffer, Shader::create("shaders/post_processing.frag", Shader::FRAGMENT_SHADER));
 
 	// Uniforms
 	Renderer::setShadersUniformBuffer(p->getCurrentShaders(), 0, &ubo, sizeof(UBO));
 	Renderer::bindShadersDescriptorSets(p->getCurrentShaders(), command_buffer, p->getPipelineLayout());
 
-	// Render quad
 	vkCmdDraw(command_buffer.get_buffer(), 6, 1, 0, 0);
 
 	p->unbind(command_buffer);

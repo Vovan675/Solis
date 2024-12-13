@@ -8,6 +8,12 @@
 #include "RHI/Swapchain.h"
 #include "RHI/Texture.h"
 #include "RHI/VkWrapper.h"
+#include "Input.h"
+
+class GPUResourceManager;
+
+extern Input input;
+extern GPUResourceManager gpu_resource_manager;
 
 class Application
 {

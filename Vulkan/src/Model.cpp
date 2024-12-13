@@ -168,7 +168,7 @@ void Model::process_node(MeshNode *mesh_node, aiNode *node, const aiScene *scene
 				result_path = result_path.remove_filename();
 				result_path = result_path.concat(texture_path.C_Str());
 				auto tex = AssetManager::getTextureAsset(result_path.string(), tex_description);
-				if (!tex || tex->imageHandle == nullptr)
+				if (!tex || !tex->isValid())
 					continue;
 				engine_material->albedo_tex_id = BindlessResources::addTexture(tex.get());
 			}
@@ -190,7 +190,7 @@ void Model::process_node(MeshNode *mesh_node, aiNode *node, const aiScene *scene
 				result_path = result_path.remove_filename();
 				result_path = result_path.concat(texture_path.C_Str());
 				auto tex = AssetManager::getTextureAsset(result_path.string(), tex_description);
-				if (!tex || tex->imageHandle == nullptr)
+				if (!tex || !tex->isValid())
 					continue;
 				engine_material->metalness_tex_id = BindlessResources::addTexture(tex.get());
 			}
@@ -212,7 +212,7 @@ void Model::process_node(MeshNode *mesh_node, aiNode *node, const aiScene *scene
 				result_path = result_path.remove_filename();
 				result_path = result_path.concat(texture_path.C_Str());
 				auto tex = AssetManager::getTextureAsset(result_path.string(), tex_description);
-				if (!tex || tex->imageHandle == nullptr)
+				if (!tex || !tex->isValid())
 					continue;
 				engine_material->roughness_tex_id = BindlessResources::addTexture(tex.get());
 			}
@@ -234,7 +234,7 @@ void Model::process_node(MeshNode *mesh_node, aiNode *node, const aiScene *scene
 				result_path = result_path.remove_filename();
 				result_path = result_path.concat(texture_path.C_Str());
 				auto tex = AssetManager::getTextureAsset(result_path.string(), tex_description);
-				if (!tex || tex->imageHandle == nullptr)
+				if (!tex || !tex->isValid())
 					continue;
 				engine_material->specular_tex_id = BindlessResources::addTexture(tex.get());
 			}
@@ -256,7 +256,7 @@ void Model::process_node(MeshNode *mesh_node, aiNode *node, const aiScene *scene
 				result_path = result_path.remove_filename();
 				result_path = result_path.concat(texture_path.C_Str());
 				auto tex = AssetManager::getTextureAsset(result_path.string(), tex_description);
-				if (!tex || tex->imageHandle == nullptr)
+				if (!tex || !tex->isValid())
 					continue;
 				engine_material->normal_tex_id = BindlessResources::addTexture(tex.get());
 			}

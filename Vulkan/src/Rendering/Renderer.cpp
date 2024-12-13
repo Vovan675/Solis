@@ -23,6 +23,7 @@ glm::ivec2 Renderer::viewport_size;
 void Renderer::init()
 {
 	viewport_size = VkWrapper::swapchain->getSize();
+	recreateDefaultResources();
 	recreateScreenResources();
 
 	DescriptorLayoutBuilder layout_builder;
@@ -38,6 +39,7 @@ void Renderer::shutdown()
 	descriptor_bindings.clear();
 
 	deleteResources(current_frame_in_flight);
+	vkDeviceWaitIdle(VkWrapper::device->logicalHandle);
 	Renderer::endFrame(0);
 }
 
@@ -62,7 +64,7 @@ void Renderer::recreateScreenResources()
 		description.imageUsageFlags = usage_flags;
 		description.sampler_address_mode = sampler_address_mode;
 		description.anisotropy = anisotropy;
-		screen_resources[rt] = std::make_shared<Texture>(description);
+		screen_resources[rt] = Texture::create(description);
 		screen_resources[rt]->fill();
 		if (name)
 			screen_resources[rt]->setDebugName(name);
@@ -267,7 +269,7 @@ void Renderer::setShadersStorageBuffer(std::vector<std::shared_ptr<Shader>> shad
 			desc.useStagingBuffer = false;
 			desc.bufferUsageFlags = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
 
-			current_binding.first = std::make_shared<Buffer>(desc);
+			current_binding.first = Buffer::create(desc);
 
 			// Map gpu memory on cpu memory
 			current_binding.first->map(&current_binding.second);
@@ -345,7 +347,7 @@ void Renderer::setShadersUniformBuffer(std::vector<std::shared_ptr<Shader>> shad
 			desc.useStagingBuffer = false;
 			desc.bufferUsageFlags = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
 
-			current_binding.first = std::make_shared<Buffer>(desc);
+			current_binding.first = Buffer::create(desc);
 
 			// Map gpu memory on cpu memory
 			current_binding.first->map(&current_binding.second);
@@ -383,7 +385,7 @@ void Renderer::setShadersTexture(std::vector<std::shared_ptr<Shader>> shaders, u
 
 	// Update set
 	DescriptorWriter writer;
-	writer.writeImage(binding, descriptor_type, texture->getImageView(mip, face), texture->sampler, image_layout);
+	writer.writeImage(binding, descriptor_type, texture->getImageView(mip, face), texture->getSampler(), image_layout);
 	writer.updateSet(descriptors[descriptor_hash][current_frame_in_flight].descriptor_per_offset[offset]);
 }
 
@@ -450,7 +452,7 @@ void Renderer::updateDefaultUniforms(float delta_time)
 			desc.useStagingBuffer = false;
 			desc.bufferUsageFlags = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
 
-			current_binding.first = std::make_shared<Buffer>(desc);
+			current_binding.first = Buffer::create(desc);
 
 			// Map gpu memory on cpu memory
 			current_binding.first->map(&current_binding.second);
@@ -469,6 +471,56 @@ void Renderer::updateDefaultUniforms(float delta_time)
 const Renderer::DefaultUniforms Renderer::getDefaultUniforms()
 {
 	return default_uniforms;
+}
+
+void Renderer::recreateDefaultResources()
+{
+	TextureDescription description;
+	auto create_screen_texture = [&description](RENDER_TARGETS rt, VkFormat format, VkImageAspectFlags aspect_flags, VkImageUsageFlags usage_flags, const char *name = nullptr, bool anisotropy = false, VkSamplerAddressMode sampler_address_mode = VK_SAMPLER_ADDRESS_MODE_REPEAT)
+	{
+		description.imageFormat = format;
+		description.imageAspectFlags = aspect_flags;
+		description.imageUsageFlags = usage_flags;
+		description.sampler_address_mode = sampler_address_mode;
+		description.anisotropy = anisotropy;
+		screen_resources[rt] = Texture::create(description);
+		screen_resources[rt]->fill();
+		if (name)
+			screen_resources[rt]->setDebugName(name);
+
+		BindlessResources::addTexture(screen_resources[rt].get());
+	};
+
+	/////////////
+	// IBL
+	/////////////
+
+	// Irradiance
+	description.width = 32;
+	description.height = 32;
+	description.is_cube = true;
+	description.mipLevels = std::floor(std::log2(std::max(description.width, description.height))) + 1;
+	create_screen_texture(RENDER_TARGET_IBL_IRRADIANCE, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT,
+						  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_STORAGE_BIT, "IBL Irradiance Image");
+
+	// Prefilter
+	description.width = 128;
+	description.height = 128;
+	description.is_cube = true;
+	description.mipLevels = 5;
+	create_screen_texture(RENDER_TARGET_IBL_PREFILER, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT,
+						  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, "IBL Prefilter Image");
+
+	// BRDF LUT
+	description.width = 512;
+	description.height = 512;
+	description.imageFormat = VK_FORMAT_R16G16_SFLOAT;
+	description.imageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
+	description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+	description.sampler_address_mode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	description.is_cube = false;
+	create_screen_texture(RENDER_TARGET_BRDF_LUT, VK_FORMAT_R16G16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT,
+						  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, "IBL BRDF LUT Image", false, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
 }
 
 void Renderer::ensureDescriptorsAllocated(DescriptorLayout descriptor_layout, size_t descriptor_hash, size_t offset)

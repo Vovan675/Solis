@@ -9,13 +9,6 @@
 class LutRenderer: public RendererBase
 {
 public:
-	LutRenderer();
-	virtual ~LutRenderer();
-
 	void fillCommandBuffer(CommandBuffer &command_buffer) override;
-
-private:
-	std::shared_ptr<Shader> vertex_shader;
-	std::shared_ptr<Shader> fragment_shader;
 };
 

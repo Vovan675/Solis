@@ -86,7 +86,7 @@ struct LightComponent
 			description.is_cube = true;
 			description.mipLevels = 1;
 			description.filtering = VK_FILTER_NEAREST;
-			shadow_map = std::make_shared<Texture>(description);
+			shadow_map = Texture::create(description);
 			shadow_map->fill();
 		} else if (type == LIGHT_TYPE_DIRECTIONAL)
 		{
@@ -101,7 +101,7 @@ struct LightComponent
 			description.arrayLevels = 4;
 			description.filtering = VK_FILTER_NEAREST;
 			description.sampler_address_mode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
-			shadow_map = std::make_shared<Texture>(description);
+			shadow_map = Texture::create(description);
 			shadow_map->fill();
 		}
 	}

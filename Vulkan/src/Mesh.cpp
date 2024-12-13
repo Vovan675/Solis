@@ -53,7 +53,7 @@ namespace Engine
 
 		vertexDesc.alignment = 16;
 
-		vertexBuffer = std::make_shared<Buffer>(vertexDesc);
+		vertexBuffer = Buffer::create(vertexDesc);
 		vertexBuffer->fill(vertices.data());
 		vertexBuffer->setDebugName("Vertex Buffer");
 
@@ -64,7 +64,7 @@ namespace Engine
 		indexDesc.bufferUsageFlags = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | additional_flags;
 		vertexDesc.alignment = 16;
 
-		indexBuffer = std::make_shared<Buffer>(indexDesc);
+		indexBuffer = Buffer::create(indexDesc);
 		indexBuffer->fill(indices.data());
 		indexBuffer->setDebugName("Index Buffer");
 	}

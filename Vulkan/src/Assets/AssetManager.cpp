@@ -63,7 +63,7 @@ std::shared_ptr<Model> AssetManager::getModelAsset(std::string path)
 
 std::shared_ptr<Asset> AssetManager::load_texture_asset(std::string path, TextureDescription desc)
 {
-	auto tex = std::make_shared<Texture>(desc);
+	auto tex = Texture::create(desc);
 	tex->load(path.c_str());
 	return std::dynamic_pointer_cast<Asset>(tex);
 }

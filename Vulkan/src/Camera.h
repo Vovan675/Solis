@@ -3,6 +3,7 @@
 #include "glm/gtc/matrix_transform.hpp"
 #include "glm/gtx/euler_angles.hpp"
 #include "glm/gtx/quaternion.hpp"
+#include "Application.h"
 
 class Camera
 {
@@ -33,20 +34,20 @@ public:
 		glm::vec3 up = glm::rotate(orientation, glm::vec3(0, 1, 0));
 
 		glm::vec3 movement = glm::vec3(0, 0, 0);
-		if (inputs.forward)
+		if (input.isKeyDown(GLFW_KEY_W))
 			movement += forward;
-		if (inputs.backward)
+		if (input.isKeyDown(GLFW_KEY_S))
 			movement -= forward;
-		if (inputs.left)
+		if (input.isKeyDown(GLFW_KEY_A))
 			movement -= right;
-		if (inputs.right)
+		if (input.isKeyDown(GLFW_KEY_D))
 			movement += right;
-		if (inputs.up)
+		if (input.isKeyDown(GLFW_KEY_E))
 			movement += up;
-		if (inputs.down)
+		if (input.isKeyDown(GLFW_KEY_Q))
 			movement -= up;
 		
-		if (inputs.sprint)
+		if (input.isKeyDown(GLFW_KEY_LEFT_SHIFT))
 			movement *= 2.0f;
 
 		movement *= dt * speed;
