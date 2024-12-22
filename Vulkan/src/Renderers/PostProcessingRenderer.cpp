@@ -22,26 +22,7 @@ void PostProcessingRenderer::addPasses(FrameGraph &fg)
 	{
 		// Setup
 		data = default_data;
-		FrameGraphTexture::Description desc;
-		desc.width = Renderer::getViewportSize().x;
-		desc.height = Renderer::getViewportSize().y;
-
-		auto create_screen_texture = [&desc, &builder](VkFormat format, VkImageAspectFlags aspect_flags, VkImageUsageFlags usage_flags, const char *name = nullptr, bool anisotropy = false, VkSamplerAddressMode sampler_address_mode = VK_SAMPLER_ADDRESS_MODE_REPEAT)
-		{
-			desc.debug_name = name;
-			desc.imageFormat = format;
-			desc.imageAspectFlags = aspect_flags;
-			desc.imageUsageFlags = usage_flags;
-			desc.sampler_address_mode = sampler_address_mode;
-			desc.anisotropy = anisotropy;
-
-			return builder.createResource<FrameGraphTexture>(name, desc);
-		};
-
-		auto swapchain_format = VkWrapper::swapchain->surface_format.format;
-		data.final = create_screen_texture(swapchain_format, VK_IMAGE_ASPECT_COLOR_BIT,
-										   VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, "Final Image");
-		data.final = builder.write(data.final);
+		data.final = builder.write(default_data.final);
 
 		builder.read(composite_data.composite);
 	},

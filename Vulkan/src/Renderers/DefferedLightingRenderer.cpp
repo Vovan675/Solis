@@ -43,26 +43,20 @@ void DefferedLightingRenderer::renderLights(FrameGraph &fg)
 		desc.width = Renderer::getViewportSize().x;
 		desc.height = Renderer::getViewportSize().y;
 
-		auto create_screen_texture = [&desc, &builder](VkFormat format, VkImageAspectFlags aspect_flags, VkImageUsageFlags usage_flags, const char *name = nullptr, bool anisotropy = false, VkSamplerAddressMode sampler_address_mode = VK_SAMPLER_ADDRESS_MODE_REPEAT)
-		{
-			desc.debug_name = name;
-			desc.imageFormat = format;
-			desc.imageAspectFlags = aspect_flags;
-			desc.imageUsageFlags = usage_flags;
-			desc.sampler_address_mode = sampler_address_mode;
-			desc.anisotropy = anisotropy;
-
-			return builder.createResource<FrameGraphTexture>(name, desc);
-		};
-
 		// Diffuse
-		data.diffuse_light = create_screen_texture(VK_FORMAT_B10G11R11_UFLOAT_PACK32, VK_IMAGE_ASPECT_COLOR_BIT,
-												   VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, "Lighting Diffuse Image");
+		desc.image_format = VK_FORMAT_B10G11R11_UFLOAT_PACK32;
+		desc.usage_flags = TEXTURE_USAGE_ATTACHMENT;
+		desc.debug_name = "Lighting Diffuse Image";
+
+		data.diffuse_light = builder.createResource<FrameGraphTexture>(desc.debug_name, desc);
 		data.diffuse_light = builder.write(data.diffuse_light);
 
 		// Specular
-		data.specular_light = create_screen_texture(VK_FORMAT_B10G11R11_UFLOAT_PACK32, VK_IMAGE_ASPECT_COLOR_BIT,
-													VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, "Lighting Specular Image");
+		desc.image_format = VK_FORMAT_B10G11R11_UFLOAT_PACK32;
+		desc.usage_flags = TEXTURE_USAGE_ATTACHMENT;
+		desc.debug_name = "Lighting Specular Image";
+
+		data.specular_light = builder.createResource<FrameGraphTexture>(desc.debug_name, desc);
 		data.specular_light = builder.write(data.specular_light);
 
 		builder.read(gbuffer_data.albedo);

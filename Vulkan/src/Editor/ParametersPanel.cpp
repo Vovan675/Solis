@@ -147,9 +147,8 @@ bool ParametersPanel::renderImGui(Entity entity, DebugRenderer &debug_renderer)
 								if (!path.empty())
 								{
 									TextureDescription tex_description{};
-									tex_description.imageFormat = VK_FORMAT_R8G8B8A8_UNORM;
-									tex_description.imageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
-									tex_description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+									tex_description.image_format = VK_FORMAT_R8G8B8A8_UNORM;
+									tex_description.usage_flags = TEXTURE_USAGE_TRANSFER_SRC;
 									auto texture = AssetManager::getTextureAsset(path);
 									mat->normal_tex_id = BindlessResources::addTexture(texture.get());
 								}

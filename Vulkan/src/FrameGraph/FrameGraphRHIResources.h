@@ -20,12 +20,11 @@ public:
 		bool is_cube = false;
 		uint32_t width;
 		uint32_t height;
-		uint32_t mipLevels = 1;
-		uint32_t arrayLevels = 1;
-		VkSampleCountFlagBits numSamples = VK_SAMPLE_COUNT_1_BIT;
-		VkFormat imageFormat;
-		VkImageAspectFlags imageAspectFlags;
-		VkImageUsageFlags imageUsageFlags;
+		uint32_t mip_levels = 1;
+		uint32_t array_levels = 1;
+		VkSampleCountFlagBits num_samples = VK_SAMPLE_COUNT_1_BIT;
+		VkFormat image_format;
+		uint32_t usage_flags = 0;
 		VkSamplerAddressMode sampler_address_mode = VK_SAMPLER_ADDRESS_MODE_REPEAT;
 		VkFilter filtering = VK_FILTER_LINEAR;
 		bool anisotropy = false;

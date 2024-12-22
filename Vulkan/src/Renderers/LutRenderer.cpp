@@ -10,30 +10,14 @@ LutRenderer::LutRenderer()
 	TextureDescription desc;
 	desc.width = 512;
 	desc.height = 512;
-	desc.imageFormat = VK_FORMAT_R16G16_SFLOAT;
-	desc.imageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
-	desc.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+	desc.image_format = VK_FORMAT_R16G16_SFLOAT;
+	desc.usage_flags = TEXTURE_USAGE_ATTACHMENT;
 	desc.sampler_address_mode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-	desc.is_cube = false;
 
-	auto create_screen_texture = [&desc](VkFormat format, VkImageAspectFlags aspect_flags, VkImageUsageFlags usage_flags, const char *name = nullptr, bool anisotropy = false, VkSamplerAddressMode sampler_address_mode = VK_SAMPLER_ADDRESS_MODE_REPEAT)
-	{
-		desc.imageFormat = format;
-		desc.imageAspectFlags = aspect_flags;
-		desc.imageUsageFlags = usage_flags;
-		desc.sampler_address_mode = sampler_address_mode;
-		desc.anisotropy = anisotropy;
-		auto texture = Texture::create(desc);
-		texture->fill();
-		if (name)
-			texture->setDebugName(name);
-
-		BindlessResources::addTexture(texture.get());
-		return texture;
-	};
-
-	brdf_lut_texture = create_screen_texture(VK_FORMAT_R16G16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT,
-										  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, "IBL BRDF LUT Image", false, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
+	brdf_lut_texture = Texture::create(desc);
+	brdf_lut_texture->fill();
+	brdf_lut_texture->setDebugName("IBL BRDF LUT Image");
+	BindlessResources::addTexture(brdf_lut_texture.get());
 }
 
 void LutRenderer::addPasses(FrameGraph &fg)

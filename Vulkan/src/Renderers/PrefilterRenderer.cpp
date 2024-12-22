@@ -13,26 +13,14 @@ PrefilterRenderer::PrefilterRenderer(): RendererBase()
 	desc.width = 128;
 	desc.height = 128;
 	desc.is_cube = true;
-	desc.mipLevels = 5;
+	desc.mip_levels = 5;
+	desc.image_format = VK_FORMAT_R32G32B32A32_SFLOAT;
+	desc.usage_flags = TEXTURE_USAGE_STORAGE;
 
-	auto create_screen_texture = [&desc](VkFormat format, VkImageAspectFlags aspect_flags, VkImageUsageFlags usage_flags, const char *name = nullptr, bool anisotropy = false, VkSamplerAddressMode sampler_address_mode = VK_SAMPLER_ADDRESS_MODE_REPEAT)
-	{
-		desc.imageFormat = format;
-		desc.imageAspectFlags = aspect_flags;
-		desc.imageUsageFlags = usage_flags;
-		desc.sampler_address_mode = sampler_address_mode;
-		desc.anisotropy = anisotropy;
-		auto texture = Texture::create(desc);
-		texture->fill();
-		if (name)
-			texture->setDebugName(name);
-
-		BindlessResources::addTexture(texture.get());
-		return texture;
-	};
-
-	prefilter_texture = create_screen_texture(VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT,
-										   VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, "IBL Prefilter Image");
+	prefilter_texture = Texture::create(desc);
+	prefilter_texture->fill();
+	prefilter_texture->setDebugName("IBL Prefilter Image");
+	BindlessResources::addTexture(prefilter_texture.get());
 }
 
 void PrefilterRenderer::addPass(FrameGraph &fg)

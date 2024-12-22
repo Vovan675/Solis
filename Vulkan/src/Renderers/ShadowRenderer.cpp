@@ -29,9 +29,8 @@ ShadowRenderer::ShadowRenderer()
 		TextureDescription tex_description = {};
 		tex_description.width = VkWrapper::swapchain->swap_extent.width;
 		tex_description.height = VkWrapper::swapchain->swap_extent.height;
-		tex_description.imageFormat = VK_FORMAT_B8G8R8A8_UNORM;
-		tex_description.imageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
-		tex_description.imageUsageFlags = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
+		tex_description.image_format = VK_FORMAT_B8G8R8A8_UNORM;
+		tex_description.usage_flags = TEXTURE_USAGE_TRANSFER_SRC | TEXTURE_USAGE_STORAGE;
 		storage_image = Texture::create(tex_description);
 		storage_image->fill();
 	}
@@ -196,24 +195,11 @@ void ShadowRenderer::addRayTracedShadowPasses(FrameGraph & fg)
 		FrameGraphTexture::Description desc;
 		desc.width = Renderer::getViewportSize().x;
 		desc.height = Renderer::getViewportSize().y;
+		desc.image_format = VkWrapper::swapchain->surface_format.format;
+		desc.usage_flags = TEXTURE_USAGE_ATTACHMENT | VK_IMAGE_USAGE_STORAGE_BIT;
+		desc.debug_name = "Ray Traced Lighting Image";
 
-		auto create_screen_texture = [&desc, &builder](VkFormat format, VkImageAspectFlags aspect_flags, VkImageUsageFlags usage_flags, const char *name = nullptr, bool anisotropy = false, VkSamplerAddressMode sampler_address_mode = VK_SAMPLER_ADDRESS_MODE_REPEAT)
-		{
-			desc.debug_name = name;
-			desc.imageFormat = format;
-			desc.imageAspectFlags = aspect_flags;
-			desc.imageUsageFlags = usage_flags;
-			desc.sampler_address_mode = sampler_address_mode;
-			desc.anisotropy = anisotropy;
-
-			return builder.createResource<FrameGraphTexture>(name, desc);
-		};
-
-		//		shadow_pass.visiblity = create_screen_texture(VkWrapper::swapchain->surface_format.format, VK_IMAGE_ASPECT_COLOR_BIT,
-		//VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, "Ray Traced Lighting Image");
-
-		data.visiblity = create_screen_texture(VkWrapper::swapchain->surface_format.format, VK_IMAGE_ASPECT_COLOR_BIT,
-													  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT, "Ray Traced Lighting Image");
+		data.visiblity = builder.createResource<FrameGraphTexture>(desc.debug_name, desc);
 		data.visiblity = builder.write(data.visiblity, TEXTURE_RESOURCE_ACCESS_GENERAL); // was transfer
 	},
 	[=](const RayTracedShadowPass &data, const RenderPassResources &resources, CommandBuffer &command_buffer)

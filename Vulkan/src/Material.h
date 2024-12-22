@@ -80,9 +80,8 @@ public:
 			stream.read(specular);
 
 			TextureDescription non_srgb_description = {};
-			non_srgb_description.imageFormat = VK_FORMAT_R8G8B8A8_UNORM;
-			non_srgb_description.imageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
-			non_srgb_description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+			non_srgb_description.image_format = VK_FORMAT_R8G8B8A8_UNORM;
+			non_srgb_description.usage_flags = TEXTURE_USAGE_TRANSFER_SRC;
 
 			const auto read_tex = [&stream, &non_srgb_description](int &tex_id, bool non_srgb = false)
 			{
@@ -177,9 +176,8 @@ namespace YAML
 			if (node["NormalTexture"])
 			{
 				TextureDescription tex_description{};
-				tex_description.imageFormat = VK_FORMAT_R8G8B8A8_UNORM;
-				tex_description.imageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
-				tex_description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+				tex_description.image_format = VK_FORMAT_R8G8B8A8_UNORM;
+				tex_description.usage_flags = TEXTURE_USAGE_TRANSFER_SRC;
 
 				auto tex = AssetManager::getTextureAsset(node["NormalTexture"].as<std::string>(), tex_description);
 				mat->normal_tex_id = BindlessResources::addTexture(tex.get());

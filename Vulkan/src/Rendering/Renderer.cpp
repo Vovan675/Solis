@@ -47,14 +47,11 @@ void Renderer::recreateScreenResources()
 	TextureDescription description;
 	description.width = viewport_size.x;
 	description.height = viewport_size.y;
-	description.mipLevels = 1;
-	description.numSamples = VK_SAMPLE_COUNT_1_BIT;
 
-	auto create_screen_texture = [&description](RENDER_TARGETS rt, VkFormat format, VkImageAspectFlags aspect_flags, VkImageUsageFlags usage_flags, const char *name = nullptr, bool anisotropy = false, VkSamplerAddressMode sampler_address_mode = VK_SAMPLER_ADDRESS_MODE_REPEAT)
+	auto create_screen_texture = [&description](RENDER_TARGETS rt, VkFormat format, uint32_t usage_flags, const char *name = nullptr, bool anisotropy = false, VkSamplerAddressMode sampler_address_mode = VK_SAMPLER_ADDRESS_MODE_REPEAT)
 	{
-		description.imageFormat = format;
-		description.imageAspectFlags = aspect_flags;
-		description.imageUsageFlags = usage_flags;
+		description.image_format = format;
+		description.usage_flags = usage_flags;
 		description.sampler_address_mode = sampler_address_mode;
 		description.anisotropy = anisotropy;
 		screen_resources[rt] = Texture::create(description);
@@ -67,8 +64,7 @@ void Renderer::recreateScreenResources()
 
 
 	auto swapchain_format = VkWrapper::swapchain->surface_format.format;
-	create_screen_texture(RENDER_TARGET_FINAL, swapchain_format, VK_IMAGE_ASPECT_COLOR_BIT,
-						  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, "Final Image");
+	create_screen_texture(RENDER_TARGET_FINAL, swapchain_format, TEXTURE_USAGE_ATTACHMENT, "Final Image");
 }
 
 void Renderer::setViewportSize(glm::ivec2 size)
@@ -327,7 +323,7 @@ void Renderer::setShadersTexture(std::vector<std::shared_ptr<Shader>> shaders, u
 	VkDescriptorType descriptor_type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 	VkImageLayout image_layout = texture->isDepthTexture() ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-	if (is_uav && texture->getImageUsageFlags() & VK_IMAGE_USAGE_STORAGE_BIT)
+	if (is_uav && (texture->getUsageFlags() & TEXTURE_USAGE_STORAGE))
 	{
 		descriptor_type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
 		image_layout = VK_IMAGE_LAYOUT_GENERAL;

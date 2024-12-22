@@ -130,8 +130,7 @@ void Swapchain::create_resources()
 		TextureDescription desc{};
 		desc.width = swap_extent.width;
 		desc.height = swap_extent.height;
-		desc.imageFormat = surface_format.format;
-		desc.imageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
+		desc.image_format = surface_format.format;
 		std::shared_ptr<Texture> tex = Texture::create(desc);
 		tex->fill_raw(swapchain_images[i]);
 		tex->setDebugName("Swapchain Texture");

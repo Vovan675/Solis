@@ -13,26 +13,14 @@ IrradianceRenderer::IrradianceRenderer(): RendererBase()
 	desc.width = 128;
 	desc.height = 128;
 	desc.is_cube = true;
-	desc.mipLevels = 5;
+	desc.mip_levels = 5;
+	desc.image_format = VK_FORMAT_R32G32B32A32_SFLOAT;
+	desc.usage_flags = TEXTURE_USAGE_TRANSFER_SRC | TEXTURE_USAGE_TRANSFER_DST | TEXTURE_USAGE_STORAGE;
 
-	auto create_screen_texture = [&desc](VkFormat format, VkImageAspectFlags aspect_flags, VkImageUsageFlags usage_flags, const char *name = nullptr, bool anisotropy = false, VkSamplerAddressMode sampler_address_mode = VK_SAMPLER_ADDRESS_MODE_REPEAT)
-	{
-		desc.imageFormat = format;
-		desc.imageAspectFlags = aspect_flags;
-		desc.imageUsageFlags = usage_flags;
-		desc.sampler_address_mode = sampler_address_mode;
-		desc.anisotropy = anisotropy;
-		auto texture = Texture::create(desc);
-		texture->fill();
-		if (name)
-			texture->setDebugName(name);
-
-		BindlessResources::addTexture(texture.get());
-		return texture;
-	};
-
-	irradiance_texture = create_screen_texture(VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT,
-											  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_STORAGE_BIT, "IBL Irradiance Image");
+	irradiance_texture = Texture::create(desc);
+	irradiance_texture->fill();
+	irradiance_texture->setDebugName("IBL Irradiance Image");
+	BindlessResources::addTexture(irradiance_texture.get());
 }
 
 void IrradianceRenderer::addPass(FrameGraph &fg)
@@ -72,6 +60,6 @@ void IrradianceRenderer::addPass(FrameGraph &fg)
 
 		p->unbind(command_buffer);
 
-		irradiance.texture->generate_mipmaps(command_buffer);
+		irradiance.texture->generateMipmaps(command_buffer);
 	});
 }

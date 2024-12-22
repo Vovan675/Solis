@@ -8,14 +8,11 @@
 
 SSAORenderer::SSAORenderer() : RendererBase()
 {
-	TextureDescription desc {};
+	TextureDescription desc;
 	desc.width = 4;
 	desc.height = 4;
-	desc.imageFormat = VK_FORMAT_R32G32B32A32_SFLOAT;
-	desc.imageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
-	desc.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT;
+	desc.image_format = VK_FORMAT_R32G32B32A32_SFLOAT;
 	desc.filtering = VK_FILTER_NEAREST;
-	desc.anisotropy = false;
 	
 	ssao_noise = Texture::create(desc);
 
@@ -71,21 +68,11 @@ void SSAORenderer::addPasses(FrameGraph &fg)
 		FrameGraphTexture::Description desc;
 		desc.width = Renderer::getViewportSize().x;
 		desc.height = Renderer::getViewportSize().y;
+		desc.image_format = VK_FORMAT_R8_UNORM;
+		desc.usage_flags = TEXTURE_USAGE_ATTACHMENT;
+		desc.debug_name = "SSAO Raw Image";
 
-		auto create_screen_texture = [&desc, &builder](VkFormat format, VkImageAspectFlags aspect_flags, VkImageUsageFlags usage_flags, const char *name = nullptr, bool anisotropy = false, VkSamplerAddressMode sampler_address_mode = VK_SAMPLER_ADDRESS_MODE_REPEAT)
-		{
-			desc.debug_name = name;
-			desc.imageFormat = format;
-			desc.imageAspectFlags = aspect_flags;
-			desc.imageUsageFlags = usage_flags;
-			desc.sampler_address_mode = sampler_address_mode;
-			desc.anisotropy = anisotropy;
-
-			return builder.createResource<FrameGraphTexture>(name, desc);
-		};
-
-		data.ssao_raw = create_screen_texture(VK_FORMAT_R8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT,
-											  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, "SSAO Raw Image");
+		data.ssao_raw = builder.createResource<FrameGraphTexture>(desc.debug_name, desc);
 		data.ssao_raw = builder.write(data.ssao_raw);
 
 		builder.read(gbuffer_data.normal);
@@ -128,21 +115,11 @@ void SSAORenderer::addPasses(FrameGraph &fg)
 		FrameGraphTexture::Description desc;
 		desc.width = Renderer::getViewportSize().x;
 		desc.height = Renderer::getViewportSize().y;
+		desc.image_format = VK_FORMAT_R8_UNORM;
+		desc.usage_flags = TEXTURE_USAGE_ATTACHMENT;
+		desc.debug_name = "SSAO Blurred Image";
 
-		auto create_screen_texture = [&desc, &builder](VkFormat format, VkImageAspectFlags aspect_flags, VkImageUsageFlags usage_flags, const char *name = nullptr, bool anisotropy = false, VkSamplerAddressMode sampler_address_mode = VK_SAMPLER_ADDRESS_MODE_REPEAT)
-		{
-			desc.debug_name = name;
-			desc.imageFormat = format;
-			desc.imageAspectFlags = aspect_flags;
-			desc.imageUsageFlags = usage_flags;
-			desc.sampler_address_mode = sampler_address_mode;
-			desc.anisotropy = anisotropy;
-
-			return builder.createResource<FrameGraphTexture>(name, desc);
-		};
-
-		data.ssao_blurred = create_screen_texture(VK_FORMAT_R8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT,
-											  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, "SSAO Blurred Image");
+		data.ssao_blurred = builder.createResource<FrameGraphTexture>(desc.debug_name, desc);
 		data.ssao_blurred = builder.write(data.ssao_blurred);
 
 		builder.read(ssao_data.ssao_raw);

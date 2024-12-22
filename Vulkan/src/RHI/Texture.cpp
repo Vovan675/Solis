@@ -3,13 +3,14 @@
 #include "VkWrapper.h"
 #include "BindlessResources.h"
 #include "Rendering/Renderer.h"
+#define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 #define TINYDDSLOADER_IMPLEMENTATION
 #include "tinyddsloader.h"
 #include <filesystem>
 
 Texture::Texture(TextureDescription description)
-	: m_Description(description)
+	: description(description)
 {
 	resource = std::make_shared<TextureResource>();
 }
@@ -26,131 +27,41 @@ void Texture::cleanup()
 	resource->destroy();
 }
 
-static uint32_t FindMemoryTypeMy(uint32_t typeFilter, VkMemoryPropertyFlags properties) {
-	VkPhysicalDeviceMemoryProperties memProperties;
-	vkGetPhysicalDeviceMemoryProperties(VkWrapper::device->physicalHandle, &memProperties);
-
-	for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
-		if ((typeFilter & (1 << i)) &&
-			(memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
-			return i;
-		}
-	}
-
-	throw std::runtime_error("Failed to find suitable memory type!");
-}
-
 void Texture::fill()
 {
 	cleanup();
-	if (m_Description.is_cube == false)
-	{
-		VkImageCreateInfo imageInfo{};
-		imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-		imageInfo.imageType = VK_IMAGE_TYPE_2D;
-		imageInfo.extent.width = m_Description.width;
-		imageInfo.extent.height = m_Description.height;
-		imageInfo.extent.depth = 1;
-		imageInfo.mipLevels = m_Description.mipLevels;
-		imageInfo.arrayLayers = m_Description.arrayLevels;
-		imageInfo.format = m_Description.imageFormat;
-		imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-		imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		imageInfo.usage = m_Description.imageUsageFlags;
-		imageInfo.samples = m_Description.numSamples;
-		imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	VkImageCreateInfo imageInfo{};
+	imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+	imageInfo.imageType = VK_IMAGE_TYPE_2D;
+	imageInfo.extent.width = description.width;
+	imageInfo.extent.height = description.height;
+	imageInfo.extent.depth = 1;
+	imageInfo.mipLevels = description.mip_levels;
+	imageInfo.arrayLayers = description.is_cube ? 6 : description.array_levels;
+	imageInfo.flags = description.is_cube ? VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT : 0;
+	imageInfo.format = description.image_format;
+	imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+	imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | get_vk_image_usage_flags();
+	imageInfo.samples = description.num_samples;
+	imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-		current_layouts.resize(m_Description.mipLevels, TEXTURE_LAYOUT_UNDEFINED);
+	current_layouts.resize(description.mip_levels, TEXTURE_LAYOUT_UNDEFINED);
 
-		VmaAllocationCreateInfo alloc_info{};
-		alloc_info.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-		vmaCreateImage(VkWrapper::allocator, &imageInfo, &alloc_info, &resource->imageHandle, &resource->allocation, nullptr);
+	VmaAllocationCreateInfo alloc_info{};
+	alloc_info.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+	vmaCreateImage(VkWrapper::allocator, &imageInfo, &alloc_info, &resource->imageHandle, &resource->allocation, nullptr);
 
-		getImageView();
-		create_sampler();
-	} else
-	{
-		VkImageCreateInfo imageInfo{};
-		imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-		imageInfo.imageType = VK_IMAGE_TYPE_2D;
-		imageInfo.extent.width = m_Description.width;
-		imageInfo.extent.height = m_Description.height;
-		imageInfo.extent.depth = 1;
-		imageInfo.mipLevels = m_Description.mipLevels;
-		imageInfo.arrayLayers = 6; // 6 faces
-		imageInfo.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
-		imageInfo.format = m_Description.imageFormat;
-		imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-		imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		imageInfo.usage = m_Description.imageUsageFlags;
-		imageInfo.samples = m_Description.numSamples;
-		imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-		current_layouts.resize(m_Description.mipLevels, TEXTURE_LAYOUT_UNDEFINED);
-
-		VmaAllocationCreateInfo alloc_info{};
-		alloc_info.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-		vmaCreateImage(VkWrapper::allocator, &imageInfo, &alloc_info, &resource->imageHandle, &resource->allocation, nullptr);
-
-		getImageView();
-		create_sampler();
-	}
+	getImageView();
+	create_sampler();
 }
 
 void Texture::fill(const void* sourceData)
 {
-	cleanup();
-	VkDeviceSize image_size;
-	if (m_Description.is_cube == false)
-	{
-		image_size = get_image_size();
-		VkImageCreateInfo imageInfo{};
-		imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-		imageInfo.imageType = VK_IMAGE_TYPE_2D;
-		imageInfo.extent.width = m_Description.width;
-		imageInfo.extent.height = m_Description.height;
-		imageInfo.extent.depth = 1;
-		imageInfo.mipLevels = m_Description.mipLevels;
-		imageInfo.arrayLayers = 1;
-		imageInfo.format = m_Description.imageFormat;
-		imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-		imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | m_Description.imageUsageFlags;
-		imageInfo.samples = m_Description.numSamples;
-		imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-		current_layouts.resize(m_Description.mipLevels, TEXTURE_LAYOUT_UNDEFINED);
-
-		VmaAllocationCreateInfo alloc_info{};
-		alloc_info.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-		VkResult res = vmaCreateImage(VkWrapper::allocator, &imageInfo, &alloc_info, &resource->imageHandle, &resource->allocation, nullptr);
-	} else
-	{
-		image_size = get_image_size() * 6;
-		VkImageCreateInfo imageInfo{};
-		imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-		imageInfo.imageType = VK_IMAGE_TYPE_2D;
-		imageInfo.extent.width = m_Description.width;
-		imageInfo.extent.height = m_Description.height;
-		imageInfo.extent.depth = 1;
-		imageInfo.mipLevels = m_Description.mipLevels;
-		imageInfo.arrayLayers = 6; // 6 faces
-		imageInfo.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
-		imageInfo.format = m_Description.imageFormat;
-		imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-		imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | m_Description.imageUsageFlags;
-		imageInfo.samples = m_Description.numSamples;
-		imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-		current_layouts.resize(m_Description.mipLevels, TEXTURE_LAYOUT_UNDEFINED);
-
-		VmaAllocationCreateInfo alloc_info{};
-		alloc_info.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-		vmaCreateImage(VkWrapper::allocator, &imageInfo, &alloc_info, &resource->imageHandle, &resource->allocation, nullptr);
-	}
+	fill();
 
 	// Create staging buffer
+	VkDeviceSize image_size = get_image_size();
 	VkBuffer stagingBuffer;
 	VmaAllocation stagingAllocation;
 	VkWrapper::createBuffer(image_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VmaMemoryUsage::VMA_MEMORY_USAGE_CPU_ONLY, stagingBuffer, stagingAllocation);
@@ -170,7 +81,7 @@ void Texture::fill(const void* sourceData)
 	copy_buffer_to_image(command_buffer, stagingBuffer);
 
 	// Create mipmaps
-	generate_mipmaps(command_buffer);
+	generateMipmaps(command_buffer);
 
 	command_buffer.close();
 	command_buffer.waitFence();
@@ -178,132 +89,126 @@ void Texture::fill(const void* sourceData)
 	// Destroy unused buffers
 	vkDestroyBuffer(VkWrapper::device->logicalHandle, stagingBuffer, nullptr);
 	vmaFreeMemory(VkWrapper::allocator, stagingAllocation);
-
-	getImageView();
-	create_sampler();
 }
 
 void Texture::load(const char *path)
 {
 	int texWidth, texHeight, texChannels;
 
-	if (m_Description.is_cube == false)
+	std::filesystem::path tex_path(path);
+	std::string ext = tex_path.extension().string();
+	tinyddsloader::DDSFile file;
+	void *pixels;
+	if (tex_path.extension() == ".dds")
 	{
-		std::filesystem::path tex_path(path);
-		std::string ext = tex_path.extension().string();
-		tinyddsloader::DDSFile file;
-		void *pixels;
-		if (tex_path.extension() == ".dds")
+		tinyddsloader::Result result = file.Load(path);
+		if (result != tinyddsloader::Success)
 		{
-			tinyddsloader::Result result = file.Load(path);
-			if (result != tinyddsloader::Success)
-			{
-				CORE_ERROR("Loading texture error");
-				return;
-			}
-
-			file.Flip();
-			texWidth = file.GetWidth();
-			texHeight = file.GetHeight();
-			auto *data = file.GetImageData();
-			pixels = data->m_mem;
-
-			auto format = file.GetFormat();
-			if (format == tinyddsloader::DDSFile::DXGIFormat::BC1_UNorm)
-				m_Description.imageFormat = VK_FORMAT_BC1_RGB_UNORM_BLOCK;
-			else if (format == tinyddsloader::DDSFile::DXGIFormat::BC3_UNorm)
-				m_Description.imageFormat = VK_FORMAT_BC3_UNORM_BLOCK;
-			else if (format == tinyddsloader::DDSFile::DXGIFormat::BC5_UNorm)
-				m_Description.imageFormat = VK_FORMAT_BC5_UNORM_BLOCK;
-			else if (format == tinyddsloader::DDSFile::DXGIFormat::BC7_UNorm)
-				m_Description.imageFormat = VK_FORMAT_BC7_UNORM_BLOCK;
-			else
-				CORE_ERROR("Invalid texture format");
-
-			m_Description.width = texWidth;
-			m_Description.height = texHeight;
-			m_Description.mipLevels = 1;
-			fill(pixels);
-		} else {
-			stbi_set_flip_vertically_on_load(1);
-			pixels = stbi_load(path, &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
-
-			if (!pixels)
-			{
-				CORE_ERROR("Loading texture error");
-				return;
-			}
-
-			m_Description.width = texWidth;
-			m_Description.height = texHeight;
-			m_Description.mipLevels = std::floor(std::log2(std::max(texWidth, texHeight))) + 1;
-			fill(pixels);
-
-			stbi_image_free(pixels);
+			CORE_ERROR("Loading texture error");
+			return;
 		}
+
+		file.Flip();
+		texWidth = file.GetWidth();
+		texHeight = file.GetHeight();
+		auto *data = file.GetImageData();
+		pixels = data->m_mem;
+
+		auto format = file.GetFormat();
+		if (format == tinyddsloader::DDSFile::DXGIFormat::BC1_UNorm)
+			description.image_format = VK_FORMAT_BC1_RGB_UNORM_BLOCK;
+		else if (format == tinyddsloader::DDSFile::DXGIFormat::BC3_UNorm)
+			description.image_format = VK_FORMAT_BC3_UNORM_BLOCK;
+		else if (format == tinyddsloader::DDSFile::DXGIFormat::BC5_UNorm)
+			description.image_format = VK_FORMAT_BC5_UNORM_BLOCK;
+		else if (format == tinyddsloader::DDSFile::DXGIFormat::BC7_UNorm)
+			description.image_format = VK_FORMAT_BC7_UNORM_BLOCK;
+		else
+			CORE_ERROR("Invalid texture format");
+
+		description.width = texWidth;
+		description.height = texHeight;
+		description.mip_levels = 1;
+		fill(pixels);
 	} else
 	{
-		stbi_set_flip_vertically_on_load(0);
-		stbi_uc *pos_x = stbi_load((std::string(path) + "posx.jpg").c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
-		if (!pos_x)
+		stbi_set_flip_vertically_on_load(1);
+		pixels = stbi_load(path, &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+
+		if (!pixels)
+		{
 			CORE_ERROR("Loading texture error");
+			return;
+		}
 
-		stbi_uc *neg_x = stbi_load((std::string(path) + "negx.jpg").c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
-		if (!neg_x)
-			CORE_ERROR("Loading texture error");
+		description.width = texWidth;
+		description.height = texHeight;
+		description.mip_levels = std::floor(std::log2(std::max(texWidth, texHeight))) + 1;
+		fill(pixels);
 
-		stbi_uc *pos_y = stbi_load((std::string(path) + "posy.jpg").c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
-		if (!pos_y)
-			CORE_ERROR("Loading texture error");
-
-		stbi_uc *neg_y = stbi_load((std::string(path) + "negy.jpg").c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
-		if (!neg_y)
-			CORE_ERROR("Loading texture error");
-
-		stbi_uc *pos_z = stbi_load((std::string(path) + "posz.jpg").c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
-		if (!pos_y)
-			CORE_ERROR("Loading texture error");
-
-		stbi_uc *neg_z = stbi_load((std::string(path) + "negz.jpg").c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
-		if (!neg_y)
-			CORE_ERROR("Loading texture error");
-
-		m_Description.imageFormat = VK_FORMAT_R8G8B8A8_SRGB;
-		m_Description.width = texWidth;
-		m_Description.height = texHeight;
-		m_Description.mipLevels = std::floor(std::log2(std::max(texWidth, texHeight))) + 1;
-
-		texChannels = 4;
-		size_t face_size = texWidth * texHeight * texChannels;
-		stbi_uc *data = new stbi_uc[face_size * 6];
-		memcpy(data + face_size * 0, pos_x, face_size);
-		memcpy(data + face_size * 1, neg_x, face_size);
-
-		memcpy(data + face_size * 2, pos_y, face_size);
-		memcpy(data + face_size * 3, neg_y, face_size);
-
-		memcpy(data + face_size * 4, pos_z, face_size);
-		memcpy(data + face_size * 5, neg_z, face_size);
-
-		fill(data);
-
-		stbi_image_free(pos_x);
-		stbi_image_free(neg_x);
-
-		stbi_image_free(pos_y);
-		stbi_image_free(neg_y);
-
-		stbi_image_free(pos_z);
-		stbi_image_free(neg_z);
+		stbi_image_free(pixels);
 	}
 	this->path = path;
 }
 
-void Texture::fill_raw(VkImage image)
+void Texture::loadCubemap(const char *pos_x_path, const char *neg_x_path, const char *pos_y_path, const char *neg_y_path, const char *pos_z_path, const char *neg_z_path)
 {
-	cleanup();
-	resource->imageHandle = image;
-	getImageView();
+	int texWidth, texHeight, texChannels;
+	stbi_set_flip_vertically_on_load(0);
+	stbi_uc *pos_x = stbi_load(pos_x_path, &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+	if (!pos_x)
+		CORE_ERROR("Loading texture error");
+
+	stbi_uc *neg_x = stbi_load(neg_x_path, &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+	if (!neg_x)
+		CORE_ERROR("Loading texture error");
+
+	stbi_uc *pos_y = stbi_load(pos_y_path, &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+	if (!pos_y)
+		CORE_ERROR("Loading texture error");
+
+	stbi_uc *neg_y = stbi_load(neg_y_path, &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+	if (!neg_y)
+		CORE_ERROR("Loading texture error");
+
+	stbi_uc *pos_z = stbi_load(pos_z_path, &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+	if (!pos_z)
+		CORE_ERROR("Loading texture error");
+
+	stbi_uc *neg_z = stbi_load(neg_z_path, &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+	if (!neg_z)
+		CORE_ERROR("Loading texture error");
+
+	description.is_cube = true;
+	description.image_format = VK_FORMAT_R8G8B8A8_SRGB;
+	description.width = texWidth;
+	description.height = texHeight;
+	description.mip_levels = std::floor(std::log2(std::max(texWidth, texHeight))) + 1;
+
+	texChannels = 4;
+	size_t face_size = texWidth * texHeight * texChannels;
+	stbi_uc *data = new stbi_uc[face_size * 6];
+	memcpy(data + face_size * 0, pos_x, face_size);
+	memcpy(data + face_size * 1, neg_x, face_size);
+
+	memcpy(data + face_size * 2, pos_y, face_size);
+	memcpy(data + face_size * 3, neg_y, face_size);
+
+	memcpy(data + face_size * 4, pos_z, face_size);
+	memcpy(data + face_size * 5, neg_z, face_size);
+
+	fill(data);
+
+	stbi_image_free(pos_x);
+	stbi_image_free(neg_x);
+
+	stbi_image_free(pos_y);
+	stbi_image_free(neg_y);
+
+	stbi_image_free(pos_z);
+	stbi_image_free(neg_z);
+
+	this->path = pos_x_path;
 }
 
 void Texture::setDebugName(const char *name)
@@ -320,7 +225,7 @@ void Texture::transitLayout(CommandBuffer &command_buffer, TextureLayoutType new
 	size_t difference_mip_count; // How many mip layouts differ
 
 	size_t start_index = mip == -1 ? 0 : mip;
-	size_t end_index = mip == -1 ? m_Description.mipLevels : start_index + 1;
+	size_t end_index = mip == -1 ? description.mip_levels : start_index + 1;
 	for (size_t i = start_index; i < end_index; i++)
 	{
 		if (current_layouts[i] != new_layout_type)
@@ -334,9 +239,7 @@ void Texture::transitLayout(CommandBuffer &command_buffer, TextureLayoutType new
 
 	if (!barriers_required) return;
 
-	bool is_depth_texture = m_Description.imageAspectFlags & VK_IMAGE_ASPECT_DEPTH_BIT;
-	
-	VkImageAspectFlags aspect_flags = is_depth_texture ? VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
+	VkImageAspectFlags aspect_flags = isDepthTexture() ? VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
 
 	TextureLayoutType current_layout = current_layouts[difference_mip_index];
 	VkImageLayout old_layout = get_vk_layout(current_layout);
@@ -355,7 +258,7 @@ void Texture::transitLayout(CommandBuffer &command_buffer, TextureLayoutType new
 			src_access_mask = VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT;
 			break;
 		case TEXTURE_LAYOUT_ATTACHMENT:
-			if (is_depth_texture)
+			if (isDepthTexture())
 			{
 				src_stage_mask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT;
 				src_access_mask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
@@ -386,7 +289,7 @@ void Texture::transitLayout(CommandBuffer &command_buffer, TextureLayoutType new
 			dst_access_mask = VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT;
 			break;
 		case TEXTURE_LAYOUT_ATTACHMENT:
-			if (is_depth_texture)
+			if (isDepthTexture())
 			{
 				dst_stage_mask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT;
 				dst_access_mask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
@@ -410,7 +313,7 @@ void Texture::transitLayout(CommandBuffer &command_buffer, TextureLayoutType new
 			break;
 	}
 
-	int layer_count = m_Description.is_cube ? 6 : m_Description.arrayLevels;
+	int layer_count = description.is_cube ? 6 : description.array_levels;
 
 	VkWrapper::cmdImageMemoryBarrier(command_buffer,
 									src_stage_mask, src_access_mask,
@@ -426,6 +329,64 @@ void Texture::transitLayout(CommandBuffer &command_buffer, TextureLayoutType new
 	}
 }
 
+void Texture::generateMipmaps(CommandBuffer &command_buffer) {
+	int faces = description.is_cube ? 6 : 1;
+	VkImageMemoryBarrier barrier{};
+	barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+	barrier.image = resource->imageHandle;
+	barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	barrier.subresourceRange.baseArrayLayer = 0;
+	barrier.subresourceRange.layerCount = faces; // Barrier all faces at once
+	barrier.subresourceRange.levelCount = 1; // Barrier for only one mip map
+
+	int32_t mipWidth = description.width;
+	int32_t mipHeight = description.height;
+
+	transitLayout(command_buffer, TEXTURE_LAYOUT_TRANSFER_DST);
+	for (uint32_t i = 1; i < description.mip_levels; i++)
+	{
+		// Barrier to transfer read
+		transitLayout(command_buffer, TEXTURE_LAYOUT_TRANSFER_SRC, i - 1);
+		VkImageBlit blit{};
+
+		// Blit src
+		blit.srcOffsets[0] = { 0, 0, 0 };
+		blit.srcOffsets[1] = { mipWidth, mipHeight, 1 };
+		blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		blit.srcSubresource.mipLevel = i - 1;
+		blit.srcSubresource.baseArrayLayer = 0;
+		blit.srcSubresource.layerCount = faces; // All cubemap faces at once
+
+		// Blit dst
+		blit.dstOffsets[0] = { 0, 0, 0 };
+		blit.dstOffsets[1] = { mipWidth > 1 ? mipWidth / 2 : 1, mipHeight > 1 ? mipHeight / 2 : 1, 1 };
+		blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		blit.dstSubresource.mipLevel = i;
+		blit.dstSubresource.baseArrayLayer = 0; 
+		blit.dstSubresource.layerCount = faces; // All cubemap faces at once
+
+		vkCmdBlitImage(command_buffer.get_buffer(),
+					   resource->imageHandle, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+					   resource->imageHandle, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+					   1, &blit,
+					   VK_FILTER_LINEAR);
+
+		if (mipWidth > 1) mipWidth /= 2;
+		if (mipHeight > 1) mipHeight /= 2;
+
+		barrier.subresourceRange.baseMipLevel = i - 1;
+		barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+		barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+		barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+		// Barrier to shader read
+		transitLayout(command_buffer, TEXTURE_LAYOUT_SHADER_READ, i - 1);
+	}
+
+	transitLayout(command_buffer, TEXTURE_LAYOUT_SHADER_READ, description.mip_levels - 1);
+}
+
 VkImageView Texture::getImageView(int mip, int layer)
 {
 	// Find already created
@@ -439,15 +400,15 @@ VkImageView Texture::getImageView(int mip, int layer)
 	VkImageViewCreateInfo viewInfo{};
 	viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 	viewInfo.image = resource->imageHandle;
-	viewInfo.format = m_Description.imageFormat;
-	viewInfo.subresourceRange.aspectMask = m_Description.imageAspectFlags;
+	viewInfo.format = description.image_format;
+	viewInfo.subresourceRange.aspectMask = isDepthTexture() ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
 
 	// -1 = all mips
 	viewInfo.subresourceRange.baseMipLevel = mip == -1 ? 0 : mip;
-	viewInfo.subresourceRange.levelCount = mip == -1 ? m_Description.mipLevels : 1;
+	viewInfo.subresourceRange.levelCount = mip == -1 ? description.mip_levels : 1;
 
 	// -1 = all layers
-	if (m_Description.is_cube)
+	if (description.is_cube)
 	{
 		if (layer == -1)
 		{
@@ -460,13 +421,13 @@ VkImageView Texture::getImageView(int mip, int layer)
 			viewInfo.subresourceRange.baseArrayLayer = layer;
 			viewInfo.subresourceRange.layerCount = 1;
 		}
-	} else if (m_Description.arrayLevels > 1)
+	} else if (description.array_levels > 1)
 	{
 		if (layer == -1)
 		{
 			viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
 			viewInfo.subresourceRange.baseArrayLayer = 0;
-			viewInfo.subresourceRange.layerCount = m_Description.arrayLevels;
+			viewInfo.subresourceRange.layerCount = description.array_levels;
 		} else
 		{
 			viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
@@ -494,7 +455,6 @@ VkImageView Texture::getImageView(int mip, int layer)
 
 VkImageLayout Texture::get_vk_layout(TextureLayoutType layout_type)
 {
-	bool is_depth_texture = m_Description.imageAspectFlags & VK_IMAGE_ASPECT_DEPTH_BIT;
 	switch (layout_type)
 	{
 		case TEXTURE_LAYOUT_UNDEFINED:
@@ -504,7 +464,7 @@ VkImageLayout Texture::get_vk_layout(TextureLayoutType layout_type)
 			return VK_IMAGE_LAYOUT_GENERAL;
 			break;
 		case TEXTURE_LAYOUT_ATTACHMENT:
-			return is_depth_texture ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+			return isDepthTexture() ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 			break;
 		case TEXTURE_LAYOUT_SHADER_READ:
 			return VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL;
@@ -520,7 +480,7 @@ VkImageLayout Texture::get_vk_layout(TextureLayoutType layout_type)
 
 int Texture::get_channels_count() const
 {
-	switch (m_Description.imageFormat)
+	switch (description.image_format)
 	{
 		case VK_FORMAT_R8_UNORM:
 		case VK_FORMAT_R8_SNORM:
@@ -643,7 +603,7 @@ int Texture::get_channels_count() const
 
 int Texture::get_bytes_per_channel() const
 {
-	switch (m_Description.imageFormat)
+	switch (description.image_format)
 	{
 		case VK_FORMAT_R8_UNORM:
 		case VK_FORMAT_R8_SNORM:
@@ -766,17 +726,17 @@ int Texture::get_bytes_per_channel() const
 
 VkDeviceSize Texture::get_image_size() const
 {
-	VkDeviceSize image_size = m_Description.width * m_Description.height * get_bytes_per_channel() * get_channels_count();
+	VkDeviceSize image_size = description.width * description.height * get_bytes_per_channel() * get_channels_count();
 
 	unsigned int block_width = 4;
 	unsigned int block_height = 4;
-	if (isCompressedFormat(m_Description.imageFormat))
+	if (isCompressedFormat(description.image_format))
 	{
 		unsigned int block_size = 8;
-		unsigned int blocks_width = (m_Description.width + block_width - 1) / block_width;
-		unsigned int blocks_height = (m_Description.height + block_height - 1) / block_height;
+		unsigned int blocks_width = (description.width + block_width - 1) / block_width;
+		unsigned int blocks_height = (description.height + block_height - 1) / block_height;
 
-		switch (m_Description.imageFormat)
+		switch (description.image_format)
 		{
 			case VK_FORMAT_BC1_RGB_UNORM_BLOCK:
 				block_size = 8;
@@ -789,65 +749,43 @@ VkDeviceSize Texture::get_image_size() const
 		}
 		image_size = blocks_width * blocks_height * block_size;
 	}
+
+	if (description.is_cube)
+		image_size *= 6;
+
 	return image_size;
 }
 
-void Texture::generate_mipmaps(CommandBuffer &command_buffer) {
-	int faces = m_Description.is_cube ? 6 : 1;
-	VkImageMemoryBarrier barrier{};
-	barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-	barrier.image = resource->imageHandle;
-	barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	barrier.subresourceRange.baseArrayLayer = 0;
-	barrier.subresourceRange.layerCount = faces; // Barrier all faces at once
-	barrier.subresourceRange.levelCount = 1; // Barrier for only one mip map
+VkImageUsageFlags Texture::get_vk_image_usage_flags() const
+{
+	VkImageUsageFlags flags = 0;
+	if ((description.usage_flags & TEXTURE_USAGE_NO_SAMPLED) == 0)
+		flags |= VK_IMAGE_USAGE_SAMPLED_BIT;
 
-	int32_t mipWidth = m_Description.width;
-	int32_t mipHeight = m_Description.height;
+	if (description.usage_flags & TEXTURE_USAGE_TRANSFER_SRC)
+		flags |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+	if (description.usage_flags & TEXTURE_USAGE_TRANSFER_DST)
+		flags |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
-	transitLayout(command_buffer, TEXTURE_LAYOUT_TRANSFER_DST);
-	for (uint32_t i = 1; i < m_Description.mipLevels; i++)
+	if (description.usage_flags & TEXTURE_USAGE_STORAGE)
+		flags |= VK_IMAGE_USAGE_STORAGE_BIT;
+	if (description.usage_flags & TEXTURE_USAGE_ATTACHMENT)
+		flags |= isDepthTexture() ? VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT : VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+	return flags;
+}
+
+bool Texture::isDepthTexture() const
+{
+	switch (description.image_format)
 	{
-		// Barrier to transfer read
-		transitLayout(command_buffer, TEXTURE_LAYOUT_TRANSFER_SRC, i - 1);
-		VkImageBlit blit{};
-
-		// Blit src
-		blit.srcOffsets[0] = { 0, 0, 0 };
-		blit.srcOffsets[1] = { mipWidth, mipHeight, 1 };
-		blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		blit.srcSubresource.mipLevel = i - 1;
-		blit.srcSubresource.baseArrayLayer = 0;
-		blit.srcSubresource.layerCount = faces; // All cubemap faces at once
-
-		// Blit dst
-		blit.dstOffsets[0] = { 0, 0, 0 };
-		blit.dstOffsets[1] = { mipWidth > 1 ? mipWidth / 2 : 1, mipHeight > 1 ? mipHeight / 2 : 1, 1 };
-		blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		blit.dstSubresource.mipLevel = i;
-		blit.dstSubresource.baseArrayLayer = 0; 
-		blit.dstSubresource.layerCount = faces; // All cubemap faces at once
-
-		vkCmdBlitImage(command_buffer.get_buffer(),
-			resource->imageHandle, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-			resource->imageHandle, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-			1, &blit,
-			VK_FILTER_LINEAR);
-
-		if (mipWidth > 1) mipWidth /= 2;
-		if (mipHeight > 1) mipHeight /= 2;
-
-		barrier.subresourceRange.baseMipLevel = i - 1;
-		barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-		barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-		barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-
-		// Barrier to shader read
-		transitLayout(command_buffer, TEXTURE_LAYOUT_SHADER_READ, i - 1);
+		case VK_FORMAT_D16_UNORM:
+		case VK_FORMAT_D32_SFLOAT:
+		case VK_FORMAT_D16_UNORM_S8_UINT:
+		case VK_FORMAT_D24_UNORM_S8_UINT:
+		case VK_FORMAT_D32_SFLOAT_S8_UINT:
+			return true;
 	}
-	
-	transitLayout(command_buffer, TEXTURE_LAYOUT_SHADER_READ, m_Description.mipLevels - 1);
+	return false;
 }
 
 void Texture::copy_buffer_to_image(CommandBuffer &command_buffer, VkBuffer buffer) {
@@ -858,11 +796,11 @@ void Texture::copy_buffer_to_image(CommandBuffer &command_buffer, VkBuffer buffe
 	region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 	region.imageSubresource.mipLevel = 0;
 	region.imageSubresource.baseArrayLayer = 0;
-	region.imageSubresource.layerCount = m_Description.is_cube ? 6 : 1;
+	region.imageSubresource.layerCount = description.is_cube ? 6 : 1;
 	region.imageOffset = {0, 0, 0};
 	region.imageExtent = {
-		m_Description.width,
-		m_Description.height,
+		description.width,
+		description.height,
 		1
 	};
 
@@ -873,22 +811,22 @@ void Texture::create_sampler()
 {
 	VkSamplerCreateInfo samplerInfo{};
 	samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-	samplerInfo.magFilter = m_Description.filtering;
-	samplerInfo.minFilter = m_Description.filtering;
-	samplerInfo.addressModeU = m_Description.sampler_address_mode;
-	samplerInfo.addressModeV = m_Description.sampler_address_mode;
-	samplerInfo.addressModeW = m_Description.sampler_address_mode;
+	samplerInfo.magFilter = description.filtering;
+	samplerInfo.minFilter = description.filtering;
+	samplerInfo.addressModeU = description.sampler_address_mode;
+	samplerInfo.addressModeV = description.sampler_address_mode;
+	samplerInfo.addressModeW = description.sampler_address_mode;
 	samplerInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
 
-	samplerInfo.anisotropyEnable = m_Description.anisotropy ? VK_TRUE : VK_FALSE;
-	samplerInfo.maxAnisotropy = m_Description.anisotropy ? VkWrapper::device->physicalProperties.properties.limits.maxSamplerAnisotropy : 1.0f;
+	samplerInfo.anisotropyEnable = description.anisotropy;
+	samplerInfo.maxAnisotropy = description.anisotropy ? VkWrapper::device->physicalProperties.properties.limits.maxSamplerAnisotropy : 1.0f;
 	samplerInfo.unnormalizedCoordinates = VK_FALSE;
 	samplerInfo.compareEnable = VK_FALSE;
 	samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
 	samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
 	samplerInfo.mipLodBias = 0.0f;
 	samplerInfo.minLod = 0;
-	samplerInfo.maxLod = m_Description.mipLevels;
+	samplerInfo.maxLod = description.mip_levels;
 
 
 	CHECK_ERROR(vkCreateSampler(VkWrapper::device->logicalHandle, &samplerInfo, nullptr, &resource->sampler));
@@ -899,6 +837,13 @@ std::shared_ptr<Texture> Texture::create(TextureDescription description)
 	auto texture = std::shared_ptr<Texture>(new Texture(description));
 	gpu_resource_manager.registerResource(texture->resource);
 	return texture;
+}
+
+void Texture::fill_raw(VkImage image)
+{
+	cleanup();
+	resource->imageHandle = image;
+	getImageView();
 }
 
 void TextureResource::ImageView::cleanup()

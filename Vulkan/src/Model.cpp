@@ -160,9 +160,8 @@ void Model::process_node(MeshNode *mesh_node, aiNode *node, const aiScene *scene
 			if (res == aiReturn_SUCCESS)
 			{
 				TextureDescription tex_description{};
-				tex_description.imageFormat = VK_FORMAT_R8G8B8A8_SRGB;
-				tex_description.imageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
-				tex_description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+				tex_description.image_format = VK_FORMAT_R8G8B8A8_SRGB;
+				tex_description.usage_flags = TEXTURE_USAGE_TRANSFER_SRC;
 
 				std::filesystem::path result_path(path);
 				result_path = result_path.remove_filename();
@@ -182,9 +181,8 @@ void Model::process_node(MeshNode *mesh_node, aiNode *node, const aiScene *scene
 			if (res == aiReturn_SUCCESS)
 			{
 				TextureDescription tex_description{};
-				tex_description.imageFormat = VK_FORMAT_R8G8B8A8_UNORM;
-				tex_description.imageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
-				tex_description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+				tex_description.image_format = VK_FORMAT_R8G8B8A8_UNORM;
+				tex_description.usage_flags = TEXTURE_USAGE_TRANSFER_SRC;
 
 				std::filesystem::path result_path(path);
 				result_path = result_path.remove_filename();
@@ -204,9 +202,8 @@ void Model::process_node(MeshNode *mesh_node, aiNode *node, const aiScene *scene
 			if (res == aiReturn_SUCCESS)
 			{
 				TextureDescription tex_description{};
-				tex_description.imageFormat = VK_FORMAT_R8G8B8A8_UNORM;
-				tex_description.imageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
-				tex_description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+				tex_description.image_format = VK_FORMAT_R8G8B8A8_UNORM;
+				tex_description.usage_flags = TEXTURE_USAGE_TRANSFER_SRC;
 
 				std::filesystem::path result_path(path);
 				result_path = result_path.remove_filename();
@@ -226,9 +223,8 @@ void Model::process_node(MeshNode *mesh_node, aiNode *node, const aiScene *scene
 			if (res == aiReturn_SUCCESS)
 			{
 				TextureDescription tex_description{};
-				tex_description.imageFormat = VK_FORMAT_R8G8B8A8_UNORM;
-				tex_description.imageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
-				tex_description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+				tex_description.image_format = VK_FORMAT_R8G8B8A8_UNORM;
+				tex_description.usage_flags = TEXTURE_USAGE_TRANSFER_SRC;
 
 				std::filesystem::path result_path(path);
 				result_path = result_path.remove_filename();
@@ -248,9 +244,8 @@ void Model::process_node(MeshNode *mesh_node, aiNode *node, const aiScene *scene
 			if (res == aiReturn_SUCCESS)
 			{
 				TextureDescription tex_description{};
-				tex_description.imageFormat = VK_FORMAT_R8G8B8A8_UNORM;
-				tex_description.imageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
-				tex_description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+				tex_description.image_format = VK_FORMAT_R8G8B8A8_UNORM;
+				tex_description.usage_flags = TEXTURE_USAGE_TRANSFER_SRC;
 
 				std::filesystem::path result_path(path);
 				result_path = result_path.remove_filename();

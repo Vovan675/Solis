@@ -1,33 +1,19 @@
 ﻿#include "pch.h"
 #include "EditorApplication.h"
 #include "RHI/VkWrapper.h"
-#include "BindlessResources.h"
 #include "Scene/Entity.h"
 #include "Rendering/Renderer.h"
-#include "Model.h"
-
-#include "assimp/Importer.hpp"
-#include "assimp/scene.h"
-#include "assimp/postprocess.h"
-#define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
 #include "imgui.h"
 #include "ImGuizmo.h"
-#include <entt/entt.hpp>
-#include <filesystem>
 #include "Filesystem.h"
-#include "Utils/Math.h"
-#include "Assets/AssetManager.h"
 #include "Editor/EditorDefaultScene.h"
 
-#include "RHI/RayTracing/TopLevelAccelerationStructure.h"
 #include "Variables.h"
 
 #include "Editor/GuiUtils.h"
 
 #include "FrameGraph/FrameGraph.h"
 #include "FrameGraph/GraphViz.h"
-#include "FrameGraph/TransientResources.h"
 #include "FrameGraph/FrameGraphData.h"
 #include "FrameGraph/FrameGraphRHIResources.h"
 #include "FrameGraph/FrameGraphUtils.h"

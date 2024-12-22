@@ -7,17 +7,25 @@
 #include "GPUResourceManager.h"
 #include "EngineMath.h"
 
+enum TextureUsageFlags : uint32_t
+{
+	TEXTURE_USAGE_TRANSFER_SRC = 1 << 1,
+	TEXTURE_USAGE_TRANSFER_DST = 1 << 2,
+	TEXTURE_USAGE_NO_SAMPLED = 1 << 3,
+	TEXTURE_USAGE_STORAGE = 1 << 4,
+	TEXTURE_USAGE_ATTACHMENT = 1 << 5,
+};
+
 struct TextureDescription
 {
 	bool is_cube = false;
 	uint32_t width;
 	uint32_t height;
-	uint32_t mipLevels = 1;
-	uint32_t arrayLevels = 1;
-	VkSampleCountFlagBits numSamples = VK_SAMPLE_COUNT_1_BIT;
-	VkFormat imageFormat;
-	VkImageAspectFlags imageAspectFlags;
-	VkImageUsageFlags imageUsageFlags;
+	uint32_t mip_levels = 1;
+	uint32_t array_levels = 1;
+	VkSampleCountFlagBits num_samples = VK_SAMPLE_COUNT_1_BIT;
+	VkFormat image_format;
+	uint32_t usage_flags = 0;
 	VkSamplerAddressMode sampler_address_mode = VK_SAMPLER_ADDRESS_MODE_REPEAT;
 	VkFilter filtering = VK_FILTER_LINEAR;
 	bool anisotropy = false;
@@ -28,12 +36,11 @@ struct TextureDescription
 		Engine::Math::hash_combine(hash, is_cube);
 		Engine::Math::hash_combine(hash, width);
 		Engine::Math::hash_combine(hash, height);
-		Engine::Math::hash_combine(hash, mipLevels);
-		Engine::Math::hash_combine(hash, arrayLevels);
-		Engine::Math::hash_combine(hash, numSamples);
-		Engine::Math::hash_combine(hash, imageFormat);
-		Engine::Math::hash_combine(hash, imageAspectFlags);
-		Engine::Math::hash_combine(hash, imageUsageFlags);
+		Engine::Math::hash_combine(hash, mip_levels);
+		Engine::Math::hash_combine(hash, array_levels);
+		Engine::Math::hash_combine(hash, num_samples);
+		Engine::Math::hash_combine(hash, image_format);
+		Engine::Math::hash_combine(hash, usage_flags);
 		Engine::Math::hash_combine(hash, sampler_address_mode);
 		Engine::Math::hash_combine(hash, filtering);
 		Engine::Math::hash_combine(hash, anisotropy);
@@ -96,26 +103,27 @@ public:
 	void fill();
 	void fill(const void* sourceData);
 	void load(const char* path);
-
-	void fill_raw(VkImage image);
+	void loadCubemap(const char * pos_x_path, const char * neg_x_path, const char * pos_y_path, const char * neg_y_path, const char * pos_z_path, const char * neg_z_path);
 
 	VkSampler getSampler() { return resource->sampler; }
 	std::weak_ptr<TextureResource> getRawResource() { return resource; }
 
 	std::string getPath() const { return path; }
-	const TextureDescription &getDescription() const { return m_Description; }
-	uint32_t getWidth(int mip = 0) const { return m_Description.width >> mip; }
-	uint32_t getHeight(int mip = 0) const { return m_Description.height >> mip; }
+	const TextureDescription &getDescription() const { return description; }
+	uint32_t getWidth(int mip = 0) const { return description.width >> mip; }
+	uint32_t getHeight(int mip = 0) const { return description.height >> mip; }
 
 	void setDebugName(const char *name);
 	std::string getDebugName() const { return debug_name; };
 
 	void transitLayout(CommandBuffer &command_buffer, TextureLayoutType new_layout_type, int mip = -1);
 	
+	void generateMipmaps(CommandBuffer &command_buffer);
+
 	VkImageView getImageView(int mip = 0, int layer = -1);
 
-	VkFormat getImageFormat() const { return m_Description.imageFormat; }
-	VkImageUsageFlags getImageUsageFlags() const { return m_Description.imageUsageFlags; }
+	VkFormat getImageFormat() const { return description.image_format; }
+	uint32_t getUsageFlags() const { return description.usage_flags; }
 
 	bool isCompressedFormat(VkFormat format) const
 	{ 
@@ -126,22 +134,27 @@ public:
 			format == VK_FORMAT_BC7_UNORM_BLOCK;
 	}
 
-	bool isDepthTexture() const { return m_Description.imageAspectFlags & VK_IMAGE_ASPECT_DEPTH_BIT; }
-	void generate_mipmaps(CommandBuffer &command_buffer);
+	bool isDepthTexture() const;
 
 	bool isValid() const { return resource->imageHandle != nullptr; }
 
 	static std::shared_ptr<Texture> create(TextureDescription description);
 private:
+	friend class Swapchain;
+	void fill_raw(VkImage image);
+
 	VkImageLayout get_vk_layout(TextureLayoutType layout_type);
 	int get_channels_count() const;
 	int get_bytes_per_channel() const;
 	VkDeviceSize get_image_size() const;
 
+	VkImageUsageFlags get_vk_image_usage_flags() const;
+
 	void copy_buffer_to_image(CommandBuffer &command_buffer, VkBuffer buffer);
 	void create_sampler();
 private:
-	TextureDescription m_Description;
+	TextureDescription description;
+
 	std::vector<TextureLayoutType> current_layouts; // Image layouts for each mip map
 	std::string path = "";
 	std::string debug_name = "";

@@ -26,39 +26,32 @@ void GBufferPass::AddPass(FrameGraph &fg)
 		desc.width = Renderer::getViewportSize().x;
 		desc.height = Renderer::getViewportSize().y;
 
-		auto create_screen_texture = [&desc, &builder](VkFormat format, VkImageAspectFlags aspect_flags, VkImageUsageFlags usage_flags, const char *name = nullptr, bool anisotropy = false, VkSamplerAddressMode sampler_address_mode = VK_SAMPLER_ADDRESS_MODE_REPEAT)
+		auto create_texture = [&desc, &builder](VkFormat format, uint32_t usage_flags, const char *name = nullptr, VkSamplerAddressMode sampler_address_mode = VK_SAMPLER_ADDRESS_MODE_REPEAT)
 		{
 			desc.debug_name = name;
-			desc.imageFormat = format;
-			desc.imageAspectFlags = aspect_flags;
-			desc.imageUsageFlags = usage_flags;
+			desc.image_format = format;
+			desc.usage_flags = usage_flags;
 			desc.sampler_address_mode = sampler_address_mode;
-			desc.anisotropy = anisotropy;
 
 			auto resource = builder.createResource<FrameGraphTexture>(name, desc);
 			return resource;
 		};
 
 		// Albedo
-		data.albedo = create_screen_texture(VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT,
-											VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, "GBuffer Albedo Image");
+		data.albedo = create_texture(VK_FORMAT_R8G8B8A8_UNORM, TEXTURE_USAGE_ATTACHMENT | TEXTURE_USAGE_TRANSFER_DST, "GBuffer Albedo Image");
 		data.albedo = builder.write(data.albedo);
 
 		// Normal
-		data.normal = create_screen_texture(VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT,
-											VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, "GBuffer Normal Image", false, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
+		data.normal = create_texture(VK_FORMAT_R16G16B16A16_SFLOAT, TEXTURE_USAGE_ATTACHMENT, "GBuffer Normal Image", VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
 		data.normal = builder.write(data.normal);
 
 		// Depth-Stencil
-		data.depth = create_screen_texture(VK_FORMAT_D32_SFLOAT_S8_UINT, VK_IMAGE_ASPECT_DEPTH_BIT,
-										   VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, "GBuffer DepthStencil Image", false, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
+		data.depth = create_texture(VK_FORMAT_D32_SFLOAT_S8_UINT, TEXTURE_USAGE_ATTACHMENT, "GBuffer DepthStencil Image", VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
 		data.depth = builder.write(data.depth);
 
 		// Shading
-		data.shading = create_screen_texture(VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT,
-											 VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, "GBuffer Shading Image");
+		data.shading = create_texture(VK_FORMAT_R8G8B8A8_UNORM, TEXTURE_USAGE_ATTACHMENT, "GBuffer Shading Image");
 		data.shading = builder.write(data.shading);
-
 	},
 	[=](const GBufferData &data, const RenderPassResources &resources, CommandBuffer &command_buffer)
 	{

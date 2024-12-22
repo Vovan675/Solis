@@ -95,21 +95,11 @@ void SkyRenderer::addCompositePasses(FrameGraph &fg)
 		FrameGraphTexture::Description desc;
 		desc.width = Renderer::getViewportSize().x;
 		desc.height = Renderer::getViewportSize().y;
+		desc.image_format = VK_FORMAT_R16G16B16A16_SFLOAT;
+		desc.usage_flags = TEXTURE_USAGE_ATTACHMENT;
+		desc.debug_name = "Composite Image";
 
-		auto create_screen_texture = [&desc, &builder](VkFormat format, VkImageAspectFlags aspect_flags, VkImageUsageFlags usage_flags, const char *name = nullptr, bool anisotropy = false, VkSamplerAddressMode sampler_address_mode = VK_SAMPLER_ADDRESS_MODE_REPEAT)
-		{
-			desc.debug_name = name;
-			desc.imageFormat = format;
-			desc.imageAspectFlags = aspect_flags;
-			desc.imageUsageFlags = usage_flags;
-			desc.sampler_address_mode = sampler_address_mode;
-			desc.anisotropy = anisotropy;
-
-			return builder.createResource<FrameGraphTexture>(name, desc);
-		};
-
-		data.composite = create_screen_texture(VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT,
-											   VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, "Composite Image");
+		data.composite = builder.createResource<FrameGraphTexture>(desc.debug_name, desc);
 		data.composite = builder.write(data.composite);
 		builder.read(sky_data.sky);
 	},
@@ -175,15 +165,16 @@ void SkyRenderer::setMode(SKY_MODE mode)
 	TextureDescription tex_description{};
 	tex_description.width = 1024;
 	tex_description.height = 1024;
-	tex_description.imageFormat = VK_FORMAT_R32G32B32A32_SFLOAT;
-	tex_description.imageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
-	tex_description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+	tex_description.image_format = VK_FORMAT_R32G32B32A32_SFLOAT;
+	tex_description.usage_flags = TEXTURE_USAGE_ATTACHMENT | TEXTURE_USAGE_TRANSFER_SRC | TEXTURE_USAGE_TRANSFER_DST;
 	tex_description.is_cube = true;
 
 	cube_texture = Texture::create(tex_description);
 
 	if (mode == SKY_MODE_CUBEMAP)
-		cube_texture->load("assets/cubemap/");
+		cube_texture->loadCubemap("assets/cubemap/negx.jpg", "assets/cubemap/posx.jpg",
+								  "assets/cubemap/negy.jpg", "assets/cubemap/posy.jpg",
+								  "assets/cubemap/negz.jpg", "assets/cubemap/posz.jpg");
 	else
 		cube_texture->fill();
 	cube_texture->setDebugName("Sky Texture");

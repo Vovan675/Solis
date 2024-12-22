@@ -1,5 +1,6 @@
 #pragma once
 #include "Scene/Scene.h"
+#include "Model.h"
 
 static class EditorDefaultScene
 {
