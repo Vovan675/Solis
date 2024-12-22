@@ -6,7 +6,8 @@
 #include "Camera.h"
 #include "RHI/Descriptors.h"
 #include "Scene/Scene.h"
-
+#include "FrameGraph/FrameGraphData.h"
+#include "FrameGraph/FrameGraphRHIResources.h"
 
 class DefferedLightingRenderer: public RendererBase
 {
@@ -41,7 +42,7 @@ public:
 	DefferedLightingRenderer();
 	virtual ~DefferedLightingRenderer();
 
-	void renderLights(Scene *scene, CommandBuffer &command_buffer);
+	void renderLights(FrameGraph &fg);
 
 	void renderImgui();
 public:

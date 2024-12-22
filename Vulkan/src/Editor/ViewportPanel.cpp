@@ -21,8 +21,10 @@ bool ViewportPanel::renderImGui(EditorContext context, float delta_time)
 	viewport_pos.y += viewport_offset.y;
 
 	auto &viewport_texture = Renderer::getRenderTarget(RENDER_TARGET_FINAL);
+		
 	ImVec2 viewport_size = ImGui::GetContentRegionAvail();
-	ImGui::Image(ImGuiWrapper::getTextureDescriptorSet(viewport_texture), viewport_size);
+	if (viewport_texture)
+		ImGui::Image(ImGuiWrapper::getTextureDescriptorSet(viewport_texture), viewport_size);
 
 	Renderer::setViewportSize({viewport_size.x, viewport_size.y});
 	context.editor_camera->setAspect(viewport_size.x / viewport_size.y);

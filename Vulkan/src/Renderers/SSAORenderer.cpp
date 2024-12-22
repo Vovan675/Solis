@@ -57,54 +57,120 @@ SSAORenderer::SSAORenderer() : RendererBase()
 	fragment_shader_blur = Shader::create("shaders/ssao_blur.frag", Shader::FRAGMENT_SHADER);
 }
 
-void SSAORenderer::fillCommandBuffer(CommandBuffer &command_buffer)
+void SSAORenderer::addPasses(FrameGraph &fg)
 {
-	ubo_raw_pass.normal_tex_id = Renderer::getRenderTargetBindlessId(RENDER_TARGET_GBUFFER_NORMAL);
-	ubo_raw_pass.depth_tex_id = Renderer::getRenderTargetBindlessId(RENDER_TARGET_GBUFFER_DEPTH_STENCIL);
-	ubo_blur_pass.raw_tex_id = Renderer::getRenderTargetBindlessId(RENDER_TARGET_SSAO_RAW);
+	auto &ssao_data = fg.getBlackboard().add<SSAOData>();
+
+	auto &gbuffer_data = fg.getBlackboard().get<GBufferData>();
 
 	// Raw Pass
-	Renderer::getRenderTarget(RENDER_TARGET_SSAO_RAW)->transitLayout(command_buffer, TEXTURE_LAYOUT_ATTACHMENT);
+	ssao_data = fg.addCallbackPass<SSAOData>("SSAO Raw Pass",
+	[&](RenderPassBuilder &builder, SSAOData &data)
+	{
+		// Setup
+		FrameGraphTexture::Description desc;
+		desc.width = Renderer::getViewportSize().x;
+		desc.height = Renderer::getViewportSize().y;
 
-	VkWrapper::cmdBeginRendering(command_buffer, {Renderer::getRenderTarget(RENDER_TARGET_SSAO_RAW)}, nullptr);
+		auto create_screen_texture = [&desc, &builder](VkFormat format, VkImageAspectFlags aspect_flags, VkImageUsageFlags usage_flags, const char *name = nullptr, bool anisotropy = false, VkSamplerAddressMode sampler_address_mode = VK_SAMPLER_ADDRESS_MODE_REPEAT)
+		{
+			desc.debug_name = name;
+			desc.imageFormat = format;
+			desc.imageAspectFlags = aspect_flags;
+			desc.imageUsageFlags = usage_flags;
+			desc.sampler_address_mode = sampler_address_mode;
+			desc.anisotropy = anisotropy;
 
-	auto &p = VkWrapper::global_pipeline;
-	p->bindScreenQuadPipeline(command_buffer, fragment_shader_raw);
+			return builder.createResource<FrameGraphTexture>(name, desc);
+		};
 
-	// Uniforms
-	Renderer::setShadersUniformBuffer(p->getCurrentShaders(), 0, &ubo_raw_pass, sizeof(UBO_RAW));
-	Renderer::setShadersTexture(p->getCurrentShaders(), 1, ssao_noise);
-	Renderer::bindShadersDescriptorSets(p->getCurrentShaders(), command_buffer, p->getPipelineLayout());
+		data.ssao_raw = create_screen_texture(VK_FORMAT_R8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT,
+											  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, "SSAO Raw Image");
+		data.ssao_raw = builder.write(data.ssao_raw);
 
-	// Render quad
-	vkCmdDraw(command_buffer.get_buffer(), 6, 1, 0, 0);
+		builder.read(gbuffer_data.normal);
+		builder.read(gbuffer_data.depth);
+	},
+	[=](const SSAOData &data, const RenderPassResources &resources, CommandBuffer &command_buffer)
+	{
+		// Render
+		auto &normal = resources.getResource<FrameGraphTexture>(gbuffer_data.normal);
+		auto &depth = resources.getResource<FrameGraphTexture>(gbuffer_data.depth);
+		auto &ssao_raw = resources.getResource<FrameGraphTexture>(data.ssao_raw);
 
-	p->unbind(command_buffer);
-	VkWrapper::cmdEndRendering(command_buffer);
+		ubo_raw_pass.normal_tex_id = normal.getBindlessId();
+		ubo_raw_pass.depth_tex_id = depth.getBindlessId();
+		ubo_blur_pass.raw_tex_id = ssao_raw.getBindlessId();
 
+		VkWrapper::cmdBeginRendering(command_buffer, {ssao_raw.texture}, nullptr);
 
+		auto &p = VkWrapper::global_pipeline;
+		p->bindScreenQuadPipeline(command_buffer, fragment_shader_raw);
+
+		// Uniforms
+		Renderer::setShadersUniformBuffer(p->getCurrentShaders(), 0, &ubo_raw_pass, sizeof(UBO_RAW));
+		Renderer::setShadersTexture(p->getCurrentShaders(), 1, ssao_noise);
+		Renderer::bindShadersDescriptorSets(p->getCurrentShaders(), command_buffer, p->getPipelineLayout());
+
+		// Render quad
+		vkCmdDraw(command_buffer.get_buffer(), 6, 1, 0, 0);
+
+		p->unbind(command_buffer);
+		VkWrapper::cmdEndRendering(command_buffer);
+	});
+
+	
 	// Blur Pass
-	Renderer::getRenderTarget(RENDER_TARGET_SSAO_RAW)->transitLayout(command_buffer, TEXTURE_LAYOUT_SHADER_READ);
-	Renderer::getRenderTarget(RENDER_TARGET_SSAO)->transitLayout(command_buffer, TEXTURE_LAYOUT_ATTACHMENT);
+	ssao_data = fg.addCallbackPass<SSAOData>("SSAO Blur Pass",
+	[&](RenderPassBuilder &builder, SSAOData &data)
+	{
+		// Setup
+		FrameGraphTexture::Description desc;
+		desc.width = Renderer::getViewportSize().x;
+		desc.height = Renderer::getViewportSize().y;
 
-	VkWrapper::cmdBeginRendering(command_buffer, {Renderer::getRenderTarget(RENDER_TARGET_SSAO)}, nullptr);
+		auto create_screen_texture = [&desc, &builder](VkFormat format, VkImageAspectFlags aspect_flags, VkImageUsageFlags usage_flags, const char *name = nullptr, bool anisotropy = false, VkSamplerAddressMode sampler_address_mode = VK_SAMPLER_ADDRESS_MODE_REPEAT)
+		{
+			desc.debug_name = name;
+			desc.imageFormat = format;
+			desc.imageAspectFlags = aspect_flags;
+			desc.imageUsageFlags = usage_flags;
+			desc.sampler_address_mode = sampler_address_mode;
+			desc.anisotropy = anisotropy;
 
-	p = VkWrapper::global_pipeline;
-	p->bindScreenQuadPipeline(command_buffer, fragment_shader_blur);
+			return builder.createResource<FrameGraphTexture>(name, desc);
+		};
 
-	// Bindless
-	vkCmdBindDescriptorSets(command_buffer.get_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, p->getPipelineLayout(), 1, 1, BindlessResources::getDescriptorSet(), 0, nullptr);
+		data.ssao_blurred = create_screen_texture(VK_FORMAT_R8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT,
+											  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, "SSAO Blurred Image");
+		data.ssao_blurred = builder.write(data.ssao_blurred);
 
-	// Uniforms
-	ubo_blur_pass.raw_tex_id = Renderer::getRenderTargetBindlessId(RENDER_TARGET_SSAO_RAW);
-	Renderer::setShadersUniformBuffer(p->getCurrentShaders(), 0, &ubo_blur_pass, sizeof(UBO_BLUR));
-	Renderer::bindShadersDescriptorSets(p->getCurrentShaders(), command_buffer, p->getPipelineLayout());
+		builder.read(ssao_data.ssao_raw);
+	},
+	[=](const SSAOData &data, const RenderPassResources &resources, CommandBuffer &command_buffer)
+	{
+		// Render
+		auto &ssao_blurred = resources.getResource<FrameGraphTexture>(data.ssao_blurred);
 
-	// Render quad
-	vkCmdDraw(command_buffer.get_buffer(), 6, 1, 0, 0);
+		VkWrapper::cmdBeginRendering(command_buffer, {ssao_blurred.texture}, nullptr);
 
-	p->unbind(command_buffer);
-	VkWrapper::cmdEndRendering(command_buffer);
+		auto &p = VkWrapper::global_pipeline;
+		p->bindScreenQuadPipeline(command_buffer, fragment_shader_blur);
+
+		// Bindless
+		vkCmdBindDescriptorSets(command_buffer.get_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, p->getPipelineLayout(), 1, 1, BindlessResources::getDescriptorSet(), 0, nullptr);
+
+		// Uniforms
+		ubo_blur_pass.raw_tex_id = resources.getResource<FrameGraphTexture>(ssao_data.ssao_raw).getBindlessId();
+		Renderer::setShadersUniformBuffer(p->getCurrentShaders(), 0, &ubo_blur_pass, sizeof(UBO_BLUR));
+		Renderer::bindShadersDescriptorSets(p->getCurrentShaders(), command_buffer, p->getPipelineLayout());
+
+		// Render quad
+		vkCmdDraw(command_buffer.get_buffer(), 6, 1, 0, 0);
+
+		p->unbind(command_buffer);
+		VkWrapper::cmdEndRendering(command_buffer);
+	});
 }
 
 void SSAORenderer::renderImgui()

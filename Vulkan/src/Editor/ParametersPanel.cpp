@@ -47,7 +47,7 @@ static void addComponentButton(Entity entity, const char *title)
 		entity.addComponent<C>();
 }
 
-bool ParametersPanel::renderImGui(Entity entity, std::shared_ptr<DebugRenderer> debug_renderer)
+bool ParametersPanel::renderImGui(Entity entity, DebugRenderer &debug_renderer)
 {
 	ImGui::Begin((std::string(ICON_FA_PEN) + " Parameters###Parameters").c_str());
 	bool is_using_ui = ImGui::IsWindowFocused();
@@ -57,7 +57,7 @@ bool ParametersPanel::renderImGui(Entity entity, std::shared_ptr<DebugRenderer> 
 			for (auto &mesh_id : mesh_renderer.meshes)
 			{
 				auto mesh = mesh_id.getMesh();
-				debug_renderer->addBoundBox(mesh->bound_box * entity.getWorldTransformMatrix());
+				debug_renderer.addBoundBox(mesh->bound_box * entity.getWorldTransformMatrix());
 			}
 
 			ImGui::SeparatorText("Mesh Settings");

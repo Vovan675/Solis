@@ -5,7 +5,7 @@
 class ParametersPanel
 {
 public:
-	bool renderImGui(Entity entity, std::shared_ptr<DebugRenderer> debug_renderer);
+	bool renderImGui(Entity entity, DebugRenderer &debug_renderer);
 	
 private:
 };

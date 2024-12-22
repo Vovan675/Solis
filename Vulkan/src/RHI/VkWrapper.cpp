@@ -4,6 +4,7 @@
 #include "BindlessResources.h"
 #include "Rendering/Renderer.h"
 #include "VkUtils.h"
+#include "FrameGraph/TransientResources.h"
 
 VkInstance VkWrapper::instance;
 std::shared_ptr<Device> VkWrapper::device;
@@ -40,6 +41,7 @@ void VkWrapper::init(GLFWwindow *window)
 	global_descriptor_allocator = std::make_shared<DescriptorAllocator>();
 	global_pipeline = std::make_shared<GlobalPipeline>();
 	BindlessResources::init();
+	TransientResources::init();
 
 	Renderer::init();
 }
@@ -157,7 +159,7 @@ void VkWrapper::cmdImageMemoryBarrier(CommandBuffer &command_buffer,
 	vkCmdPipelineBarrier2(command_buffer.get_buffer(), &dependency_info);
 }
 
-void VkWrapper::cmdBeginRendering(CommandBuffer &command_buffer, const std::vector<std::shared_ptr<Texture>> &color_attachments, std::shared_ptr<Texture> depth_attachment, int layer, int mip)
+void VkWrapper::cmdBeginRendering(CommandBuffer &command_buffer, const std::vector<std::shared_ptr<Texture>> &color_attachments, std::shared_ptr<Texture> depth_attachment, int layer, int mip, bool clear)
 {
 	VkExtent2D extent;
 	if (color_attachments.size() > 0)
@@ -183,7 +185,7 @@ void VkWrapper::cmdBeginRendering(CommandBuffer &command_buffer, const std::vect
 		info.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
 		info.imageView = attachment->getImageView(mip, layer);
 		info.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL;
-		info.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		info.loadOp = clear ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
 		info.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 		info.clearValue.color = {{0.0f, 0.0f, 0.0f, 1.0f}};
 		color_attachments_info.push_back(info);
@@ -197,7 +199,7 @@ void VkWrapper::cmdBeginRendering(CommandBuffer &command_buffer, const std::vect
 		depth_stencil_attachment_info.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
 		depth_stencil_attachment_info.imageView = depth_attachment->getImageView(mip, layer);
 		depth_stencil_attachment_info.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-		depth_stencil_attachment_info.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		depth_stencil_attachment_info.loadOp = clear ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
 		depth_stencil_attachment_info.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 		depth_stencil_attachment_info.clearValue.depthStencil.depth = 1.0f;
 		depth_stencil_attachment_info.clearValue.depthStencil.stencil = 0.0f;

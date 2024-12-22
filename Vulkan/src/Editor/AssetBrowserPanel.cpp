@@ -66,7 +66,7 @@ bool AssetBrowserPanel::renderImGui()
 	ImVec2 tile_size = ImVec2(128, 128);
 	int columns = available_region.x / (tile_size.x + padding.x);
 
-	ImGui::Columns(columns, 0, false);
+	ImGui::Columns(std::max(1, columns), 0, false);
 
 	int column = 0;
 	auto entries = get_directory_entries(current_grid_path);

@@ -23,7 +23,6 @@ glm::ivec2 Renderer::viewport_size;
 void Renderer::init()
 {
 	viewport_size = VkWrapper::swapchain->getSize();
-	recreateDefaultResources();
 	recreateScreenResources();
 
 	DescriptorLayoutBuilder layout_builder;
@@ -51,12 +50,6 @@ void Renderer::recreateScreenResources()
 	description.mipLevels = 1;
 	description.numSamples = VK_SAMPLE_COUNT_1_BIT;
 
-	///////////
-	// GBuffer
-	///////////
-
-	auto swapchain_format = VkWrapper::swapchain->surface_format.format;
-
 	auto create_screen_texture = [&description](RENDER_TARGETS rt, VkFormat format, VkImageAspectFlags aspect_flags, VkImageUsageFlags usage_flags, const char *name = nullptr, bool anisotropy = false, VkSamplerAddressMode sampler_address_mode = VK_SAMPLER_ADDRESS_MODE_REPEAT)
 	{
 		description.imageFormat = format;
@@ -72,50 +65,8 @@ void Renderer::recreateScreenResources()
 		BindlessResources::addTexture(screen_resources[rt].get());
 	};
 
-	// Albedo
-	create_screen_texture(RENDER_TARGET_GBUFFER_ALBEDO, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT,
-						  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, "GBuffer Albedo Image");
 
-
-	// Normal
-	create_screen_texture(RENDER_TARGET_GBUFFER_NORMAL, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT,
-						  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, "GBuffer Normal Image", false, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
-
-	// Depth-Stencil
-	create_screen_texture(RENDER_TARGET_GBUFFER_DEPTH_STENCIL, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_IMAGE_ASPECT_DEPTH_BIT,
-						  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, "GBuffer DepthStencil Image", false, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
-
-	// Shading
-	create_screen_texture(RENDER_TARGET_GBUFFER_SHADING, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT,
-						  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, "GBuffer Shading Image");
-
-	///////////
-	// Lighting
-	///////////
-
-	create_screen_texture(RENDER_TARGET_RAY_TRACED_LIGHTING, swapchain_format, VK_IMAGE_ASPECT_COLOR_BIT,
-						  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, "Ray Traced Lighting Image");
-
-	create_screen_texture(RENDER_TARGET_LIGHTING_DIFFUSE, VK_FORMAT_B10G11R11_UFLOAT_PACK32, VK_IMAGE_ASPECT_COLOR_BIT,
-						  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, "Lighting Diffuse Image");
-
-	create_screen_texture(RENDER_TARGET_LIGHTING_SPECULAR, VK_FORMAT_B10G11R11_UFLOAT_PACK32, VK_IMAGE_ASPECT_COLOR_BIT,
-						  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, "Lighting Specular Image");
-
-
-	create_screen_texture(RENDER_TARGET_SSAO_RAW, VK_FORMAT_R8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT,
-						  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, "SSAO Raw Image");
-
-	create_screen_texture(RENDER_TARGET_SSAO, VK_FORMAT_R8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT,
-						  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, "SSAO Image");
-
-	/////////////
-	// Composite
-	/////////////
-
-	create_screen_texture(RENDER_TARGET_COMPOSITE, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT,
-						  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, "Composite Image");
-
+	auto swapchain_format = VkWrapper::swapchain->surface_format.format;
 	create_screen_texture(RENDER_TARGET_FINAL, swapchain_format, VK_IMAGE_ASPECT_COLOR_BIT,
 						  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, "Final Image");
 }
@@ -125,7 +76,6 @@ void Renderer::setViewportSize(glm::ivec2 size)
 	if (viewport_size == size)
 		return;
 	viewport_size = size;
-	recreateScreenResources();
 }
 
 void Renderer::beginFrame(unsigned int current_frame_in_flight, unsigned int current_image_index)
@@ -471,56 +421,6 @@ void Renderer::updateDefaultUniforms(float delta_time)
 const Renderer::DefaultUniforms Renderer::getDefaultUniforms()
 {
 	return default_uniforms;
-}
-
-void Renderer::recreateDefaultResources()
-{
-	TextureDescription description;
-	auto create_screen_texture = [&description](RENDER_TARGETS rt, VkFormat format, VkImageAspectFlags aspect_flags, VkImageUsageFlags usage_flags, const char *name = nullptr, bool anisotropy = false, VkSamplerAddressMode sampler_address_mode = VK_SAMPLER_ADDRESS_MODE_REPEAT)
-	{
-		description.imageFormat = format;
-		description.imageAspectFlags = aspect_flags;
-		description.imageUsageFlags = usage_flags;
-		description.sampler_address_mode = sampler_address_mode;
-		description.anisotropy = anisotropy;
-		screen_resources[rt] = Texture::create(description);
-		screen_resources[rt]->fill();
-		if (name)
-			screen_resources[rt]->setDebugName(name);
-
-		BindlessResources::addTexture(screen_resources[rt].get());
-	};
-
-	/////////////
-	// IBL
-	/////////////
-
-	// Irradiance
-	description.width = 32;
-	description.height = 32;
-	description.is_cube = true;
-	description.mipLevels = std::floor(std::log2(std::max(description.width, description.height))) + 1;
-	create_screen_texture(RENDER_TARGET_IBL_IRRADIANCE, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT,
-						  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_STORAGE_BIT, "IBL Irradiance Image");
-
-	// Prefilter
-	description.width = 128;
-	description.height = 128;
-	description.is_cube = true;
-	description.mipLevels = 5;
-	create_screen_texture(RENDER_TARGET_IBL_PREFILER, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT,
-						  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, "IBL Prefilter Image");
-
-	// BRDF LUT
-	description.width = 512;
-	description.height = 512;
-	description.imageFormat = VK_FORMAT_R16G16_SFLOAT;
-	description.imageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
-	description.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-	description.sampler_address_mode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-	description.is_cube = false;
-	create_screen_texture(RENDER_TARGET_BRDF_LUT, VK_FORMAT_R16G16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT,
-						  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, "IBL BRDF LUT Image", false, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
 }
 
 void Renderer::ensureDescriptorsAllocated(DescriptorLayout descriptor_layout, size_t descriptor_hash, size_t offset)

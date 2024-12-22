@@ -5,6 +5,9 @@
 #include "Mesh.h"
 #include "RHI/Texture.h"
 #include "Camera.h"
+#include "FrameGraph/FrameGraphData.h"
+#include "FrameGraph/FrameGraphRHIResources.h"
+#include "FrameGraph/FrameGraphUtils.h"
 
 enum SKY_MODE
 {
@@ -16,10 +19,9 @@ class SkyRenderer: public RendererBase
 {
 public:
 	SkyRenderer();
-	virtual ~SkyRenderer();
 
-	void renderCubemap(CommandBuffer &command_buffer);
-	void fillCommandBuffer(CommandBuffer &command_buffer) override;
+	void addProceduralPasses(FrameGraph &fg);
+	void addCompositePasses(FrameGraph &fg);
 	void renderImgui();
 
 	void setMode(SKY_MODE mode);
@@ -41,5 +43,7 @@ private:
 	SKY_MODE mode;
 
 	Uniforms prev_uniform;
+
+	bool is_force_dirty = false;
 };
 

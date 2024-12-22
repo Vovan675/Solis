@@ -75,5 +75,4 @@ void HierarchyPanel::renderImGui(EditorContext &context)
 
 	ImGui::End();
 
-	ImGui::End();
 }

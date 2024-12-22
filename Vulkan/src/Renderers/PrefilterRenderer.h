@@ -5,6 +5,8 @@
 #include "Mesh.h"
 #include "RHI/Texture.h"
 #include "Camera.h"
+#include "FrameGraph/FrameGraph.h"
+#include "FrameGraph/FrameGraphRHIResources.h"
 
 class PrefilterRenderer: public RendererBase
 {
@@ -16,10 +18,10 @@ public:
 
 	PrefilterRenderer();
 
-	void fillCommandBuffer(CommandBuffer &command_buffer) override;
+	void addPass(FrameGraph &fg);
 
-	std::shared_ptr<Texture> output_prefilter_texture;
-	std::shared_ptr<Texture> cube_texture;
+	std::shared_ptr<Texture> prefilter_texture;
+
 private:
 	std::shared_ptr<Shader> compute_shader;
 };

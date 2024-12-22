@@ -5,6 +5,8 @@
 #include "RHI/Texture.h"
 #include "Camera.h"
 #include "RHI/Descriptors.h"
+#include "FrameGraph/FrameGraphRHIResources.h"
+#include "FrameGraph/FrameGraphData.h"
 
 class SSAORenderer: public RendererBase
 {
@@ -27,7 +29,7 @@ public:
 
 	SSAORenderer();
 
-	void fillCommandBuffer(CommandBuffer &command_buffer) override;
+	void addPasses(FrameGraph &fg);
 
 	void renderImgui();
 private:

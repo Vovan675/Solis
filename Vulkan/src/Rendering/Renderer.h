@@ -12,25 +12,7 @@
 
 enum RENDER_TARGETS
 {
-	RENDER_TARGET_GBUFFER_ALBEDO,
-	RENDER_TARGET_GBUFFER_NORMAL,
-	RENDER_TARGET_GBUFFER_DEPTH_STENCIL,
-	RENDER_TARGET_GBUFFER_SHADING, // R - metalness, G - roughness, B - specular, A - ?
-
-	RENDER_TARGET_RAY_TRACED_LIGHTING,
-
-	RENDER_TARGET_LIGHTING_DIFFUSE,
-	RENDER_TARGET_LIGHTING_SPECULAR,
-
-	RENDER_TARGET_SSAO_RAW,
-	RENDER_TARGET_SSAO,
-
-	RENDER_TARGET_COMPOSITE,
 	RENDER_TARGET_FINAL,
-
-	RENDER_TARGET_IBL_IRRADIANCE,
-	RENDER_TARGET_IBL_PREFILER,
-	RENDER_TARGET_BRDF_LUT,
 
 	RENDER_TARGET_TEXTURES_COUNT
 };
@@ -109,20 +91,20 @@ public:
 	static CommandBuffer &getCurrentCommandBuffer() { return VkWrapper::command_buffers[current_frame_in_flight]; }
 	static int getCurrentFrameInFlight() { return current_frame_in_flight; }
 	static int getCurrentImageIndex() { return current_image_index; }
-	static int getCurrentFrame() { return current_frame; }
+	static uint32_t getCurrentFrame() { return current_frame; }
 
 	static void deleteResource(RESOURCE_TYPE type, void *resource) { deletion_queue[current_frame_in_flight].push_back(std::make_pair(type, resource)); }
 
 	static void addDrawCalls(size_t count) { debug_info.drawcalls += count; }
 	static void addDebugTime(uint32_t index, std::string name) { debug_info.times.push_back({index, name}); }
 private:
-	static void recreateDefaultResources();
 	static void ensureDescriptorsAllocated(DescriptorLayout descriptor_layout, size_t descriptor_hash, size_t offset);
 	
 	static RendererDebugInfo debug_info;
 
+public: // TODO: revert
 	static std::array<std::shared_ptr<Texture>, RENDER_TARGET_TEXTURES_COUNT> screen_resources;
-
+private:
 	struct PerFrameDescriptor
 	{
 		std::vector<VkDescriptorSet> descriptor_per_offset;

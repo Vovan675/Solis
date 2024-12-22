@@ -10,6 +10,7 @@ GlobalPipeline::GlobalPipeline()
 GlobalPipeline::~GlobalPipeline()
 {
 	cached_pipelines.clear();
+	current_pipeline = nullptr;
 }
 
 void GlobalPipeline::reset()

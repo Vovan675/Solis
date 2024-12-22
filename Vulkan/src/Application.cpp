@@ -6,6 +6,7 @@
 #include "Scene/Scene.h"
 #include "GLFW/glfw3native.h"
 #include "RHI/GPUResourceManager.h"
+#include "FrameGraph/TransientResources.h"
 
 #ifndef DWMWA_USE_IMMERSIVE_DARK_MODE
 #define DWMWA_USE_IMMERSIVE_DARK_MODE 20
@@ -60,10 +61,11 @@ void Application::run()
 		uint32_t image_index;
 		VkResult result = vkAcquireNextImageKHR(VkWrapper::device->logicalHandle, VkWrapper::swapchain->swapchain_handle, UINT64_MAX, imageAvailableSemaphores[current_frame], VK_NULL_HANDLE, &image_index);
 
-		Renderer::beginFrame(current_frame, image_index);
-
-		BindlessResources::updateSets();
 		update(delta_seconds);
+
+		Renderer::beginFrame(current_frame, image_index);
+		BindlessResources::updateSets();
+		TransientResources::update();
 		updateBuffers(delta_seconds);
 
 		// Record commands
@@ -153,6 +155,7 @@ void Application::cleanup()
 	Scene::closeScene();
 	vkDeviceWaitIdle(VkWrapper::device->logicalHandle);
 	AssetManager::shutdown();
+	TransientResources::cleanup();
 	cleanupResources();
 	cleanup_swapchain();
 	BindlessResources::cleanup();
@@ -160,6 +163,10 @@ void Application::cleanup()
 	Renderer::shutdown();
 	gpu_resource_manager.cleanup();
 	Renderer::deleteResources(Renderer::getCurrentFrameInFlight()); // TODO: investigate why needed after, why there is twice deletion of the same
+	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+	{
+		Renderer::deleteResources(i); // TODO: investigate why needed after, why there is twice deletion of the same
+	}
 	VkWrapper::shutdown();
 
 	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)

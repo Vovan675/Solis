@@ -5,6 +5,7 @@
 #include <yaml-cpp/yaml.h>
 #include "Assets/Asset.h"
 #include "GPUResourceManager.h"
+#include "EngineMath.h"
 
 struct TextureDescription
 {
@@ -20,6 +21,25 @@ struct TextureDescription
 	VkSamplerAddressMode sampler_address_mode = VK_SAMPLER_ADDRESS_MODE_REPEAT;
 	VkFilter filtering = VK_FILTER_LINEAR;
 	bool anisotropy = false;
+
+	size_t getHash() const
+	{
+		size_t hash = 0;
+		Engine::Math::hash_combine(hash, is_cube);
+		Engine::Math::hash_combine(hash, width);
+		Engine::Math::hash_combine(hash, height);
+		Engine::Math::hash_combine(hash, mipLevels);
+		Engine::Math::hash_combine(hash, arrayLevels);
+		Engine::Math::hash_combine(hash, numSamples);
+		Engine::Math::hash_combine(hash, imageFormat);
+		Engine::Math::hash_combine(hash, imageAspectFlags);
+		Engine::Math::hash_combine(hash, imageUsageFlags);
+		Engine::Math::hash_combine(hash, sampler_address_mode);
+		Engine::Math::hash_combine(hash, filtering);
+		Engine::Math::hash_combine(hash, anisotropy);
+		
+		return hash;
+	}
 };
 
 class CommandBuffer;
@@ -83,10 +103,12 @@ public:
 	std::weak_ptr<TextureResource> getRawResource() { return resource; }
 
 	std::string getPath() const { return path; }
+	const TextureDescription &getDescription() const { return m_Description; }
 	uint32_t getWidth(int mip = 0) const { return m_Description.width >> mip; }
 	uint32_t getHeight(int mip = 0) const { return m_Description.height >> mip; }
 
 	void setDebugName(const char *name);
+	std::string getDebugName() const { return debug_name; };
 
 	void transitLayout(CommandBuffer &command_buffer, TextureLayoutType new_layout_type, int mip = -1);
 	
@@ -122,4 +144,5 @@ private:
 	TextureDescription m_Description;
 	std::vector<TextureLayoutType> current_layouts; // Image layouts for each mip map
 	std::string path = "";
+	std::string debug_name = "";
 };

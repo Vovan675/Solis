@@ -12,20 +12,63 @@ PostProcessingRenderer::~PostProcessingRenderer()
 {
 }
 
-void PostProcessingRenderer::fillCommandBuffer(CommandBuffer &command_buffer)
+void PostProcessingRenderer::addPasses(FrameGraph &fg)
 {
-	ubo.composite_final_tex_id = Renderer::getRenderTargetBindlessId(RENDER_TARGET_COMPOSITE);
+	auto &composite_data = fg.getBlackboard().get<CompositeData>();
+	auto &default_data = fg.getBlackboard().get<DefaultResourcesData>();
 
-	auto &p = VkWrapper::global_pipeline;
-	p->bindScreenQuadPipeline(command_buffer, Shader::create("shaders/post_processing.frag", Shader::FRAGMENT_SHADER));
+	default_data = fg.addCallbackPass<DefaultResourcesData>("Post Processing Pass",
+	[&](RenderPassBuilder &builder, DefaultResourcesData &data)
+	{
+		// Setup
+		data = default_data;
+		FrameGraphTexture::Description desc;
+		desc.width = Renderer::getViewportSize().x;
+		desc.height = Renderer::getViewportSize().y;
 
-	// Uniforms
-	Renderer::setShadersUniformBuffer(p->getCurrentShaders(), 0, &ubo, sizeof(UBO));
-	Renderer::bindShadersDescriptorSets(p->getCurrentShaders(), command_buffer, p->getPipelineLayout());
+		auto create_screen_texture = [&desc, &builder](VkFormat format, VkImageAspectFlags aspect_flags, VkImageUsageFlags usage_flags, const char *name = nullptr, bool anisotropy = false, VkSamplerAddressMode sampler_address_mode = VK_SAMPLER_ADDRESS_MODE_REPEAT)
+		{
+			desc.debug_name = name;
+			desc.imageFormat = format;
+			desc.imageAspectFlags = aspect_flags;
+			desc.imageUsageFlags = usage_flags;
+			desc.sampler_address_mode = sampler_address_mode;
+			desc.anisotropy = anisotropy;
 
-	vkCmdDraw(command_buffer.get_buffer(), 6, 1, 0, 0);
+			return builder.createResource<FrameGraphTexture>(name, desc);
+		};
 
-	p->unbind(command_buffer);
+		auto swapchain_format = VkWrapper::swapchain->surface_format.format;
+		data.final = create_screen_texture(swapchain_format, VK_IMAGE_ASPECT_COLOR_BIT,
+										   VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, "Final Image");
+		data.final = builder.write(data.final);
+
+		builder.read(composite_data.composite);
+	},
+	[=](const DefaultResourcesData &data, const RenderPassResources &resources, CommandBuffer &command_buffer)
+	{
+		// Render
+		auto &final = resources.getResource<FrameGraphTexture>(data.final);
+
+		Renderer::screen_resources[RENDER_TARGET_FINAL] = final.texture;
+
+		VkWrapper::cmdBeginRendering(command_buffer, {final.texture}, nullptr);
+
+		ubo.composite_final_tex_id = resources.getResource<FrameGraphTexture>(composite_data.composite).getBindlessId();
+
+		auto &p = VkWrapper::global_pipeline;
+		p->bindScreenQuadPipeline(command_buffer, Shader::create("shaders/post_processing.frag", Shader::FRAGMENT_SHADER));
+
+		// Uniforms
+		Renderer::setShadersUniformBuffer(p->getCurrentShaders(), 0, &ubo, sizeof(UBO));
+		Renderer::bindShadersDescriptorSets(p->getCurrentShaders(), command_buffer, p->getPipelineLayout());
+
+		vkCmdDraw(command_buffer.get_buffer(), 6, 1, 0, 0);
+
+		p->unbind(command_buffer);
+
+		VkWrapper::cmdEndRendering(command_buffer);
+	});
 }
 
 void PostProcessingRenderer::renderImgui()

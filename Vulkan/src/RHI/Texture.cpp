@@ -26,12 +26,25 @@ void Texture::cleanup()
 	resource->destroy();
 }
 
+static uint32_t FindMemoryTypeMy(uint32_t typeFilter, VkMemoryPropertyFlags properties) {
+	VkPhysicalDeviceMemoryProperties memProperties;
+	vkGetPhysicalDeviceMemoryProperties(VkWrapper::device->physicalHandle, &memProperties);
+
+	for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
+		if ((typeFilter & (1 << i)) &&
+			(memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
+			return i;
+		}
+	}
+
+	throw std::runtime_error("Failed to find suitable memory type!");
+}
+
 void Texture::fill()
 {
 	cleanup();
 	if (m_Description.is_cube == false)
 	{
-		VkDeviceSize imageSize = m_Description.width * m_Description.height * get_bytes_per_channel() * get_channels_count();
 		VkImageCreateInfo imageInfo{};
 		imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
 		imageInfo.imageType = VK_IMAGE_TYPE_2D;
@@ -57,7 +70,6 @@ void Texture::fill()
 		create_sampler();
 	} else
 	{
-		VkDeviceSize imageSize = m_Description.width * m_Description.height * get_bytes_per_channel() * get_channels_count() * 6;
 		VkImageCreateInfo imageInfo{};
 		imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
 		imageInfo.imageType = VK_IMAGE_TYPE_2D;
@@ -296,6 +308,7 @@ void Texture::fill_raw(VkImage image)
 
 void Texture::setDebugName(const char *name)
 {
+	debug_name = name;
 	VkUtils::setDebugName(VK_OBJECT_TYPE_IMAGE, (uint64_t)resource->imageHandle, name);
 }
 

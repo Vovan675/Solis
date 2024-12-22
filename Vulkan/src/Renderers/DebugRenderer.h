@@ -5,7 +5,8 @@
 #include "RHI/Texture.h"
 #include "Camera.h"
 #include "RHI/Descriptors.h"
-
+#include "FrameGraph/FrameGraphData.h"
+#include "FrameGraph/FrameGraphRHIResources.h"
 
 class DebugRenderer : public RendererBase
 {
@@ -27,8 +28,8 @@ public:
 	DebugRenderer();
 	virtual ~DebugRenderer();
 
-	void fillCommandBuffer(CommandBuffer &command_buffer) override;
-	void renderLines(CommandBuffer &command_buffer);
+	void addPasses(FrameGraph &fg);
+	void renderLines(FrameGraph &fg);
 
 	void addLine(glm::vec3 p0, glm::vec3 p1)
 	{

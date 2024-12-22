@@ -16,11 +16,6 @@ EntityRenderer::~EntityRenderer()
 {
 }
 
-void EntityRenderer::fillCommandBuffer(CommandBuffer &command_buffer)
-{
-
-}
- 
 void EntityRenderer::renderEntity(CommandBuffer &command_buffer, Entity entity)
 {
 	render_entity(command_buffer, entity);

@@ -88,6 +88,7 @@ struct LightComponent
 			description.filtering = VK_FILTER_NEAREST;
 			shadow_map = Texture::create(description);
 			shadow_map->fill();
+			shadow_map->setDebugName("Cube Shadow Map");
 		} else if (type == LIGHT_TYPE_DIRECTIONAL)
 		{
 			TextureDescription description;
@@ -103,6 +104,7 @@ struct LightComponent
 			description.sampler_address_mode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
 			shadow_map = Texture::create(description);
 			shadow_map->fill();
+			shadow_map->setDebugName("Cascaded Shadow Map");
 		}
 	}
 
@@ -118,6 +120,7 @@ private:
 	LIGHT_TYPE type = LIGHT_TYPE_POINT;
 	friend class EditorApplication;
 	friend class DefferedLightingRenderer;
+	friend class ShadowRenderer;
 	struct CascadeData
 	{
 		glm::mat4 viewProjMatrix;

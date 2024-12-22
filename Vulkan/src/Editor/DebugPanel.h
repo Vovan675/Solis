@@ -14,10 +14,10 @@ public:
 	void renderImGui(EditorContext context);
 
 	// TODO: make ability from inside renderers add them to debug panel settings
-	std::shared_ptr<SkyRenderer> sky_renderer;
-	std::shared_ptr<DefferedLightingRenderer> defferred_lighting_renderer;
-	std::shared_ptr<PostProcessingRenderer> post_renderer;
-	std::shared_ptr<DebugRenderer> debug_renderer;
-	std::shared_ptr<SSAORenderer> ssao_renderer;
+	SkyRenderer *sky_renderer;
+	DefferedLightingRenderer *defferred_lighting_renderer;
+	PostProcessingRenderer *post_renderer;
+	DebugRenderer *debug_renderer;
+	SSAORenderer *ssao_renderer;
 private:
 };

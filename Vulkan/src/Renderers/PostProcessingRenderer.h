@@ -5,7 +5,8 @@
 #include "RHI/Texture.h"
 #include "Camera.h"
 #include "RHI/Descriptors.h"
-
+#include "FrameGraph/FrameGraphData.h"
+#include "FrameGraph/FrameGraphRHIResources.h"
 
 class PostProcessingRenderer: public RendererBase
 {
@@ -21,7 +22,7 @@ public:
 	PostProcessingRenderer();
 	virtual ~PostProcessingRenderer();
 
-	void fillCommandBuffer(CommandBuffer &command_buffer) override;
+	void addPasses(FrameGraph &fg);
 
 	void renderImgui();
 private:

@@ -38,60 +38,115 @@ DebugRenderer::~DebugRenderer()
 {
 }
 
-void DebugRenderer::fillCommandBuffer(CommandBuffer &command_buffer)
+void DebugRenderer::addPasses(FrameGraph &fg)
 {
-	ubo.albedo_tex_id = Renderer::getRenderTargetBindlessId(RENDER_TARGET_GBUFFER_ALBEDO);
-	ubo.shading_tex_id = Renderer::getRenderTargetBindlessId(RENDER_TARGET_GBUFFER_SHADING);
-	ubo.normal_tex_id = Renderer::getRenderTargetBindlessId(RENDER_TARGET_GBUFFER_NORMAL);
-	ubo.depth_tex_id = Renderer::getRenderTargetBindlessId(RENDER_TARGET_GBUFFER_DEPTH_STENCIL);
-	ubo.light_diffuse_id = Renderer::getRenderTargetBindlessId(RENDER_TARGET_LIGHTING_DIFFUSE);
-	ubo.light_specular_id = Renderer::getRenderTargetBindlessId(RENDER_TARGET_LIGHTING_SPECULAR);
-	ubo.brdf_lut_id = Renderer::getRenderTargetBindlessId(RENDER_TARGET_BRDF_LUT);
-	ubo.ssao_id = Renderer::getRenderTargetBindlessId(RENDER_TARGET_SSAO);
-	ubo.composite_final_tex_id = Renderer::getRenderTargetBindlessId(RENDER_TARGET_COMPOSITE);
+	auto &gbuffer_data = fg.getBlackboard().get<GBufferData>();
+	auto &lighting_data = fg.getBlackboard().get<DefferedLightingData>();
+	auto &ssao_data = fg.getBlackboard().get<SSAOData>();
+	auto &composite_data = fg.getBlackboard().get<CompositeData>();
+	auto &lut_data = fg.getBlackboard().get<LutData>();
 
-	auto &p = VkWrapper::global_pipeline;
-	p->bindScreenQuadPipeline(command_buffer, Shader::create("shaders/debug_quad.frag", Shader::FRAGMENT_SHADER));
+	auto &default_data = fg.getBlackboard().get<DefaultResourcesData>();
 
-	// Uniforms
-	Renderer::setShadersUniformBuffer(p->getCurrentShaders(), 0, &ubo, sizeof(PresentUBO));
-	Renderer::bindShadersDescriptorSets(p->getCurrentShaders(), command_buffer, p->getPipelineLayout());
+	default_data = fg.addCallbackPass<DefaultResourcesData>("Debug Pass",
+	[&](RenderPassBuilder &builder, DefaultResourcesData &data)
+	{
+		// Setup
+		data = default_data;
+		data.final = builder.write(default_data.final);
 
-	// Render quad
-	vkCmdDraw(command_buffer.get_buffer(), 6, 1, 0, 0);
+		builder.read(gbuffer_data.albedo);
+		builder.read(gbuffer_data.normal);
+		builder.read(gbuffer_data.depth);
+		builder.read(gbuffer_data.shading);
+		builder.read(lighting_data.diffuse_light);
+		builder.read(lighting_data.specular_light);
+		builder.read(lut_data.brdf_lut);
+		builder.read(ssao_data.ssao_blurred);
+		builder.read(composite_data.composite);
+	},
+	[=](const DefaultResourcesData &data, const RenderPassResources &resources, CommandBuffer &command_buffer)
+	{
+		// Render
+		auto &final = resources.getResource<FrameGraphTexture>(data.final);
 
-	p->unbind(command_buffer);
+		VkWrapper::cmdBeginRendering(command_buffer, {final.texture}, nullptr);
+
+		ubo.albedo_tex_id = resources.getResource<FrameGraphTexture>(gbuffer_data.albedo).getBindlessId();
+		ubo.shading_tex_id = resources.getResource<FrameGraphTexture>(gbuffer_data.shading).getBindlessId();
+		ubo.normal_tex_id = resources.getResource<FrameGraphTexture>(gbuffer_data.normal).getBindlessId();
+		ubo.depth_tex_id = resources.getResource<FrameGraphTexture>(gbuffer_data.depth).getBindlessId();
+		ubo.light_diffuse_id = resources.getResource<FrameGraphTexture>(lighting_data.diffuse_light).getBindlessId();
+		ubo.light_specular_id = resources.getResource<FrameGraphTexture>(lighting_data.specular_light).getBindlessId();
+		ubo.brdf_lut_id = resources.getResource<FrameGraphTexture>(lut_data.brdf_lut).getBindlessId();
+		ubo.ssao_id = resources.getResource<FrameGraphTexture>(ssao_data.ssao_blurred).getBindlessId();
+		ubo.composite_final_tex_id = resources.getResource<FrameGraphTexture>(composite_data.composite).getBindlessId();
+
+		auto &p = VkWrapper::global_pipeline;
+		p->bindScreenQuadPipeline(command_buffer, Shader::create("shaders/debug_quad.frag", Shader::FRAGMENT_SHADER));
+
+		// Uniforms
+		Renderer::setShadersUniformBuffer(p->getCurrentShaders(), 0, &ubo, sizeof(PresentUBO));
+		Renderer::bindShadersDescriptorSets(p->getCurrentShaders(), command_buffer, p->getPipelineLayout());
+
+		// Render quad
+		vkCmdDraw(command_buffer.get_buffer(), 6, 1, 0, 0);
+
+		p->unbind(command_buffer);
+
+		VkWrapper::cmdEndRendering(command_buffer);
+	});
 }
 
-void DebugRenderer::renderLines(CommandBuffer &command_buffer)
+void DebugRenderer::renderLines(FrameGraph &fg)
 {
-	auto &p = VkWrapper::global_pipeline;
-	p->reset();
+	auto &default_data = fg.getBlackboard().get<DefaultResourcesData>();
 
-	p->setVertexShader(vertex_shader_lines);
-	p->setFragmentShader(fragment_shader_lines);
+	default_data = fg.addCallbackPass<DefaultResourcesData>("Debug Visualizer Pass",
+	[&](RenderPassBuilder &builder, DefaultResourcesData &data)
+	{
+		// Setup
+		data = default_data;
+		data.final = builder.write(default_data.final);
+		builder.setSideEffect(true);
+	},
+	[=](const DefaultResourcesData &data, const RenderPassResources &resources, CommandBuffer &command_buffer)
+	{
+		// Render
+		auto &final = resources.getResource<FrameGraphTexture>(data.final);
 
-	p->setRenderTargets(VkWrapper::current_render_targets);
-	p->setUseBlending(false);
-	p->setPrimitiveTopology(VK_PRIMITIVE_TOPOLOGY_LINE_LIST);
-	p->setDepthTest(false);
-	p->setCullMode(VK_CULL_MODE_NONE);
+		VkWrapper::cmdBeginRendering(command_buffer, {final.texture}, nullptr, -1, 0, false);
 
-	p->flush();
-	p->bind(command_buffer);
+		auto &p = VkWrapper::global_pipeline;
+		p->reset();
 
-	// Uniforms
-	Renderer::bindShadersDescriptorSets(p->getCurrentShaders(), command_buffer, p->getPipelineLayout());
+		p->setVertexShader(vertex_shader_lines);
+		p->setFragmentShader(fragment_shader_lines);
 
-	VkBuffer vertexBuffers[] = {lines_vertex_buffer->bufferHandle};
-	VkDeviceSize offsets[] = {0};
-	vkCmdBindVertexBuffers(command_buffer.get_buffer(), 0, 1, vertexBuffers, offsets);
-	vkCmdBindIndexBuffer(command_buffer.get_buffer(), lines_index_buffer->bufferHandle, 0, VK_INDEX_TYPE_UINT32);
-	vkCmdDrawIndexed(command_buffer.get_buffer(), lines_index_count, 1, 0, 0, 0);
+		p->setRenderTargets(VkWrapper::current_render_targets);
+		p->setUseBlending(false);
+		p->setPrimitiveTopology(VK_PRIMITIVE_TOPOLOGY_LINE_LIST);
+		p->setDepthTest(false);
+		p->setCullMode(VK_CULL_MODE_NONE);
 
-	p->unbind(command_buffer);
+		p->flush();
+		p->bind(command_buffer);
 
-	lines_index_count = 0;
+		// Uniforms
+		Renderer::bindShadersDescriptorSets(p->getCurrentShaders(), command_buffer, p->getPipelineLayout());
+
+		VkBuffer vertexBuffers[] = {lines_vertex_buffer->bufferHandle};
+		VkDeviceSize offsets[] = {0};
+		vkCmdBindVertexBuffers(command_buffer.get_buffer(), 0, 1, vertexBuffers, offsets);
+		vkCmdBindIndexBuffer(command_buffer.get_buffer(), lines_index_buffer->bufferHandle, 0, VK_INDEX_TYPE_UINT32);
+		vkCmdDrawIndexed(command_buffer.get_buffer(), lines_index_count, 1, 0, 0, 0);
+
+		p->unbind(command_buffer);
+
+		lines_index_count = 0;
+
+		VkWrapper::cmdEndRendering(command_buffer);
+	});
 }
 
 void DebugRenderer::addBoundBox(BoundBox bbox)

@@ -23,8 +23,8 @@ public:
 		//entity.addComponent<LightComponent>();
 
 		Entity light = Scene::getCurrentScene()->createEntity("Point Light");
-		//light.getTransform().setTransform(glm::eulerAngleXYX(3.14 / 4.0, 3.14 / 4.0, 0.0));
-		light.getTransform().setTransform(glm::eulerAngleXYX(3.14 / 2.0f, 0.01, 0.0));
+		light.getTransform().setTransform(glm::eulerAngleXYX(3.14 / 4.0, 3.14 / 4.0, 0.0));
+		//light.getTransform().setTransform(glm::eulerAngleXYX(3.14 / 2.0f, 0.01, 0.0));
 		auto &light_component = light.addComponent<LightComponent>();
 		light_component.setType(LIGHT_TYPE_DIRECTIONAL);
 		light_component.color = glm::vec3(253.0f / 255, 251.0f / 255, 211.0f / 255);

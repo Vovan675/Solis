@@ -166,7 +166,7 @@ public:
 		VkImage image, VkImageAspectFlags aspect_mask,
 		int level_count = 1, int layer_count = 1,
 		int base_level = 0, int base_layer = 0);
-	static void cmdBeginRendering(CommandBuffer &command_buffer, const std::vector<std::shared_ptr<Texture>> &color_attachments, std::shared_ptr<Texture> depth_attachment, int layer = -1, int mip = 0);
+	static void cmdBeginRendering(CommandBuffer &command_buffer, const std::vector<std::shared_ptr<Texture>> &color_attachments, std::shared_ptr<Texture> depth_attachment, int layer = -1, int mip = 0, bool clear = true);
 	static void cmdEndRendering(CommandBuffer &command_buffer);
 
 	static size_t getShadersHash(std::vector<std::shared_ptr<Shader>> shaders);
