@@ -36,7 +36,7 @@ void Buffer::destroy()
 	{
 		if (is_mapped)
 			vmaUnmapMemory(VkWrapper::allocator, allocation);
-		Renderer::deleteResource(RESOURCE_TYPE_MEMORY, allocation);
+		Renderer::deleteResource(RESOURCE_TYPE_MEMORY, allocation); // TODO: hungs inside acceleration structure (TLAS) creation
 		allocation = nullptr;
 	}
 

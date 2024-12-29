@@ -155,7 +155,7 @@ void EditorApplication::recordCommands(CommandBuffer &command_buffer)
 	default_data.final = importTexture(frameGraph, Renderer::getRenderTarget(RENDER_TARGET_FINAL));
 	default_data.backbuffer = importTexture(frameGraph, VkWrapper::swapchain->swapchain_textures[Renderer::getCurrentImageIndex()]);
 
-	if (engine_ray_tracing && render_ray_traced_shadows)
+	if (engine_ray_tracing)
 		ray_tracing_scene->update();
 
 	bool is_sky_dirty = sky_renderer.isDirty();
@@ -248,4 +248,6 @@ void EditorApplication::recordCommands(CommandBuffer &command_buffer)
 void EditorApplication::cleanupResources()
 {
 	ImGuiWrapper::shutdown();
+	shadow_renderer.ray_tracing_scene = nullptr;
+	ray_tracing_scene = nullptr;
 }

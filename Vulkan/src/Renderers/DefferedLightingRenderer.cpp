@@ -75,7 +75,7 @@ void DefferedLightingRenderer::renderLights(FrameGraph &fg)
 
 		if (engine_ray_tracing && render_ray_traced_shadows && render_shadows && ray_traced_shadow_data)
 		{
-			builder.read(ray_traced_shadow_data->visiblity);
+			builder.read(ray_traced_shadow_data->visibility);
 		}
 	},
 	[=](const DefferedLightingData &data, const RenderPassResources &resources, CommandBuffer &command_buffer)
@@ -133,7 +133,7 @@ void DefferedLightingRenderer::renderLights(FrameGraph &fg)
 
 			if (light_component)
 			{
-				auto &visibility = resources.getResource<FrameGraphTexture>(ray_traced_shadow_data->visiblity);
+				auto &visibility = resources.getResource<FrameGraphTexture>(ray_traced_shadow_data->visibility);
 
 				p->setVertexShader(Shader::create("shaders/lighting/deffered_lighting.vert", Shader::VERTEX_SHADER));
 				p->setFragmentShader(Shader::create("shaders/lighting/deffered_lighting.frag", Shader::FRAGMENT_SHADER, {{"RAY_TRACED_SHADOWS", "1"}, {"USE_SHADOWS", render_shadows ? "1" : "0"}}));

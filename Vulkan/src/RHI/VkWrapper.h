@@ -9,6 +9,7 @@
 #include "RHI/Texture.h"
 #include "Rendering/GlobalPipeline.h"
 #include "RHI/CommandBuffer.h"
+#include "RHI/VkUtils.h"
 
 static const int MAX_FRAMES_IN_FLIGHT = 2;
 
@@ -51,11 +52,10 @@ public:
 
 	static VkDeviceAddress getBufferDeviceAddress(VkBuffer buffer)
 	{
-		auto vkGetBufferDeviceAddressKHR = reinterpret_cast<PFN_vkGetBufferDeviceAddressKHR>(vkGetDeviceProcAddr(VkWrapper::device->logicalHandle, "vkGetBufferDeviceAddressKHR"));
 		VkBufferDeviceAddressInfoKHR bufferDeviceAI{};
 		bufferDeviceAI.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
 		bufferDeviceAI.buffer = buffer;
-		return vkGetBufferDeviceAddressKHR(VkWrapper::device->logicalHandle, &bufferDeviceAI);
+		return VkUtils::vkGetBufferDeviceAddressKHR(&bufferDeviceAI);
 	};
 
 	static VkCommandBuffer beginSingleTimeCommands();

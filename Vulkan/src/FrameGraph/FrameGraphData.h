@@ -55,7 +55,7 @@ struct CascadeShadowPass
 
 struct RayTracedShadowPass
 {
-	FrameGraphResource visiblity;
+	FrameGraphResource visibility;
 };
 
 struct ShadowPasses

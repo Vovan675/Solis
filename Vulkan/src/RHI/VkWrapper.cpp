@@ -57,6 +57,9 @@ void VkWrapper::shutdown()
 	vmaBuildStatsString(allocator, &str, true);
 
 	vmaDestroyAllocator(allocator);
+
+	device = nullptr;
+	vkDestroyInstance(VkWrapper::instance, nullptr);
 }
 
 void VkWrapper::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, VkDeviceSize dst_offset)
@@ -328,15 +331,19 @@ DescriptorLayout VkWrapper::getDescriptorLayout(std::vector<std::shared_ptr<Shad
 
 void VkWrapper::init_instance()
 {
-	uint32_t extensionsCount = 0;
-	const char **extensionsName = glfwGetRequiredInstanceExtensions(&extensionsCount);
-
 	std::vector<const char *> extensions;
+	// Needed extensions
 	extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 
-	for (int i = 0; i < extensionsCount; i++)
-		extensions.push_back(extensionsName[i]);
+	// GLFW extensions
+	{
+		uint32_t extensions_count = 0;
+		const char **extensions_name = glfwGetRequiredInstanceExtensions(&extensions_count);
+		for (int i = 0; i < extensions_count; i++)
+			extensions.push_back(extensions_name[i]);
+	}
 
+	// Instance creation
 	VkApplicationInfo appInfo{};
 	appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
 	appInfo.pApplicationName = "Vulkan Application";

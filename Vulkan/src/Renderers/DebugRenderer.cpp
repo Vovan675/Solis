@@ -45,6 +45,7 @@ void DebugRenderer::addPasses(FrameGraph &fg)
 	auto &ssao_data = fg.getBlackboard().get<SSAOData>();
 	auto &composite_data = fg.getBlackboard().get<CompositeData>();
 	auto &lut_data = fg.getBlackboard().get<LutData>();
+	auto *ray_tracing_shadows_data = fg.getBlackboard().tryGet<RayTracedShadowPass>();
 
 	auto &default_data = fg.getBlackboard().get<DefaultResourcesData>();
 
@@ -64,6 +65,8 @@ void DebugRenderer::addPasses(FrameGraph &fg)
 		builder.read(lut_data.brdf_lut);
 		builder.read(ssao_data.ssao_blurred);
 		builder.read(composite_data.composite);
+		if (ray_tracing_shadows_data)
+			builder.read(ray_tracing_shadows_data->visibility);
 	},
 	[=](const DefaultResourcesData &data, const RenderPassResources &resources, CommandBuffer &command_buffer)
 	{
@@ -81,6 +84,9 @@ void DebugRenderer::addPasses(FrameGraph &fg)
 		ubo.brdf_lut_id = resources.getResource<FrameGraphTexture>(lut_data.brdf_lut).getBindlessId();
 		ubo.ssao_id = resources.getResource<FrameGraphTexture>(ssao_data.ssao_blurred).getBindlessId();
 		ubo.composite_final_tex_id = resources.getResource<FrameGraphTexture>(composite_data.composite).getBindlessId();
+
+		if (ray_tracing_shadows_data)
+			ubo.light_diffuse_id = resources.getResource<FrameGraphTexture>(ray_tracing_shadows_data->visibility).getBindlessId(); // TODO: revert
 
 		auto &p = VkWrapper::global_pipeline;
 		p->bindScreenQuadPipeline(command_buffer, Shader::create("shaders/debug_quad.frag", Shader::FRAGMENT_SHADER));

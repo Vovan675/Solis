@@ -166,7 +166,6 @@ void Application::cleanup()
 	{
 		Renderer::deleteResources(i); // TODO: investigate why needed after, why there is twice deletion of the same
 	}
-	VkWrapper::shutdown();
 
 	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
@@ -174,8 +173,7 @@ void Application::cleanup()
 		vkDestroySemaphore(VkWrapper::device->logicalHandle, renderFinishedSemaphores[i], nullptr);
 	}
 
-	VkWrapper::device = nullptr;
-	vkDestroyInstance(VkWrapper::instance, nullptr);
+	VkWrapper::shutdown();
 
 	glfwDestroyWindow(window);
 	glfwTerminate();

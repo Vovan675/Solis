@@ -9,13 +9,13 @@ public:
 	static void createScene()
 	{
 		// Demo Scene
-		//auto model = AssetManager::getModelAsset("assets/demo_scene.fbx");
+		auto model = AssetManager::getModelAsset("assets/demo_scene.fbx");
 		//auto model = AssetManager::getModelAsset("assets/game/map.fbx");
 		//auto model = AssetManager::getModelAsset("assets/sponza/sponza.obj");
 		//auto model = AssetManager::getModelAsset("assets/new_sponza/NewSponza_Main_Yup_002.fbx");
 		//auto model = AssetManager::getModelAsset("assets/bistro/BistroExterior.fbx");
 		//auto model = AssetManager::getModelAsset("assets/hideout/source/FullSceneSubstance.fbx");
-		auto model = AssetManager::getModelAsset("assets/pbr/source/Ref.fbx");
+		//auto model = AssetManager::getModelAsset("assets/pbr/source/Ref.fbx");
 		//auto model = AssetManager::getModelAsset("assets/level/Isometric_Game_Level_Low_Poly.obj");
 		//model->saveFile("test_model.mesh");
 		//model->loadFile("test_model.mesh");

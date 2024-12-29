@@ -196,15 +196,15 @@ void ShadowRenderer::addRayTracedShadowPasses(FrameGraph & fg)
 		desc.width = Renderer::getViewportSize().x;
 		desc.height = Renderer::getViewportSize().y;
 		desc.image_format = VkWrapper::swapchain->surface_format.format;
-		desc.usage_flags = TEXTURE_USAGE_ATTACHMENT | VK_IMAGE_USAGE_STORAGE_BIT;
+		desc.usage_flags = TEXTURE_USAGE_ATTACHMENT | TEXTURE_USAGE_STORAGE;
 		desc.debug_name = "Ray Traced Lighting Image";
 
-		data.visiblity = builder.createResource<FrameGraphTexture>(desc.debug_name, desc);
-		data.visiblity = builder.write(data.visiblity, TEXTURE_RESOURCE_ACCESS_GENERAL); // was transfer
+		data.visibility = builder.createResource<FrameGraphTexture>(desc.debug_name, desc);
+		data.visibility = builder.write(data.visibility, TEXTURE_RESOURCE_ACCESS_GENERAL); // was transfer
 	},
 	[=](const RayTracedShadowPass &data, const RenderPassResources &resources, CommandBuffer &command_buffer)
 	{
-		auto &visiblity = resources.getResource<FrameGraphTexture>(data.visiblity);
+		auto &visiblity = resources.getResource<FrameGraphTexture>(data.visibility);
 
 		auto p = VkWrapper::global_pipeline;
 		p->reset();
@@ -280,9 +280,8 @@ void ShadowRenderer::addRayTracedShadowPasses(FrameGraph & fg)
 
 		//ray_traced_lighting->transitLayout(command_buffer, TEXTURE_LAYOUT_GENERAL);
 
-		auto vkCmdTraceRaysKHR = reinterpret_cast<PFN_vkCmdTraceRaysKHR>(vkGetDeviceProcAddr(VkWrapper::device->logicalHandle, "vkCmdTraceRaysKHR"));
-		vkCmdTraceRaysKHR(command_buffer.get_buffer(), &raygenShaderSbtEntry, &missShaderSbtEntry, &hitShaderSbtEntry, &callableShaderSbtEntry,
-						  VkWrapper::swapchain->swap_extent.width, VkWrapper::swapchain->swap_extent.height, 1);
+		VkUtils::vkCmdTraceRaysKHR(command_buffer.get_buffer(), &raygenShaderSbtEntry, &missShaderSbtEntry, &hitShaderSbtEntry, &callableShaderSbtEntry,
+						  Renderer::getViewportSize().x, Renderer::getViewportSize().y, 1);
 		p->unbind(command_buffer);
 
 		//ray_traced_lighting->transitLayout(command_buffer, TEXTURE_LAYOUT_TRANSFER_SRC);

@@ -4,19 +4,20 @@
 #include <vector>
 #include "RHI/Buffer.h"
 #include <RHI/VkWrapper.h>
+#include "RHI/VkUtils.h"
 
 class BottomLevelAccelerationStructures
 {
 public:
+	~BottomLevelAccelerationStructures()
+	{
+		for (auto &blas : blases)
+			VkUtils::vkDestroyAccelerationStructureKHR(blas.handle, nullptr);
+	}
+
 	void buildBLAS(std::vector<VkAccelerationStructureGeometryKHR> geometries, std::vector<VkAccelerationStructureBuildRangeInfoKHR> build_range_infos, std::vector<uint32_t> max_primitives_counts)
 	{
 		auto device = VkWrapper::device->logicalHandle;
-		auto vkCmdBuildAccelerationStructuresKHR = reinterpret_cast<PFN_vkCmdBuildAccelerationStructuresKHR>(vkGetDeviceProcAddr(device, "vkCmdBuildAccelerationStructuresKHR"));
-		auto vkBuildAccelerationStructuresKHR = reinterpret_cast<PFN_vkBuildAccelerationStructuresKHR>(vkGetDeviceProcAddr(device, "vkBuildAccelerationStructuresKHR"));
-		auto vkCreateAccelerationStructureKHR = reinterpret_cast<PFN_vkCreateAccelerationStructureKHR>(vkGetDeviceProcAddr(device, "vkCreateAccelerationStructureKHR"));
-		auto vkDestroyAccelerationStructureKHR = reinterpret_cast<PFN_vkDestroyAccelerationStructureKHR>(vkGetDeviceProcAddr(device, "vkDestroyAccelerationStructureKHR"));
-		auto vkGetAccelerationStructureBuildSizesKHR = reinterpret_cast<PFN_vkGetAccelerationStructureBuildSizesKHR>(vkGetDeviceProcAddr(device, "vkGetAccelerationStructureBuildSizesKHR"));
-		auto vkGetAccelerationStructureDeviceAddressKHR = reinterpret_cast<PFN_vkGetAccelerationStructureDeviceAddressKHR>(vkGetDeviceProcAddr(device, "vkGetAccelerationStructureDeviceAddressKHR"));
 
 		// Get size info
 		VkAccelerationStructureBuildGeometryInfoKHR accelerationStructureBuildGeometryInfo{};
@@ -29,8 +30,7 @@ public:
 		VkAccelerationStructureBuildSizesInfoKHR accelerationStructureBuildSizesInfo{};
 		accelerationStructureBuildSizesInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR;
 
-		vkGetAccelerationStructureBuildSizesKHR(
-			VkWrapper::device->logicalHandle,
+		VkUtils::vkGetAccelerationStructureBuildSizesKHR(
 			VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
 			&accelerationStructureBuildGeometryInfo,
 			max_primitives_counts.data(),
@@ -43,15 +43,14 @@ public:
 		accDesc.bufferUsageFlags = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR;
 
 		auto &bottomAS = blases.emplace_back();
-		auto accBuffer = Buffer::create(accDesc);
-		bottomAS.buffer = accBuffer->bufferHandle;
+		bottomAS.buffer = Buffer::create(accDesc);
 
 		VkAccelerationStructureCreateInfoKHR accelerationStructureCreateInfo{};
 		accelerationStructureCreateInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR;
-		accelerationStructureCreateInfo.buffer = bottomAS.buffer;
+		accelerationStructureCreateInfo.buffer = bottomAS.buffer->bufferHandle;
 		accelerationStructureCreateInfo.size = accelerationStructureBuildSizesInfo.accelerationStructureSize;
 		accelerationStructureCreateInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
-		vkCreateAccelerationStructureKHR(VkWrapper::device->logicalHandle, &accelerationStructureCreateInfo, nullptr, &bottomAS.handle);
+		VkUtils::vkCreateAccelerationStructureKHR(&accelerationStructureCreateInfo, nullptr, &bottomAS.handle);
 
 		BufferDescription scratchDesc;
 		scratchDesc.size = VkWrapper::roundUp(accelerationStructureBuildSizesInfo.buildScratchSize, VkWrapper::device->physicalAccelerationStructureProperties.minAccelerationStructureScratchOffsetAlignment);
@@ -59,7 +58,7 @@ public:
 		scratchDesc.useStagingBuffer = true;
 		scratchDesc.bufferUsageFlags = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
 
-		auto scratchBuffer = Buffer::create(scratchDesc);
+		bottomAS.scratch_buffer = Buffer::create(scratchDesc);
 
 		VkAccelerationStructureBuildGeometryInfoKHR accelerationBuildGeometryInfo{};
 		accelerationBuildGeometryInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
@@ -69,7 +68,7 @@ public:
 		accelerationBuildGeometryInfo.dstAccelerationStructure = bottomAS.handle;
 		accelerationBuildGeometryInfo.geometryCount = geometries.size();
 		accelerationBuildGeometryInfo.pGeometries = geometries.data();
-		accelerationBuildGeometryInfo.scratchData.deviceAddress = VkWrapper::getBufferDeviceAddress(scratchBuffer->bufferHandle);
+		accelerationBuildGeometryInfo.scratchData.deviceAddress = VkWrapper::getBufferDeviceAddress(bottomAS.scratch_buffer->bufferHandle);
 
 		std::vector<VkAccelerationStructureBuildRangeInfoKHR *> accelerationBuildStructureRangeInfos{};
 		for (auto &build_range : build_range_infos)
@@ -79,7 +78,7 @@ public:
 		command_buffer.init(true);
 		command_buffer.open();
 
-		vkCmdBuildAccelerationStructuresKHR(command_buffer.get_buffer(), 1, &accelerationBuildGeometryInfo, accelerationBuildStructureRangeInfos.data());
+		VkUtils::vkCmdBuildAccelerationStructuresKHR(command_buffer.get_buffer(), 1, &accelerationBuildGeometryInfo, accelerationBuildStructureRangeInfos.data());
 
 		command_buffer.close();
 		command_buffer.waitFence();
@@ -87,7 +86,7 @@ public:
 		VkAccelerationStructureDeviceAddressInfoKHR accelerationDeviceAddressInfo{};
 		accelerationDeviceAddressInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR;
 		accelerationDeviceAddressInfo.accelerationStructure = bottomAS.handle;
-		bottomAS.deviceAddress = vkGetAccelerationStructureDeviceAddressKHR(VkWrapper::device->logicalHandle, &accelerationDeviceAddressInfo);
+		bottomAS.deviceAddress = VkUtils::vkGetAccelerationStructureDeviceAddressKHR(&accelerationDeviceAddressInfo);
 	}
 
 	struct AccelerationStructure
@@ -95,7 +94,8 @@ public:
 		VkAccelerationStructureKHR handle;
 		uint64_t deviceAddress = 0;
 		VkDeviceMemory memory;
-		VkBuffer buffer;
+		std::shared_ptr<Buffer> buffer;
+		std::shared_ptr<Buffer> scratch_buffer;
 	};
 
 	std::vector<AccelerationStructure> blases;
@@ -104,17 +104,16 @@ public:
 class TopLevelAccelerationStructure
 {
 public:
+	~TopLevelAccelerationStructure()
+	{
+		if (handle)
+			VkUtils::vkDestroyAccelerationStructureKHR(handle, nullptr);
+	}
 
 	void buildTLAS(bool update)
 	{
 		update = false;
 		auto device = VkWrapper::device->logicalHandle;
-		auto vkCmdBuildAccelerationStructuresKHR = reinterpret_cast<PFN_vkCmdBuildAccelerationStructuresKHR>(vkGetDeviceProcAddr(device, "vkCmdBuildAccelerationStructuresKHR"));
-		auto vkBuildAccelerationStructuresKHR = reinterpret_cast<PFN_vkBuildAccelerationStructuresKHR>(vkGetDeviceProcAddr(device, "vkBuildAccelerationStructuresKHR"));
-		auto vkCreateAccelerationStructureKHR = reinterpret_cast<PFN_vkCreateAccelerationStructureKHR>(vkGetDeviceProcAddr(device, "vkCreateAccelerationStructureKHR"));
-		auto vkDestroyAccelerationStructureKHR = reinterpret_cast<PFN_vkDestroyAccelerationStructureKHR>(vkGetDeviceProcAddr(device, "vkDestroyAccelerationStructureKHR"));
-		auto vkGetAccelerationStructureBuildSizesKHR = reinterpret_cast<PFN_vkGetAccelerationStructureBuildSizesKHR>(vkGetDeviceProcAddr(device, "vkGetAccelerationStructureBuildSizesKHR"));
-		auto vkGetAccelerationStructureDeviceAddressKHR = reinterpret_cast<PFN_vkGetAccelerationStructureDeviceAddressKHR>(vkGetDeviceProcAddr(device, "vkGetAccelerationStructureDeviceAddressKHR"));
 
 
 		// Buffer for instance data
@@ -150,8 +149,7 @@ public:
 
 		VkAccelerationStructureBuildSizesInfoKHR accelerationStructureBuildSizesInfo{};
 		accelerationStructureBuildSizesInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR;
-		vkGetAccelerationStructureBuildSizesKHR(
-			VkWrapper::device->logicalHandle,
+		VkUtils::vkGetAccelerationStructureBuildSizesKHR(
 			VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
 			&accelerationStructureBuildGeometryInfo,
 			&primitive_count,
@@ -162,6 +160,12 @@ public:
 		
 		} else
 		{
+			if (handle)
+			{
+				VkUtils::vkDestroyAccelerationStructureKHR(handle, nullptr);
+				handle = nullptr;
+			}
+
 			// Create acceleration structure buffer
 			BufferDescription accDesc;
 			accDesc.size = VkWrapper::roundUp(accelerationStructureBuildSizesInfo.accelerationStructureSize, 256);
@@ -176,7 +180,7 @@ public:
 			accelerationStructureCreateInfo.buffer = buffer;
 			accelerationStructureCreateInfo.size = accelerationStructureBuildSizesInfo.accelerationStructureSize;
 			accelerationStructureCreateInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
-			vkCreateAccelerationStructureKHR(VkWrapper::device->logicalHandle, &accelerationStructureCreateInfo, nullptr, &handle);
+			VkUtils::vkCreateAccelerationStructureKHR(&accelerationStructureCreateInfo, nullptr, &handle);
 		}
 
 		// Create a small scratch buffer used during build of the top level acceleration structure
@@ -186,7 +190,7 @@ public:
 		scratchDesc.useStagingBuffer = true;
 		scratchDesc.bufferUsageFlags = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
 
-		auto scratchBuffer = Buffer::create(scratchDesc);
+		scratch_buffer = Buffer::create(scratchDesc);
 
 		VkAccelerationStructureBuildGeometryInfoKHR accelerationBuildGeometryInfo{};
 		accelerationBuildGeometryInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
@@ -203,7 +207,7 @@ public:
 		accelerationBuildGeometryInfo.dstAccelerationStructure = handle;
 		accelerationBuildGeometryInfo.geometryCount = 1;
 		accelerationBuildGeometryInfo.pGeometries = &accelerationStructureGeometry;
-		accelerationBuildGeometryInfo.scratchData.deviceAddress = VkWrapper::getBufferDeviceAddress(scratchBuffer->bufferHandle);
+		accelerationBuildGeometryInfo.scratchData.deviceAddress = VkWrapper::getBufferDeviceAddress(scratch_buffer->bufferHandle);
 
 		VkAccelerationStructureBuildRangeInfoKHR accelerationStructureBuildRangeInfo{};
 		accelerationStructureBuildRangeInfo.primitiveCount = primitive_count;
@@ -218,7 +222,7 @@ public:
 		command_buffer.init(true);
 		command_buffer.open();
 
-		vkCmdBuildAccelerationStructuresKHR(command_buffer.get_buffer(), 1, &accelerationBuildGeometryInfo, accelerationBuildStructureRangeInfos.data());
+		VkUtils::vkCmdBuildAccelerationStructuresKHR(command_buffer.get_buffer(), 1, &accelerationBuildGeometryInfo, accelerationBuildStructureRangeInfos.data());
 
 		command_buffer.close();
 		command_buffer.waitFence();
@@ -227,7 +231,7 @@ public:
 		VkAccelerationStructureDeviceAddressInfoKHR accelerationDeviceAddressInfo{};
 		accelerationDeviceAddressInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR;
 		accelerationDeviceAddressInfo.accelerationStructure = handle;
-		deviceAddress = vkGetAccelerationStructureDeviceAddressKHR(VkWrapper::device->logicalHandle, &accelerationDeviceAddressInfo);
+		deviceAddress = VkUtils::vkGetAccelerationStructureDeviceAddressKHR(&accelerationDeviceAddressInfo);
 
 		instances.clear();
 	}
@@ -261,4 +265,5 @@ public:
 	VkDeviceMemory memory;
 	VkBuffer buffer;
 	std::shared_ptr<Buffer> acc_buffer;
+	std::shared_ptr<Buffer> scratch_buffer;
 };
