@@ -64,6 +64,7 @@ void Renderer::recreateScreenResources()
 
 
 	auto swapchain_format = VkWrapper::swapchain->surface_format.format;
+	create_screen_texture(RENDER_TARGET_FINAL_NO_POST, swapchain_format, TEXTURE_USAGE_ATTACHMENT, "No Post Final Image");
 	create_screen_texture(RENDER_TARGET_FINAL, swapchain_format, TEXTURE_USAGE_ATTACHMENT, "Final Image");
 }
 
@@ -72,6 +73,7 @@ void Renderer::setViewportSize(glm::ivec2 size)
 	if (viewport_size == size)
 		return;
 	viewport_size = size;
+	recreateScreenResources();
 }
 
 void Renderer::beginFrame(unsigned int current_frame_in_flight, unsigned int current_image_index)

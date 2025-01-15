@@ -168,7 +168,7 @@ public:
 	template <typename T>
 	const typename T::Description &getDescription() const
 	{
-		return getModel<T>().desc;
+		return getModel<T>()->desc;
 	}
 
 	bool isTransient() const { return is_transient; }
@@ -277,6 +277,12 @@ public:
 	FrameGraphResource importResource(const std::string name, const typename T::Description &desc, T &&resource)
 	{
 		return createResource<T>(name, desc, std::forward<T>(resource), false);
+	}
+
+	template <typename T>
+	const typename T::Description &getDescription(FrameGraphResource resource_id)
+	{
+		return getResourceEntry(resource_id).getDescription<T>();
 	}
 
 	const FrameGraphBlackboard &getBlackboard() const { return blackboard; }

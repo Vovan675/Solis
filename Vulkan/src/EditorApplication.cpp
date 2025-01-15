@@ -152,6 +152,7 @@ void EditorApplication::recordCommands(CommandBuffer &command_buffer)
 	FrameGraph frameGraph;
 
 	DefaultResourcesData &default_data = frameGraph.getBlackboard().add<DefaultResourcesData>();
+	default_data.final_no_post = importTexture(frameGraph, Renderer::getRenderTarget(RENDER_TARGET_FINAL_NO_POST));
 	default_data.final = importTexture(frameGraph, Renderer::getRenderTarget(RENDER_TARGET_FINAL));
 	default_data.backbuffer = importTexture(frameGraph, VkWrapper::swapchain->swapchain_textures[Renderer::getCurrentImageIndex()]);
 
@@ -184,7 +185,6 @@ void EditorApplication::recordCommands(CommandBuffer &command_buffer)
 	}
 	render_first_frame = false;
 
-	// Render Graph Tests
 	gbuffer_pass.AddPass(frameGraph);
 
 	// Shadows
@@ -199,7 +199,10 @@ void EditorApplication::recordCommands(CommandBuffer &command_buffer)
 	defferred_lighting_renderer.renderLights(frameGraph);
 
 	ssao_renderer.addPasses(frameGraph);
+	if (render_ssr)
+		ssr_renderer.addPasses(frameGraph);
 
+	auto &composite_data = frameGraph.getBlackboard().add<CompositeData>();
 	// Draw Sky on background
 	sky_renderer.addCompositePasses(frameGraph);
 	// Draw composite (discard sky pixels by depth)
@@ -230,7 +233,7 @@ void EditorApplication::recordCommands(CommandBuffer &command_buffer)
 		auto &final = resources.getResource<FrameGraphTexture>(data.final);
 		auto &backbuffer = resources.getResource<FrameGraphTexture>(data.backbuffer);
 
-		VkWrapper::cmdBeginRendering(command_buffer, {backbuffer.texture}, nullptr);
+		VkWrapper::cmdBeginRendering(command_buffer, {VkWrapper::swapchain->swapchain_textures[Renderer::getCurrentImageIndex()]}, nullptr);
 		ImGuiWrapper::render(command_buffer);
 		VkWrapper::cmdEndRendering(command_buffer);
 	});

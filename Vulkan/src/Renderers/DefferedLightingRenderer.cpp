@@ -29,14 +29,14 @@ void DefferedLightingRenderer::renderLights(FrameGraph &fg)
 
 	auto &gbuffer_data = fg.getBlackboard().get<GBufferData>();
 
-	auto &lighting_data = fg.getBlackboard().add<DefferedLightingData>();
+	auto &lighting_data = fg.getBlackboard().add<DeferredLightingData>();
 
 	auto *cascade_shadow_data = fg.getBlackboard().tryGet<CascadeShadowPass>();
 	auto *ray_traced_shadow_data = fg.getBlackboard().tryGet<RayTracedShadowPass>();
 	auto *shadow_passes_data = fg.getBlackboard().tryGet<ShadowPasses>();
 
-	lighting_data = fg.addCallbackPass<DefferedLightingData>("Deffered Lighting Pass",
-	[&](RenderPassBuilder &builder, DefferedLightingData &data)
+	lighting_data = fg.addCallbackPass<DeferredLightingData>("Deffered Lighting Pass",
+	[&](RenderPassBuilder &builder, DeferredLightingData &data)
 	{
 		// Setup
 		FrameGraphTexture::Description desc;
@@ -78,7 +78,7 @@ void DefferedLightingRenderer::renderLights(FrameGraph &fg)
 			builder.read(ray_traced_shadow_data->visibility);
 		}
 	},
-	[=](const DefferedLightingData &data, const RenderPassResources &resources, CommandBuffer &command_buffer)
+	[=](const DeferredLightingData &data, const RenderPassResources &resources, CommandBuffer &command_buffer)
 	{
 		// Render
 		auto &albedo = resources.getResource<FrameGraphTexture>(gbuffer_data.albedo);

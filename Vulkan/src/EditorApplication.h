@@ -23,6 +23,7 @@
 #include "renderers/DebugRenderer.h"
 #include "renderers/ShadowRenderer.h"
 #include "renderers/SSAORenderer.h"
+#include "renderers/SSRRenderer.h"
 #include "Editor/ViewportPanel.h"
 #include "Editor/AssetBrowserPanel.h"
 #include "Editor/ParametersPanel.h"
@@ -70,4 +71,5 @@ private:
 	PostProcessingRenderer post_renderer;
 	DebugRenderer debug_renderer;
 	SSAORenderer ssao_renderer;
+	SSRRenderer ssr_renderer;
 };

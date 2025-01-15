@@ -21,6 +21,11 @@ vec3 getVSPosition(vec2 uv, float hardware_depth)
     return pos.xyz;
 }
 
+float nativeDepthToLinear(vec2 uv, float hardware_depth)
+{
+    return length(getVSPosition(uv, hardware_depth));
+}
+
 void computeBasis(vec3 N, out vec3 T, out vec3 B)
 {
     T = cross(N, vec3(0, 1, 0));

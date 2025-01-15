@@ -20,6 +20,18 @@ float get_vignette(vec2 uv, float radius, float smoothness)
     return smoothstep(-smoothness, smoothness, dist);
 }
 
+vec3 uncharted_2(vec3 x)
+{
+    float A = 0.15;
+    float B = 0.50;
+    float C = 0.10;
+    float D = 0.20;
+    float E = 0.02;
+    float F = 0.30;
+    float W = 11.2;
+    return ((x * (A * x + C * B) + D * E) / (x * (A * x + B) + D * F)) - E / F;
+}
+
 void main() {
     vec2 uv = inUV;
     float vignette = 1.0;
@@ -31,5 +43,8 @@ void main() {
     vec4 value = vec4(1, 1, 1, 1);
     vec4 composite_final = texture(textures[ubo.composite_final_tex_id], uv);
     value = composite_final * vignette;
-    outColor = vec4(LinearToSRGB(value).rgb, 1.0);
+    //value = vec4(uncharted_2(value.rgb), 1.0);
+    value = LinearToSRGB(value);
+    outColor = vec4(value.rgb, 1.0);
+    //outColor = vec4(1, 0, 0, 1.0);
 }

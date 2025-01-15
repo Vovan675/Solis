@@ -41,7 +41,7 @@ DebugRenderer::~DebugRenderer()
 void DebugRenderer::addPasses(FrameGraph &fg)
 {
 	auto &gbuffer_data = fg.getBlackboard().get<GBufferData>();
-	auto &lighting_data = fg.getBlackboard().get<DefferedLightingData>();
+	auto &lighting_data = fg.getBlackboard().get<DeferredLightingData>();
 	auto &ssao_data = fg.getBlackboard().get<SSAOData>();
 	auto &composite_data = fg.getBlackboard().get<CompositeData>();
 	auto &lut_data = fg.getBlackboard().get<LutData>();
@@ -64,7 +64,7 @@ void DebugRenderer::addPasses(FrameGraph &fg)
 		builder.read(lighting_data.specular_light);
 		builder.read(lut_data.brdf_lut);
 		builder.read(ssao_data.ssao_blurred);
-		builder.read(composite_data.composite);
+		builder.read(default_data.final_no_post);
 		if (ray_tracing_shadows_data)
 			builder.read(ray_tracing_shadows_data->visibility);
 	},
@@ -83,7 +83,7 @@ void DebugRenderer::addPasses(FrameGraph &fg)
 		ubo.light_specular_id = resources.getResource<FrameGraphTexture>(lighting_data.specular_light).getBindlessId();
 		ubo.brdf_lut_id = resources.getResource<FrameGraphTexture>(lut_data.brdf_lut).getBindlessId();
 		ubo.ssao_id = resources.getResource<FrameGraphTexture>(ssao_data.ssao_blurred).getBindlessId();
-		ubo.composite_final_tex_id = resources.getResource<FrameGraphTexture>(composite_data.composite).getBindlessId();
+		ubo.composite_final_tex_id = resources.getResource<FrameGraphTexture>(data.final_no_post).getBindlessId();
 
 		if (ray_tracing_shadows_data)
 			ubo.light_diffuse_id = resources.getResource<FrameGraphTexture>(ray_tracing_shadows_data->visibility).getBindlessId(); // TODO: revert

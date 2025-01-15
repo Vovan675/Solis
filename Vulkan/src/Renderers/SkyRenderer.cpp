@@ -85,28 +85,21 @@ void SkyRenderer::addProceduralPasses(FrameGraph &fg)
 void SkyRenderer::addCompositePasses(FrameGraph &fg)
 {
 	auto &sky_data = fg.getBlackboard().get<SkyData>();
-	auto &composite_data = fg.getBlackboard().add<CompositeData>();
+	auto &default_data = fg.getBlackboard().get<DefaultResourcesData>();
 
 	is_force_dirty = false;
-	composite_data = fg.addCallbackPass<CompositeData>("Sky Pass",
-	[&](RenderPassBuilder &builder, CompositeData &data)
+	default_data = fg.addCallbackPass<DefaultResourcesData>("Sky Pass",
+	[&](RenderPassBuilder &builder, DefaultResourcesData &data)
 	{
 		// Setup
-		FrameGraphTexture::Description desc;
-		desc.width = Renderer::getViewportSize().x;
-		desc.height = Renderer::getViewportSize().y;
-		desc.image_format = VK_FORMAT_R16G16B16A16_SFLOAT;
-		desc.usage_flags = TEXTURE_USAGE_ATTACHMENT;
-		desc.debug_name = "Composite Image";
-
-		data.composite = builder.createResource<FrameGraphTexture>(desc.debug_name, desc);
-		data.composite = builder.write(data.composite);
+		data = default_data;
+		data.final_no_post = builder.write(default_data.final_no_post);
 		builder.read(sky_data.sky);
 	},
-	[=](const CompositeData &data, const RenderPassResources &resources, CommandBuffer &command_buffer)
+	[=](const DefaultResourcesData &data, const RenderPassResources &resources, CommandBuffer &command_buffer)
 	{
 		// Render
-		auto &composite = resources.getResource<FrameGraphTexture>(data.composite);
+		auto &composite = resources.getResource<FrameGraphTexture>(data.final_no_post);
 		auto &sky = resources.getResource<FrameGraphTexture>(sky_data.sky);
 
 		VkWrapper::cmdBeginRendering(command_buffer, {composite.texture}, nullptr);

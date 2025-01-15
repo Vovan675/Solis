@@ -3,6 +3,7 @@
 
 struct DefaultResourcesData
 {
+	FrameGraphResource final_no_post;
 	FrameGraphResource final;
 	FrameGraphResource backbuffer;
 };
@@ -15,7 +16,7 @@ struct GBufferData
 	FrameGraphResource shading;
 };
 
-struct DefferedLightingData
+struct DeferredLightingData
 {
 	FrameGraphResource diffuse_light;
 	FrameGraphResource specular_light;
@@ -27,9 +28,15 @@ struct SSAOData
 	FrameGraphResource ssao_blurred;
 };
 
+struct SSRData
+{
+	FrameGraphResource ssr;
+};
+
 struct CompositeData
 {
-	FrameGraphResource composite;
+	FrameGraphResource composite_indirect_ambient;
+	FrameGraphResource composite_indirect_specular;
 };
 
 struct SkyData
