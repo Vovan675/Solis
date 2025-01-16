@@ -5,6 +5,7 @@
 #include "RHI/Buffer.h"
 #include "RHI/VkWrapper.h"
 #include "RHI/VkUtils.h"
+#include "Material.h"
 #include "BindlessResources.h"
 #include "Camera.h"
 #include "Assets/Asset.h"
@@ -40,6 +41,14 @@ struct RendererDebugInfo
 	size_t descriptors_max_offset = 0;
 	size_t drawcalls = 0;
 	std::vector<DebugTime> times;
+};
+
+struct RenderBatch
+{
+	std::shared_ptr<Engine::Mesh> mesh;
+	std::shared_ptr<Material> material;
+	glm::mat4 world_transform;
+	bool camera_visible;
 };
 
 class Renderer

@@ -1,6 +1,20 @@
 #include "pch.h"
 #include "BoundBox.h"
 
+bool BoundBox::isInside(BoundFrustum frustum)
+{
+	for (const glm::vec4& plane : frustum.planes)
+	{
+		glm::vec3 normal(plane.x, plane.y, plane.z);
+
+		auto res = glm::max(min * normal, max * normal);
+		bool is_inside = res.x + res.y + res.z > -plane.w;
+		if (!is_inside)
+			return false;
+	}
+	return true;
+}
+
 BoundBox BoundBox::operator*(const glm::mat4 &mat)
 {
     glm::vec3 center_new = glm::vec3(mat * glm::vec4(getCenter(), 1.0f));

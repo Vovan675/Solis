@@ -5,13 +5,14 @@
 #include "Renderers/EntityRenderer.h"
 #include "Editor/EditorContext.h"
 #include "RHI/RayTracing/RayTracingScene.h"
+#include "Rendering/Renderer.h"
 
 class ShadowRenderer
 {
 public:
 	ShadowRenderer();
 
-	void addShadowMapPasses(FrameGraph &fg);
+	void addShadowMapPasses(FrameGraph &fg, const std::vector<RenderBatch> &batches);
 	void addRayTracedShadowPasses(FrameGraph &fg);
 
 	// TODO: remove from it, do itsomehow else

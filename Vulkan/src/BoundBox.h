@@ -1,5 +1,6 @@
 #pragma once
 #include <glm/glm.hpp>
+#include "BoundFrustum.h"
 
 struct BoundBox
 {
@@ -30,6 +31,8 @@ struct BoundBox
 		max.y = glm::max(max.y, pos.y);
 		max.z = glm::max(max.z, pos.z);
 	}
+
+	bool isInside(BoundFrustum frustum);
 
 	BoundBox operator *(const glm::mat4& mat);
 

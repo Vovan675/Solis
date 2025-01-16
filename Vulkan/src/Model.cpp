@@ -162,6 +162,7 @@ void Model::process_node(MeshNode *mesh_node, aiNode *node, const aiScene *scene
 				TextureDescription tex_description{};
 				tex_description.image_format = VK_FORMAT_R8G8B8A8_SRGB;
 				tex_description.usage_flags = TEXTURE_USAGE_TRANSFER_SRC;
+				tex_description.anisotropy = true;
 
 				std::filesystem::path result_path(path);
 				result_path = result_path.remove_filename();
@@ -183,6 +184,7 @@ void Model::process_node(MeshNode *mesh_node, aiNode *node, const aiScene *scene
 				TextureDescription tex_description{};
 				tex_description.image_format = VK_FORMAT_R8G8B8A8_UNORM;
 				tex_description.usage_flags = TEXTURE_USAGE_TRANSFER_SRC;
+				tex_description.anisotropy = true;
 
 				std::filesystem::path result_path(path);
 				result_path = result_path.remove_filename();
@@ -204,6 +206,7 @@ void Model::process_node(MeshNode *mesh_node, aiNode *node, const aiScene *scene
 				TextureDescription tex_description{};
 				tex_description.image_format = VK_FORMAT_R8G8B8A8_UNORM;
 				tex_description.usage_flags = TEXTURE_USAGE_TRANSFER_SRC;
+				tex_description.anisotropy = true;
 
 				std::filesystem::path result_path(path);
 				result_path = result_path.remove_filename();
@@ -225,6 +228,7 @@ void Model::process_node(MeshNode *mesh_node, aiNode *node, const aiScene *scene
 				TextureDescription tex_description{};
 				tex_description.image_format = VK_FORMAT_R8G8B8A8_UNORM;
 				tex_description.usage_flags = TEXTURE_USAGE_TRANSFER_SRC;
+				tex_description.anisotropy = true;
 
 				std::filesystem::path result_path(path);
 				result_path = result_path.remove_filename();

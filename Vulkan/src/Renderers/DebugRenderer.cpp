@@ -8,14 +8,15 @@ DebugRenderer::DebugRenderer()
 	vertex_shader_lines = Shader::create("shaders/debug_lines.vert", Shader::VERTEX_SHADER);
 	fragment_shader_lines = Shader::create("shaders/debug_lines.frag", Shader::FRAGMENT_SHADER);
 
-	uint32_t indices[256];
-	for (size_t i = 0; i < 256; i++)
+	const size_t count = 1024;
+	uint32_t indices[2048];
+	for (size_t i = 0; i < 2048; i++)
 	{
 		indices[i] = i;
 	}
 
 	BufferDescription desc;
-	desc.size = sizeof(uint32_t) * 256;
+	desc.size = sizeof(uint32_t) * 2048;
 	desc.useStagingBuffer = true;
 	desc.bufferUsageFlags = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
 
@@ -23,9 +24,9 @@ DebugRenderer::DebugRenderer()
 	lines_index_buffer->fill(indices);
 	lines_index_buffer->setDebugName("Lines Index Buffer");
 
-	vertices = new Engine::Vertex[256];
+	vertices = new Engine::Vertex[2048];
 	
-	desc.size = sizeof(Engine::Vertex) * 256;
+	desc.size = sizeof(Engine::Vertex) * 2048;
 	desc.useStagingBuffer = false;
 	desc.bufferUsageFlags = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
 
@@ -173,6 +174,38 @@ void DebugRenderer::addBoundBox(BoundBox bbox)
 
 	addLine(glm::vec3(bbox.min.x, bbox.min.y, bbox.max.z), glm::vec3(bbox.max.x, bbox.min.y, bbox.max.z));
 	addLine(glm::vec3(bbox.min.x, bbox.min.y, bbox.max.z), glm::vec3(bbox.min.x, bbox.max.y, bbox.max.z));
+}
+
+void DebugRenderer::addFrustum(glm::mat4 frustum)
+{
+	std::array<glm::vec3, 8> corners
+	{
+		{
+			{ -1.0f, -1.0f, 1.0f }, { 1.0f, -1.0f, 1.0f }, { 1.0f, 1.0f, 1.0f }, { -1.0f, 1.0f, 1.0f },
+			{ -1.0f, -1.0f, -1.0f }, { 1.0f, -1.0f, -1.0f }, { 1.0f, 1.0f, -1.0f }, { -1.0f, 1.0f, -1.0f },
+		}
+	};
+
+	for (int i = 0; i < corners.size(); i++)
+	{
+		glm::vec4 current = frustum * glm::vec4(corners[i], 1.0);
+		corners[i] = glm::vec3(current) / current.w;
+	}
+
+	addLine(corners[0], corners[1]);
+	addLine(corners[1], corners[2]);
+	addLine(corners[2], corners[3]);
+	addLine(corners[3], corners[0]);
+
+	addLine(corners[4], corners[5]);
+	addLine(corners[5], corners[6]);
+	addLine(corners[6], corners[7]);
+	addLine(corners[7], corners[4]);
+
+	addLine(corners[0], corners[4]);
+	addLine(corners[1], corners[5]);
+	addLine(corners[2], corners[6]);
+	addLine(corners[3], corners[7]);
 }
 
 std::vector<glm::vec3> DebugRenderer::addCirlce(glm::vec3 center, glm::vec3 normal, float radius, int segments)

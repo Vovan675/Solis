@@ -36,7 +36,7 @@ ShadowRenderer::ShadowRenderer()
 	}
 }
 
-void ShadowRenderer::addShadowMapPasses(FrameGraph &fg)
+void ShadowRenderer::addShadowMapPasses(FrameGraph &fg, const std::vector<RenderBatch> &batches)
 {
 	auto light_entities_id = Scene::getCurrentScene()->getEntitiesWith<LightComponent>();
 
@@ -110,13 +110,30 @@ void ShadowRenderer::addShadowMapPasses(FrameGraph &fg)
 					Renderer::setShadersUniformBuffer(p->getCurrentShaders(), 0, &ubo, sizeof(EntityRenderer::ShadowUBO));
 					Renderer::bindShadersDescriptorSets(p->getCurrentShaders(), command_buffer, p->getPipelineLayout());
 
-					auto mesh_entities_view = Scene::getCurrentScene()->getEntitiesWith<TransformComponent, MeshRendererComponent>();
-					for (auto mesh_entity_id : mesh_entities_view)
+
+					BoundFrustum bound_frustum(light_projection, faces_transforms[face]);
+					for (const RenderBatch &batch : batches)
 					{
-						Entity entity(mesh_entity_id);
-						auto [transform, mesh] = mesh_entities_view.get<TransformComponent, MeshRendererComponent>(mesh_entity_id);
-						entity_renderer->renderEntityShadow(command_buffer, entity.getWorldTransformMatrix(), mesh);
+						if (!(batch.mesh->bound_box * batch.world_transform).isInside(bound_frustum))
+							continue;
+
+						struct ShadowPushConstact
+						{
+							alignas(16) glm::mat4 model;
+						} push_constant;
+
+						push_constant.model = batch.world_transform;
+						vkCmdPushConstants(command_buffer.get_buffer(), p->getPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(ShadowPushConstact), &push_constant);
+
+						// Render mesh
+						VkBuffer vertexBuffers[] = {batch.mesh->vertexBuffer->bufferHandle};
+						VkDeviceSize offsets[] = {0};
+						vkCmdBindVertexBuffers(command_buffer.get_buffer(), 0, 1, vertexBuffers, offsets);
+						vkCmdBindIndexBuffer(command_buffer.get_buffer(), batch.mesh->indexBuffer->bufferHandle, 0, VK_INDEX_TYPE_UINT32);
+						vkCmdDrawIndexed(command_buffer.get_buffer(), batch.mesh->indices.size(), 1, 0, 0, 0);
+						Renderer::addDrawCalls(1);
 					}
+					
 					p->unbind(command_buffer);
 
 					VkWrapper::cmdEndRendering(command_buffer);
@@ -127,7 +144,7 @@ void ShadowRenderer::addShadowMapPasses(FrameGraph &fg)
 			FrameGraphResource shadow_map_resource = importTexture(fg, light.shadow_map);
 
 			glm::vec3 light_dir = light_entity.getLocalDirection(glm::vec3(0, 0, 1));
-			debug_renderer->addArrow(position, position + light_dir, 0.1);
+			debug_renderer->addArrow(position, position - light_dir, 0.1);
 			update_cascades(light, light_dir);
 
 			cs_pass = fg.addCallbackPass<CascadeShadowPass>("Cascaded Shadows Pass",
@@ -167,13 +184,29 @@ void ShadowRenderer::addShadowMapPasses(FrameGraph &fg)
 					Renderer::setShadersUniformBuffer(p->getCurrentShaders(), 0, &ubo, sizeof(EntityRenderer::ShadowUBO));
 					Renderer::bindShadersDescriptorSets(p->getCurrentShaders(), command_buffer, p->getPipelineLayout());
 
-					auto mesh_entities_view = Scene::getCurrentScene()->getEntitiesWith<TransformComponent, MeshRendererComponent>();
-					for (auto mesh_entity_id : mesh_entities_view)
+					BoundFrustum bound_frustum(light_matrix, glm::mat4(1.0f));
+					for (const RenderBatch &batch : batches)
 					{
-						Entity entity(mesh_entity_id);
-						auto [transform, mesh] = mesh_entities_view.get<TransformComponent, MeshRendererComponent>(mesh_entity_id);
-						entity_renderer->renderEntityShadow(command_buffer, entity.getWorldTransformMatrix(), mesh);
+						if (!(batch.mesh->bound_box * batch.world_transform).isInside(bound_frustum))
+							continue;
+
+						struct ShadowPushConstact
+						{
+							alignas(16) glm::mat4 model;
+						} push_constant;
+
+						push_constant.model = batch.world_transform;
+						vkCmdPushConstants(command_buffer.get_buffer(), p->getPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(ShadowPushConstact), &push_constant);
+
+						// Render mesh
+						VkBuffer vertexBuffers[] = {batch.mesh->vertexBuffer->bufferHandle};
+						VkDeviceSize offsets[] = {0};
+						vkCmdBindVertexBuffers(command_buffer.get_buffer(), 0, 1, vertexBuffers, offsets);
+						vkCmdBindIndexBuffer(command_buffer.get_buffer(), batch.mesh->indexBuffer->bufferHandle, 0, VK_INDEX_TYPE_UINT32);
+						vkCmdDrawIndexed(command_buffer.get_buffer(), batch.mesh->indices.size(), 1, 0, 0, 0);
+						Renderer::addDrawCalls(1);
 					}
+
 					p->unbind(command_buffer);
 					VkWrapper::cmdEndRendering(command_buffer);
 				}

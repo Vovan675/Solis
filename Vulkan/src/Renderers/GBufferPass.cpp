@@ -12,7 +12,7 @@ GBufferPass::GBufferPass()
 	gbuffer_fragment_shader = Shader::create("shaders/opaque.frag", Shader::FRAGMENT_SHADER);
 }
 
-void GBufferPass::AddPass(FrameGraph &fg)
+void GBufferPass::AddPass(FrameGraph &fg, const std::vector<RenderBatch> &batches)
 {
 	auto &command_buffer = Renderer::getCurrentCommandBuffer(); // TODO: pass command buffer to render part of callback pass
 
@@ -53,7 +53,7 @@ void GBufferPass::AddPass(FrameGraph &fg)
 		data.shading = create_texture(VK_FORMAT_R8G8B8A8_UNORM, TEXTURE_USAGE_ATTACHMENT, "GBuffer Shading Image");
 		data.shading = builder.write(data.shading);
 	},
-	[=](const GBufferData &data, const RenderPassResources &resources, CommandBuffer &command_buffer)
+	[=, &batches](const GBufferData &data, const RenderPassResources &resources, CommandBuffer &command_buffer)
 	{
 		// Render
 		auto &albedo = resources.getResource<FrameGraphTexture>(data.albedo);
@@ -84,13 +84,21 @@ void GBufferPass::AddPass(FrameGraph &fg)
 
 		Renderer::bindShadersDescriptorSets(p->getCurrentShaders(), command_buffer, p->getPipelineLayout());
 
-		auto entities_id = Scene::getCurrentScene()->getEntitiesWith<MeshRendererComponent>();
-		for (entt::entity entity_id : entities_id)
+		for (const RenderBatch &batch : batches)
 		{
-			Entity entity(entity_id);
-			MeshRendererComponent &mesh_renderer_component = entity.getComponent<MeshRendererComponent>();
+			if (!batch.camera_visible)
+				continue;
 
-			entity_renderer->renderEntity(command_buffer, entity);
+			// Push constant
+			vkCmdPushConstants(command_buffer.get_buffer(), p->getPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(Material::PushConstant), &batch.material->getPushConstant(batch.world_transform));
+
+			// Render mesh
+			VkBuffer vertexBuffers[] = {batch.mesh->vertexBuffer->bufferHandle};
+			VkDeviceSize offsets[] = {0};
+			vkCmdBindVertexBuffers(command_buffer.get_buffer(), 0, 1, vertexBuffers, offsets);
+			vkCmdBindIndexBuffer(command_buffer.get_buffer(), batch.mesh->indexBuffer->bufferHandle, 0, VK_INDEX_TYPE_UINT32);
+			vkCmdDrawIndexed(command_buffer.get_buffer(), batch.mesh->indices.size(), 1, 0, 0, 0);
+			Renderer::addDrawCalls(1);
 		}
 
 		p->unbind(command_buffer);

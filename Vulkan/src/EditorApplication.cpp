@@ -146,9 +146,34 @@ void EditorApplication::updateBuffers(float delta_time)
 	ssao_renderer.ubo_raw_pass.far_plane = context.editor_camera->getFar();
 }
 
+std::vector<RenderBatch> render_batches;
 
 void EditorApplication::recordCommands(CommandBuffer &command_buffer)
 {
+	render_batches.clear();
+
+	BoundFrustum bound_frustum(context.editor_camera->getProj(), context.editor_camera->getView());
+	auto entities_id = Scene::getCurrentScene()->getEntitiesWith<MeshRendererComponent>();
+	for (entt::entity entity_id : entities_id)
+	{
+		Entity entity(entity_id);
+		MeshRendererComponent &mesh_renderer = entity.getComponent<MeshRendererComponent>();
+
+		for (int i = 0; i < mesh_renderer.meshes.size(); i++)
+		{
+			const std::shared_ptr<Engine::Mesh> mesh = mesh_renderer.meshes[i].getMesh();
+			const auto material = mesh_renderer.materials.size() > i ? mesh_renderer.materials[i] : std::make_shared<Material>();
+
+			RenderBatch &batch = render_batches.emplace_back();
+			batch.mesh = mesh;
+			batch.material = material;
+			batch.world_transform = entity.getWorldTransformMatrix();
+			auto bbox = mesh->bound_box * batch.world_transform;
+			batch.camera_visible = bbox.isInside(bound_frustum);
+		}
+	}
+
+
 	FrameGraph frameGraph;
 
 	DefaultResourcesData &default_data = frameGraph.getBlackboard().add<DefaultResourcesData>();
@@ -185,12 +210,12 @@ void EditorApplication::recordCommands(CommandBuffer &command_buffer)
 	}
 	render_first_frame = false;
 
-	gbuffer_pass.AddPass(frameGraph);
+	gbuffer_pass.AddPass(frameGraph, render_batches);
 
 	// Shadows
 	{
 		if (render_shadows)
-			shadow_renderer.addShadowMapPasses(frameGraph);
+			shadow_renderer.addShadowMapPasses(frameGraph, render_batches);
 
 		if (render_ray_traced_shadows)
 			shadow_renderer.addRayTracedShadowPasses(frameGraph);

@@ -165,9 +165,9 @@ void SkyRenderer::setMode(SKY_MODE mode)
 	cube_texture = Texture::create(tex_description);
 
 	if (mode == SKY_MODE_CUBEMAP)
-		cube_texture->loadCubemap("assets/cubemap/negx.jpg", "assets/cubemap/posx.jpg",
-								  "assets/cubemap/negy.jpg", "assets/cubemap/posy.jpg",
-								  "assets/cubemap/negz.jpg", "assets/cubemap/posz.jpg");
+		cube_texture->loadCubemap("assets/cubemap/posx.jpg", "assets/cubemap/negx.jpg",
+								  "assets/cubemap/posy.jpg", "assets/cubemap/negy.jpg",
+								  "assets/cubemap/posz.jpg", "assets/cubemap/negz.jpg");
 	else
 		cube_texture->fill();
 	cube_texture->setDebugName("Sky Texture");

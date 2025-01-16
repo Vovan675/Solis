@@ -39,6 +39,7 @@ public:
 	}
 
 	void addBoundBox(BoundBox bbox);
+	void addFrustum(glm::mat4 frustum);
 
 	std::vector<glm::vec3> addCirlce(glm::vec3 center, glm::vec3 normal, float radius, int segments);
 	void addArrow(glm::vec3 p0, glm::vec3 p1, float arrow_size);
