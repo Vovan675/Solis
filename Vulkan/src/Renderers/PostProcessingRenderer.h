@@ -11,13 +11,15 @@
 class PostProcessingRenderer: public RendererBase
 {
 public:
-	struct UBO
+	struct FilmUBO
 	{
 		uint32_t composite_final_tex_id = 0;
 		float use_vignette = 1;
 		float vignette_radius = 0.7;
 		float vignette_smoothness = 0.2;
-	} ubo;
+	} film_ubo;
+
+
 
 	PostProcessingRenderer();
 	virtual ~PostProcessingRenderer();
@@ -26,5 +28,9 @@ public:
 
 	void renderImgui();
 private:
+	void addFilmPass(FrameGraph &fg);
+	void addFxaaPass(FrameGraph &fg);
+
+	FrameGraphResource current_output;
 };
 

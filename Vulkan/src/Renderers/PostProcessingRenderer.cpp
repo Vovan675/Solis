@@ -3,6 +3,7 @@
 #include "PostProcessingRenderer.h"
 #include "BindlessResources.h"
 #include "Rendering/Renderer.h"
+#include "Variables.h"
 
 PostProcessingRenderer::PostProcessingRenderer()
 {
@@ -14,32 +15,67 @@ PostProcessingRenderer::~PostProcessingRenderer()
 
 void PostProcessingRenderer::addPasses(FrameGraph &fg)
 {
-	auto &default_data = fg.getBlackboard().get<DefaultResourcesData>();
+	addFilmPass(fg);
 
-	default_data = fg.addCallbackPass<DefaultResourcesData>("Film Pass",
-	[&](RenderPassBuilder &builder, DefaultResourcesData &data)
+	if (render_fxaa)
+		addFxaaPass(fg);
+}
+
+void PostProcessingRenderer::renderImgui()
+{
+	bool use_vignette_bool = film_ubo.use_vignette > 0.5f;
+	if (ImGui::Checkbox("Vignette", &use_vignette_bool))
+	{
+		film_ubo.use_vignette = use_vignette_bool ? 1.0f : 0.0f;
+	}
+
+	if (film_ubo.use_vignette)
+	{
+		ImGui::SliderFloat("Vignette Radius", &film_ubo.vignette_radius, 0.1f, 1.0f);
+		ImGui::SliderFloat("Vignette Smoothness", &film_ubo.vignette_smoothness, 0.1f, 1.0f);
+	}
+}
+
+void PostProcessingRenderer::addFilmPass(FrameGraph &fg)
+{
+	auto &default_data = fg.getBlackboard().get<DefaultResourcesData>();
+	auto &final_desc = fg.getDescription<FrameGraphTexture>(default_data.final);
+
+	struct PassData
+	{
+		FrameGraphResource output;
+	} pass_data;
+
+	pass_data = fg.addCallbackPass<PassData>("Film Pass",
+	[&](RenderPassBuilder &builder, PassData &data)
 	{
 		// Setup
-		data = default_data;
-		data.final = builder.write(default_data.final);
+		if (render_fxaa)
+		{
+			data.output = builder.createResource<FrameGraphTexture>("Film Pass Output", final_desc);
+			data.output = builder.write(data.output);
+		}
+		else
+		{
+			data.output = builder.write(default_data.final);
+		}
 
-		data.final_no_post = builder.read(default_data.final_no_post);
+		builder.read(default_data.final_no_post);
 	},
-	[=](const DefaultResourcesData &data, const RenderPassResources &resources, CommandBuffer &command_buffer)
+	[=](const PassData &data, const RenderPassResources &resources, CommandBuffer &command_buffer)
 	{
 		// Render
-		auto &final_no_post = resources.getResource<FrameGraphTexture>(data.final_no_post);
-		auto &final = resources.getResource<FrameGraphTexture>(data.final);
+		auto &output = resources.getResource<FrameGraphTexture>(data.output);
 
-		VkWrapper::cmdBeginRendering(command_buffer, {final.texture}, nullptr);
+		VkWrapper::cmdBeginRendering(command_buffer, {output.texture}, nullptr);
 
-		ubo.composite_final_tex_id = resources.getResource<FrameGraphTexture>(default_data.final_no_post).getBindlessId();
+		film_ubo.composite_final_tex_id = resources.getResource<FrameGraphTexture>(default_data.final_no_post).getBindlessId();
 
 		auto &p = VkWrapper::global_pipeline;
 		p->bindScreenQuadPipeline(command_buffer, Shader::create("shaders/film.frag", Shader::FRAGMENT_SHADER));
 
 		// Uniforms
-		Renderer::setShadersUniformBuffer(p->getCurrentShaders(), 0, &ubo, sizeof(UBO));
+		Renderer::setShadersUniformBuffer(p->getCurrentShaders(), 0, &film_ubo, sizeof(FilmUBO));
 		Renderer::bindShadersDescriptorSets(p->getCurrentShaders(), command_buffer, p->getPipelineLayout());
 
 		vkCmdDraw(command_buffer.get_buffer(), 6, 1, 0, 0);
@@ -48,19 +84,50 @@ void PostProcessingRenderer::addPasses(FrameGraph &fg)
 
 		VkWrapper::cmdEndRendering(command_buffer);
 	});
+
+	if (render_fxaa)
+		current_output = pass_data.output;
+	else
+		default_data.final = pass_data.output;
 }
 
-void PostProcessingRenderer::renderImgui()
+void PostProcessingRenderer::addFxaaPass(FrameGraph &fg)
 {
-	bool use_vignette_bool = ubo.use_vignette > 0.5f;
-	if (ImGui::Checkbox("Vignette", &use_vignette_bool))
-	{
-		ubo.use_vignette = use_vignette_bool ? 1.0f : 0.0f;
-	}
+	auto &default_data = fg.getBlackboard().get<DefaultResourcesData>();
 
-	if (ubo.use_vignette)
+	default_data = fg.addCallbackPass<DefaultResourcesData>("FXAA Pass",
+	[&](RenderPassBuilder &builder, DefaultResourcesData &data)
 	{
-		ImGui::SliderFloat("Vignette Radius", &ubo.vignette_radius, 0.1f, 1.0f);
-		ImGui::SliderFloat("Vignette Smoothness", &ubo.vignette_smoothness, 0.1f, 1.0f);
-	}
+		// Setup
+		data = default_data;
+		data.final = builder.write(default_data.final);
+
+		builder.read(current_output);
+	},
+	[=](const DefaultResourcesData &data, const RenderPassResources &resources, CommandBuffer &command_buffer)
+	{
+		// Render
+		auto &final = resources.getResource<FrameGraphTexture>(data.final);
+
+		VkWrapper::cmdBeginRendering(command_buffer, {final.texture}, nullptr);
+
+
+		auto &p = VkWrapper::global_pipeline;
+		p->bindScreenQuadPipeline(command_buffer, Shader::create("shaders/fxaa.frag", Shader::FRAGMENT_SHADER));
+
+		struct UBO
+		{
+			uint32_t composite_final_tex_id = 0;
+		} fxaa_ubo;
+		fxaa_ubo.composite_final_tex_id = resources.getResource<FrameGraphTexture>(current_output).getBindlessId();
+		// Uniforms
+		Renderer::setShadersUniformBuffer(p->getCurrentShaders(), 0, &fxaa_ubo, sizeof(UBO));
+		Renderer::bindShadersDescriptorSets(p->getCurrentShaders(), command_buffer, p->getPipelineLayout());
+
+		vkCmdDraw(command_buffer.get_buffer(), 6, 1, 0, 0);
+
+		p->unbind(command_buffer);
+
+		VkWrapper::cmdEndRendering(command_buffer);
+	});
 }

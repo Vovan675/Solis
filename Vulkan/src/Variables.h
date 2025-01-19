@@ -8,6 +8,7 @@ extern AutoConVarBool render_first_frame;
 extern AutoConVarBool render_shadows;
 extern AutoConVarBool render_ray_traced_shadows;
 extern AutoConVarBool render_ssr;
+extern AutoConVarBool render_fxaa;
 extern AutoConVarBool render_automatic_sun_position;
 
 extern AutoConVarBool engine_ray_tracing;

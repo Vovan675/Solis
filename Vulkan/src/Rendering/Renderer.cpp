@@ -370,7 +370,7 @@ void Renderer::updateDefaultUniforms(float delta_time)
 	default_uniforms.projection = camera->getProj();
 	default_uniforms.iprojection = glm::inverse(camera->getProj());
 	default_uniforms.camera_position = glm::vec4(camera->getPosition(), 1.0);
-	default_uniforms.swapchain_size = glm::vec4(VkWrapper::swapchain->getSize(), 1.0f / VkWrapper::swapchain->getSize());
+	default_uniforms.swapchain_size = glm::vec4(Renderer::getViewportSize(), 1.0f / glm::vec2(Renderer::getViewportSize()));
 	default_uniforms.time += delta_time;
 
 	// After every updating (changing) increment offset because we can't override previous descriptor layout that is used in this frame
