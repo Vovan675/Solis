@@ -53,6 +53,18 @@ bool ParametersPanel::renderImGui(Entity entity, DebugRenderer &debug_renderer)
 	bool is_using_ui = ImGui::IsWindowFocused();
 	if (entity)
 	{
+		drawComponent<TransformComponent>(entity, "Transform", [&](TransformComponent &transform_component) {
+			ImGui::InputFloat3("Position", transform_component.position.data.data);
+
+			glm::vec3 rot = glm::degrees(transform_component.rotation_euler);
+			if(ImGui::InputFloat3("Rotation", rot.data.data))
+			{
+				transform_component.setRotationEuler(glm::radians(rot));
+			}
+			
+			ImGui::InputFloat3("Scale", transform_component.scale.data.data);
+		});
+
 		drawComponent<MeshRendererComponent>(entity, "Mesh Renderer", [&](MeshRendererComponent &mesh_renderer) {
 			for (auto &mesh_id : mesh_renderer.meshes)
 			{
@@ -187,12 +199,40 @@ bool ParametersPanel::renderImGui(Entity entity, DebugRenderer &debug_renderer)
 		});
 
 
+		drawComponent<RigidBodyComponent>(entity, "Rigid Body", [&](RigidBodyComponent &rb) {
+			ImGui::Checkbox("Is Static", &rb.is_static);
+			ImGui::DragFloat("Linear Damping", &rb.linear_damping, 0.01f, 0.0f, 1.0f);
+			ImGui::DragFloat("Angular Damping", &rb.angular_damping, 0.05f, 0.0f, 1.0f);
+			ImGui::Checkbox("Use Gravity", &rb.gravity);
+			ImGui::Checkbox("Is Kinematic", &rb.is_kinematic);
+		});
+
+		drawComponent<BoxColliderComponent>(entity, "Box Collider", [&](BoxColliderComponent &collider) {
+			ImGui::InputFloat3("Half Extent", collider.half_extent.data.data);
+			if (ImGui::Button("Extent to Bounds"))
+			{
+				MeshRendererComponent &mesh_renderer = entity.getComponent<MeshRendererComponent>();
+				BoundBox bbox;
+				for (auto &mesh_id : mesh_renderer.meshes)
+				{
+					auto mesh = mesh_id.getMesh();
+					bbox.extend(mesh->bound_box);
+				}
+
+				TransformComponent &transform = entity.getComponent<TransformComponent>();
+				collider.half_extent = bbox.getSize() * transform.scale / 2.0f;
+			}
+		});
+
+
 		if (centeredButton("Add component..."))
 			ImGui::OpenPopup("add_component_popup");
 		if (ImGui::BeginPopup("add_component_popup"))
 		{
 			addComponentButton<MeshRendererComponent>(entity, "Mesh Renderer");
 			addComponentButton<LightComponent>(entity, "Light");
+			addComponentButton<RigidBodyComponent>(entity, "Rigid Body");
+			addComponentButton<BoxColliderComponent>(entity, "Box Collider");
 			ImGui::EndPopup();
 		}
 	}

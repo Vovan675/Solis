@@ -81,12 +81,50 @@ namespace YAML
 			out << YAML::EndMap;
 		}
 
+		if (entity.hasComponent<RigidBodyComponent>())
+		{
+			out << YAML::Key << "RigidBodyComponent" << YAML::Value;
+			out << YAML::BeginMap;
+
+			auto &comp = entity.getComponent<RigidBodyComponent>();
+			out << YAML::Key << "IsStatic" << YAML::Value << comp.is_static;
+			out << YAML::Key << "Mass" << YAML::Value << comp.mass;
+			out << YAML::Key << "LinearDamping" << YAML::Value << comp.linear_damping;
+			out << YAML::Key << "AngularDamping" << YAML::Value << comp.angular_damping;
+			out << YAML::Key << "Gravity" << YAML::Value << comp.gravity;
+			out << YAML::Key << "IsKinematic" << YAML::Value << comp.is_kinematic;
+
+			out << YAML::EndMap;
+		}
+
+		if (entity.hasComponent<BoxColliderComponent>())
+		{
+			out << YAML::Key << "BoxColliderComponent" << YAML::Value;
+			out << YAML::BeginMap;
+
+			auto &comp = entity.getComponent<BoxColliderComponent>();
+			out << YAML::Key << "HalfExtent" << YAML::Value << comp.half_extent;
+
+			out << YAML::EndMap;
+		}
+
 		out << YAML::EndMap;
 		return out;
 	}
 }
 
-std::shared_ptr<Scene> Scene::current_scene = std::make_shared<Scene>();
+std::shared_ptr<Scene> Scene::current_scene;
+
+using namespace physx;
+
+Scene::Scene()
+{
+	physics_scene = std::make_shared<PhysicsScene>(this);
+}
+
+Scene::~Scene()
+{
+}
 
 Entity Scene::createEntity(std::string name)
 {
@@ -107,6 +145,17 @@ Entity Scene::createEntity(std::string name, entt::entity id)
 	return Entity(entity_id);
 }
 
+Entity Scene::findEntityByName(std::string name)
+{
+	auto view = registry.view<TransformComponent>();
+	for (auto [e, t] : view.each())
+	{
+		if (t.name == name)
+			return Entity(e);
+	}
+	return Entity();
+}
+
 void Scene::destroyEntity(entt::entity id)
 {
 	Entity entity(id);
@@ -119,6 +168,36 @@ void Scene::destroyEntity(entt::entity id)
 		destroyEntity(child);
 
 	registry.destroy(id);
+}
+
+template<typename... Component>
+static void copy_component(entt::registry &src, entt::registry &dst)
+{
+	([&]()
+	{
+		auto view = src.view<Component>();
+		for (auto src_entity : view)
+		{
+			auto &src_component = src.get<Component>(src_entity);
+			dst.emplace_or_replace<Component>(src_entity, src_component);
+		}
+	}(), ...);
+}
+
+std::shared_ptr<Scene> Scene::copy()
+{
+	auto scene = std::make_shared<Scene>();
+
+	// Copy all entities & components
+	auto view = registry.view<TransformComponent>();
+
+	for (auto [e, transform] : view.each())
+	{
+		scene->createEntity(transform.name, e);
+	}
+
+	copy_component<TransformComponent, MeshRendererComponent, LightComponent, RigidBodyComponent, BoxColliderComponent>(registry, scene->registry);
+	return scene;
 }
 
 void Scene::saveFile(const std::string &filename)
@@ -176,6 +255,25 @@ void Scene::loadFile(const std::string &filename)
 			c.intensity = comp["Intensity"].as<float>();
 			c.radius = comp["Radius"].as<float>();
 		}
+
+		comp = entity["RigidBodyComponent"];
+		if (comp)
+		{
+			auto &c = engine_entity.addComponent<RigidBodyComponent>();
+			c.is_static = comp["IsStatic"].as<bool>();
+			c.mass = comp["Mass"].as<float>();
+			c.linear_damping = comp["LinearDamping"].as<float>();
+			c.angular_damping = comp["AngularDamping"].as<float>();
+			c.gravity = comp["Gravity"].as<bool>();
+			c.is_kinematic = comp["IsKinematic"].as<bool>();
+		}
+
+		comp = entity["BoxColliderComponent"];
+		if (comp)
+		{
+			auto &c = engine_entity.addComponent<BoxColliderComponent>();
+			c.half_extent = comp["HalfExtent"].as<glm::vec3>();
+		}
 	}
 }
 
@@ -189,4 +287,9 @@ std::shared_ptr<Scene> Scene::loadScene(const std::string &filename)
 void Scene::closeScene()
 {
 	current_scene = nullptr;
+}
+
+void Scene::updateRuntime()
+{
+	physics_scene->simulate();
 }

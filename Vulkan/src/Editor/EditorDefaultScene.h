@@ -8,8 +8,11 @@ public:
 	// later it will be just .world file
 	static void createScene()
 	{
+		Scene::getCurrentScene()->loadFile("assets/demo_scene.scene");
+		return;
 		// Demo Scene
 		auto model = AssetManager::getModelAsset("assets/demo_scene.fbx");
+		//auto model = AssetManager::getModelAsset("assets/cube.fbx");
 		//auto model = AssetManager::getModelAsset("assets/game/map.fbx");
 		//auto model = AssetManager::getModelAsset("assets/sponza/sponza.obj");
 		//auto model = AssetManager::getModelAsset("assets/new_sponza/NewSponza_Main_Yup_002.fbx");
@@ -20,7 +23,7 @@ public:
 		//model->saveFile("test_model.mesh");
 		//model->loadFile("test_model.mesh");
 		Entity entity = model->createEntity(model);
-		entity.getTransform().scale = glm::vec3(0.01);
+		//entity.getTransform().scale = glm::vec3(0.01);
 		//entity.addComponent<LightComponent>();
 
 		Entity light = Scene::getCurrentScene()->createEntity("Point Light");

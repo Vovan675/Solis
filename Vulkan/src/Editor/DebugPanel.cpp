@@ -94,5 +94,4 @@ void DebugPanel::renderImGui(EditorContext context)
 		}
 	}
 
-	ImGui::End();
 }

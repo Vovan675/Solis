@@ -6,6 +6,7 @@
 #include "GLFW/glfw3native.h"
 #include "RHI/GPUResourceManager.h"
 #include "FrameGraph/TransientResources.h"
+#include "Physics/PhysXWrapper.h"
 
 #ifndef DWMWA_USE_IMMERSIVE_DARK_MODE
 #define DWMWA_USE_IMMERSIVE_DARK_MODE 20
@@ -42,6 +43,7 @@ Application::Application()
 	AssetManager::init();
 
 	init_sync_objects();
+	PhysXWrapper::init();
 }
 
 void Application::run()
@@ -152,6 +154,7 @@ void Application::render(CommandBuffer &command_buffer)
 void Application::cleanup()
 {
 	Scene::closeScene();
+	PhysXWrapper::shutdown();
 	vkDeviceWaitIdle(VkWrapper::device->logicalHandle);
 	AssetManager::shutdown();
 	TransientResources::cleanup();

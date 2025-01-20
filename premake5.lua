@@ -28,6 +28,7 @@ IncludeDir["ImGui"] = "vendor/imgui"
 IncludeDir["ImGuizmo"] = "vendor/imguizmo"
 IncludeDir["YamlCpp"] = "vendor/yaml-cpp/include"
 IncludeDir["Entt"] = "vendor/entt/include"
+IncludeDir["PhysX"] = "vendor/physx/physx/include"
 
 LibDir = {}
 LibDir["Vulkan"] = "%{VULKAN_SDK}/Lib"
@@ -38,6 +39,7 @@ include "vendor/Assimp"
 include "vendor/ImGui"
 include "vendor/ImGuizmo"
 include "vendor/yaml-cpp"
+include "vendor/premake/premake-physx.lua"
 group ""
 
 project "Vulkan"
@@ -74,6 +76,7 @@ project "Vulkan"
 		"%{IncludeDir.ImGuizmo}",
 		"%{IncludeDir.YamlCpp}",
 		"%{IncludeDir.Entt}",
+		"%{IncludeDir.PhysX}",
 	}
 
 	links
@@ -87,11 +90,13 @@ project "Vulkan"
 		"ImGuizmo",
 		"YamlCpp",
 		"Dwmapi",
+		"PhysX",
 	}
 
 	defines
 	{
-		"YAML_CPP_STATIC_DEFINE"
+		"YAML_CPP_STATIC_DEFINE",
+		"PX_PHYSX_STATIC_LIB"
 	}
 
 	filter "system:windows"

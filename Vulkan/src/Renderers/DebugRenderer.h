@@ -38,6 +38,7 @@ public:
 		lines_index_count += 2;
 	}
 
+	void addBox(glm::vec3 half_extents, glm::mat4 transform);
 	void addBoundBox(BoundBox bbox);
 	void addFrustum(glm::mat4 frustum);
 

@@ -29,6 +29,18 @@ struct TransformComponent
 		rotation_euler = glm::eulerAngles(rotation);
 	}
 
+	void setRotation(glm::quat rot)
+	{
+		rotation_euler = glm::eulerAngles(rot);
+		rotation = rot;
+	}
+
+	void setRotationEuler(glm::vec3 rot)
+	{
+		rotation_euler = rot;
+		rotation = glm::quat(rot);
+	}
+
 	glm::mat4 getTransformMatrix() const
 	{
 		return glm::translate(glm::mat4(1.0f), position) * glm::toMat4(rotation) * glm::scale(glm::mat4(1.0f), scale);
@@ -126,4 +138,23 @@ private:
 		float splitDepth;
 	};
 	std::array<CascadeData, SHADOW_MAP_CASCADE_COUNT> cascades;
+};
+
+
+// Physics
+
+struct RigidBodyComponent
+{
+	bool is_static = false;
+
+	float mass = 1.0f;
+	float linear_damping = 0.01f;
+	float angular_damping = 0.05f;
+	bool gravity = true;
+	bool is_kinematic = false;
+};
+
+struct BoxColliderComponent
+{
+	glm::vec3 half_extent = {0.5f, 0.5f, 0.5f};
 };

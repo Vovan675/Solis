@@ -16,9 +16,9 @@ struct BoundBox
 		min.y = glm::min(min.y, bound_box.min.y);
 		min.z = glm::min(min.z, bound_box.min.z);
 
-		max.x = glm::min(max.x, bound_box.max.x);
-		max.y = glm::min(max.y, bound_box.max.y);
-		max.z = glm::min(max.z, bound_box.max.z);
+		max.x = glm::max(max.x, bound_box.max.x);
+		max.y = glm::max(max.y, bound_box.max.y);
+		max.z = glm::max(max.z, bound_box.max.z);
 	}
 
 	void extend(const glm::vec3 &pos)

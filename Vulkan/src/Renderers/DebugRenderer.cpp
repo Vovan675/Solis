@@ -156,6 +156,40 @@ void DebugRenderer::renderLines(FrameGraph &fg)
 	});
 }
 
+void DebugRenderer::addBox(glm::vec3 half_extents, glm::mat4 transform)
+{
+	glm::vec3 corners[8] =
+	{
+		glm::vec3(-half_extents.x, -half_extents.y, -half_extents.z),
+		glm::vec3( half_extents.x, -half_extents.y, -half_extents.z),
+		glm::vec3( half_extents.x,  half_extents.y, -half_extents.z),
+		glm::vec3(-half_extents.x,  half_extents.y, -half_extents.z),
+		glm::vec3(-half_extents.x, -half_extents.y,  half_extents.z),
+		glm::vec3( half_extents.x, -half_extents.y,  half_extents.z),
+		glm::vec3( half_extents.x,  half_extents.y,  half_extents.z),
+		glm::vec3(-half_extents.x,  half_extents.y,  half_extents.z) 
+	};
+
+	for (int i = 0; i < 8; ++i)
+	{
+		corners[i] = glm::vec3(transform * glm::vec4(corners[i], 1.0f));
+	}
+
+	int edges[12][2] =
+	{
+		{0, 1}, {1, 2}, {2, 3}, {3, 0},
+		{4, 5}, {5, 6}, {6, 7}, {7, 4},
+		{0, 4}, {1, 5}, {2, 6}, {3, 7}
+	};
+
+	for (int i = 0; i < 12; ++i)
+	{
+		glm::vec3 p0 = corners[edges[i][0]];
+		glm::vec3 p1 = corners[edges[i][1]];
+		addLine(p0, p1);
+	}
+}
+
 void DebugRenderer::addBoundBox(BoundBox bbox)
 {
 	addLine(bbox.min, glm::vec3(bbox.max.x, bbox.min.y, bbox.min.z));

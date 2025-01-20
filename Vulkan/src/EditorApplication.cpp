@@ -17,12 +17,18 @@
 #include "FrameGraph/FrameGraphData.h"
 #include "FrameGraph/FrameGraphRHIResources.h"
 #include "FrameGraph/FrameGraphUtils.h"
+#include "Physics/PhysXWrapper.h"
+
+using namespace physx;
+
+static bool is_play = false;
 
 EditorApplication::EditorApplication()
 {
 	context.editor_camera = std::make_shared<Camera>();
 	Renderer::setCamera(context.editor_camera);
 
+	Scene::setCurrentScene(std::make_shared<Scene>());
 	EditorDefaultScene::createScene();
 
 	ImGuiWrapper::init(window);
@@ -63,6 +69,7 @@ void EditorApplication::update(float delta_time)
 				std::string path = Filesystem::openFileDialog();
 				if (!path.empty())
 				{
+					Scene::setCurrentScene(std::make_shared<Scene>());
 					Scene::getCurrentScene()->loadFile(path);
 				}
 			}
@@ -110,6 +117,9 @@ void EditorApplication::update(float delta_time)
 	debug_panel.debug_renderer = &debug_renderer;
 	debug_panel.ssao_renderer = &ssao_renderer;
 	debug_panel.renderImGui(context);
+	bool play_clicked = ImGui::Checkbox("Play", &is_play);
+
+	ImGui::End();
 
 	// Hierarchy
 	hierarchy_panel.renderImGui(context);
@@ -136,6 +146,31 @@ void EditorApplication::update(float delta_time)
 	context.editor_camera->updateMatrices();
 
 	prev_is_viewport_focused = is_viewport_focused;
+
+	static std::shared_ptr<Scene> saved_scene = nullptr;
+	if (play_clicked)
+	{
+		context.selected_entity = Entity();
+		if (is_play)
+		{
+			// Copy scene
+			saved_scene = Scene::getCurrentScene();
+			Scene::setCurrentScene(saved_scene->copy());
+			Scene::getCurrentScene()->physics_scene->reinit();
+		} else
+		{
+			// Revert scene
+			Scene::setCurrentScene(saved_scene);
+			saved_scene = nullptr;
+		}
+	}
+
+
+	Scene::getCurrentScene()->physics_scene->draw_debug(&debug_renderer);
+	if (is_play)
+	{
+		Scene::getCurrentScene()->updateRuntime();
+	}
 }
 
 void EditorApplication::updateBuffers(float delta_time)
