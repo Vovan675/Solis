@@ -1,37 +1,74 @@
 #pragma once
-#include "RHI/Texture.h"
-#include "RHI/Descriptors.h"
+#include "RHI/RHITexture.h"
+#include "RHI/Vulkan/Descriptors.h"
 
-class BindlessResources
+class RHIBindlessResources
 {
 public:
-	static void init();
-	static void cleanup();
+	virtual void init();
+	virtual void cleanup();
 
-	static const VkDescriptorSetLayout *getDescriptorLayout() { return &bindless_layout.layout; }
-	static const VkDescriptorSet *getDescriptorSet() { return &bindless_set; }
+	void beginFrame() {}
+	virtual void setTexture(uint32_t index, RHITexture *texture);
+	virtual uint32_t addTexture(RHITexture *texture);
+	virtual RHITexture *getTexture(uint32_t index);
+	virtual void removeTexture(RHITexture *texture);
+	virtual uint32_t getTextureIndex(RHITexture *texture) { return textures_indices[texture]; }
 
-	static void beginFrame();
-	static void setTexture(uint32_t index, Texture *texture);
-	static uint32_t addTexture(Texture *texture);
-	static Texture *getTexture(uint32_t index);
-	static void removeTexture(Texture *texture);
-	static uint32_t getTextureIndex(Texture *texture) { return textures_indices[texture]; }
-	static void updateSets();
-private:
-	static void set_invalid_texture(uint32_t index);
+protected:
+	virtual void set_invalid_texture(uint32_t index) {}
 
-private:
-	static std::shared_ptr<Texture> invalid_texture;
+protected:
+	std::shared_ptr<RHITexture> invalid_texture;
 
-	static DescriptorLayout bindless_layout;
-	static VkDescriptorPool bindless_pool;
-	static VkDescriptorSet bindless_set;
-
-	static DescriptorWriter descriptor_writer;
-	static bool is_dirty;
-
-	static std::unordered_map<Texture *, uint32_t> textures_indices;
-	static std::vector<int> empty_indices;
+	std::unordered_map<RHITexture *, uint32_t> textures_indices;
+	std::vector<int> empty_indices;
 };
 
+class VulkanBindlessResources : public RHIBindlessResources
+{
+public:
+	void init() override;
+	void cleanup() override;
+
+	void setTexture(uint32_t index, RHITexture *texture) override;
+
+	void updateSets();
+
+	VkDescriptorSetLayout getDescriptorLayout() { return bindless_layout.layout; }
+	VkDescriptorSet getDescriptorSet() { return bindless_set; }
+private:
+	void set_invalid_texture(uint32_t index) override;
+
+private:
+	DescriptorLayout bindless_layout;
+	VkDescriptorPool bindless_pool;
+	VkDescriptorSet bindless_set;
+
+	DescriptorWriter descriptor_writer;
+	bool is_dirty = false;
+};
+
+class DX12BindlessResources: public RHIBindlessResources
+{
+public:
+	void init() override;
+	void cleanup() override;
+
+	void setTexture(uint32_t index, RHITexture *texture) override;
+
+	void update();
+
+	VkDescriptorSetLayout getDescriptorLayout() { return bindless_layout.layout; }
+	VkDescriptorSet getDescriptorSet() { return bindless_set; }
+private:
+	void set_invalid_texture(uint32_t index) override;
+
+private:
+	DescriptorLayout bindless_layout;
+	VkDescriptorPool bindless_pool;
+	VkDescriptorSet bindless_set;
+
+	DescriptorWriter descriptor_writer;
+	bool is_dirty = false;
+};

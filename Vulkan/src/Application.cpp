@@ -8,17 +8,29 @@
 #include "FrameGraph/TransientResources.h"
 #include "Physics/PhysXWrapper.h"
 
+#include "RHI/Vulkan/VulkanDynamicRHI.h"
+#include "RHI/DX12/DX12DynamicRHI.h"
+
+#include "Demos/CubesDemo.h"
+#include "Demos/TowerGame.h"
+
 #ifndef DWMWA_USE_IMMERSIVE_DARK_MODE
 #define DWMWA_USE_IMMERSIVE_DARK_MODE 20
 #endif
+#include <imgui/ImGuiWrapper.h>
+#include <imgui.h>
 
-Input input;
-GPUResourceManager gpu_resource_manager;
+Input gInput;
+GPUResourceManager gGpuResourceManager;
+DynamicRHI *gDynamicRHI = nullptr;
+GlobalPipeline *gGlobalPipeline = nullptr;
 
-Application::Application()
+static TowerGame tower_game;
+
+Application::Application(int argc, char *argv[])
 {
 	glfwInit();
-	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API); //FUCK OFF OPENG
+	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API); //FUCK OFF OPENGL
 	window = glfwCreateWindow(1920, 1080, "Vulkan Renderer", nullptr, nullptr);
 	glfwSwapInterval(0);
 
@@ -37,84 +49,97 @@ Application::Application()
 	BOOL is_dark_mode = true;
 	DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &is_dark_mode, sizeof(is_dark_mode));
 
-	input.init(window);
+	gInput.init(window);
 	Log::Init();
-	VkWrapper::init(window);
-	AssetManager::init();
 
-	init_sync_objects();
+	GraphicsAPI gapi = GRAPHICS_API_NONE;
+
+	for (int i = 1; i < argc; i++)
+	{
+		std::string arg = argv[i];
+		if (arg == "-rhi")
+		{
+			if (i + 1 < argc)
+			{
+				std::string api = argv[i + 1];
+				if (api == "vk" || api == "vulkan")
+					gapi = GRAPHICS_API_VULKAN;
+				else if (api == "dx12" || api == "directx12")
+					gapi = GRAPHICS_API_DX12;
+			}
+		}
+	}
+
+	if (gapi == GRAPHICS_API_VULKAN)
+		gDynamicRHI = new VulkanDynamicRHI();
+	else
+		gDynamicRHI = new DX12DynamicRHI();
+	
+	gGlobalPipeline = new GlobalPipeline();
+
+	CORE_INFO("Current RHI: {}", gDynamicRHI->getName());
+
+	gDynamicRHI->init();
+	gDynamicRHI->createSwapchain(window);
+
+	Renderer::init();
+
+	AssetManager::init();
 	PhysXWrapper::init();
+
+	ImGuiWrapper::init(window);
 }
+
+enum DEMO
+{
+	DEMO_NONE,
+	DEMO_TOWER,
+	DEMO_OTHER,
+};
+static DEMO current_demo = DEMO_NONE;
+
 
 void Application::run()
 {
 	double prev_time = glfwGetTime();
 	float delta_seconds = 0.0f;
+	
+
+	if (current_demo != DEMO_NONE)
+	{
+		CubesDemo::initResources();
+		tower_game.initResources();
+		RenderTargetsDemo::initResources();
+	}
 
 	while (!glfwWindowShouldClose(window))
 	{
 		glfwPollEvents();
 
-		// Wait when queue for this frame is completed (device -> host sync)
-		VkWrapper::command_buffers[current_frame].waitFence();
+		gDynamicRHI->beginFrame();
 
-		// Acquire image and trigger semaphore
-		uint32_t image_index;
-		VkResult result = vkAcquireNextImageKHR(VkWrapper::device->logicalHandle, VkWrapper::swapchain->swapchain_handle, UINT64_MAX, imageAvailableSemaphores[current_frame], VK_NULL_HANDLE, &image_index);
-
-		update(delta_seconds);
-
-		Renderer::beginFrame(current_frame, image_index);
-		BindlessResources::updateSets();
 		TransientResources::update();
-		updateBuffers(delta_seconds);
+
+		if (current_demo == DEMO_NONE)
+		{
+			ImGuiWrapper::begin();
+			update(delta_seconds);
+			updateBuffers(delta_seconds);
+		} else if (current_demo == DEMO_TOWER)
+		{
+			tower_game.update(delta_seconds);
+		}
 
 		// Record commands
-		render(VkWrapper::command_buffers[current_frame]);
+		render(gDynamicRHI->getCmdList());
 
-		VkSubmitInfo submit_info{};
-		submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+		gDynamicRHI->endFrame();
 
-		// Wait when semaphore when image will get acquired
-		VkSemaphore wait_semaphores[] = {imageAvailableSemaphores[current_frame]};
-		VkPipelineStageFlags wait_stages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-		submit_info.waitSemaphoreCount = 1;
-		submit_info.pWaitSemaphores = wait_semaphores;
-		submit_info.pWaitDstStageMask = wait_stages;
-		submit_info.commandBufferCount = 1;
-		VkCommandBuffer command_buffer = VkWrapper::command_buffers[current_frame].get_buffer();
-		submit_info.pCommandBuffers = &command_buffer;
-		// Signal semaphore when queue submitted
-		VkSemaphore signal_semaphores[] = {renderFinishedSemaphores[current_frame]};
-		submit_info.signalSemaphoreCount = 1;
-		submit_info.pSignalSemaphores = signal_semaphores;
-		// Also trigger fence when queue completed to work with this 'currentFrame'
-		CHECK_ERROR(vkQueueSubmit(VkWrapper::device->graphicsQueue, 1, &submit_info, VkWrapper::command_buffers[current_frame].get_fence()));
-
-		VkPresentInfoKHR present_info{};
-		present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-		present_info.waitSemaphoreCount = 1;
-		// Wait until queue submitted before present it
-		present_info.pWaitSemaphores = signal_semaphores;
-		VkSwapchainKHR swapChains[] = {VkWrapper::swapchain->swapchain_handle};
-		present_info.swapchainCount = 1;
-		present_info.pSwapchains = swapChains;
-		present_info.pImageIndices = &image_index;
-		result = vkQueuePresentKHR(VkWrapper::device->presentQueue, &present_info);
-
-		Renderer::endFrame(image_index);
-
-		if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || framebuffer_resized)
+		if (framebuffer_resized)
 		{
 			framebuffer_resized = false;
 			recreate_swapchain();
-		} else if (result != VK_SUCCESS)
-		{
-			CORE_CRITICAL("Failed to present swap chain image");
 		}
-		//vkQueueWaitIdle(VkWrapper::device->presentQueue);
-
-		current_frame = (current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
 
 		delta_seconds = glfwGetTime() - prev_time;
 		prev_time = glfwGetTime();
@@ -123,68 +148,75 @@ void Application::run()
 	cleanup();
 }
 
-void Application::render(CommandBuffer &command_buffer)
+void Application::render(RHICommandList *cmd_list)
 {
-	command_buffer.open();
-	vkCmdResetQueryPool(command_buffer.get_buffer(), VkWrapper::device->query_pools[Renderer::getCurrentFrameInFlight()], 0, VkWrapper::device->time_stamps[Renderer::getCurrentFrameInFlight()].size());
+	//vkCmdResetQueryPool(command_buffer.get_buffer(), VkWrapper::device->query_pools[Renderer::getCurrentFrameInFlight()], 0, VkWrapper::device->time_stamps[Renderer::getCurrentFrameInFlight()].size());
+	
+	//GPU_SCOPE_FUNCTION(&command_buffer);
+
+	// Set swapchain color image layout for writing
+	auto swapchain_texture = gDynamicRHI->getSwapchainTexture(gDynamicRHI->current_frame);
+	swapchain_texture->transitLayout(cmd_list, TEXTURE_LAYOUT_ATTACHMENT);
+	//depth_stencil_texture->transitLayout(cmd_list, TEXTURE_LAYOUT_ATTACHMENT);
+	//cmd_list->setRenderTargets({swapchain_texture}, {depth_stencil_texture}, 0, 0, true);
+
+	// Set PSO
+	//cmd_list->setPipeline(pso_rhi);
+
+	if (current_demo == DEMO_NONE)
 	{
-		GPU_SCOPE_FUNCTION(&command_buffer);
+		recordCommands(cmd_list);
+	} else if (current_demo == DEMO_TOWER)
+	{
+		tower_game.render();
+	} else if (current_demo == DEMO_OTHER)
+	{
+		//auto swapchain_texture = gDynamicRHI->getSwapchainTexture(gDynamicRHI->current_frame);
+		//swapchain_texture->transitLayout(cmd_list, TEXTURE_LAYOUT_ATTACHMENT);
+		//cmd_list->setRenderTargets({swapchain_texture}, nullptr, 0, 0, true);
 
-		// Set swapchain color image layout for writing
-		VkWrapper::cmdImageMemoryBarrier(command_buffer,
-										VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, 0,
-										VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-										VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-										VkWrapper::swapchain->swapchain_images[Renderer::getCurrentImageIndex()], VK_IMAGE_ASPECT_COLOR_BIT);
+		///CubesDemo::render(cmd_list);
+		//CubesDemo::renderBindless(cmd_list);
+		//RenderTargetsDemo::render(cmd_list);
+		//RenderTargetsDemo::renderFrameGraph(cmd_list);
 
-		// Record commands (they do what they want + output to swapchain_textures)
-		recordCommands(command_buffer);
-
-		// Set swapchain color image layout for presenting
-		VkWrapper::cmdImageMemoryBarrier(command_buffer,
-										VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-										VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT,
-										VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-										VkWrapper::swapchain->swapchain_images[Renderer::getCurrentImageIndex()], VK_IMAGE_ASPECT_COLOR_BIT);
-
+		//ImGuiWrapper::render(cmd_list);
+		//cmd_list->resetRenderTargets();
 	}
-	command_buffer.close();
+
+	// Set swapchain color image layout for presenting
+	gDynamicRHI->getSwapchainTexture(gDynamicRHI->current_frame)->transitLayout(cmd_list, TEXTURE_LAYOUT_PRESENT);
 }
 
 void Application::cleanup()
 {
 	Scene::closeScene();
 	PhysXWrapper::shutdown();
-	vkDeviceWaitIdle(VkWrapper::device->logicalHandle);
+
+	gDynamicRHI->waitGPU();
+
 	AssetManager::shutdown();
 	TransientResources::cleanup();
+	ImGuiWrapper::shutdown();
 	cleanupResources();
-	cleanup_swapchain();
-	BindlessResources::cleanup();
-	Shader::destroyAllShaders();
+	///cleanup_swapchain();
+	gDynamicRHI->getBindlessResources()->cleanup();
+	// Shader::destroyAllShaders(); // TODO: implement
 	Renderer::shutdown();
-	gpu_resource_manager.cleanup();
-	Renderer::deleteResources(Renderer::getCurrentFrameInFlight()); // TODO: investigate why needed after, why there is twice deletion of the same
-	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-	{
-		Renderer::deleteResources(i); // TODO: investigate why needed after, why there is twice deletion of the same
-	}
 
-	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-	{
-		vkDestroySemaphore(VkWrapper::device->logicalHandle, imageAvailableSemaphores[i], nullptr);
-		vkDestroySemaphore(VkWrapper::device->logicalHandle, renderFinishedSemaphores[i], nullptr);
-	}
-
-	VkWrapper::shutdown();
+	delete gGlobalPipeline;
+	gGlobalPipeline = nullptr;
 
 	glfwDestroyWindow(window);
 	glfwTerminate();
+
+	gDynamicRHI->shutdown();
+	delete gDynamicRHI;
+	gDynamicRHI = nullptr;
 }
 
 void Application::cleanup_swapchain()
 {
-	VkWrapper::swapchain = nullptr;
 }
 
 void Application::recreate_swapchain()
@@ -197,27 +229,7 @@ void Application::recreate_swapchain()
 		glfwWaitEvents();
 	}
 
-	VkWrapper::swapchain->create(width, height);
+	gDynamicRHI->resizeSwapchain(width, height);
 	Renderer::recreateScreenResources();
 	onViewportSizeChanged(width, height);
-}
-
-void Application::init_sync_objects()
-{
-	imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
-	renderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
-	//Create Semaphores info
-	VkSemaphoreCreateInfo semaphoreInfo{};
-	semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-
-	//Create Fences info
-	VkFenceCreateInfo fenceInfo{};
-	fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-	fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-
-	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-	{
-		CHECK_ERROR(vkCreateSemaphore(VkWrapper::device->logicalHandle, &semaphoreInfo, nullptr, &imageAvailableSemaphores[i]));
-		CHECK_ERROR(vkCreateSemaphore(VkWrapper::device->logicalHandle, &semaphoreInfo, nullptr, &renderFinishedSemaphores[i]));
-	}
 }

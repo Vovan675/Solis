@@ -17,7 +17,7 @@ public:
 	void draw_debug(DebugRenderer *debug_renderer);
 private:
 	Scene *scene;
-	physx::PxScene *px_scene;
+	physx::PxScene *px_scene = nullptr;
 	std::unordered_map<entt::entity, physx::PxRigidActor *> entity_body;
 };
 

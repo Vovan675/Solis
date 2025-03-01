@@ -1,8 +1,9 @@
 #pragma once
-#include "RHI/Buffer.h"
+#include "RHI/RHIBuffer.h"
 #include "BoundBox.h"
 #include "Utils/Stream.h"
 #include "glm/glm.hpp"
+#include "RHI/RHIPipeline.h"
 
 namespace Engine
 {
@@ -24,39 +25,15 @@ namespace Engine
 			return desc;
 		}
 
-		static std::array<VkVertexInputAttributeDescription, 5> GetAttributeDescription()
+		static VertexInputsDescription GetVertexInputsDescription()
 		{
-			std::array<VkVertexInputAttributeDescription, 5> descs {};
-			// Position
-			descs[0].binding = 0;
-			descs[0].location = 0;
-			descs[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-			descs[0].offset = offsetof(Vertex, pos);
-
-			// Normal
-			descs[1].binding = 0;
-			descs[1].location = 1;
-			descs[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-			descs[1].offset = offsetof(Vertex, normal);
-
-			// Tangent
-			descs[2].binding = 0;
-			descs[2].location = 2;
-			descs[2].format = VK_FORMAT_R32G32B32_SFLOAT;
-			descs[2].offset = offsetof(Vertex, tangent);
-
-			// UV
-			descs[3].binding = 0;
-			descs[3].location = 3;
-			descs[3].format = VK_FORMAT_R32G32_SFLOAT;
-			descs[3].offset = offsetof(Vertex, uv);
-
-			// Color
-			descs[4].binding = 0;
-			descs[4].location = 4;
-			descs[4].format = VK_FORMAT_R32G32B32_SFLOAT;
-			descs[4].offset = offsetof(Vertex, color);
-			return descs;
+			VertexInputsDescription desc;
+			desc.inputs.push_back({"POSITION", 0, FORMAT_R32G32B32_SFLOAT});
+			desc.inputs.push_back({"NORMAL", 0, FORMAT_R32G32B32_SFLOAT});
+			desc.inputs.push_back({"TANGENT", 0, FORMAT_R32G32B32_SFLOAT});
+			desc.inputs.push_back({"TEXCOORD", 0, FORMAT_R32G32_SFLOAT});
+			desc.inputs.push_back({"COLOR", 0, FORMAT_R32G32B32_SFLOAT});
+			return desc;
 		}
 	};
 
@@ -68,8 +45,8 @@ namespace Engine
 		std::vector<Vertex> vertices;
 		std::vector<uint32_t> indices;
 
-		std::shared_ptr<Buffer> vertexBuffer;
-		std::shared_ptr<Buffer> indexBuffer;
+		std::shared_ptr<RHIBuffer> vertexBuffer;
+		std::shared_ptr<RHIBuffer> indexBuffer;
 		glm::mat4 root_transform = glm::mat4(1.0);
 
 		BoundBox bound_box;

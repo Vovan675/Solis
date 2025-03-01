@@ -12,6 +12,15 @@
 #include <Windows.h>
 #include <dwmapi.h>
 
+#include "d3d12.h"
+#include <D3Dcompiler.h>
+#include <dxgi1_4.h>
+#include <dxcapi.h>
+#include "d3dx12.h"
+
+#include <wrl.h>
+using Microsoft::WRL::ComPtr;
+
 #define GLFW_INCLUDE_VULKAN
 #define GLFW_EXPOSE_NATIVE_WIN32
 #include <GLFW/glfw3.h>
@@ -20,6 +29,7 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
+#define GLM_FORCE_LEFT_HANDED
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include "glm/glm.hpp"
 #include "glm/gtc/matrix_transform.hpp"

@@ -1,6 +1,6 @@
 #include "pch.h"
 #include "AssetManager.h"
-#include "RHI/Texture.h"
+#include "RHI/RHITexture.h"
 #include "Model.h"
 
 std::unordered_map<std::string, std::shared_ptr<Asset>> AssetManager::loaded_assets;
@@ -15,18 +15,18 @@ void AssetManager::shutdown()
 	loaded_assets.clear();
 }
 
-std::shared_ptr<Texture> AssetManager::getTextureAsset(std::string path)
+std::shared_ptr<RHITexture> AssetManager::getTextureAsset(std::string path)
 {
 	TextureDescription tex_description{};
-	tex_description.image_format = VK_FORMAT_R8G8B8A8_SRGB;
+	tex_description.format = FORMAT_R8G8B8A8_SRGB;
 	tex_description.usage_flags = TEXTURE_USAGE_TRANSFER_SRC;
 	return getTextureAsset(path, tex_description);
 }
 
-std::shared_ptr<Texture> AssetManager::getTextureAsset(std::string path, TextureDescription desc)
+std::shared_ptr<RHITexture> AssetManager::getTextureAsset(std::string path, TextureDescription desc)
 {
 	if (loaded_assets.find(path) != loaded_assets.end())
-		return std::dynamic_pointer_cast<Texture>(loaded_assets[path]);
+		return std::dynamic_pointer_cast<RHITexture>(loaded_assets[path]);
 
 	std::shared_ptr<Asset> new_asset;
 
@@ -35,7 +35,7 @@ std::shared_ptr<Texture> AssetManager::getTextureAsset(std::string path, Texture
 	new_asset = load_texture_asset(path, desc);
 
 	loaded_assets[path] = new_asset;
-	return std::dynamic_pointer_cast<Texture>(new_asset);
+	return std::dynamic_pointer_cast<RHITexture>(new_asset);
 }
 
 std::shared_ptr<Model> AssetManager::getModelAsset(std::string path)
@@ -62,7 +62,7 @@ std::shared_ptr<Model> AssetManager::getModelAsset(std::string path)
 
 std::shared_ptr<Asset> AssetManager::load_texture_asset(std::string path, TextureDescription desc)
 {
-	auto tex = Texture::create(desc);
+	auto tex = gDynamicRHI->createTexture(desc);
 	tex->load(path.c_str());
 	return std::dynamic_pointer_cast<Asset>(tex);
 }

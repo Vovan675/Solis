@@ -160,7 +160,7 @@ void Model::process_node(MeshNode *mesh_node, aiNode *node, const aiScene *scene
 			if (res == aiReturn_SUCCESS)
 			{
 				TextureDescription tex_description{};
-				tex_description.image_format = VK_FORMAT_R8G8B8A8_SRGB;
+				tex_description.format = FORMAT_R8G8B8A8_SRGB;
 				tex_description.usage_flags = TEXTURE_USAGE_TRANSFER_SRC;
 				tex_description.anisotropy = true;
 
@@ -170,7 +170,7 @@ void Model::process_node(MeshNode *mesh_node, aiNode *node, const aiScene *scene
 				auto tex = AssetManager::getTextureAsset(result_path.string(), tex_description);
 				if (!tex || !tex->isValid())
 					continue;
-				engine_material->albedo_tex_id = BindlessResources::addTexture(tex.get());
+				engine_material->albedo_tex_id = gDynamicRHI->getBindlessResources()->addTexture(tex.get());
 			}
 		}
 
@@ -182,7 +182,7 @@ void Model::process_node(MeshNode *mesh_node, aiNode *node, const aiScene *scene
 			if (res == aiReturn_SUCCESS)
 			{
 				TextureDescription tex_description{};
-				tex_description.image_format = VK_FORMAT_R8G8B8A8_UNORM;
+				tex_description.format = FORMAT_R8G8B8A8_UNORM;
 				tex_description.usage_flags = TEXTURE_USAGE_TRANSFER_SRC;
 				tex_description.anisotropy = true;
 
@@ -192,7 +192,7 @@ void Model::process_node(MeshNode *mesh_node, aiNode *node, const aiScene *scene
 				auto tex = AssetManager::getTextureAsset(result_path.string(), tex_description);
 				if (!tex || !tex->isValid())
 					continue;
-				engine_material->metalness_tex_id = BindlessResources::addTexture(tex.get());
+				engine_material->metalness_tex_id = gDynamicRHI->getBindlessResources()->addTexture(tex.get());
 			}
 		}
 
@@ -204,7 +204,7 @@ void Model::process_node(MeshNode *mesh_node, aiNode *node, const aiScene *scene
 			if (res == aiReturn_SUCCESS)
 			{
 				TextureDescription tex_description{};
-				tex_description.image_format = VK_FORMAT_R8G8B8A8_UNORM;
+				tex_description.format = FORMAT_R8G8B8A8_UNORM;
 				tex_description.usage_flags = TEXTURE_USAGE_TRANSFER_SRC;
 				tex_description.anisotropy = true;
 
@@ -214,7 +214,7 @@ void Model::process_node(MeshNode *mesh_node, aiNode *node, const aiScene *scene
 				auto tex = AssetManager::getTextureAsset(result_path.string(), tex_description);
 				if (!tex || !tex->isValid())
 					continue;
-				engine_material->roughness_tex_id = BindlessResources::addTexture(tex.get());
+				engine_material->roughness_tex_id = gDynamicRHI->getBindlessResources()->addTexture(tex.get());
 			}
 		}
 
@@ -226,7 +226,7 @@ void Model::process_node(MeshNode *mesh_node, aiNode *node, const aiScene *scene
 			if (res == aiReturn_SUCCESS)
 			{
 				TextureDescription tex_description{};
-				tex_description.image_format = VK_FORMAT_R8G8B8A8_UNORM;
+				tex_description.format = FORMAT_R8G8B8A8_UNORM;
 				tex_description.usage_flags = TEXTURE_USAGE_TRANSFER_SRC;
 				tex_description.anisotropy = true;
 
@@ -236,7 +236,7 @@ void Model::process_node(MeshNode *mesh_node, aiNode *node, const aiScene *scene
 				auto tex = AssetManager::getTextureAsset(result_path.string(), tex_description);
 				if (!tex || !tex->isValid())
 					continue;
-				engine_material->specular_tex_id = BindlessResources::addTexture(tex.get());
+				engine_material->specular_tex_id = gDynamicRHI->getBindlessResources()->addTexture(tex.get());
 			}
 		}
 
@@ -248,7 +248,7 @@ void Model::process_node(MeshNode *mesh_node, aiNode *node, const aiScene *scene
 			if (res == aiReturn_SUCCESS)
 			{
 				TextureDescription tex_description{};
-				tex_description.image_format = VK_FORMAT_R8G8B8A8_UNORM;
+				tex_description.format = FORMAT_R8G8B8A8_UNORM;
 				tex_description.usage_flags = TEXTURE_USAGE_TRANSFER_SRC;
 
 				std::filesystem::path result_path(path);
@@ -257,7 +257,7 @@ void Model::process_node(MeshNode *mesh_node, aiNode *node, const aiScene *scene
 				auto tex = AssetManager::getTextureAsset(result_path.string(), tex_description);
 				if (!tex || !tex->isValid())
 					continue;
-				engine_material->normal_tex_id = BindlessResources::addTexture(tex.get());
+				engine_material->normal_tex_id = gDynamicRHI->getBindlessResources()->addTexture(tex.get());
 			}
 		}
 

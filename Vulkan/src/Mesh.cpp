@@ -4,6 +4,7 @@
 #include "assimp/scene.h"
 #include "assimp/postprocess.h"
 #include "Variables.h"
+#include "RHI/DynamicRHI.h"
 
 namespace Engine
 {
@@ -50,10 +51,12 @@ namespace Engine
 		vertexDesc.size = sizeof(vertices[0]) * vertices.size();
 		vertexDesc.useStagingBuffer = true;
 		vertexDesc.bufferUsageFlags = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | additional_flags;
+		vertexDesc.usage = BufferUsage::VERTEX_BUFFER;
 
 		vertexDesc.alignment = 16;
+		vertexDesc.vertex_buffer_stride = sizeof(vertices[0]);
 
-		vertexBuffer = Buffer::create(vertexDesc);
+		vertexBuffer = gDynamicRHI->createBuffer(vertexDesc);
 		vertexBuffer->fill(vertices.data());
 		vertexBuffer->setDebugName("Vertex Buffer");
 
@@ -62,9 +65,10 @@ namespace Engine
 		indexDesc.size = sizeof(indices[0]) * indices.size();
 		indexDesc.useStagingBuffer = true;
 		indexDesc.bufferUsageFlags = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | additional_flags;
-		vertexDesc.alignment = 16;
+		indexDesc.usage = BufferUsage::INDEX_BUFFER;
+		indexDesc.alignment = 0;
 
-		indexBuffer = Buffer::create(indexDesc);
+		indexBuffer = gDynamicRHI->createBuffer(indexDesc);
 		indexBuffer->fill(indices.data());
 		indexBuffer->setDebugName("Index Buffer");
 	}

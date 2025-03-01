@@ -11,4 +11,4 @@ AutoConVarBool render_ssr("render.ssr.enabled", "Screen Space Reflections Enable
 AutoConVarBool render_fxaa("render.fxaa.enabled", "FXAA Enabled", true);
 AutoConVarBool render_automatic_sun_position("render.automatic_sun_position.enabled", "Automatic Sun Position", true, ConVarFlag::CON_VAR_FLAG_HIDDEN);
 
-AutoConVarBool engine_ray_tracing("engine.ray_tracing.enabled", "Ray Tracing Enabled", true, ConVarFlag::CON_VAR_FLAG_HIDDEN);
+AutoConVarBool engine_ray_tracing("engine.ray_tracing.enabled", "Ray Tracing Enabled", false, ConVarFlag::CON_VAR_FLAG_HIDDEN);

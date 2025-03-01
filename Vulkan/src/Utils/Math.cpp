@@ -13,3 +13,14 @@ glm::mat4 Math::getCubeFaceTransform(int face_index)
 	};
 	return views[face_index];
 }
+
+uint32_t Math::alignedSize(uint32_t value, uint32_t alignment)
+{
+	return (value + alignment - 1) & ~(alignment - 1);
+}
+
+uint64_t Math::roundUp(uint64_t size, uint64_t granularity)
+{
+	const auto divUp = (size + granularity - 1) / granularity;
+	return divUp * granularity;
+}

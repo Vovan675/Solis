@@ -77,14 +77,14 @@ bool AssetBrowserPanel::renderImGui()
 
 		if (entry.isDirectory)
 		{
-			if (ImGui::ImageButton(ImGuiWrapper::getTextureDescriptorSet(folder_tex), tile_size, ImVec2(0, 1), ImVec2(1, 0)))
+			if (ImGui::ImageButton(ImGuiWrapper::getTextureId(folder_tex), tile_size, ImVec2(0, 1), ImVec2(1, 0)))
 			{
 				current_grid_path /= entry.name;
 			}
 		} else
 		{
 			auto file_icon = get_file_icon(child_path);
-			ImGui::ImageButton(ImGuiWrapper::getTextureDescriptorSet(file_icon), tile_size, ImVec2(0, 1), ImVec2(1, 0));
+			ImGui::ImageButton(ImGuiWrapper::getTextureId(file_icon), tile_size, ImVec2(0, 1), ImVec2(1, 0));
 			process_drag_drop_source(child_path);
 			if (ImGui::IsItemClicked() && ImGui::IsMouseDoubleClicked(0))
 			{
@@ -150,7 +150,7 @@ void AssetBrowserPanel::render_directory(const std::string &path)
 	}
 }
 
-std::shared_ptr<Texture> AssetBrowserPanel::get_file_icon(std::filesystem::path &file)
+std::shared_ptr<RHITexture> AssetBrowserPanel::get_file_icon(std::filesystem::path &file)
 {
 	auto &file_tex = AssetManager::getTextureAsset("assets/editor/icons/file.png");
 	auto &scene_tex = AssetManager::getTextureAsset("assets/editor/icons/scene.png");

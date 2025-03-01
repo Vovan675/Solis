@@ -11,10 +11,10 @@ SSAORenderer::SSAORenderer() : RendererBase()
 	TextureDescription desc;
 	desc.width = 4;
 	desc.height = 4;
-	desc.image_format = VK_FORMAT_R32G32B32A32_SFLOAT;
-	desc.filtering = VK_FILTER_NEAREST;
+	desc.format = FORMAT_R32G32B32A32_SFLOAT;
+	desc.filtering = FILTER_NEAREST;
 	
-	ssao_noise = Texture::create(desc);
+	ssao_noise = gDynamicRHI->createTexture(desc);
 
 	std::default_random_engine generator(0);
 	std::uniform_real_distribution<float> randomFloats(0.0f, 1.0f);
@@ -50,8 +50,8 @@ SSAORenderer::SSAORenderer() : RendererBase()
 
 	ssao_noise->fill(ssao_noise_data.data());
 
-	fragment_shader_raw = Shader::create("shaders/ssao.frag", Shader::FRAGMENT_SHADER);
-	fragment_shader_blur = Shader::create("shaders/ssao_blur.frag", Shader::FRAGMENT_SHADER);
+	fragment_shader_raw = gDynamicRHI->createShader(L"shaders/ssao.hlsl", FRAGMENT_SHADER);
+	fragment_shader_blur = gDynamicRHI->createShader(L"shaders/ssao_blur.hlsl", FRAGMENT_SHADER);
 }
 
 void SSAORenderer::addPasses(FrameGraph &fg)
@@ -68,7 +68,7 @@ void SSAORenderer::addPasses(FrameGraph &fg)
 		FrameGraphTexture::Description desc;
 		desc.width = Renderer::getViewportSize().x;
 		desc.height = Renderer::getViewportSize().y;
-		desc.image_format = VK_FORMAT_R8_UNORM;
+		desc.format = FORMAT_R8_UNORM;
 		desc.usage_flags = TEXTURE_USAGE_ATTACHMENT;
 		desc.debug_name = "SSAO Raw Image";
 
@@ -78,7 +78,7 @@ void SSAORenderer::addPasses(FrameGraph &fg)
 		builder.read(gbuffer_data.normal);
 		builder.read(gbuffer_data.depth);
 	},
-	[=](const SSAOData &data, const RenderPassResources &resources, CommandBuffer &command_buffer)
+	[=](const SSAOData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
 		// Render
 		auto &normal = resources.getResource<FrameGraphTexture>(gbuffer_data.normal);
@@ -89,21 +89,20 @@ void SSAORenderer::addPasses(FrameGraph &fg)
 		ubo_raw_pass.depth_tex_id = depth.getBindlessId();
 		ubo_blur_pass.raw_tex_id = ssao_raw.getBindlessId();
 
-		VkWrapper::cmdBeginRendering(command_buffer, {ssao_raw.texture}, nullptr);
+		cmd_list->setRenderTargets({ssao_raw.texture}, nullptr, -1, 0, true);
 
-		auto &p = VkWrapper::global_pipeline;
-		p->bindScreenQuadPipeline(command_buffer, fragment_shader_raw);
+		auto &p = gGlobalPipeline;
+		p->bindScreenQuadPipeline(cmd_list, fragment_shader_raw);
 
 		// Uniforms
-		Renderer::setShadersUniformBuffer(p->getCurrentShaders(), 0, &ubo_raw_pass, sizeof(UBO_RAW));
-		Renderer::setShadersTexture(p->getCurrentShaders(), 1, ssao_noise);
-		Renderer::bindShadersDescriptorSets(p->getCurrentShaders(), command_buffer, p->getPipelineLayout());
+		gDynamicRHI->setConstantBufferData(0, &ubo_raw_pass, sizeof(UBO_RAW));
+		gDynamicRHI->setTexture(1, ssao_noise);
 
 		// Render quad
-		vkCmdDraw(command_buffer.get_buffer(), 6, 1, 0, 0);
+		cmd_list->drawInstanced(6, 1, 0, 0);
 
-		p->unbind(command_buffer);
-		VkWrapper::cmdEndRendering(command_buffer);
+		p->unbind(cmd_list);
+		cmd_list->resetRenderTargets();
 	});
 
 	
@@ -115,7 +114,7 @@ void SSAORenderer::addPasses(FrameGraph &fg)
 		FrameGraphTexture::Description desc;
 		desc.width = Renderer::getViewportSize().x;
 		desc.height = Renderer::getViewportSize().y;
-		desc.image_format = VK_FORMAT_R8_UNORM;
+		desc.format = FORMAT_R8_UNORM;
 		desc.usage_flags = TEXTURE_USAGE_ATTACHMENT;
 		desc.debug_name = "SSAO Blurred Image";
 
@@ -124,29 +123,26 @@ void SSAORenderer::addPasses(FrameGraph &fg)
 
 		builder.read(ssao_data.ssao_raw);
 	},
-	[=](const SSAOData &data, const RenderPassResources &resources, CommandBuffer &command_buffer)
+	[=](const SSAOData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
 		// Render
 		auto &ssao_blurred = resources.getResource<FrameGraphTexture>(data.ssao_blurred);
 
-		VkWrapper::cmdBeginRendering(command_buffer, {ssao_blurred.texture}, nullptr);
+		cmd_list->setRenderTargets({ssao_blurred.texture}, nullptr, -1, 0, true);
 
-		auto &p = VkWrapper::global_pipeline;
-		p->bindScreenQuadPipeline(command_buffer, fragment_shader_blur);
-
-		// Bindless
-		vkCmdBindDescriptorSets(command_buffer.get_buffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, p->getPipelineLayout(), 1, 1, BindlessResources::getDescriptorSet(), 0, nullptr);
+		auto &p = gGlobalPipeline;
+		p->bindScreenQuadPipeline(cmd_list, fragment_shader_blur);
 
 		// Uniforms
 		ubo_blur_pass.raw_tex_id = resources.getResource<FrameGraphTexture>(ssao_data.ssao_raw).getBindlessId();
-		Renderer::setShadersUniformBuffer(p->getCurrentShaders(), 0, &ubo_blur_pass, sizeof(UBO_BLUR));
-		Renderer::bindShadersDescriptorSets(p->getCurrentShaders(), command_buffer, p->getPipelineLayout());
+
+		gDynamicRHI->setConstantBufferData(0, &ubo_blur_pass, sizeof(UBO_BLUR));
 
 		// Render quad
-		vkCmdDraw(command_buffer.get_buffer(), 6, 1, 0, 0);
+		cmd_list->drawInstanced(6, 1, 0, 0);
 
-		p->unbind(command_buffer);
-		VkWrapper::cmdEndRendering(command_buffer);
+		p->unbind(cmd_list);
+		cmd_list->resetRenderTargets();
 	});
 }
 

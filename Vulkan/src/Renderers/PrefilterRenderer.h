@@ -1,9 +1,7 @@
 #pragma once
 
 #include "RendererBase.h"
-#include "RHI/Pipeline.h"
 #include "Mesh.h"
-#include "RHI/Texture.h"
 #include "Camera.h"
 #include "FrameGraph/FrameGraph.h"
 #include "FrameGraph/FrameGraphRHIResources.h"
@@ -20,9 +18,9 @@ public:
 
 	void addPass(FrameGraph &fg);
 
-	std::shared_ptr<Texture> prefilter_texture;
+	std::shared_ptr<RHITexture> prefilter_texture;
 
 private:
-	std::shared_ptr<Shader> compute_shader;
+	std::shared_ptr<RHIShader> compute_shader;
 };
 

@@ -8,11 +8,13 @@ void DebugPanel::renderImGui(EditorContext context)
 {
 	ImGui::Begin((std::string(ICON_FA_CUBES) + " Debug Window###Debug Window").c_str());
 
+	ImGui::Text("RHI: %s", + gDynamicRHI->getName());
+
 	if (ImGui::Button("Recompile shaders"))
 	{
 		// Wait for all operations complete
-		vkDeviceWaitIdle(VkWrapper::device->logicalHandle);
-		Shader::recompileAllShaders();
+		//vkDeviceWaitIdle(VkWrapper::device->logicalHandle);
+		//Shader::recompileAllShaders(); // TODO: implement
 	}
 
 	if (ImGui::TreeNode("Debug Info"))
@@ -73,6 +75,9 @@ void DebugPanel::renderImGui(EditorContext context)
 		camera->setFar(cam_far);
 		camera->updateMatrices();
 	}
+
+	glm::vec3 cam_pos = camera->getPosition();
+	ImGui::InputFloat3("Camera Position", cam_pos.data.data);
 
 	post_renderer->renderImgui();
 	ssao_renderer->renderImgui();

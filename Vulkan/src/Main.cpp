@@ -1,9 +1,9 @@
 #include "pch.h"
 #include "EditorApplication.h"
 
-int main()
+int main(int argc, char *argv[])
 {
-	EditorApplication app;
+	EditorApplication app(argc, argv);
 	app.run();
 	return 0;
 }

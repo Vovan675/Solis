@@ -9,6 +9,7 @@ class ViewportPanel
 public:
 	bool renderImGui(EditorContext context, float delta_time);
 	void update();
+	std::shared_ptr<RHITexture> viewport_texture;
 private:
 	ImGuizmo::OPERATION guizmo_tool_type = ImGuizmo::TRANSLATE;
 };

@@ -1,6 +1,5 @@
 #include "pch.h"
 #include "RayTracingScene.h"
-#include "RHI/VkWrapper.h"
 #include "Scene/Entity.h"
 #include "Scene/Components.h"
 
@@ -16,12 +15,12 @@ void RayTracingScene::build_blas()
 	big_desc.size = sizeof(Engine::Vertex) * blas_size;
 	big_desc.useStagingBuffer = true;
 	big_desc.bufferUsageFlags = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-	big_vertex_buffer = Buffer::create(big_desc);
+	big_vertex_buffer = gDynamicRHI->createBuffer(big_desc);
 
 	big_desc.size = sizeof(uint32_t) * blas_size;
 	big_desc.useStagingBuffer = true;
 	big_desc.bufferUsageFlags = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-	big_index_buffer = Buffer::create(big_desc);
+	big_index_buffer = gDynamicRHI->createBuffer(big_desc);
 
 	auto entities = Scene::getCurrentScene()->getEntitiesWith<MeshRendererComponent>();
 	for (auto &entity_id : entities)
@@ -31,8 +30,9 @@ void RayTracingScene::build_blas()
 		for (auto &mesh_node : mesh_renderer.meshes)
 		{
 			auto mesh = mesh_node.getMesh();
-			VkWrapper::copyBuffer(mesh->vertexBuffer->bufferHandle, big_vertex_buffer->bufferHandle, mesh->vertexBuffer->getSize(), big_vertex_buffer_last_offset);
-			VkWrapper::copyBuffer(mesh->indexBuffer->bufferHandle, big_index_buffer->bufferHandle, mesh->indexBuffer->getSize(), big_index_buffer_last_offset);
+			// TODO: fix
+			//VkWrapper::copyBuffer(mesh->vertexBuffer->bufferHandle, big_vertex_buffer->bufferHandle, mesh->vertexBuffer->getSize(), big_vertex_buffer_last_offset);
+			//VkWrapper::copyBuffer(mesh->indexBuffer->bufferHandle, big_index_buffer->bufferHandle, mesh->indexBuffer->getSize(), big_index_buffer_last_offset);
 			MeshOffset offset;
 			offset.vertexBufferOffset = big_vertex_buffer_last_offset / sizeof(Engine::Vertex);
 			offset.indexBufferOffset = big_index_buffer_last_offset / sizeof(uint32_t);
@@ -60,7 +60,7 @@ void RayTracingScene::build_blas()
 			transformDesc.bufferUsageFlags = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
 			transformDesc.alignment = 16;
 
-			transform_buffer = Buffer::create(transformDesc);
+			transform_buffer = gDynamicRHI->createBuffer(transformDesc);
 			transform_buffer->fill(&transformMatrix);
 		}
 
@@ -77,9 +77,10 @@ void RayTracingScene::build_blas()
 				VkDeviceOrHostAddressConstKHR indexBufferDeviceAddress{};
 				VkDeviceOrHostAddressConstKHR transformBufferDeviceAddress{};
 
-				vertexBufferDeviceAddress.deviceAddress = VkWrapper::getBufferDeviceAddress(mesh->vertexBuffer->bufferHandle);
-				indexBufferDeviceAddress.deviceAddress = VkWrapper::getBufferDeviceAddress(mesh->indexBuffer->bufferHandle);
-				transformBufferDeviceAddress.deviceAddress = VkWrapper::getBufferDeviceAddress(transform_buffer->bufferHandle);
+				// TODO: fix
+				//vertexBufferDeviceAddress.deviceAddress = VkWrapper::getBufferDeviceAddress(mesh->vertexBuffer->bufferHandle);
+				//indexBufferDeviceAddress.deviceAddress = VkWrapper::getBufferDeviceAddress(mesh->indexBuffer->bufferHandle);
+				//transformBufferDeviceAddress.deviceAddress = VkWrapper::getBufferDeviceAddress(transform_buffer->bufferHandle);
 
 				VkAccelerationStructureGeometryTrianglesDataKHR triangles{};
 				triangles.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR;

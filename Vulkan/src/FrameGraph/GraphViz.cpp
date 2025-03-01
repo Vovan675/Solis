@@ -89,7 +89,7 @@ void GraphViz::createGraph(std::ostream &os, FrameGraph &fg)
 	for (const auto &pass : fg.renderpass_nodes)
 	{
 		auto key = get_key(pass);
-		const char *color = (pass.getRefCount() > 0 && !pass.hasSideEffect()) ? "orangered" : "orangered4";
+		const char *color = (pass.getRefCount() > 0 || pass.hasSideEffect()) ? "orange" : "orangered4";
 
 		std::ostringstream title;
 		title << "{" << pass.getName() << "} | {Refs: " << pass.getRefCount() << "<BR/>Index: " << pass.getId() << "}";
@@ -102,7 +102,7 @@ void GraphViz::createGraph(std::ostream &os, FrameGraph &fg)
 			cluster_name = std::regex_replace(cluster_name, std::regex("\\Pass"), "");
 		}
 
-		auto &new_node = graph.nodes.emplace_back(Node{key, title.str(), cluster_name});
+		auto &new_node = graph.nodes.emplace_back(Node{key, title.str(), cluster_name, color});
 
 		// Add edge where this pass writes
 		auto &edge = graph.edges.emplace_back(Edge{key, {}, color});

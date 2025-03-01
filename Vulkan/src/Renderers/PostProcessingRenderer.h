@@ -1,10 +1,7 @@
 #pragma once
 #include "RendererBase.h"
-#include "RHI/Pipeline.h"
 #include "Mesh.h"
-#include "RHI/Texture.h"
 #include "Camera.h"
-#include "RHI/Descriptors.h"
 #include "FrameGraph/FrameGraphData.h"
 #include "FrameGraph/FrameGraphRHIResources.h"
 

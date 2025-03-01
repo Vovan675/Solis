@@ -62,27 +62,25 @@ void PostProcessingRenderer::addFilmPass(FrameGraph &fg)
 
 		builder.read(default_data.final_no_post);
 	},
-	[=](const PassData &data, const RenderPassResources &resources, CommandBuffer &command_buffer)
+	[=](const PassData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
 		// Render
 		auto &output = resources.getResource<FrameGraphTexture>(data.output);
 
-		VkWrapper::cmdBeginRendering(command_buffer, {output.texture}, nullptr);
+		cmd_list->setRenderTargets({output.texture}, {}, 0, 0, true);
+
+		// PSO
+		gGlobalPipeline->reset();
+		gGlobalPipeline->bindScreenQuadPipeline(cmd_list, gDynamicRHI->createShader(L"shaders/film.hlsl", FRAGMENT_SHADER));
 
 		film_ubo.composite_final_tex_id = resources.getResource<FrameGraphTexture>(default_data.final_no_post).getBindlessId();
 
-		auto &p = VkWrapper::global_pipeline;
-		p->bindScreenQuadPipeline(command_buffer, Shader::create("shaders/film.frag", Shader::FRAGMENT_SHADER));
+		gDynamicRHI->setConstantBufferData(0, &film_ubo, sizeof(FilmUBO));
 
-		// Uniforms
-		Renderer::setShadersUniformBuffer(p->getCurrentShaders(), 0, &film_ubo, sizeof(FilmUBO));
-		Renderer::bindShadersDescriptorSets(p->getCurrentShaders(), command_buffer, p->getPipelineLayout());
+		cmd_list->drawInstanced(6, 1, 0, 0);
 
-		vkCmdDraw(command_buffer.get_buffer(), 6, 1, 0, 0);
-
-		p->unbind(command_buffer);
-
-		VkWrapper::cmdEndRendering(command_buffer);
+		gGlobalPipeline->unbind(cmd_list);
+		cmd_list->resetRenderTargets();
 	});
 
 	if (render_fxaa)
@@ -104,30 +102,28 @@ void PostProcessingRenderer::addFxaaPass(FrameGraph &fg)
 
 		builder.read(current_output);
 	},
-	[=](const DefaultResourcesData &data, const RenderPassResources &resources, CommandBuffer &command_buffer)
+	[=](const DefaultResourcesData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
 		// Render
 		auto &final = resources.getResource<FrameGraphTexture>(data.final);
 
-		VkWrapper::cmdBeginRendering(command_buffer, {final.texture}, nullptr);
+		cmd_list->setRenderTargets({final.texture}, {}, 0, 0, true);
 
-
-		auto &p = VkWrapper::global_pipeline;
-		p->bindScreenQuadPipeline(command_buffer, Shader::create("shaders/fxaa.frag", Shader::FRAGMENT_SHADER));
+		// PSO
+		gGlobalPipeline->reset();
+		gGlobalPipeline->bindScreenQuadPipeline(cmd_list, gDynamicRHI->createShader(L"shaders/fxaa.hlsl", FRAGMENT_SHADER));
 
 		struct UBO
 		{
 			uint32_t composite_final_tex_id = 0;
 		} fxaa_ubo;
 		fxaa_ubo.composite_final_tex_id = resources.getResource<FrameGraphTexture>(current_output).getBindlessId();
-		// Uniforms
-		Renderer::setShadersUniformBuffer(p->getCurrentShaders(), 0, &fxaa_ubo, sizeof(UBO));
-		Renderer::bindShadersDescriptorSets(p->getCurrentShaders(), command_buffer, p->getPipelineLayout());
 
-		vkCmdDraw(command_buffer.get_buffer(), 6, 1, 0, 0);
+		gDynamicRHI->setConstantBufferData(0, &fxaa_ubo, sizeof(UBO));
 
-		p->unbind(command_buffer);
+		cmd_list->drawInstanced(6, 1, 0, 0);
 
-		VkWrapper::cmdEndRendering(command_buffer);
+		gGlobalPipeline->unbind(cmd_list);
+		cmd_list->resetRenderTargets();
 	});
 }

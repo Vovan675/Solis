@@ -10,14 +10,14 @@ LutRenderer::LutRenderer()
 	TextureDescription desc;
 	desc.width = 512;
 	desc.height = 512;
-	desc.image_format = VK_FORMAT_R16G16_SFLOAT;
+	desc.format = FORMAT_R16G16_SFLOAT;
 	desc.usage_flags = TEXTURE_USAGE_ATTACHMENT;
-	desc.sampler_address_mode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	desc.sampler_mode = SAMPLER_MODE_CLAMP_TO_EDGE;
 
-	brdf_lut_texture = Texture::create(desc);
+	brdf_lut_texture = gDynamicRHI->createTexture(desc);
 	brdf_lut_texture->fill();
 	brdf_lut_texture->setDebugName("IBL BRDF LUT Image");
-	BindlessResources::addTexture(brdf_lut_texture.get());
+	gDynamicRHI->getBindlessResources()->addTexture(brdf_lut_texture.get());
 }
 
 void LutRenderer::addPasses(FrameGraph &fg)
@@ -29,19 +29,19 @@ void LutRenderer::addPasses(FrameGraph &fg)
 	{
 		data.brdf_lut = builder.write(lut_data.brdf_lut);
 	},
-	[=](const LutData &data, const RenderPassResources &resources, CommandBuffer &command_buffer)
+	[=](const LutData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
 		FrameGraphTexture &brdf_lut = resources.getResource<FrameGraphTexture>(data.brdf_lut);
 
-		VkWrapper::cmdBeginRendering(command_buffer, {brdf_lut.texture}, nullptr);
-		auto &p = VkWrapper::global_pipeline;
-		p->bindScreenQuadPipeline(command_buffer, Shader::create("shaders/ibl/brdf_lut.frag", Shader::FRAGMENT_SHADER));
+		cmd_list->setRenderTargets({brdf_lut.texture}, nullptr, -1, 0, true);
 
+		auto &p = gGlobalPipeline;
+		p->bindScreenQuadPipeline(cmd_list, gDynamicRHI->createShader(L"shaders/ibl/brdf_lut.hlsl", FRAGMENT_SHADER));
 
 		// Render quad
-		vkCmdDraw(command_buffer.get_buffer(), 6, 1, 0, 0);
+		cmd_list->drawInstanced(6, 1, 0, 0);
 
-		p->unbind(command_buffer);
-		VkWrapper::cmdEndRendering(command_buffer);
+		p->unbind(cmd_list);
+		cmd_list->resetRenderTargets();
 	});
 }

@@ -1,9 +1,7 @@
 #pragma once
 
 #include "RendererBase.h"
-#include "RHI/Pipeline.h"
 #include "Mesh.h"
-#include "RHI/Texture.h"
 #include "Camera.h"
 #include "FrameGraph/FrameGraphData.h"
 #include "FrameGraph/FrameGraphRHIResources.h"
@@ -34,10 +32,10 @@ public:
 		glm::vec3 sun_direction = glm::vec3(1, 0.7, 0);
 	} procedural_uniforms;
 
-	std::shared_ptr<Texture> cube_texture;
+	std::shared_ptr<RHITexture> cube_texture;
 private:
-	std::shared_ptr<Shader> vertex_shader;
-	std::shared_ptr<Shader> fragment_shader;
+	std::shared_ptr<RHIShader> vertex_shader;
+	std::shared_ptr<RHIShader> fragment_shader;
 
 	std::shared_ptr<Engine::Mesh> mesh;
 	SKY_MODE mode;

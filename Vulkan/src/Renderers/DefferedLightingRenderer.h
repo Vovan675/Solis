@@ -1,10 +1,7 @@
 #pragma once
 #include "RendererBase.h"
-#include "RHI/Pipeline.h"
 #include "Mesh.h"
-#include "RHI/Texture.h"
 #include "Camera.h"
-#include "RHI/Descriptors.h"
 #include "Scene/Scene.h"
 #include "FrameGraph/FrameGraphData.h"
 #include "FrameGraph/FrameGraphRHIResources.h"
@@ -14,9 +11,9 @@ class DefferedLightingRenderer: public RendererBase
 public:
 	struct UniformBufferObject
 	{
-		alignas(16) glm::mat4 model;
-		alignas(16) std::array<glm::mat4, 4> light_matrix;
-		alignas(16) glm::vec4 cascade_splits;
+		glm::mat4 model;
+		std::array<glm::mat4, 4> light_matrix;
+		glm::vec4 cascade_splits;
 	} ubo_sphere;
 
 	struct UBO
@@ -36,7 +33,6 @@ public:
 		float light_intensity;
 		float light_range_square; // radius ^ 2
 		float z_far;
-		float padding[1];
 	} constants;
 
 	DefferedLightingRenderer();

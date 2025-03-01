@@ -28,7 +28,7 @@ void TransientResources::update()
 	}
 }
 
-std::shared_ptr<Texture> TransientResources::getTemporaryTexture(const TextureDescription &desc)
+std::shared_ptr<RHITexture> TransientResources::getTemporaryTexture(const TextureDescription &desc)
 {
 	size_t hash = desc.getHash();
 	if (textures.find(hash) != textures.end() && !textures[hash].empty())
@@ -38,12 +38,12 @@ std::shared_ptr<Texture> TransientResources::getTemporaryTexture(const TextureDe
 		return resource.texture;
 	} else
 	{
-		auto texture = Texture::create(desc);
+		auto texture = gDynamicRHI->createTexture(desc);
 		return texture;
 	}
 }
 
-void TransientResources::releaseTemporaryTexture(std::shared_ptr<Texture> texture)
+void TransientResources::releaseTemporaryTexture(std::shared_ptr<RHITexture> texture)
 {
 	size_t hash = texture->getDescription().getHash();
 	textures[hash].emplace_back(ResourceEntry{texture, Renderer::getCurrentFrame()});

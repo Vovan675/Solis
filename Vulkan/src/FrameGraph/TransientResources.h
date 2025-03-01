@@ -1,5 +1,5 @@
 #pragma once
-#include "RHI/Texture.h"
+#include "RHI/RHITexture.h"
 
 class TransientResources
 {
@@ -9,12 +9,12 @@ public:
 
 	static void update();
 
-	static std::shared_ptr<Texture> getTemporaryTexture(const TextureDescription &desc);
-	static void releaseTemporaryTexture(std::shared_ptr<Texture> texture);
+	static std::shared_ptr<RHITexture> getTemporaryTexture(const TextureDescription &desc);
+	static void releaseTemporaryTexture(std::shared_ptr<RHITexture> texture);
 
 	struct ResourceEntry
 	{
-		std::shared_ptr<Texture> texture;
+		std::shared_ptr<RHITexture> texture;
 		uint32_t last_access_frame;
 	};
 

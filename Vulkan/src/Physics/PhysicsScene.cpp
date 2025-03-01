@@ -20,7 +20,7 @@ PhysicsScene::PhysicsScene(Scene *scene)
 PhysicsScene::~PhysicsScene()
 {
 	// TODO: revert
-	PX_RELEASE(px_scene);
+	//PX_RELEASE(px_scene);
 }
 
 void PhysicsScene::simulate()

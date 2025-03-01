@@ -1,6 +1,6 @@
 #pragma once
-#include "RHI/VkWrapper.h"
-
+#include "RHI/DynamicRHI.h"
+#include "Rendering/GlobalPipeline.h"
 
 class RendererBase
 {
@@ -12,7 +12,7 @@ public:
 	virtual ~RendererBase() {}
 
 	// Add commands to command buffer
-	virtual void fillCommandBuffer(CommandBuffer &command_buffer) {}
+	virtual void fillCommandBuffer(RHICommandList *cmd_list) {}
 private:
 };
 

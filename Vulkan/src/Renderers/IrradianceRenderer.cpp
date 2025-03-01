@@ -7,20 +7,20 @@
 
 IrradianceRenderer::IrradianceRenderer(): RendererBase()
 {
-	compute_shader = Shader::create("shaders/ibl/irradiance.comp", Shader::COMPUTE_SHADER);
+	compute_shader = gDynamicRHI->createShader(L"shaders/ibl/irradiance.hlsl", COMPUTE_SHADER);
 
 	TextureDescription desc;
 	desc.width = 128;
 	desc.height = 128;
 	desc.is_cube = true;
 	desc.mip_levels = 5;
-	desc.image_format = VK_FORMAT_R32G32B32A32_SFLOAT;
+	desc.format = FORMAT_R32G32B32A32_SFLOAT;
 	desc.usage_flags = TEXTURE_USAGE_TRANSFER_SRC | TEXTURE_USAGE_TRANSFER_DST | TEXTURE_USAGE_STORAGE;
 
-	irradiance_texture = Texture::create(desc);
+	irradiance_texture = gDynamicRHI->createTexture(desc);
 	irradiance_texture->fill();
 	irradiance_texture->setDebugName("IBL Irradiance Image");
-	BindlessResources::addTexture(irradiance_texture.get());
+	gDynamicRHI->getBindlessResources()->addTexture(irradiance_texture.get());
 }
 
 void IrradianceRenderer::addPass(FrameGraph &fg)
@@ -36,30 +36,29 @@ void IrradianceRenderer::addPass(FrameGraph &fg)
 
 		builder.read(sky_data.sky);
 	},
-	[=](const IBLData &data, const RenderPassResources &resources, CommandBuffer &command_buffer)
+	[=](const IBLData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
 		FrameGraphTexture &irradiance = resources.getResource<FrameGraphTexture>(data.irradiance);
 		FrameGraphTexture &sky = resources.getResource<FrameGraphTexture>(sky_data.sky);
 
 		// Very heavy computation
-		auto &p = VkWrapper::global_pipeline;
+		auto &p = gGlobalPipeline;
 		p->reset();
 
 		p->setIsComputePipeline(true);
 		p->setComputeShader(compute_shader);
 
 		p->flush();
-		p->bind(command_buffer);
+		p->bind(cmd_list);
 
 		// Uniforms
-		Renderer::setShadersTexture(p->getCurrentShaders(), 1, irradiance.texture, -1, -1, true);
-		Renderer::setShadersTexture(p->getCurrentShaders(), 2, sky.texture);
-		Renderer::bindShadersDescriptorSets(p->getCurrentShaders(), command_buffer, p->getPipelineLayout(), VK_PIPELINE_BIND_POINT_COMPUTE);
+		gDynamicRHI->setUAVTexture(1, irradiance.texture);
+		gDynamicRHI->setTexture(2, sky.texture);
 
-		vkCmdDispatch(command_buffer.get_buffer(), irradiance.texture->getWidth() / 32, irradiance.texture->getHeight() / 32, 6);
+		cmd_list->dispatch(irradiance.texture->getWidth() / 32, irradiance.texture->getHeight() / 32, 6);
+		
+		p->unbind(cmd_list);
 
-		p->unbind(command_buffer);
-
-		irradiance.texture->generateMipmaps(command_buffer);
+		///irradiance.texture->generateMipmaps(command_buffer); // TODO: mipmaps
 	});
 }

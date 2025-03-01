@@ -2,9 +2,8 @@
 #include <vulkan/vulkan.h>
 #include <glm/glm.hpp>
 #include <vector>
-#include "RHI/Buffer.h"
-#include <RHI/VkWrapper.h>
-#include "RHI/VkUtils.h"
+#include "RHI/RHIBuffer.h"
+#include "RHI/Vulkan/VulkanUtils.h"
 
 class BottomLevelAccelerationStructures
 {
@@ -12,11 +11,13 @@ public:
 	~BottomLevelAccelerationStructures()
 	{
 		for (auto &blas : blases)
-			VkUtils::vkDestroyAccelerationStructureKHR(blas.handle, nullptr);
+			VulkanUtils::vkDestroyAccelerationStructureKHR(blas.handle, nullptr);
 	}
 
 	void buildBLAS(std::vector<VkAccelerationStructureGeometryKHR> geometries, std::vector<VkAccelerationStructureBuildRangeInfoKHR> build_range_infos, std::vector<uint32_t> max_primitives_counts)
 	{
+		// TODO: fix
+		/*
 		auto device = VkWrapper::device->logicalHandle;
 
 		// Get size info
@@ -30,7 +31,7 @@ public:
 		VkAccelerationStructureBuildSizesInfoKHR accelerationStructureBuildSizesInfo{};
 		accelerationStructureBuildSizesInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR;
 
-		VkUtils::vkGetAccelerationStructureBuildSizesKHR(
+		VulkanUtils::vkGetAccelerationStructureBuildSizesKHR(
 			VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
 			&accelerationStructureBuildGeometryInfo,
 			max_primitives_counts.data(),
@@ -50,7 +51,7 @@ public:
 		accelerationStructureCreateInfo.buffer = bottomAS.buffer->bufferHandle;
 		accelerationStructureCreateInfo.size = accelerationStructureBuildSizesInfo.accelerationStructureSize;
 		accelerationStructureCreateInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
-		VkUtils::vkCreateAccelerationStructureKHR(&accelerationStructureCreateInfo, nullptr, &bottomAS.handle);
+		VulkanUtils::vkCreateAccelerationStructureKHR(&accelerationStructureCreateInfo, nullptr, &bottomAS.handle);
 
 		BufferDescription scratchDesc;
 		scratchDesc.size = VkWrapper::roundUp(accelerationStructureBuildSizesInfo.buildScratchSize, VkWrapper::device->physicalAccelerationStructureProperties.minAccelerationStructureScratchOffsetAlignment);
@@ -78,7 +79,7 @@ public:
 		command_buffer.init(true);
 		command_buffer.open();
 
-		VkUtils::vkCmdBuildAccelerationStructuresKHR(command_buffer.get_buffer(), 1, &accelerationBuildGeometryInfo, accelerationBuildStructureRangeInfos.data());
+		VulkanUtils::vkCmdBuildAccelerationStructuresKHR(command_buffer.get_buffer(), 1, &accelerationBuildGeometryInfo, accelerationBuildStructureRangeInfos.data());
 
 		command_buffer.close();
 		command_buffer.waitFence();
@@ -86,7 +87,8 @@ public:
 		VkAccelerationStructureDeviceAddressInfoKHR accelerationDeviceAddressInfo{};
 		accelerationDeviceAddressInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR;
 		accelerationDeviceAddressInfo.accelerationStructure = bottomAS.handle;
-		bottomAS.deviceAddress = VkUtils::vkGetAccelerationStructureDeviceAddressKHR(&accelerationDeviceAddressInfo);
+		bottomAS.deviceAddress = VulkanUtils::vkGetAccelerationStructureDeviceAddressKHR(&accelerationDeviceAddressInfo);
+		*/
 	}
 
 	struct AccelerationStructure
@@ -94,8 +96,8 @@ public:
 		VkAccelerationStructureKHR handle;
 		uint64_t deviceAddress = 0;
 		VkDeviceMemory memory;
-		std::shared_ptr<Buffer> buffer;
-		std::shared_ptr<Buffer> scratch_buffer;
+		std::shared_ptr<RHIBuffer> buffer;
+		std::shared_ptr<RHIBuffer> scratch_buffer;
 	};
 
 	std::vector<AccelerationStructure> blases;
@@ -107,11 +109,13 @@ public:
 	~TopLevelAccelerationStructure()
 	{
 		if (handle)
-			VkUtils::vkDestroyAccelerationStructureKHR(handle, nullptr);
+			VulkanUtils::vkDestroyAccelerationStructureKHR(handle, nullptr);
 	}
 
 	void buildTLAS(bool update)
 	{
+		// TODO: fix
+		/*
 		update = false;
 		auto device = VkWrapper::device->logicalHandle;
 
@@ -149,7 +153,7 @@ public:
 
 		VkAccelerationStructureBuildSizesInfoKHR accelerationStructureBuildSizesInfo{};
 		accelerationStructureBuildSizesInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR;
-		VkUtils::vkGetAccelerationStructureBuildSizesKHR(
+		VulkanUtils::vkGetAccelerationStructureBuildSizesKHR(
 			VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
 			&accelerationStructureBuildGeometryInfo,
 			&primitive_count,
@@ -162,7 +166,7 @@ public:
 		{
 			if (handle)
 			{
-				VkUtils::vkDestroyAccelerationStructureKHR(handle, nullptr);
+				VulkanUtils::vkDestroyAccelerationStructureKHR(handle, nullptr);
 				handle = nullptr;
 			}
 
@@ -180,7 +184,7 @@ public:
 			accelerationStructureCreateInfo.buffer = buffer;
 			accelerationStructureCreateInfo.size = accelerationStructureBuildSizesInfo.accelerationStructureSize;
 			accelerationStructureCreateInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
-			VkUtils::vkCreateAccelerationStructureKHR(&accelerationStructureCreateInfo, nullptr, &handle);
+			VulkanUtils::vkCreateAccelerationStructureKHR(&accelerationStructureCreateInfo, nullptr, &handle);
 		}
 
 		// Create a small scratch buffer used during build of the top level acceleration structure
@@ -222,7 +226,7 @@ public:
 		command_buffer.init(true);
 		command_buffer.open();
 
-		VkUtils::vkCmdBuildAccelerationStructuresKHR(command_buffer.get_buffer(), 1, &accelerationBuildGeometryInfo, accelerationBuildStructureRangeInfos.data());
+		VulkanUtils::vkCmdBuildAccelerationStructuresKHR(command_buffer.get_buffer(), 1, &accelerationBuildGeometryInfo, accelerationBuildStructureRangeInfos.data());
 
 		command_buffer.close();
 		command_buffer.waitFence();
@@ -231,9 +235,10 @@ public:
 		VkAccelerationStructureDeviceAddressInfoKHR accelerationDeviceAddressInfo{};
 		accelerationDeviceAddressInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR;
 		accelerationDeviceAddressInfo.accelerationStructure = handle;
-		deviceAddress = VkUtils::vkGetAccelerationStructureDeviceAddressKHR(&accelerationDeviceAddressInfo);
+		deviceAddress = VulkanUtils::vkGetAccelerationStructureDeviceAddressKHR(&accelerationDeviceAddressInfo);
 
 		instances.clear();
+		*/
 	}
 
 	void addInstance(VkDeviceAddress bottomLevelAccelerationStructure, glm::mat4 transform, uint32_t instance_index)
@@ -264,6 +269,6 @@ public:
 	uint64_t deviceAddress = 0;
 	VkDeviceMemory memory;
 	VkBuffer buffer;
-	std::shared_ptr<Buffer> acc_buffer;
-	std::shared_ptr<Buffer> scratch_buffer;
+	std::shared_ptr<RHIBuffer> acc_buffer;
+	std::shared_ptr<RHIBuffer> scratch_buffer;
 };

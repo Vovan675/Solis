@@ -20,11 +20,26 @@ bool ViewportPanel::renderImGui(EditorContext context, float delta_time)
 	viewport_pos.x += viewport_offset.x;
 	viewport_pos.y += viewport_offset.y;
 
-	auto &viewport_texture = Renderer::getRenderTarget(RENDER_TARGET_FINAL);
-		
 	ImVec2 viewport_size = ImGui::GetContentRegionAvail();
+
+	if (!viewport_texture || viewport_size.x != viewport_texture->getWidth() || viewport_size.y != viewport_texture->getHeight())
+	{
+		TextureDescription description;
+		description.width = viewport_size.x;
+		description.height = viewport_size.y;
+
+		description.format = FORMAT_R8G8B8A8_UNORM;
+		description.usage_flags = TEXTURE_USAGE_ATTACHMENT;
+		description.sampler_mode = SAMPLER_MODE_REPEAT;
+		
+		viewport_texture = gDynamicRHI->createTexture(description);
+		viewport_texture->fill();
+		viewport_texture->setDebugName("Viewport Texture");
+		gDynamicRHI->getBindlessResources()->addTexture(viewport_texture.get());
+	}
+
 	if (viewport_texture)
-		ImGui::Image(ImGuiWrapper::getTextureDescriptorSet(viewport_texture), viewport_size);
+		ImGui::Image(ImGuiWrapper::getTextureId(viewport_texture), viewport_size);
 
 	Renderer::setViewportSize({viewport_size.x, viewport_size.y});
 	context.editor_camera->setAspect(viewport_size.x / viewport_size.y);
@@ -39,7 +54,6 @@ bool ViewportPanel::renderImGui(EditorContext context, float delta_time)
 		ImGuizmo::SetRect(viewport_pos.x, viewport_pos.y, viewport_size.x, viewport_size.y);
 
 		glm::mat4 proj = context.editor_camera->getProj();
-		proj[1][1] *= -1.0f;
 
 		glm::mat4 delta_transform;
 		glm::mat4 transform = selected_entity.getWorldTransformMatrix();
@@ -75,10 +89,10 @@ bool ViewportPanel::renderImGui(EditorContext context, float delta_time)
 
 void ViewportPanel::update()
 {
-	if (input.isKeyDown(GLFW_KEY_R))
+	if (gInput.isKeyDown(GLFW_KEY_R))
 		guizmo_tool_type = ImGuizmo::ROTATE;
-	if (input.isKeyDown(GLFW_KEY_T))
+	if (gInput.isKeyDown(GLFW_KEY_T))
 		guizmo_tool_type = ImGuizmo::TRANSLATE;
-	if (input.isKeyDown(GLFW_KEY_Y))
+	if (gInput.isKeyDown(GLFW_KEY_Y))
 		guizmo_tool_type = ImGuizmo::SCALE;
 }

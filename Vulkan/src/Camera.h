@@ -10,7 +10,7 @@ class Camera
 public:
 	Camera() 
 	{
-		position = glm::vec3(0, 2, 3);
+		position = glm::vec3(0, 2, 0);
 		pitch = 0;
 		yaw = 0;
 		updateMatrices();
@@ -18,36 +18,37 @@ public:
 
 	void update(float dt, glm::vec2 mouse_pos, bool mouse_pressed)
 	{
+		dt = 1.0f / 60.0f;
 		if (mouse_pressed)
 		{
 			glm::vec2 delta_pos = mouse_pos - prev_mouse_pos;
 			delta_pos *= 0.003f;
-			pitch += -delta_pos.y;
-			yaw += -delta_pos.x;
+			pitch += delta_pos.y;
+			yaw += delta_pos.x;
 			updateMatrices();
 		}
 		prev_mouse_pos = mouse_pos;
 
 		// Get rows for directions
-		glm::vec3 forward = glm::rotate(orientation, glm::vec3(0, 0, -1));
+		glm::vec3 forward = glm::rotate(orientation, glm::vec3(0, 0, 1));
 		glm::vec3 right = glm::rotate(orientation, glm::vec3(1, 0, 0));
 		glm::vec3 up = glm::rotate(orientation, glm::vec3(0, 1, 0));
 
 		glm::vec3 movement = glm::vec3(0, 0, 0);
-		if (input.isKeyDown(GLFW_KEY_W))
+		if (gInput.isKeyDown(GLFW_KEY_W))
 			movement += forward;
-		if (input.isKeyDown(GLFW_KEY_S))
+		if (gInput.isKeyDown(GLFW_KEY_S))
 			movement -= forward;
-		if (input.isKeyDown(GLFW_KEY_A))
+		if (gInput.isKeyDown(GLFW_KEY_A))
 			movement -= right;
-		if (input.isKeyDown(GLFW_KEY_D))
+		if (gInput.isKeyDown(GLFW_KEY_D))
 			movement += right;
-		if (input.isKeyDown(GLFW_KEY_E))
+		if (gInput.isKeyDown(GLFW_KEY_E))
 			movement += up;
-		if (input.isKeyDown(GLFW_KEY_Q))
+		if (gInput.isKeyDown(GLFW_KEY_Q))
 			movement -= up;
 		
-		if (input.isKeyDown(GLFW_KEY_LEFT_SHIFT))
+		if (gInput.isKeyDown(GLFW_KEY_LEFT_SHIFT))
 			movement *= 2.0f;
 
 		movement *= dt * speed;
@@ -59,8 +60,7 @@ public:
 	{
 		orientation = glm::quat(glm::vec3(pitch, yaw, 0));
 		view = glm::inverse(glm::translate(glm::mat4(1.0f), position) * glm::toMat4(orientation));
-		proj = glm::perspectiveRH(glm::radians(45.0f), aspect, near_plane, far_plane);
-		proj[1][1] *= -1.0f;
+		proj = glm::perspectiveLH(glm::radians(45.0f), aspect, near_plane, far_plane);
 	}
 
 	void setSpeed(float speed) { this->speed = speed; }
@@ -76,6 +76,16 @@ public:
 	float getAspect() const { return aspect; }
 
 	const glm::vec3 &getPosition() const { return position; }
+	void setPosition(glm::vec3 position) { this->position = position; updateMatrices(); }
+
+	const glm::vec3 &getRotation() const { return glm::vec3(pitch, yaw, 0); }
+	void setRotation(glm::vec3 rotation)
+	{  
+		pitch = glm::radians(rotation.x);
+		yaw = glm::radians(rotation.y);
+		updateMatrices();
+	}
+
 	const glm::mat4 &getView() const { return view; }
 	const glm::mat4 &getProj() const { return proj; }
 

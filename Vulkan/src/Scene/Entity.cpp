@@ -1,6 +1,6 @@
 #include "pch.h"
 #include "Entity.h"
-#include "RHI/Texture.h"
+#include "RHI/RHITexture.h"
 #include "BindlessResources.h"
 #include <filesystem>
 #include "Scene.h"

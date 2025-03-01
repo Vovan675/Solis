@@ -1,11 +1,9 @@
 #pragma once
 
 #include "RendererBase.h"
-#include "RHI/Pipeline.h"
 #include "Mesh.h"
-#include "RHI/Texture.h"
+#include "RHI/RHITexture.h"
 #include "Camera.h"
-#include "RHI/Descriptors.h"
 #include "Material.h"
 
 class MeshRenderer : public RendererBase
@@ -14,7 +12,7 @@ public:
 	MeshRenderer(std::shared_ptr<Engine::Mesh> mesh);
 	virtual ~MeshRenderer();
 
-	void fillCommandBuffer(CommandBuffer &command_buffer) override;
+	void fillCommandBuffer(RHICommandList *cmd_list) override;
 
 	void setPosition(glm::vec3 pos) { position = pos; }
 	void setRotation(glm::quat rot) { rotation = rot; }
@@ -27,8 +25,8 @@ private:
 		alignas(16) glm::mat4 model;
 	};
 
-	std::shared_ptr<Shader> vertex_shader;
-	std::shared_ptr<Shader> fragment_shader;
+	std::shared_ptr<RHIShader> vertex_shader;
+	std::shared_ptr<RHIShader> fragment_shader;
 
 	std::shared_ptr<Texture> texture;
 	std::shared_ptr<Engine::Mesh> mesh;

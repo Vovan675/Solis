@@ -1,10 +1,9 @@
 #pragma once
 #include "RendererBase.h"
-#include "RHI/Pipeline.h"
+#include "RHI/RHIPipeline.h"
 #include "Mesh.h"
-#include "RHI/Texture.h"
+#include "RHI/RHITexture.h"
 #include "Camera.h"
-#include "RHI/Descriptors.h"
 #include "FrameGraph/FrameGraphData.h"
 #include "FrameGraph/FrameGraphRHIResources.h"
 
@@ -45,12 +44,17 @@ public:
 	std::vector<glm::vec3> addCirlce(glm::vec3 center, glm::vec3 normal, float radius, int segments);
 	void addArrow(glm::vec3 p0, glm::vec3 p1, float arrow_size);
 private:
-	std::shared_ptr<Shader> vertex_shader_lines;
-	std::shared_ptr<Shader> fragment_shader_lines;
+	std::shared_ptr<RHIShader> vertex_shader_lines;
+	std::shared_ptr<RHIShader> fragment_shader_lines;
 
-	Engine::Vertex *vertices;
-	std::shared_ptr<Buffer> lines_index_buffer;
-	std::shared_ptr<Buffer> lines_vertex_buffer;
+	struct LineVertex
+	{
+		glm::vec3 pos;
+		glm::vec3 color;
+	};
+	LineVertex *vertices;
+	std::shared_ptr<RHIBuffer> lines_index_buffer;
+	std::shared_ptr<RHIBuffer> lines_vertex_buffer;
 
 	int lines_index_count = 0;
 };

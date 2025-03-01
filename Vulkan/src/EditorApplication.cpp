@@ -1,6 +1,5 @@
 ﻿#include "pch.h"
 #include "EditorApplication.h"
-#include "RHI/VkWrapper.h"
 #include "Scene/Entity.h"
 #include "Rendering/Renderer.h"
 #include "imgui.h"
@@ -23,7 +22,7 @@ using namespace physx;
 
 static bool is_play = false;
 
-EditorApplication::EditorApplication()
+EditorApplication::EditorApplication(int argc, char *argv[]) : Application(argc, argv)
 {
 	context.editor_camera = std::make_shared<Camera>();
 	Renderer::setCamera(context.editor_camera);
@@ -31,24 +30,18 @@ EditorApplication::EditorApplication()
 	Scene::setCurrentScene(std::make_shared<Scene>());
 	EditorDefaultScene::createScene();
 
-	ImGuiWrapper::init(window);
-	
-	shadow_renderer.context = &context;
-	shadow_renderer.debug_renderer = &debug_renderer;
-	shadow_renderer.entity_renderer = &entity_renderer;
+	scene_renderer = std::make_shared<SceneRenderer>();
 
-	gbuffer_pass.entity_renderer = &entity_renderer;
-
-	if (engine_ray_tracing)
-	{
-		ray_tracing_scene = std::make_shared<RayTracingScene>(nullptr);
-		shadow_renderer.ray_tracing_scene = ray_tracing_scene;
-	}
+	debug_panel.sky_renderer = &scene_renderer->sky_renderer;
+	debug_panel.defferred_lighting_renderer = &scene_renderer->defferred_lighting_renderer;
+	debug_panel.post_renderer = &scene_renderer->post_renderer;
+	debug_panel.debug_renderer = &scene_renderer->debug_renderer;
+	debug_panel.ssao_renderer = &scene_renderer->ssao_renderer;
 }
 
 void EditorApplication::update(float delta_time)
 {
-	ImGuiWrapper::begin();
+	ImGui::ShowDemoWindow();
 
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0);
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
@@ -111,27 +104,24 @@ void EditorApplication::update(float delta_time)
 
 	// TODO: move to DebugPanel
 	// Debug Panel
-	debug_panel.sky_renderer = &sky_renderer;
-	debug_panel.defferred_lighting_renderer = &defferred_lighting_renderer;
-	debug_panel.post_renderer = &post_renderer;
-	debug_panel.debug_renderer = &debug_renderer;
-	debug_panel.ssao_renderer = &ssao_renderer;
+
 	debug_panel.renderImGui(context);
 	bool play_clicked = ImGui::Checkbox("Play", &is_play);
 
 	ImGui::End();
+
 
 	// Hierarchy
 	hierarchy_panel.renderImGui(context);
 	ImGui::End();
 
 	// Parameters
-	parameters_panel.renderImGui(context.selected_entity, debug_renderer);
+	parameters_panel.renderImGui(context.selected_entity, scene_renderer->debug_renderer);
 
 	// Asset browser
 	asset_browser_panel.renderImGui();
 
-	if (input.isKeyDown(GLFW_KEY_ESCAPE))
+	if (gInput.isKeyDown(GLFW_KEY_ESCAPE))
 		context.selected_entity = Entity();
 
 	viewport_panel.update();
@@ -166,7 +156,7 @@ void EditorApplication::update(float delta_time)
 	}
 
 
-	Scene::getCurrentScene()->physics_scene->draw_debug(&debug_renderer);
+	Scene::getCurrentScene()->physics_scene->draw_debug(&scene_renderer->debug_renderer);
 	if (is_play)
 	{
 		Scene::getCurrentScene()->updateRuntime();
@@ -176,110 +166,23 @@ void EditorApplication::update(float delta_time)
 void EditorApplication::updateBuffers(float delta_time)
 {
 	Renderer::updateDefaultUniforms(delta_time);
-
-	ssao_renderer.ubo_raw_pass.near_plane = context.editor_camera->getNear();
-	ssao_renderer.ubo_raw_pass.far_plane = context.editor_camera->getFar();
+	scene_renderer->ssao_renderer.ubo_raw_pass.near_plane = context.editor_camera->getNear();
+	scene_renderer->ssao_renderer.ubo_raw_pass.far_plane = context.editor_camera->getFar();
 }
 
-std::vector<RenderBatch> render_batches;
 
-void EditorApplication::recordCommands(CommandBuffer &command_buffer)
+void EditorApplication::recordCommands(RHICommandList *cmd_list)
 {
-	render_batches.clear();
-
-	BoundFrustum bound_frustum(context.editor_camera->getProj(), context.editor_camera->getView());
-	auto entities_id = Scene::getCurrentScene()->getEntitiesWith<MeshRendererComponent>();
-	for (entt::entity entity_id : entities_id)
-	{
-		Entity entity(entity_id);
-		MeshRendererComponent &mesh_renderer = entity.getComponent<MeshRendererComponent>();
-
-		for (int i = 0; i < mesh_renderer.meshes.size(); i++)
-		{
-			const std::shared_ptr<Engine::Mesh> mesh = mesh_renderer.meshes[i].getMesh();
-			const auto material = mesh_renderer.materials.size() > i ? mesh_renderer.materials[i] : std::make_shared<Material>();
-
-			RenderBatch &batch = render_batches.emplace_back();
-			batch.mesh = mesh;
-			batch.material = material;
-			batch.world_transform = entity.getWorldTransformMatrix();
-			auto bbox = mesh->bound_box * batch.world_transform;
-			batch.camera_visible = bbox.isInside(bound_frustum);
-		}
-	}
-
+	scene_renderer->setScene(Scene::getCurrentScene());
+	scene_renderer->render(context.editor_camera, viewport_panel.viewport_texture);
 
 	FrameGraph frameGraph;
 
-	DefaultResourcesData &default_data = frameGraph.getBlackboard().add<DefaultResourcesData>();
-	default_data.final_no_post = importTexture(frameGraph, Renderer::getRenderTarget(RENDER_TARGET_FINAL_NO_POST));
-	default_data.final = importTexture(frameGraph, Renderer::getRenderTarget(RENDER_TARGET_FINAL));
-	default_data.backbuffer = importTexture(frameGraph, VkWrapper::swapchain->swapchain_textures[Renderer::getCurrentImageIndex()]);
-
-	if (engine_ray_tracing)
-		ray_tracing_scene->update();
-
-	bool is_sky_dirty = sky_renderer.isDirty();
-	sky_renderer.addProceduralPasses(frameGraph);
-
-	LutData &lut_data = frameGraph.getBlackboard().add<LutData>();
-	lut_data.brdf_lut = importTexture(frameGraph, lut_renderer.brdf_lut_texture);
-
-	if (render_first_frame)
-	{
-		// Render BRDF Lut
-		lut_renderer.addPasses(frameGraph);
-	}
-
-	IBLData &ibl_data = frameGraph.getBlackboard().add<IBLData>();
-	ibl_data.irradiance = importTexture(frameGraph, irradiance_renderer.irradiance_texture);
-	ibl_data.prefilter = importTexture(frameGraph, prefilter_renderer.prefilter_texture);
-
-	if (render_first_frame || is_sky_dirty)
-	{
-		// Render IBL irradiance
-		irradiance_renderer.addPass(frameGraph);
-
-		// Render IBL prefilter
-		prefilter_renderer.addPass(frameGraph);
-	}
-	render_first_frame = false;
-
-	gbuffer_pass.AddPass(frameGraph, render_batches);
-
-	// Shadows
-	{
-		if (render_shadows)
-			shadow_renderer.addShadowMapPasses(frameGraph, render_batches);
-
-		if (render_ray_traced_shadows)
-			shadow_renderer.addRayTracedShadowPasses(frameGraph);
-	}
-
-	defferred_lighting_renderer.renderLights(frameGraph);
-
-	ssao_renderer.addPasses(frameGraph);
-	if (render_ssr)
-		ssr_renderer.addPasses(frameGraph);
-
-	auto &composite_data = frameGraph.getBlackboard().add<CompositeData>();
-	// Draw Sky on background
-	sky_renderer.addCompositePasses(frameGraph);
-	// Draw composite (discard sky pixels by depth)
-	deffered_composite_renderer.addPasses(frameGraph);
-
-	// Render post process
-	post_renderer.addPasses(frameGraph);
-
-	// Render debug textures
-	if (render_debug_rendering)
-	{
-		debug_renderer.addPasses(frameGraph);
-	}
-
-	debug_renderer.renderLines(frameGraph);
-
 	// Render ImGui to backbuffer
+	DefaultResourcesData &default_data = frameGraph.getBlackboard().add<DefaultResourcesData>();
+	default_data.final = importTexture(frameGraph, viewport_panel.viewport_texture);
+	default_data.backbuffer = importTexture(frameGraph, gDynamicRHI->getSwapchainTexture(gDynamicRHI->current_frame));
+
 	default_data = frameGraph.addCallbackPass<DefaultResourcesData>("ImGui Pass",
 	[&](RenderPassBuilder &builder, DefaultResourcesData &data)
 	{
@@ -288,29 +191,26 @@ void EditorApplication::recordCommands(CommandBuffer &command_buffer)
 		data.backbuffer = builder.write(default_data.backbuffer, RenderPassNode::RESOURCE_ACCESS_IGNORE_FLAG);
 		builder.setSideEffect(true);
 	},
-	[=](const DefaultResourcesData &data, const RenderPassResources &resources, CommandBuffer &command_buffer)
+	[=](const DefaultResourcesData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
 		auto &final = resources.getResource<FrameGraphTexture>(data.final);
 		auto &backbuffer = resources.getResource<FrameGraphTexture>(data.backbuffer);
 
-		VkWrapper::cmdBeginRendering(command_buffer, {VkWrapper::swapchain->swapchain_textures[Renderer::getCurrentImageIndex()]}, nullptr);
-		ImGuiWrapper::render(command_buffer);
-		VkWrapper::cmdEndRendering(command_buffer);
+		cmd_list->setRenderTargets({backbuffer.texture}, {}, 0, 0, true);
+		ImGuiWrapper::render(cmd_list);
+		cmd_list->resetRenderTargets();
 	});
 
 	frameGraph.compile();
-	frameGraph.execute(command_buffer);
 
-	if (input.isKeyDown(GLFW_KEY_T))
-	{
-		GraphViz viz;
-		viz.show("graph.dot", frameGraph);
-	}
+	auto current_cmd_list = gDynamicRHI->getCmdList();
+	frameGraph.execute(current_cmd_list);
 }
 
 void EditorApplication::cleanupResources()
 {
-	ImGuiWrapper::shutdown();
+	/*
 	shadow_renderer.ray_tracing_scene = nullptr;
 	ray_tracing_scene = nullptr;
+	*/
 }

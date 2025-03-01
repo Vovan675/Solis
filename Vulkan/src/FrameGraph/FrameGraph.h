@@ -1,23 +1,15 @@
 #pragma once
 #include "FrameGraphBlackboard.h"
-#include "RHI/CommandBuffer.h"
+#include "RHI/DynamicRHI.h"
 #include <algorithm>
 
 // Just a handle to any resource
 using FrameGraphResource = int32_t;
 
-struct EngineTexture
-{
-	int colorRed = 0;
-};
-
-
-
-
 class RenderPassResources;
 struct RenderPassAbstract
 {
-	virtual void operator()(const RenderPassResources &resources, CommandBuffer &command_buffer) = 0;
+	virtual void operator()(const RenderPassResources &resources, RHICommandList *cmd_list) = 0;
 };
 
 class FrameGraphNode
@@ -185,14 +177,14 @@ public:
 		concept->destroy();
 	}
 
-	void preRead(CommandBuffer &command_buffer, uint32_t flags)
+	void preRead(RHICommandList *cmd_list, uint32_t flags)
 	{
-		concept->preRead(command_buffer, flags);
+		concept->preRead(cmd_list, flags);
 	}
 
-	void preWrite(CommandBuffer &command_buffer, uint32_t flags)
+	void preWrite(RHICommandList *cmd_list, uint32_t flags)
 	{
-		concept->preWrite(command_buffer, flags);
+		concept->preWrite(cmd_list, flags);
 	}
 private:
 	struct Concept
@@ -201,8 +193,8 @@ private:
 
 		virtual void create() = 0;
 		virtual void destroy() = 0;
-		virtual void preRead(CommandBuffer &command_buffer, uint32_t flags) = 0;
-		virtual void preWrite(CommandBuffer &command_buffer, uint32_t flags) = 0;
+		virtual void preRead(RHICommandList *cmd_list, uint32_t flags) = 0;
+		virtual void preWrite(RHICommandList *cmd_list, uint32_t flags) = 0;
 	};
 
 	template <typename T>
@@ -220,14 +212,14 @@ private:
 			resource.destroy(desc);
 		}
 
-		void preRead(CommandBuffer &command_buffer, uint32_t flags) override
+		void preRead(RHICommandList *cmd_list, uint32_t flags) override
 		{
-			resource.preRead(desc, command_buffer, flags);
+			resource.preRead(desc, cmd_list, flags);
 		}
 
-		void preWrite(CommandBuffer &command_buffer, uint32_t flags) override
+		void preWrite(RHICommandList *cmd_list, uint32_t flags) override
 		{
-			resource.preWrite(desc, command_buffer, flags);
+			resource.preWrite(desc, cmd_list, flags);
 		}
 
 		const typename T::Description desc;
@@ -291,7 +283,7 @@ public:
 	void compile();
 
 	// Go through pases and execute them
-	void execute(CommandBuffer &command_buffer);
+	void execute(RHICommandList *cmd_list);
 
 private:
 	friend class GraphViz;
@@ -360,9 +352,9 @@ struct RenderPass : RenderPassAbstract
 	RenderPass(Execute execute): execute(execute)
 	{}
 
-	void operator()(const RenderPassResources &resources, CommandBuffer &command_buffer) override
+	void operator()(const RenderPassResources &resources, RHICommandList *cmd_list) override
 	{
-		execute(data, resources, command_buffer);
+		execute(data, resources, cmd_list);
 	}
 
 	Execute execute;

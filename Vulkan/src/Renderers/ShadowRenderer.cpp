@@ -1,6 +1,5 @@
 #include "pch.h"
 #include "ShadowRenderer.h"
-#include "RHI/VkWrapper.h"
 #include "Rendering/Renderer.h"
 #include "Scene/Scene.h"
 #include "Scene/Entity.h"
@@ -16,22 +15,22 @@
 
 ShadowRenderer::ShadowRenderer()
 {
-	shadows_vertex_shader = Shader::create("shaders/lighting/shadows.vert", Shader::VERTEX_SHADER);
-	shadows_fragment_shader_point = Shader::create("shaders/lighting/shadows.frag", Shader::FRAGMENT_SHADER, {{"LIGHT_TYPE", "0"}});
-	shadows_fragment_shader_directional = Shader::create("shaders/lighting/shadows.frag", Shader::FRAGMENT_SHADER, {{"LIGHT_TYPE", "1"}});
+	shadows_vertex_shader = gDynamicRHI->createShader(L"shaders/lighting/shadows.hlsl", VERTEX_SHADER);
+	shadows_fragment_shader_point = gDynamicRHI->createShader(L"shaders/lighting/shadows.hlsl", FRAGMENT_SHADER, {{"LIGHT_TYPE", "0"}});
+	shadows_fragment_shader_directional = gDynamicRHI->createShader(L"shaders/lighting/shadows.hlsl", FRAGMENT_SHADER, {{"LIGHT_TYPE", "1"}});
 
 	if (engine_ray_tracing)
 	{
-		raygen_shader = Shader::create("shaders/rt/raygen.rgen", Shader::RAY_GENERATION_SHADER);
-		miss_shader = Shader::create("shaders/rt/miss.rmiss", Shader::MISS_SHADER);
+		raygen_shader = gDynamicRHI->createShader(L"shaders/rt/raygen.rgen", RAY_GENERATION_SHADER);
+		miss_shader = gDynamicRHI->createShader(L"shaders/rt/miss.rmiss", MISS_SHADER);
 
-		closest_hit_shader = Shader::create("shaders/rt/closesthit.rchit", Shader::CLOSEST_HIT_SHADER);
+		closest_hit_shader = gDynamicRHI->createShader(L"shaders/rt/closesthit.rchit", CLOSEST_HIT_SHADER);
 		TextureDescription tex_description = {};
-		tex_description.width = VkWrapper::swapchain->swap_extent.width;
-		tex_description.height = VkWrapper::swapchain->swap_extent.height;
-		tex_description.image_format = VK_FORMAT_B8G8R8A8_UNORM;
+		tex_description.width = gDynamicRHI->getSwapchainTexture(0)->getWidth();
+		tex_description.height = gDynamicRHI->getSwapchainTexture(0)->getHeight();
+		tex_description.format = FORMAT_R8G8B8A8_UNORM;
 		tex_description.usage_flags = TEXTURE_USAGE_TRANSFER_SRC | TEXTURE_USAGE_STORAGE;
-		storage_image = Texture::create(tex_description);
+		storage_image = gDynamicRHI->createTexture(tex_description);
 		storage_image->fill();
 	}
 }
@@ -59,12 +58,12 @@ void ShadowRenderer::addShadowMapPasses(FrameGraph &fg, const std::vector<Render
 		if (light.getType() == LIGHT_TYPE_POINT)
 		{
 			std::vector<glm::mat4> faces_transforms;
-			faces_transforms.push_back(glm::lookAt(position, position + glm::vec3(1, 0, 0), glm::vec3(0, -1, 0)));
-			faces_transforms.push_back(glm::lookAt(position, position + glm::vec3(-1, 0, 0), glm::vec3(0, -1, 0)));
-			faces_transforms.push_back(glm::lookAt(position, position + glm::vec3(0, 1, 0), glm::vec3(0, 0, 1)));
-			faces_transforms.push_back(glm::lookAt(position, position + glm::vec3(0, -1, 0), glm::vec3(0, 0, -1)));
-			faces_transforms.push_back(glm::lookAt(position, position + glm::vec3(0, 0, 1), glm::vec3(0, -1, 0)));
-			faces_transforms.push_back(glm::lookAt(position, position + glm::vec3(0, 0, -1), glm::vec3(0, -1, 0)));
+			faces_transforms.push_back(glm::lookAtLH(position, position + glm::vec3(1, 0, 0), glm::vec3(0, 1, 0)));
+			faces_transforms.push_back(glm::lookAtLH(position, position + glm::vec3(-1, 0, 0), glm::vec3(0, 1, 0)));
+			faces_transforms.push_back(glm::lookAtLH(position, position + glm::vec3(0, 1, 0), glm::vec3(0, 0, 1)));
+			faces_transforms.push_back(glm::lookAtLH(position, position + glm::vec3(0, -1, 0), glm::vec3(0, 0, 1)));
+			faces_transforms.push_back(glm::lookAtLH(position, position + glm::vec3(0, 0, 1), glm::vec3(0, 1, 0)));
+			faces_transforms.push_back(glm::lookAtLH(position, position + glm::vec3(0, 0, -1), glm::vec3(0, 1, 0)));
 
 
 			FrameGraphResource shadow_map_resource = importTexture(fg, light.shadow_map);
@@ -74,7 +73,7 @@ void ShadowRenderer::addShadowMapPasses(FrameGraph &fg, const std::vector<Render
 			{
 				shadow_passes.shadow_maps.push_back(builder.write(shadow_map_resource));
 			},
-			[=, &shadow_passes](const ShadowPasses &data, const RenderPassResources &resources, CommandBuffer &command_buffer)
+			[=, &shadow_passes, &batches](const ShadowPasses &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 			{
 				// Render
 				auto &shadow_map = resources.getResource<FrameGraphTexture>(shadow_passes.shadow_maps.back());
@@ -84,32 +83,31 @@ void ShadowRenderer::addShadowMapPasses(FrameGraph &fg, const std::vector<Render
 					if (faces_transforms.size() <= face)
 						continue;
 
-					glm::mat4 light_projection = glm::perspectiveRH(glm::radians(90.0f), 1.0f, 0.1f, light.radius);
+					glm::mat4 light_projection = glm::perspectiveLH(glm::radians(90.0f), 1.0f, 0.05f, light.radius);
 					glm::mat4 light_matrix = light_projection * faces_transforms[face];
 
-					VkWrapper::cmdBeginRendering(command_buffer, {}, shadow_map.texture, face);
+					cmd_list->setRenderTargets({}, shadow_map.texture, face, 0, true);
 
-					auto &p = VkWrapper::global_pipeline;
+					auto &p = gGlobalPipeline;
 					p->reset();
 
 					p->setVertexShader(shadows_vertex_shader);
 					p->setFragmentShader(shadows_fragment_shader_point);
 
-					p->setRenderTargets(VkWrapper::current_render_targets);
+					p->setVertexInputsDescription(Engine::Vertex::GetVertexInputsDescription());
+					p->setRenderTargets(cmd_list->getCurrentRenderTargets());
 					p->setUseBlending(false);
-					p->setCullMode(VK_CULL_MODE_FRONT_BIT);
+					p->setCullMode(CULL_MODE_FRONT);
 
 					p->flush();
-					p->bind(command_buffer);
+					p->bind(cmd_list);
 
 					EntityRenderer::ShadowUBO ubo;
 					ubo.light_space_matrix = light_matrix;
 					ubo.light_pos = glm::vec4(position, 1.0);
 					ubo.z_far = light.radius;
 
-					Renderer::setShadersUniformBuffer(p->getCurrentShaders(), 0, &ubo, sizeof(EntityRenderer::ShadowUBO));
-					Renderer::bindShadersDescriptorSets(p->getCurrentShaders(), command_buffer, p->getPipelineLayout());
-
+					gDynamicRHI->setConstantBufferData(1, &ubo, sizeof(EntityRenderer::ShadowUBO));
 
 					BoundFrustum bound_frustum(light_projection, faces_transforms[face]);
 					for (const RenderBatch &batch : batches)
@@ -119,24 +117,21 @@ void ShadowRenderer::addShadowMapPasses(FrameGraph &fg, const std::vector<Render
 
 						struct ShadowPushConstact
 						{
-							alignas(16) glm::mat4 model;
+							glm::mat4 model;
 						} push_constant;
 
 						push_constant.model = batch.world_transform;
-						vkCmdPushConstants(command_buffer.get_buffer(), p->getPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(ShadowPushConstact), &push_constant);
+						gDynamicRHI->setConstantBufferData(0, &push_constant, sizeof(ShadowPushConstact));
 
 						// Render mesh
-						VkBuffer vertexBuffers[] = {batch.mesh->vertexBuffer->bufferHandle};
-						VkDeviceSize offsets[] = {0};
-						vkCmdBindVertexBuffers(command_buffer.get_buffer(), 0, 1, vertexBuffers, offsets);
-						vkCmdBindIndexBuffer(command_buffer.get_buffer(), batch.mesh->indexBuffer->bufferHandle, 0, VK_INDEX_TYPE_UINT32);
-						vkCmdDrawIndexed(command_buffer.get_buffer(), batch.mesh->indices.size(), 1, 0, 0, 0);
+						cmd_list->setVertexBuffer(batch.mesh->vertexBuffer);
+						cmd_list->setIndexBuffer(batch.mesh->indexBuffer);
+						cmd_list->drawIndexedInstanced(batch.mesh->indices.size(), 1, 0, 0, 0);
 						Renderer::addDrawCalls(1);
 					}
 					
-					p->unbind(command_buffer);
-
-					VkWrapper::cmdEndRendering(command_buffer);
+					p->unbind(cmd_list);
+					cmd_list->resetRenderTargets();
 				}
 			});
 		} else
@@ -144,7 +139,7 @@ void ShadowRenderer::addShadowMapPasses(FrameGraph &fg, const std::vector<Render
 			FrameGraphResource shadow_map_resource = importTexture(fg, light.shadow_map);
 
 			glm::vec3 light_dir = light_entity.getLocalDirection(glm::vec3(0, 0, 1));
-			debug_renderer->addArrow(position, position - light_dir, 0.1);
+			debug_renderer->addArrow(position, position + light_dir, 0.1);
 			update_cascades(light, light_dir);
 
 			cs_pass = fg.addCallbackPass<CascadeShadowPass>("Cascaded Shadows Pass",
@@ -152,7 +147,7 @@ void ShadowRenderer::addShadowMapPasses(FrameGraph &fg, const std::vector<Render
 			{
 				data.shadow_map = builder.write(shadow_map_resource);
 			},
-			[=](const CascadeShadowPass &data, const RenderPassResources &resources, CommandBuffer &command_buffer)
+			[=, &batches](const CascadeShadowPass &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 			{
 				// Render
 				auto &shadow_map = resources.getResource<FrameGraphTexture>(data.shadow_map);
@@ -161,28 +156,28 @@ void ShadowRenderer::addShadowMapPasses(FrameGraph &fg, const std::vector<Render
 				{
 					glm::mat4 light_matrix = light.cascades[c].viewProjMatrix;
 
-					VkWrapper::cmdBeginRendering(command_buffer, {}, shadow_map.texture, c);
+					cmd_list->setRenderTargets({}, shadow_map.texture, c, 0, true);
 
-					auto &p = VkWrapper::global_pipeline;
+					auto &p = gGlobalPipeline;
 					p->reset();
 
 					p->setVertexShader(shadows_vertex_shader);
 					p->setFragmentShader(shadows_fragment_shader_directional);
 
-					p->setRenderTargets(VkWrapper::current_render_targets);
+					p->setVertexInputsDescription(Engine::Vertex::GetVertexInputsDescription());
+					p->setRenderTargets(cmd_list->getCurrentRenderTargets());
 					p->setUseBlending(false);
-					p->setCullMode(VK_CULL_MODE_FRONT_BIT);
+					p->setCullMode(CULL_MODE_FRONT);
 
 					p->flush();
-					p->bind(command_buffer);
+					p->bind(cmd_list);
 
 					EntityRenderer::ShadowUBO ubo;
 					ubo.light_space_matrix = light_matrix;
 					ubo.light_pos = glm::vec4(position, 1.0);
 					ubo.z_far = 0;
 
-					Renderer::setShadersUniformBuffer(p->getCurrentShaders(), 0, &ubo, sizeof(EntityRenderer::ShadowUBO));
-					Renderer::bindShadersDescriptorSets(p->getCurrentShaders(), command_buffer, p->getPipelineLayout());
+					gDynamicRHI->setConstantBufferData(1, &ubo, sizeof(EntityRenderer::ShadowUBO));
 
 					BoundFrustum bound_frustum(light_matrix, glm::mat4(1.0f));
 					for (const RenderBatch &batch : batches)
@@ -196,19 +191,17 @@ void ShadowRenderer::addShadowMapPasses(FrameGraph &fg, const std::vector<Render
 						} push_constant;
 
 						push_constant.model = batch.world_transform;
-						vkCmdPushConstants(command_buffer.get_buffer(), p->getPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(ShadowPushConstact), &push_constant);
+						gDynamicRHI->setConstantBufferData(0, &push_constant, sizeof(ShadowPushConstact));
 
-						// Render mesh
-						VkBuffer vertexBuffers[] = {batch.mesh->vertexBuffer->bufferHandle};
-						VkDeviceSize offsets[] = {0};
-						vkCmdBindVertexBuffers(command_buffer.get_buffer(), 0, 1, vertexBuffers, offsets);
-						vkCmdBindIndexBuffer(command_buffer.get_buffer(), batch.mesh->indexBuffer->bufferHandle, 0, VK_INDEX_TYPE_UINT32);
-						vkCmdDrawIndexed(command_buffer.get_buffer(), batch.mesh->indices.size(), 1, 0, 0, 0);
+
+						cmd_list->setVertexBuffer(batch.mesh->vertexBuffer);
+						cmd_list->setIndexBuffer(batch.mesh->indexBuffer);
+						cmd_list->drawIndexedInstanced(batch.mesh->indices.size(), 1, 0, 0, 0);
 						Renderer::addDrawCalls(1);
 					}
 
-					p->unbind(command_buffer);
-					VkWrapper::cmdEndRendering(command_buffer);
+					p->unbind(cmd_list);
+					cmd_list->resetRenderTargets();
 				}
 			});
 		}
@@ -228,15 +221,16 @@ void ShadowRenderer::addRayTracedShadowPasses(FrameGraph & fg)
 		FrameGraphTexture::Description desc;
 		desc.width = Renderer::getViewportSize().x;
 		desc.height = Renderer::getViewportSize().y;
-		desc.image_format = VkWrapper::swapchain->surface_format.format;
+		desc.format = gDynamicRHI->getSwapchainTexture(0)->getDescription().format;
 		desc.usage_flags = TEXTURE_USAGE_ATTACHMENT | TEXTURE_USAGE_STORAGE;
 		desc.debug_name = "Ray Traced Lighting Image";
 
 		data.visibility = builder.createResource<FrameGraphTexture>(desc.debug_name, desc);
 		data.visibility = builder.write(data.visibility, TEXTURE_RESOURCE_ACCESS_GENERAL); // was transfer
 	},
-	[=](const RayTracedShadowPass &data, const RenderPassResources &resources, CommandBuffer &command_buffer)
+	[=](const RayTracedShadowPass &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
+		/*
 		auto &visiblity = resources.getResource<FrameGraphTexture>(data.visibility);
 
 		auto p = VkWrapper::global_pipeline;
@@ -295,17 +289,20 @@ void ShadowRenderer::addRayTracedShadowPasses(FrameGraph & fg)
 
 		const uint32_t handleSizeAligned = VkWrapper::alignedSize(VkWrapper::device->physicalRayTracingProperties.shaderGroupHandleSize, VkWrapper::device->physicalRayTracingProperties.shaderGroupHandleAlignment);
 		VkStridedDeviceAddressRegionKHR raygenShaderSbtEntry{};
-		raygenShaderSbtEntry.deviceAddress = VkWrapper::getBufferDeviceAddress(p->current_pipeline->raygenShaderBindingTable->bufferHandle);
+		// TODO: fix
+		//raygenShaderSbtEntry.deviceAddress = VkWrapper::getBufferDeviceAddress(p->current_pipeline->raygenShaderBindingTable->bufferHandle);
 		raygenShaderSbtEntry.stride = handleSizeAligned;
 		raygenShaderSbtEntry.size = handleSizeAligned;
 
 		VkStridedDeviceAddressRegionKHR missShaderSbtEntry{};
-		missShaderSbtEntry.deviceAddress = VkWrapper::getBufferDeviceAddress(p->current_pipeline->missShaderBindingTable->bufferHandle);
+		// TODO: fix
+		//missShaderSbtEntry.deviceAddress = VkWrapper::getBufferDeviceAddress(p->current_pipeline->missShaderBindingTable->bufferHandle);
 		missShaderSbtEntry.stride = handleSizeAligned;
 		missShaderSbtEntry.size = handleSizeAligned;
 
 		VkStridedDeviceAddressRegionKHR hitShaderSbtEntry{};
-		hitShaderSbtEntry.deviceAddress = VkWrapper::getBufferDeviceAddress(p->current_pipeline->hitShaderBindingTable->bufferHandle);
+		// TODO: fix
+		//hitShaderSbtEntry.deviceAddress = VkWrapper::getBufferDeviceAddress(p->current_pipeline->hitShaderBindingTable->bufferHandle);
 		hitShaderSbtEntry.stride = handleSizeAligned;
 		hitShaderSbtEntry.size = handleSizeAligned;
 
@@ -313,7 +310,7 @@ void ShadowRenderer::addRayTracedShadowPasses(FrameGraph & fg)
 
 		//ray_traced_lighting->transitLayout(command_buffer, TEXTURE_LAYOUT_GENERAL);
 
-		VkUtils::vkCmdTraceRaysKHR(command_buffer.get_buffer(), &raygenShaderSbtEntry, &missShaderSbtEntry, &hitShaderSbtEntry, &callableShaderSbtEntry,
+		VulkanUtils::vkCmdTraceRaysKHR(command_buffer.get_buffer(), &raygenShaderSbtEntry, &missShaderSbtEntry, &hitShaderSbtEntry, &callableShaderSbtEntry,
 						  Renderer::getViewportSize().x, Renderer::getViewportSize().y, 1);
 		p->unbind(command_buffer);
 
@@ -338,8 +335,8 @@ void ShadowRenderer::update_cascades(LightComponent &light, glm::vec3 light_dir)
 {
 	float cascadeSplits[SHADOW_MAP_CASCADE_COUNT];
 
-	float nearClip = context->editor_camera->getNear();
-	float farClip = context->editor_camera->getFar();
+	float nearClip = camera->getNear();
+	float farClip = camera->getFar();
 	float clipRange = farClip - nearClip;
 
 	float minZ = nearClip;
@@ -359,13 +356,11 @@ void ShadowRenderer::update_cascades(LightComponent &light, glm::vec3 light_dir)
 		cascadeSplits[i] = (d - nearClip) / clipRange;
 	}
 	// TODO: calculate
-	cascadeSplits[3] = 0.3f;
-	/*
-	cascadeSplits[0] = 0.05f;
-	cascadeSplits[1] = 0.15f;
-	cascadeSplits[2] = 0.3f;
-	cascadeSplits[3] = 1.0f;
-	*/
+	//cascadeSplits[3] = 0.3f;
+	//cascadeSplits[0] = 0.05f;
+	//cascadeSplits[1] = 0.15f;
+	//cascadeSplits[2] = 0.3f;
+	//cascadeSplits[3] = 1.0f;
 	// Calculate orthographic projection matrix for each cascade
 	float lastSplitDist = 0.0;
 	for (uint32_t i = 0; i < SHADOW_MAP_CASCADE_COUNT; i++)
@@ -384,7 +379,7 @@ void ShadowRenderer::update_cascades(LightComponent &light, glm::vec3 light_dir)
 		};
 
 		// Project frustum corners into world space
-		glm::mat4 invCam = glm::inverse(context->editor_camera->getProj() * context->editor_camera->getView());
+		glm::mat4 invCam = glm::inverse(camera->getProj() * camera->getView());
 		for (uint32_t j = 0; j < 8; j++)
 		{
 			glm::vec4 invCorner = invCam * glm::vec4(frustumCorners[j], 1.0f);
@@ -417,11 +412,18 @@ void ShadowRenderer::update_cascades(LightComponent &light, glm::vec3 light_dir)
 		glm::vec3 maxExtents = glm::vec3(radius);
 		glm::vec3 minExtents = -maxExtents;
 
-		glm::mat4 lightViewMatrix = glm::lookAt(frustumCenter - light_dir * -minExtents.z, frustumCenter, glm::vec3(0.0f, 1.0f, 0.0f));
-		glm::mat4 lightOrthoMatrix = glm::ortho(minExtents.x, maxExtents.x, minExtents.y, maxExtents.y, 0.0f - 50.0f, maxExtents.z - minExtents.z + 50.0f);
+		glm::mat4 lightViewMatrix = glm::lookAtLH(frustumCenter - light_dir * -minExtents.z, frustumCenter, glm::vec3(0.0f, 1.0f, 0.0f));
+		glm::mat4 lightOrthoMatrix = glm::orthoLH(minExtents.x, maxExtents.x, minExtents.y, maxExtents.y, 0.0f - 50.0f, maxExtents.z - minExtents.z + 50.0f);
+
+		// Fix shimmering
+		float shadow_map_size = 4096;
+		glm::vec2 shadow_origin = (lightOrthoMatrix * lightViewMatrix * glm::vec4(0, 0, 0, 1)) * shadow_map_size / 2.0f;
+		glm::vec2 round_offset = glm::round(shadow_origin) - shadow_origin;
+		round_offset = round_offset * 2.0f / shadow_map_size;
+		lightOrthoMatrix[3] += glm::vec4(round_offset, 0, 0);
 
 		// Store split distance and matrix in cascade
-		light.cascades[i].splitDepth = (context->editor_camera->getNear() + splitDist * clipRange) * -1.0f;
+		light.cascades[i].splitDepth = (nearClip + splitDist * clipRange);
 		light.cascades[i].viewProjMatrix = lightOrthoMatrix * lightViewMatrix;
 
 		lastSplitDist = cascadeSplits[i];

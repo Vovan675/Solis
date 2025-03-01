@@ -117,7 +117,7 @@ bool ParametersPanel::renderImGui(Entity entity, DebugRenderer &debug_renderer)
 								if (!path.empty())
 								{
 									auto texture = AssetManager::getTextureAsset(path);
-									mat->albedo_tex_id = BindlessResources::addTexture(texture.get());
+									mat->albedo_tex_id = gDynamicRHI->getBindlessResources()->addTexture(texture.get());
 								}
 							}
 
@@ -133,7 +133,7 @@ bool ParametersPanel::renderImGui(Entity entity, DebugRenderer &debug_renderer)
 										if (payload = ImGui::AcceptDragDropPayload("DND_ASSET_PATH"))
 										{
 											auto texture = AssetManager::getTextureAsset(payload_str);
-											mat->albedo_tex_id = BindlessResources::addTexture(texture.get());
+											mat->albedo_tex_id = gDynamicRHI->getBindlessResources()->addTexture(texture.get());
 										}
 									}
 								}
@@ -159,10 +159,10 @@ bool ParametersPanel::renderImGui(Entity entity, DebugRenderer &debug_renderer)
 								if (!path.empty())
 								{
 									TextureDescription tex_description{};
-									tex_description.image_format = VK_FORMAT_R8G8B8A8_UNORM;
+									tex_description.format = FORMAT_R8G8B8A8_UNORM;
 									tex_description.usage_flags = TEXTURE_USAGE_TRANSFER_SRC;
 									auto texture = AssetManager::getTextureAsset(path);
-									mat->normal_tex_id = BindlessResources::addTexture(texture.get());
+									mat->normal_tex_id = gDynamicRHI->getBindlessResources()->addTexture(texture.get());
 								}
 							}
 						}

@@ -1,5 +1,6 @@
 #pragma once
-#include "RHI/VkWrapper.h"
+#include "imgui.h"
+#include "RHI/DynamicRHI.h"
 
 static class ImGuiWrapper
 {
@@ -7,9 +8,9 @@ public:
 	static void init(GLFWwindow *window);
 	static void shutdown();
 	static void begin();
-	static void render(CommandBuffer &command_buffer);
+	static void render(RHICommandList *cmd_list);
 
-	static VkDescriptorSet getTextureDescriptorSet(std::shared_ptr<Texture> tex);
+	static ImTextureID getTextureId(std::shared_ptr<RHITexture> tex);
 private:
 	static VkDescriptorPool descriptor_pool;
 	

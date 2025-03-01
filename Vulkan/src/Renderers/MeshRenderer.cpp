@@ -11,21 +11,23 @@ MeshRenderer::MeshRenderer(std::shared_ptr<Engine::Mesh> mesh) : RendererBase()
 	this->mesh = mesh;
 	this->texture = texture;
 
-	vertex_shader = Shader::create("shaders/opaque.vert", Shader::VERTEX_SHADER);
-	fragment_shader = Shader::create("shaders/opaque.frag", Shader::FRAGMENT_SHADER);
+	vertex_shader = gDynamicRHI->createShader(L"shaders/opaque.vert", VERTEX_SHADER);
+	fragment_shader = gDynamicRHI->createShader(L"shaders/opaque.frag", FRAGMENT_SHADER);
 }
 
 MeshRenderer::~MeshRenderer()
 {
 }
 
-void MeshRenderer::fillCommandBuffer(CommandBuffer &command_buffer)
+void MeshRenderer::fillCommandBuffer(RHICommandList *cmd_list)
 {
+	/*
 	auto &p = VkWrapper::global_pipeline;
 	p->reset();
 
-	p->setVertexShader(vertex_shader);
-	p->setFragmentShader(fragment_shader);
+	// TODO:
+	//p->setVertexShader(vertex_shader);
+	//p->setFragmentShader(fragment_shader);
 
 	p->setRenderTargets(VkWrapper::current_render_targets);
 	p->setUseBlending(false);
@@ -41,6 +43,9 @@ void MeshRenderer::fillCommandBuffer(CommandBuffer &command_buffer)
 	vkCmdPushConstants(command_buffer.get_buffer(), p->getPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(Material::PushConstant), &mat.getPushConstant(model));
 
 	// Render mesh
+
+	// TODO: fix
+	/*
 	VkBuffer vertexBuffers[] = {mesh->vertexBuffer->bufferHandle};
 	VkDeviceSize offsets[] = {0};
 	vkCmdBindVertexBuffers(command_buffer.get_buffer(), 0, 1, vertexBuffers, offsets);
@@ -48,4 +53,5 @@ void MeshRenderer::fillCommandBuffer(CommandBuffer &command_buffer)
 	vkCmdDrawIndexed(command_buffer.get_buffer(), mesh->indices.size(), 1, 0, 0, 0);
 
 	p->unbind(command_buffer);
+	*/
 }

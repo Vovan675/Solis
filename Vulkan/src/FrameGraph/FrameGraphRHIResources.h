@@ -1,7 +1,7 @@
 #pragma once
 #include "FrameGraph.h"
 #include "TransientResources.h"
-#include "RHI/Texture.h"
+#include "RHI/RHITexture.h"
 #include "Rendering/Renderer.h"
 #include "BindlessResources.h"
 
@@ -22,16 +22,17 @@ public:
 		uint32_t height;
 		uint32_t mip_levels = 1;
 		uint32_t array_levels = 1;
-		VkSampleCountFlagBits num_samples = VK_SAMPLE_COUNT_1_BIT;
-		VkFormat image_format;
+		SampleCount sample_count = SAMPLE_COUNT_1;
+		Format format;
 		uint32_t usage_flags = 0;
-		VkSamplerAddressMode sampler_address_mode = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-		VkFilter filtering = VK_FILTER_LINEAR;
+		SamplerMode sampler_mode = SAMPLER_MODE_REPEAT;
+		Filter filtering = FILTER_LINEAR;
 		bool anisotropy = false;
+		bool use_comparison_less = false;
 
 		std::string debug_name;
 	};
-	std::shared_ptr<Texture> texture;
+	std::shared_ptr<RHITexture> texture;
 
 
 	void create(const Description &desc)
@@ -44,16 +45,26 @@ public:
 			texture->fill();
 		}
 		texture->setDebugName(desc.debug_name.c_str());
-		BindlessResources::addTexture(texture.get());
+		gDynamicRHI->getBindlessResources()->addTexture(texture.get());
+
+		if (strcmp(texture->getDebugName(), "SSAO Raw Image") == 0)
+		{
+			int i = 0;
+		}
 	}
 
 	void destroy(const Description &desc)
 	{
+		if (strcmp(texture->getDebugName(), "SSAO Raw Image") == 0)
+		{
+			int i = 0;
+		}
+
 		TransientResources::releaseTemporaryTexture(texture);
 		texture = nullptr;
 	}
 
-	void preRead(const Description &desc, CommandBuffer &command_buffer, uint32_t flags)
+	void preRead(const Description &desc, RHICommandList *cmd_list, uint32_t flags)
 	{
 		TextureLayoutType new_layout;
 		if (flags & TEXTURE_RESOURCE_ACCESS_GENERAL)
@@ -62,10 +73,10 @@ public:
 			new_layout = TEXTURE_LAYOUT_TRANSFER_SRC;
 		else
 			new_layout = TEXTURE_LAYOUT_SHADER_READ;
-		texture->transitLayout(command_buffer, new_layout);
+		texture->transitLayout(cmd_list, new_layout);
 	}
 
-	void preWrite(const Description &desc, CommandBuffer &command_buffer, uint32_t flags)
+	void preWrite(const Description &desc, RHICommandList *cmd_list, uint32_t flags)
 	{
 		TextureLayoutType new_layout;
 		if (flags & TEXTURE_RESOURCE_ACCESS_GENERAL)
@@ -74,17 +85,17 @@ public:
 			new_layout = TEXTURE_LAYOUT_TRANSFER_DST;
 		else
 			new_layout = TEXTURE_LAYOUT_ATTACHMENT;
-		texture->transitLayout(command_buffer, new_layout);
+		texture->transitLayout(cmd_list, new_layout);
 	}
 
 	
 	uint32_t addToBindless() const
 	{
-		return BindlessResources::addTexture(texture.get());
+		return gDynamicRHI->getBindlessResources()->addTexture(texture.get());
 	}
 
 	uint32_t getBindlessId() const
 	{
-		return BindlessResources::getTextureIndex(texture.get());
+		return gDynamicRHI->getBindlessResources()->getTextureIndex(texture.get());
 	}
 };

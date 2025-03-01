@@ -1,6 +1,6 @@
 #pragma once
 #include "BindlessResources.h"
-#include "RHI/Texture.h"
+#include "RHI/RHITexture.h"
 #include "YamlExtensions.h"
 #include "Assets/AssetManager.h"
 #include "Utils/Stream.h"
@@ -24,7 +24,7 @@ public:
 
 		struct PushConstant 
 		{
-			alignas(16) glm::mat4 model;
+			glm::mat4 model;
 
 			glm::vec4 albedo = glm::vec4(0, 0, 0, 1);
 			int albedo_tex_id = -1;
@@ -62,7 +62,7 @@ public:
 				if (tex_id == -1)
 					stream.write(std::string());
 				else
-					stream.write(BindlessResources::getTexture(tex_id)->getPath());
+					stream.write(gDynamicRHI->getBindlessResources()->getTexture(tex_id)->getPath());
 			};
 
 			write_tex(albedo_tex_id);
@@ -80,7 +80,7 @@ public:
 			stream.read(specular);
 
 			TextureDescription non_srgb_description = {};
-			non_srgb_description.image_format = VK_FORMAT_R8G8B8A8_UNORM;
+			non_srgb_description.format = FORMAT_R8G8B8A8_UNORM;
 			non_srgb_description.usage_flags = TEXTURE_USAGE_TRANSFER_SRC;
 
 			const auto read_tex = [&stream, &non_srgb_description](int &tex_id, bool non_srgb = false)
@@ -94,7 +94,7 @@ public:
 				}
 
 				auto tex = non_srgb ? AssetManager::getTextureAsset(tex_path, non_srgb_description) : AssetManager::getTextureAsset(tex_path);
-				tex_id = BindlessResources::addTexture(tex.get());
+				tex_id = gDynamicRHI->getBindlessResources()->addTexture(tex.get());
 			};
 
 			read_tex(albedo_tex_id);
@@ -118,19 +118,19 @@ namespace YAML
 		
 		std::string no_texture = "no";
 		if (mat->albedo_tex_id != -1)
-			out << YAML::Key << "AlbedoTexture" << YAML::Value << BindlessResources::getTexture(mat->albedo_tex_id)->getPath();
+			out << YAML::Key << "AlbedoTexture" << YAML::Value << gDynamicRHI->getBindlessResources()->getTexture(mat->albedo_tex_id)->getPath();
 
 		if (mat->metalness_tex_id != -1)
-			out << YAML::Key << "MetalnessTexture" << YAML::Value << BindlessResources::getTexture(mat->metalness_tex_id)->getPath();
+			out << YAML::Key << "MetalnessTexture" << YAML::Value << gDynamicRHI->getBindlessResources()->getTexture(mat->metalness_tex_id)->getPath();
 
 		if (mat->roughness_tex_id != -1)
-			out << YAML::Key << "RoughnessTexture" << YAML::Value << BindlessResources::getTexture(mat->roughness_tex_id)->getPath();
+			out << YAML::Key << "RoughnessTexture" << YAML::Value << gDynamicRHI->getBindlessResources()->getTexture(mat->roughness_tex_id)->getPath();
 
 		if (mat->specular_tex_id != -1)
-			out << YAML::Key << "SpecularTexture" << YAML::Value << BindlessResources::getTexture(mat->specular_tex_id)->getPath();
+			out << YAML::Key << "SpecularTexture" << YAML::Value << gDynamicRHI->getBindlessResources()->getTexture(mat->specular_tex_id)->getPath();
 
 		if (mat->normal_tex_id != -1)
-			out << YAML::Key << "NormalTexture" << YAML::Value << BindlessResources::getTexture(mat->normal_tex_id)->getPath();
+			out << YAML::Key << "NormalTexture" << YAML::Value << gDynamicRHI->getBindlessResources()->getTexture(mat->normal_tex_id)->getPath();
 		out << YAML::EndMap;
 		return out;
 	}
@@ -152,35 +152,35 @@ namespace YAML
 			if (node["AlbedoTexture"])
 			{
 				auto tex = AssetManager::getTextureAsset(node["AlbedoTexture"].as<std::string>());
-				mat->albedo_tex_id = BindlessResources::addTexture(tex.get());
+				mat->albedo_tex_id = gDynamicRHI->getBindlessResources()->addTexture(tex.get());
 			}
 
 			if (node["MetalnessTexture"])
 			{
 				auto tex = AssetManager::getTextureAsset(node["MetalnessTexture"].as<std::string>());
-				mat->metalness_tex_id = BindlessResources::addTexture(tex.get());
+				mat->metalness_tex_id = gDynamicRHI->getBindlessResources()->addTexture(tex.get());
 			}
 
 			if (node["RoughnessTexture"])
 			{
 				auto tex = AssetManager::getTextureAsset(node["RoughnessTexture"].as<std::string>());
-				mat->roughness_tex_id = BindlessResources::addTexture(tex.get());
+				mat->roughness_tex_id = gDynamicRHI->getBindlessResources()->addTexture(tex.get());
 			}
 
 			if (node["SpecularTexture"])
 			{
 				auto tex = AssetManager::getTextureAsset(node["SpecularTexture"].as<std::string>());
-				mat->specular_tex_id = BindlessResources::addTexture(tex.get());
+				mat->specular_tex_id = gDynamicRHI->getBindlessResources()->addTexture(tex.get());
 			}
 
 			if (node["NormalTexture"])
 			{
 				TextureDescription tex_description{};
-				tex_description.image_format = VK_FORMAT_R8G8B8A8_UNORM;
+				tex_description.format = FORMAT_R8G8B8A8_UNORM;
 				tex_description.usage_flags = TEXTURE_USAGE_TRANSFER_SRC;
 
 				auto tex = AssetManager::getTextureAsset(node["NormalTexture"].as<std::string>(), tex_description);
-				mat->normal_tex_id = BindlessResources::addTexture(tex.get());
+				mat->normal_tex_id = gDynamicRHI->getBindlessResources()->addTexture(tex.get());
 			}
 
 			return true;

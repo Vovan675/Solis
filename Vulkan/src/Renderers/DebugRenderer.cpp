@@ -5,8 +5,8 @@
 
 DebugRenderer::DebugRenderer()
 {
-	vertex_shader_lines = Shader::create("shaders/debug_lines.vert", Shader::VERTEX_SHADER);
-	fragment_shader_lines = Shader::create("shaders/debug_lines.frag", Shader::FRAGMENT_SHADER);
+	vertex_shader_lines = gDynamicRHI->createShader(L"shaders/debug_lines.hlsl", VERTEX_SHADER);
+	fragment_shader_lines = gDynamicRHI->createShader(L"shaders/debug_lines.hlsl", FRAGMENT_SHADER);
 
 	const size_t count = 1024;
 	uint32_t indices[2048];
@@ -18,19 +18,20 @@ DebugRenderer::DebugRenderer()
 	BufferDescription desc;
 	desc.size = sizeof(uint32_t) * 2048;
 	desc.useStagingBuffer = true;
-	desc.bufferUsageFlags = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+	desc.usage = INDEX_BUFFER;
 
-	lines_index_buffer = Buffer::create(desc);
+	lines_index_buffer = gDynamicRHI->createBuffer(desc);
 	lines_index_buffer->fill(indices);
 	lines_index_buffer->setDebugName("Lines Index Buffer");
 
-	vertices = new Engine::Vertex[2048];
+	vertices = new LineVertex[2048];
 	
-	desc.size = sizeof(Engine::Vertex) * 2048;
+	desc.size = sizeof(LineVertex) * 2048;
+	desc.vertex_buffer_stride = sizeof(LineVertex);
 	desc.useStagingBuffer = false;
-	desc.bufferUsageFlags = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+	desc.usage = VERTEX_BUFFER;
 
-	lines_vertex_buffer = Buffer::create(desc);
+	lines_vertex_buffer = gDynamicRHI->createBuffer(desc);
 	lines_vertex_buffer->map((void **)&vertices);
 	lines_vertex_buffer->setDebugName("Lines Vertex Buffer");
 }
@@ -43,7 +44,7 @@ void DebugRenderer::addPasses(FrameGraph &fg)
 {
 	auto &gbuffer_data = fg.getBlackboard().get<GBufferData>();
 	auto &lighting_data = fg.getBlackboard().get<DeferredLightingData>();
-	auto &ssao_data = fg.getBlackboard().get<SSAOData>();
+	auto *ssao_data = fg.getBlackboard().tryGet<SSAOData>();
 	auto &composite_data = fg.getBlackboard().get<CompositeData>();
 	auto &lut_data = fg.getBlackboard().get<LutData>();
 	auto *ray_tracing_shadows_data = fg.getBlackboard().tryGet<RayTracedShadowPass>();
@@ -64,17 +65,17 @@ void DebugRenderer::addPasses(FrameGraph &fg)
 		builder.read(lighting_data.diffuse_light);
 		builder.read(lighting_data.specular_light);
 		builder.read(lut_data.brdf_lut);
-		builder.read(ssao_data.ssao_blurred);
+		builder.read(ssao_data->ssao_blurred);
 		builder.read(default_data.final_no_post);
 		if (ray_tracing_shadows_data)
 			builder.read(ray_tracing_shadows_data->visibility);
 	},
-	[=](const DefaultResourcesData &data, const RenderPassResources &resources, CommandBuffer &command_buffer)
+	[=](const DefaultResourcesData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
 		// Render
 		auto &final = resources.getResource<FrameGraphTexture>(data.final);
 
-		VkWrapper::cmdBeginRendering(command_buffer, {final.texture}, nullptr);
+		cmd_list->setRenderTargets({final.texture}, nullptr, -1, 0, true);
 
 		ubo.albedo_tex_id = resources.getResource<FrameGraphTexture>(gbuffer_data.albedo).getBindlessId();
 		ubo.shading_tex_id = resources.getResource<FrameGraphTexture>(gbuffer_data.shading).getBindlessId();
@@ -83,32 +84,29 @@ void DebugRenderer::addPasses(FrameGraph &fg)
 		ubo.light_diffuse_id = resources.getResource<FrameGraphTexture>(lighting_data.diffuse_light).getBindlessId();
 		ubo.light_specular_id = resources.getResource<FrameGraphTexture>(lighting_data.specular_light).getBindlessId();
 		ubo.brdf_lut_id = resources.getResource<FrameGraphTexture>(lut_data.brdf_lut).getBindlessId();
-		ubo.ssao_id = resources.getResource<FrameGraphTexture>(ssao_data.ssao_blurred).getBindlessId();
+		ubo.ssao_id = resources.getResource<FrameGraphTexture>(ssao_data->ssao_blurred).getBindlessId();
 		ubo.composite_final_tex_id = resources.getResource<FrameGraphTexture>(data.final_no_post).getBindlessId();
 
 		if (ray_tracing_shadows_data)
-			ubo.light_diffuse_id = resources.getResource<FrameGraphTexture>(ray_tracing_shadows_data->visibility).getBindlessId(); // TODO: revert
+			ubo.light_diffuse_id = resources.getResource<FrameGraphTexture>(ray_tracing_shadows_data->visibility).getBindlessId();
 
-		auto &p = VkWrapper::global_pipeline;
-		p->bindScreenQuadPipeline(command_buffer, Shader::create("shaders/debug_quad.frag", Shader::FRAGMENT_SHADER));
+		auto &p = gGlobalPipeline;
+		p->bindScreenQuadPipeline(cmd_list, gDynamicRHI->createShader(L"shaders/debug_quad.hlsl", FRAGMENT_SHADER));
 
 		// Uniforms
-		Renderer::setShadersUniformBuffer(p->getCurrentShaders(), 0, &ubo, sizeof(PresentUBO));
-		Renderer::bindShadersDescriptorSets(p->getCurrentShaders(), command_buffer, p->getPipelineLayout());
+		gDynamicRHI->setConstantBufferData(0, &ubo, sizeof(PresentUBO));
 
 		// Render quad
-		vkCmdDraw(command_buffer.get_buffer(), 6, 1, 0, 0);
+		cmd_list->drawInstanced(6, 1, 0, 0);
 
-		p->unbind(command_buffer);
-
-		VkWrapper::cmdEndRendering(command_buffer);
+		p->unbind(cmd_list);
+		cmd_list->resetRenderTargets();
 	});
 }
 
 void DebugRenderer::renderLines(FrameGraph &fg)
 {
 	auto &default_data = fg.getBlackboard().get<DefaultResourcesData>();
-
 	default_data = fg.addCallbackPass<DefaultResourcesData>("Debug Visualizer Pass",
 	[&](RenderPassBuilder &builder, DefaultResourcesData &data)
 	{
@@ -117,42 +115,41 @@ void DebugRenderer::renderLines(FrameGraph &fg)
 		data.final = builder.write(default_data.final);
 		builder.setSideEffect(true);
 	},
-	[=](const DefaultResourcesData &data, const RenderPassResources &resources, CommandBuffer &command_buffer)
+	[=](const DefaultResourcesData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
 		// Render
 		auto &final = resources.getResource<FrameGraphTexture>(data.final);
 
-		VkWrapper::cmdBeginRendering(command_buffer, {final.texture}, nullptr, -1, 0, false);
+		cmd_list->setRenderTargets({final.texture}, nullptr, -1, 0, false);
 
-		auto &p = VkWrapper::global_pipeline;
+		auto &p = gGlobalPipeline;
 		p->reset();
 
 		p->setVertexShader(vertex_shader_lines);
 		p->setFragmentShader(fragment_shader_lines);
 
-		p->setRenderTargets(VkWrapper::current_render_targets);
+		p->setRenderTargets(cmd_list->getCurrentRenderTargets());
+
+		VertexInputsDescription input_desc;
+		input_desc.inputs.push_back({"POSITION", 0, FORMAT_R32G32B32A32_SFLOAT});
+		input_desc.inputs.push_back({"COLOR", 0, FORMAT_R32G32B32_SFLOAT});
+		p->setVertexInputsDescription(input_desc);
+
 		p->setUseBlending(false);
-		p->setPrimitiveTopology(VK_PRIMITIVE_TOPOLOGY_LINE_LIST);
+		p->setPrimitiveTopology(TOPOLOGY_LINE_LIST);
 		p->setDepthTest(false);
-		p->setCullMode(VK_CULL_MODE_NONE);
+		p->setCullMode(CULL_MODE_NONE);
 
 		p->flush();
-		p->bind(command_buffer);
+		p->bind(cmd_list);
 
-		// Uniforms
-		Renderer::bindShadersDescriptorSets(p->getCurrentShaders(), command_buffer, p->getPipelineLayout());
-
-		VkBuffer vertexBuffers[] = {lines_vertex_buffer->bufferHandle};
-		VkDeviceSize offsets[] = {0};
-		vkCmdBindVertexBuffers(command_buffer.get_buffer(), 0, 1, vertexBuffers, offsets);
-		vkCmdBindIndexBuffer(command_buffer.get_buffer(), lines_index_buffer->bufferHandle, 0, VK_INDEX_TYPE_UINT32);
-		vkCmdDrawIndexed(command_buffer.get_buffer(), lines_index_count, 1, 0, 0, 0);
-
-		p->unbind(command_buffer);
+		cmd_list->setVertexBuffer(lines_vertex_buffer);
+		cmd_list->setIndexBuffer(lines_index_buffer);
+		cmd_list->drawIndexedInstanced(lines_index_count, 1, 0, 0, 0);
+		p->unbind(cmd_list);
+		cmd_list->resetRenderTargets();
 
 		lines_index_count = 0;
-
-		VkWrapper::cmdEndRendering(command_buffer);
 	});
 }
 

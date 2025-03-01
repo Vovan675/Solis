@@ -1,5 +1,4 @@
 #pragma once
-#include "RHI/CommandBuffer.h"
 #include "FrameGraph/FrameGraph.h"
 #include "EntityRenderer.h"
 #include "Rendering/Renderer.h"
@@ -14,6 +13,6 @@ public:
 	EntityRenderer *entity_renderer;
 
 private:
-	std::shared_ptr<Shader> gbuffer_vertex_shader;
-	std::shared_ptr<Shader> gbuffer_fragment_shader;
+	std::shared_ptr<RHIShader> gbuffer_vertex_shader;
+	std::shared_ptr<RHIShader> gbuffer_fragment_shader;
 };

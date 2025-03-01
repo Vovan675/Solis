@@ -21,6 +21,7 @@ IncludeDir = {}
 IncludeDir["GLFW"] = "vendor/GLFW/include"
 IncludeDir["GLM"] = "vendor/glm"
 IncludeDir["Vulkan"] = "%{VULKAN_SDK}/include"
+IncludeDir["DirectX"] = "vendor/directx/include"
 IncludeDir["SpdLog"] = "vendor/SpdLog/include"
 IncludeDir["Assimp"] = "vendor/Assimp/include"
 IncludeDir["STB_IMAGE"] = "vendor/stb"
@@ -29,6 +30,7 @@ IncludeDir["ImGuizmo"] = "vendor/imguizmo"
 IncludeDir["YamlCpp"] = "vendor/yaml-cpp/include"
 IncludeDir["Entt"] = "vendor/entt/include"
 IncludeDir["PhysX"] = "vendor/physx/physx/include"
+IncludeDir["SPIRV_Reflect"] = "vendor/spirv-reflect"
 
 LibDir = {}
 LibDir["Vulkan"] = "%{VULKAN_SDK}/Lib"
@@ -61,6 +63,8 @@ project "Vulkan"
 		"%{prj.name}/src/**.cpp",
 		"%{IncludeDir.YamlCpp}/../**.natvis",
 		"%{IncludeDir.Entt}/../natvis/**.natvis",
+		--"%{IncludeDir.SPIRV_Reflect}/spirv_reflect.c",
+		"%{IncludeDir.SPIRV_Reflect}/spirv_reflect.cpp",
 	}
 
 	includedirs
@@ -69,6 +73,7 @@ project "Vulkan"
 		"%{IncludeDir.GLFW}",
 		"%{IncludeDir.GLM}",
 		"%{IncludeDir.Vulkan}",
+		"%{IncludeDir.DirectX}",
 		"%{IncludeDir.SpdLog}",
 		"%{IncludeDir.Assimp}",
 		"%{IncludeDir.STB_IMAGE}",
@@ -77,6 +82,7 @@ project "Vulkan"
 		"%{IncludeDir.YamlCpp}",
 		"%{IncludeDir.Entt}",
 		"%{IncludeDir.PhysX}",
+		"%{IncludeDir.SPIRV_Reflect}",
 	}
 
 	links
@@ -85,6 +91,11 @@ project "Vulkan"
 		"%{LibDir.Vulkan}/vulkan-1.lib",
 		"%{LibDir.Vulkan}/shaderc_shared.lib",
 		"%{LibDir.Vulkan}/spirv-cross-c-shared.lib",
+		"d3d12.lib",
+		"dxgi.lib",
+		"dxguid.lib",
+		"d3dcompiler.lib",
+		"dxcompiler.lib",
 		"Assimp",
 		"ImGui",
 		"ImGuizmo",

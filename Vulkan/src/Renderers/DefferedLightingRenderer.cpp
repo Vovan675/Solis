@@ -44,7 +44,7 @@ void DefferedLightingRenderer::renderLights(FrameGraph &fg)
 		desc.height = Renderer::getViewportSize().y;
 
 		// Diffuse
-		desc.image_format = VK_FORMAT_B10G11R11_UFLOAT_PACK32;
+		desc.format = FORMAT_R11G11B10_UFLOAT;
 		desc.usage_flags = TEXTURE_USAGE_ATTACHMENT;
 		desc.debug_name = "Lighting Diffuse Image";
 
@@ -52,7 +52,7 @@ void DefferedLightingRenderer::renderLights(FrameGraph &fg)
 		data.diffuse_light = builder.write(data.diffuse_light);
 
 		// Specular
-		desc.image_format = VK_FORMAT_B10G11R11_UFLOAT_PACK32;
+		desc.format = FORMAT_R11G11B10_UFLOAT;
 		desc.usage_flags = TEXTURE_USAGE_ATTACHMENT;
 		desc.debug_name = "Lighting Specular Image";
 
@@ -78,7 +78,7 @@ void DefferedLightingRenderer::renderLights(FrameGraph &fg)
 			builder.read(ray_traced_shadow_data->visibility);
 		}
 	},
-	[=](const DeferredLightingData &data, const RenderPassResources &resources, CommandBuffer &command_buffer)
+	[=](const DeferredLightingData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
 		// Render
 		auto &albedo = resources.getResource<FrameGraphTexture>(gbuffer_data.albedo);
@@ -89,11 +89,7 @@ void DefferedLightingRenderer::renderLights(FrameGraph &fg)
 		auto &diffuse = resources.getResource<FrameGraphTexture>(data.diffuse_light);
 		auto &specular = resources.getResource<FrameGraphTexture>(data.specular_light);
 
-		VkWrapper::cmdBeginRendering(command_buffer,
-									 {
-										 diffuse.texture,
-										 specular.texture
-									 }, nullptr);
+		cmd_list->setRenderTargets({diffuse.texture, specular.texture}, nullptr, -1, 0, true);
 
 		ubo.albedo_tex_id = albedo.getBindlessId();
 		ubo.normal_tex_id = normal.getBindlessId();
@@ -101,16 +97,15 @@ void DefferedLightingRenderer::renderLights(FrameGraph &fg)
 		ubo.shading_tex_id = shading.getBindlessId();
 
 		// Render Lights radiance
-		auto &p = VkWrapper::global_pipeline;
+		auto &p = gGlobalPipeline;
 		p->reset();
 
-		p->setRenderTargets(VkWrapper::current_render_targets);
-		p->setUseVertices(true);
+		p->setRenderTargets(cmd_list->getCurrentRenderTargets());
 		p->setUseBlending(true);
 		p->setBlendMode(VK_BLEND_FACTOR_ONE, VK_BLEND_FACTOR_ONE, VK_BLEND_OP_ADD,
 						VK_BLEND_FACTOR_ONE, VK_BLEND_FACTOR_ONE, VK_BLEND_OP_ADD);
 		p->setDepthTest(false);
-		p->setCullMode(VK_CULL_MODE_FRONT_BIT);
+		p->setCullMode(CULL_MODE_FRONT);
 
 
 		if (engine_ray_tracing && render_ray_traced_shadows && render_shadows && ray_traced_shadow_data)
@@ -133,10 +128,12 @@ void DefferedLightingRenderer::renderLights(FrameGraph &fg)
 
 			if (light_component)
 			{
+				/*
 				auto &visibility = resources.getResource<FrameGraphTexture>(ray_traced_shadow_data->visibility);
 
-				p->setVertexShader(Shader::create("shaders/lighting/deffered_lighting.vert", Shader::VERTEX_SHADER));
-				p->setFragmentShader(Shader::create("shaders/lighting/deffered_lighting.frag", Shader::FRAGMENT_SHADER, {{"RAY_TRACED_SHADOWS", "1"}, {"USE_SHADOWS", render_shadows ? "1" : "0"}}));
+				// TODO: 
+				p->setVertexShader(gDynamicRHI->createShader(L"shaders/lighting/deffered_lighting.vert", VERTEX_SHADER, L"????")); 
+				////p->setFragmentShader(gDynamicRHI->createShader(L"shaders/lighting/deffered_lighting.frag", FRAGMENT_SHADER, {{"RAY_TRACED_SHADOWS", "1"}, {"USE_SHADOWS", render_shadows ? "1" : "0"}}));
 
 				p->flush();
 				p->bind(command_buffer);
@@ -160,12 +157,15 @@ void DefferedLightingRenderer::renderLights(FrameGraph &fg)
 				vkCmdPushConstants(command_buffer.get_buffer(), p->getPipelineLayout(), VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstant), &constants);
 
 				// Render mesh
+				// TODO: fix
+				/*
 				VkBuffer vertexBuffers[] = {icosphere_mesh->vertexBuffer->bufferHandle};
 				VkDeviceSize offsets[] = {0};
 				vkCmdBindVertexBuffers(command_buffer.get_buffer(), 0, 1, vertexBuffers, offsets);
 				vkCmdBindIndexBuffer(command_buffer.get_buffer(), icosphere_mesh->indexBuffer->bufferHandle, 0, VK_INDEX_TYPE_UINT32);
 				vkCmdDrawIndexed(command_buffer.get_buffer(), icosphere_mesh->indices.size(), 1, 0, 0, 0);
 				p->unbind(command_buffer);
+				*/
 			}
 		} else
 		{
@@ -179,17 +179,19 @@ void DefferedLightingRenderer::renderLights(FrameGraph &fg)
 
 				shader_defines.clear();
 				shader_defines.push_back({"USE_SHADOWS", render_shadows ? "1" : "0"});
-
+				shader_defines.push_back({"RAY_TRACED_SHADOWS", "0"});
 				if (light.getType() == LIGHT_TYPE_POINT)
 					shader_defines.push_back({"LIGHT_TYPE", "0"});
 				else if (light.getType() == LIGHT_TYPE_DIRECTIONAL)
 					shader_defines.push_back({"LIGHT_TYPE", "1"});
 
-				p->setVertexShader(Shader::create("shaders/lighting/deffered_lighting.vert", Shader::VERTEX_SHADER, shader_defines));
-				p->setFragmentShader(Shader::create("shaders/lighting/deffered_lighting.frag", Shader::FRAGMENT_SHADER, shader_defines));
+				p->setVertexShader(gDynamicRHI->createShader(L"shaders/lighting/deferred_lighting.hlsl", VERTEX_SHADER, shader_defines));
+				p->setFragmentShader(gDynamicRHI->createShader(L"shaders/lighting/deferred_lighting.hlsl", FRAGMENT_SHADER, shader_defines));
+				p->setVertexInputsDescription(Engine::Vertex::GetVertexInputsDescription());
 
+				p->setRenderTargets(cmd_list->getCurrentRenderTargets());
 				p->flush();
-				p->bind(command_buffer);
+				p->bind(cmd_list);
 
 				glm::vec3 scale, position, skew;
 				glm::vec4 persp;
@@ -223,25 +225,21 @@ void DefferedLightingRenderer::renderLights(FrameGraph &fg)
 				constants.light_intensity = light.intensity;
 				constants.z_far = light.radius;
 
-				Renderer::setShadersUniformBuffer(p->getCurrentShaders(), 1, &ubo, sizeof(UBO));
-				Renderer::setShadersUniformBuffer(p->getCurrentShaders(), 0, &ubo_sphere, sizeof(UniformBufferObject));
-				Renderer::setShadersTexture(p->getCurrentShaders(), 2, light.shadow_map);
+				gDynamicRHI->setConstantBufferData(1, &ubo, sizeof(UBO));
+				gDynamicRHI->setConstantBufferData(0, &ubo_sphere, sizeof(UniformBufferObject));
+				gDynamicRHI->setTexture(5, light.shadow_map);
 
-				Renderer::bindShadersDescriptorSets(p->getCurrentShaders(), command_buffer, p->getPipelineLayout());
-
-				vkCmdPushConstants(command_buffer.get_buffer(), p->getPipelineLayout(), VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstant), &constants);
+				gDynamicRHI->setConstantBufferData(2, &constants, sizeof(PushConstant));
 
 				// Render mesh
-				VkBuffer vertexBuffers[] = {icosphere_mesh->vertexBuffer->bufferHandle};
-				VkDeviceSize offsets[] = {0};
-				vkCmdBindVertexBuffers(command_buffer.get_buffer(), 0, 1, vertexBuffers, offsets);
-				vkCmdBindIndexBuffer(command_buffer.get_buffer(), icosphere_mesh->indexBuffer->bufferHandle, 0, VK_INDEX_TYPE_UINT32);
-				vkCmdDrawIndexed(command_buffer.get_buffer(), icosphere_mesh->indices.size(), 1, 0, 0, 0);
-				p->unbind(command_buffer);
+				cmd_list->setVertexBuffer(icosphere_mesh->vertexBuffer);
+				cmd_list->setIndexBuffer(icosphere_mesh->indexBuffer);
+				cmd_list->drawIndexedInstanced(icosphere_mesh->indices.size(), 1, 0, 0, 0);
+
+				p->unbind(cmd_list);
+				cmd_list->resetRenderTargets();
 			}
 		}
-
-		VkWrapper::cmdEndRendering(command_buffer);
 	});
 }
 

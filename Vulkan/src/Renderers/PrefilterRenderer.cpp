@@ -7,20 +7,20 @@
 
 PrefilterRenderer::PrefilterRenderer(): RendererBase()
 {
-	compute_shader = Shader::create("shaders/ibl/prefilter.comp", Shader::COMPUTE_SHADER);
+	compute_shader = gDynamicRHI->createShader(L"shaders/ibl/prefilter.hlsl", COMPUTE_SHADER);
 
 	TextureDescription desc;
 	desc.width = 128;
 	desc.height = 128;
 	desc.is_cube = true;
 	desc.mip_levels = 5;
-	desc.image_format = VK_FORMAT_R32G32B32A32_SFLOAT;
+	desc.format = FORMAT_R32G32B32A32_SFLOAT;
 	desc.usage_flags = TEXTURE_USAGE_STORAGE;
 
-	prefilter_texture = Texture::create(desc);
+	prefilter_texture = gDynamicRHI->createTexture(desc);
 	prefilter_texture->fill();
 	prefilter_texture->setDebugName("IBL Prefilter Image");
-	BindlessResources::addTexture(prefilter_texture.get());
+	gDynamicRHI->getBindlessResources()->addTexture(prefilter_texture.get());
 }
 
 void PrefilterRenderer::addPass(FrameGraph &fg)
@@ -36,34 +36,33 @@ void PrefilterRenderer::addPass(FrameGraph &fg)
 
 		builder.read(sky_data.sky);
 	},
-	[=](const IBLData &data, const RenderPassResources &resources, CommandBuffer &command_buffer)
+	[=](const IBLData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
 		FrameGraphTexture &prefilter = resources.getResource<FrameGraphTexture>(data.prefilter);
 		FrameGraphTexture &sky = resources.getResource<FrameGraphTexture>(sky_data.sky);
 
 		for (int mip = 0; mip < 5; mip++)
 		{
-			auto &p = VkWrapper::global_pipeline;
+			auto &p = gGlobalPipeline;
 			p->reset();
 
 			p->setIsComputePipeline(true);
 			p->setComputeShader(compute_shader);
 
 			p->flush();
-			p->bind(command_buffer);
+			p->bind(cmd_list);
 
 			float roughness = (float)mip / (float)(5 - 1);
 			constants_frag.roughness = roughness;
 
 			// Uniforms
-			Renderer::setShadersTexture(p->getCurrentShaders(), 1, prefilter.texture, mip, -1, true);
-			Renderer::setShadersTexture(p->getCurrentShaders(), 2, sky.texture);
-			Renderer::bindShadersDescriptorSets(p->getCurrentShaders(), command_buffer, p->getPipelineLayout(), VK_PIPELINE_BIND_POINT_COMPUTE);
+			gDynamicRHI->setUAVTexture(1, prefilter.texture, mip); // mip, uav
+			gDynamicRHI->setTexture(2, sky.texture);
+			gDynamicRHI->setConstantBufferData(0, &constants_frag, sizeof(PushConstantFrag));
 
-			vkCmdPushConstants(command_buffer.get_buffer(), p->getPipelineLayout(), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PushConstantFrag), &constants_frag);
+			cmd_list->dispatch(prefilter.texture->getWidth() / 32, prefilter.texture->getHeight() / 32, 6);
 
-			vkCmdDispatch(command_buffer.get_buffer(), prefilter.texture->getWidth() / 32, prefilter.texture->getHeight() / 32, 6);
-			p->unbind(command_buffer);
+			p->unbind(cmd_list);
 		}
 	});
 	

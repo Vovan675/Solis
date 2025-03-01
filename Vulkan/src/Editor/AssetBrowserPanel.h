@@ -1,5 +1,5 @@
 #pragma once
-#include "RHI/Texture.h"
+#include "RHI/RHITexture.h"
 
 struct FileEntry
 {
@@ -17,7 +17,7 @@ private:
 	std::vector<FileEntry> get_directory_entries(const std::filesystem::path &path);
 	void render_directory(const std::string &path);
 
-	std::shared_ptr<Texture> get_file_icon(std::filesystem::path &file);
+	std::shared_ptr<RHITexture> get_file_icon(std::filesystem::path &file);
 	void process_double_click(std::filesystem::path &file);
 	void process_drag_drop_source(std::filesystem::path &file);
 private:

@@ -3,7 +3,7 @@
 #include "Mesh.h"
 #include <glm/gtx/quaternion.hpp>
 #include <glm/gtx/matrix_decompose.hpp>
-#include "RHI/Texture.h"
+#include "RHI/RHITexture.h"
 #include "Material.h"
 
 struct MeshNode;
@@ -92,12 +92,12 @@ struct LightComponent
 			TextureDescription description;
 			description.width = shadow_map_size;
 			description.height = shadow_map_size;
-			description.image_format = VK_FORMAT_D32_SFLOAT_S8_UINT;
+			description.format = FORMAT_D32S8;
 			description.usage_flags = TEXTURE_USAGE_ATTACHMENT;
 			description.is_cube = true;
 			description.mip_levels = 1;
-			description.filtering = VK_FILTER_NEAREST;
-			shadow_map = Texture::create(description);
+			description.filtering = FILTER_NEAREST;
+			shadow_map = gDynamicRHI->createTexture(description);
 			shadow_map->fill();
 			shadow_map->setDebugName("Cube Shadow Map");
 		} else if (type == LIGHT_TYPE_DIRECTIONAL)
@@ -105,14 +105,15 @@ struct LightComponent
 			TextureDescription description;
 			description.width = shadow_map_size;
 			description.height = shadow_map_size;
-			description.image_format = VK_FORMAT_D32_SFLOAT_S8_UINT;
+			description.format = FORMAT_D32S8;
 			description.usage_flags = TEXTURE_USAGE_ATTACHMENT;
 			description.is_cube = false;
 			description.mip_levels = 1;
 			description.array_levels = 4;
-			description.filtering = VK_FILTER_NEAREST;
-			description.sampler_address_mode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
-			shadow_map = Texture::create(description);
+			description.filtering = FILTER_LINEAR;
+			description.sampler_mode = SAMPLER_MODE_CLAMP_TO_EDGE;
+			description.use_comparison_less = true;
+			shadow_map = gDynamicRHI->createTexture(description);
 			shadow_map->fill();
 			shadow_map->setDebugName("Cascaded Shadow Map");
 		}
@@ -124,7 +125,7 @@ struct LightComponent
 
 	float shadow_map_size = 4096;
 
-	std::shared_ptr<Texture> shadow_map;
+	std::shared_ptr<RHITexture> shadow_map;
 
 private:
 	LIGHT_TYPE type = LIGHT_TYPE_POINT;

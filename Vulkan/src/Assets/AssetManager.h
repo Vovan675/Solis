@@ -3,7 +3,7 @@
 #include <filesystem>
 #include <assimp/Importer.hpp>
 
-class Texture;
+class RHITexture;
 class Model;
 struct TextureDescription;
 
@@ -13,8 +13,8 @@ public:
 	static void init();
 	static void shutdown();
 
-	static std::shared_ptr<Texture> getTextureAsset(std::string path);
-	static std::shared_ptr<Texture> getTextureAsset(std::string path, TextureDescription desc);
+	static std::shared_ptr<RHITexture> getTextureAsset(std::string path);
+	static std::shared_ptr<RHITexture> getTextureAsset(std::string path, TextureDescription desc);
 	static std::shared_ptr<Model> getModelAsset(std::string path);
 
 private:

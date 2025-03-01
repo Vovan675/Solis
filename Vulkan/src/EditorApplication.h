@@ -1,14 +1,8 @@
 #pragma once
-#include "RHI/Buffer.h"
-#include "RHI/Device.h"
+#include "RHI/DynamicRHI.h"
 #include "Log.h"
 #include "Mesh.h"
 #include "Scene/Scene.h"
-#include "RHI/Pipeline.h"
-#include "RHI/Shader.h"
-#include "RHI/Swapchain.h"
-#include "RHI/Texture.h"
-#include "RHI/VkWrapper.h"
 #include "renderers/EntityRenderer.h"
 #include "renderers/LutRenderer.h"
 #include "renderers/IrradianceRenderer.h"
@@ -35,20 +29,19 @@
 #include "RHI/RayTracing/RayTracingScene.h"
 #include "ConsoleVariables.h"
 #include "FrameGraph/FrameGraph.h"
+#include "Rendering/SceneRenderer.h"
 
 class EditorApplication : public Application
 {
 public:
-	EditorApplication();
+	EditorApplication(int argc, char *argv[]);
 protected:
 	void update(float delta_time) override;
 	void updateBuffers(float delta_time) override;
-	void recordCommands(CommandBuffer &command_buffer) override;
+	void recordCommands(RHICommandList *cmd_list) override;
 	void cleanupResources() override;
 private:
 	std::shared_ptr<RayTracingScene> ray_tracing_scene;
-
-	EntityRenderer entity_renderer;
 
 	EditorContext context;
 
@@ -58,18 +51,5 @@ private:
 	HierarchyPanel hierarchy_panel;
 	DebugPanel debug_panel;
 
-	LutRenderer lut_renderer;
-	IrradianceRenderer irradiance_renderer;
-	PrefilterRenderer prefilter_renderer;
-
-	GBufferPass gbuffer_pass;
-	ShadowRenderer shadow_renderer;
-
-	SkyRenderer sky_renderer;
-	DefferedLightingRenderer defferred_lighting_renderer;
-	DefferedCompositeRenderer deffered_composite_renderer;
-	PostProcessingRenderer post_renderer;
-	DebugRenderer debug_renderer;
-	SSAORenderer ssao_renderer;
-	SSRRenderer ssr_renderer;
+	std::shared_ptr<SceneRenderer> scene_renderer;
 };

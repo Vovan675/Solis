@@ -53,11 +53,10 @@ void FrameGraph::compile()
 		}
 	}
 
-
 	// Needed info for lifetime management
 	for (auto &pass : renderpass_nodes)
 	{
-		if (pass.ref_count == 0)
+		if (pass.ref_count == 0 && !pass.has_side_effect)
 			continue;
 
 		for (auto &node_id : pass.creates)
@@ -71,11 +70,11 @@ void FrameGraph::compile()
 	}
 }
 
-void FrameGraph::execute(CommandBuffer &command_buffer)
+void FrameGraph::execute(RHICommandList *cmd_list)
 {
 	for (const auto &pass : renderpass_nodes)
 	{
-		if (pass.getRefCount() == 0)
+		if (pass.getRefCount() == 0 && !pass.has_side_effect)
 			continue;
 
 		for (const auto &node_id : pass.creates)
@@ -84,18 +83,18 @@ void FrameGraph::execute(CommandBuffer &command_buffer)
 		for (const auto &access : pass.reads)
 		{
 			if ((access.flags & RenderPassNode::RESOURCE_ACCESS_IGNORE_FLAG) == 0)
-				getResourceEntry(access.resource).preRead(command_buffer, access.flags);
+				getResourceEntry(access.resource).preRead(cmd_list, access.flags);
 		}
 		for (const auto &access : pass.writes)
 		{
 			if ((access.flags & RenderPassNode::RESOURCE_ACCESS_IGNORE_FLAG) == 0)
-				getResourceEntry(access.resource).preWrite(command_buffer, access.flags);
+				getResourceEntry(access.resource).preWrite(cmd_list, access.flags);
 		}
 
 		{
-			GPU_SCOPE(pass.getName().c_str(), &command_buffer);
+			GPU_SCOPE(pass.getName().c_str(), cmd_list);
 			RenderPassResources resources(*this, pass);
-			std::invoke(*pass.pass, resources, command_buffer);
+			std::invoke(*pass.pass, resources, cmd_list);
 		}
 
 		for (auto &entry: resource_registry)
