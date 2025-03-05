@@ -10,6 +10,9 @@ void VulkanUtils::init()
 	p_vkCmdBeginDebugUtilsLabelEXT = reinterpret_cast<PFN_vkCmdBeginDebugUtilsLabelEXT>(vkGetDeviceProcAddr(device, "vkCmdBeginDebugUtilsLabelEXT"));
 	p_vkCmdEndDebugUtilsLabelEXT = reinterpret_cast<PFN_vkCmdEndDebugUtilsLabelEXT>(vkGetDeviceProcAddr(device, "vkCmdEndDebugUtilsLabelEXT"));
 
+	p_vkGetPhysicalDeviceCalibrateableTimeDomainsEXT = reinterpret_cast<PFN_vkGetPhysicalDeviceCalibrateableTimeDomainsEXT>(vkGetDeviceProcAddr(device, "vkGetPhysicalDeviceCalibrateableTimeDomainsEXT"));
+	p_vkGetCalibratedTimestampsEXT = reinterpret_cast<PFN_vkGetCalibratedTimestampsEXT>(vkGetDeviceProcAddr(device, "PFN_vkGetCalibratedTimestampsEXT"));
+
 	p_vkGetBufferDeviceAddressKHR = reinterpret_cast<PFN_vkGetBufferDeviceAddressKHR>(vkGetDeviceProcAddr(getNativeRHI()->device->logicalHandle, "vkGetBufferDeviceAddressKHR"));
 
 	p_vkCmdBuildAccelerationStructuresKHR = reinterpret_cast<PFN_vkCmdBuildAccelerationStructuresKHR>(vkGetDeviceProcAddr(device, "vkCmdBuildAccelerationStructuresKHR"));
@@ -25,7 +28,7 @@ void VulkanUtils::init()
 	p_vkCmdTraceRaysKHR = reinterpret_cast<PFN_vkCmdTraceRaysKHR>(vkGetDeviceProcAddr(device, "vkCmdTraceRaysKHR"));
 }
 
-inline VulkanDynamicRHI *VulkanUtils::getNativeRHI() { return (VulkanDynamicRHI *)gDynamicRHI; }
+VulkanDynamicRHI *VulkanUtils::getNativeRHI() { return (VulkanDynamicRHI *)gDynamicRHI; }
 
 void VulkanUtils::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, VkDeviceSize dst_offset)
 {

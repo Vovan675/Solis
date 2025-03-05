@@ -16,7 +16,7 @@ public:
 
 	void setDebugName(const char *name) override;
 
-	VkBuffer bufferHandle;
+	VkBuffer buffer_handle;
 	VmaAllocation allocation;
 	bool is_mapped = false;
 };

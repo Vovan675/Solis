@@ -50,6 +50,7 @@ public:
 	RHIBindlessResources *getBindlessResources() override { return bindless_resources; };
 
 	std::shared_ptr<RHITexture> getSwapchainTexture(int index) override { return swapchain->getTexture(index); }
+	std::shared_ptr<RHITexture> getCurrentSwapchainTexture() override { return swapchain->getTexture(image_index); }
 
 	void waitGPU() override;
 
@@ -195,7 +196,7 @@ public:
 	HANDLE fenceEvent;
 	UINT64 fenceValue;
 
-	DX12CommandList *cmd_lists[2];
+	DX12CommandList *cmd_lists[MAX_FRAMES_IN_FLIGHT];
 	DX12CommandQueue *cmd_queue;
 
 	DX12CommandList *cmd_list_copy;
@@ -219,12 +220,12 @@ public:
 	int cbv_srv_uav_heap_additional_heap_offset = 0;
 
 	// For dynamic, per frame
-	ID3D12DescriptorHeap *cbv_srv_uav_heap[2];
+	ID3D12DescriptorHeap *cbv_srv_uav_heap[MAX_FRAMES_IN_FLIGHT];
 	int cbv_srv_uav_heap_offset = 0; // we need only current frame offset, previous is non useful
 
 
 	// Samplers heap
-	ID3D12DescriptorHeap *samplers_heap[2];
+	ID3D12DescriptorHeap *samplers_heap[MAX_FRAMES_IN_FLIGHT];
 	int samplers_heap_offset = 0;
 
 	ID3D12DescriptorHeap *samplers_staging_heap;
@@ -251,7 +252,11 @@ public:
 
 	DX12Pipeline *last_native_pso;
 
-	std::array<std::vector<std::pair<RESOURCE_TYPE, void *>>, 2> gpu_release_queue;
+	std::array<std::vector<std::pair<RESOURCE_TYPE, void *>>, MAX_FRAMES_IN_FLIGHT> gpu_release_queue;
+
+	TracyD3D12Ctx tracy_ctx;
+
+	uint32_t image_index;
 
 	void beginFrame() override;
 	void endFrame() override;

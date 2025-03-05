@@ -19,29 +19,35 @@ SceneRenderer::SceneRenderer()
 
 void SceneRenderer::render(std::shared_ptr<Camera> camera, std::shared_ptr<RHITexture> result_texture)
 {
+	PROFILE_CPU_FUNCTION();
+	PROFILE_GPU_FUNCTION(gDynamicRHI->getCmdList());
+
 	Renderer::setViewportSize(result_texture->getSize());
 	Renderer::setCamera(camera);
 
-	render_batches.clear();
-
-	BoundFrustum bound_frustum(camera->getProj(), camera->getView());
-	auto entities_id = Scene::getCurrentScene()->getEntitiesWith<MeshRendererComponent>();
-	for (entt::entity entity_id : entities_id)
 	{
-		Entity entity(entity_id);
-		MeshRendererComponent &mesh_renderer = entity.getComponent<MeshRendererComponent>();
+		PROFILE_CPU_SCOPE("SceneRenderer create render batches");
+		render_batches.clear();
 
-		for (int i = 0; i < mesh_renderer.meshes.size(); i++)
+		BoundFrustum bound_frustum(camera->getProj(), camera->getView());
+		auto entities_id = Scene::getCurrentScene()->getEntitiesWith<MeshRendererComponent>();
+		for (entt::entity entity_id : entities_id)
 		{
-			const std::shared_ptr<Engine::Mesh> mesh = mesh_renderer.meshes[i].getMesh();
-			const auto material = mesh_renderer.materials.size() > i ? mesh_renderer.materials[i] : std::make_shared<Material>();
+			Entity entity(entity_id);
+			MeshRendererComponent &mesh_renderer = entity.getComponent<MeshRendererComponent>();
 
-			RenderBatch &batch = render_batches.emplace_back();
-			batch.mesh = mesh;
-			batch.material = material;
-			batch.world_transform = entity.getWorldTransformMatrix();
-			auto bbox = mesh->bound_box * batch.world_transform;
-			batch.camera_visible = bbox.isInside(bound_frustum);
+			for (int i = 0; i < mesh_renderer.meshes.size(); i++)
+			{
+				const std::shared_ptr<Engine::Mesh> mesh = mesh_renderer.meshes[i].getMesh();
+				const auto material = mesh_renderer.materials.size() > i ? mesh_renderer.materials[i] : std::make_shared<Material>();
+
+				RenderBatch &batch = render_batches.emplace_back();
+				batch.mesh = mesh;
+				batch.material = material;
+				batch.world_transform = entity.getWorldTransformMatrix();
+				auto bbox = mesh->bound_box * batch.world_transform;
+				batch.camera_visible = bbox.isInside(bound_frustum);
+			}
 		}
 	}
 

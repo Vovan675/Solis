@@ -37,10 +37,10 @@ void EntityRenderer::renderEntityShadow(RHICommandList *cmd_list, glm::mat4 &tra
 		// Render mesh
 		// TODO: fix
 		/*
-		VkBuffer vertexBuffers[] = {mesh->vertexBuffer->bufferHandle};
+		VkBuffer vertexBuffers[] = {mesh->vertexBuffer->buffer_handle};
 		VkDeviceSize offsets[] = {0};
 		vkCmdBindVertexBuffers(command_buffer.get_buffer(), 0, 1, vertexBuffers, offsets);
-		vkCmdBindIndexBuffer(command_buffer.get_buffer(), mesh->indexBuffer->bufferHandle, 0, VK_INDEX_TYPE_UINT32);
+		vkCmdBindIndexBuffer(command_buffer.get_buffer(), mesh->indexBuffer->buffer_handle, 0, VK_INDEX_TYPE_UINT32);
 		vkCmdDrawIndexed(command_buffer.get_buffer(), mesh->indices.size(), 1, 0, 0, 0);
 		Renderer::addDrawCalls(1);
 		*/
@@ -63,10 +63,10 @@ void EntityRenderer::render_entity(RHICommandList *cmd_list, Entity entity)
 		// Render mesh
 		// TODO: fix
 		/*
-		VkBuffer vertexBuffers[] = {mesh->vertexBuffer->bufferHandle};
+		VkBuffer vertexBuffers[] = {mesh->vertexBuffer->buffer_handle};
 		VkDeviceSize offsets[] = {0};
 		vkCmdBindVertexBuffers(command_buffer.get_buffer(), 0, 1, vertexBuffers, offsets);
-		vkCmdBindIndexBuffer(command_buffer.get_buffer(), mesh->indexBuffer->bufferHandle, 0, VK_INDEX_TYPE_UINT32);
+		vkCmdBindIndexBuffer(command_buffer.get_buffer(), mesh->indexBuffer->buffer_handle, 0, VK_INDEX_TYPE_UINT32);
 		vkCmdDrawIndexed(command_buffer.get_buffer(), mesh->indices.size(), 1, 0, 0, 0);
 		Renderer::addDrawCalls(1);
 		*/

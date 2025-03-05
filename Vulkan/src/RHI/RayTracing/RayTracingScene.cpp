@@ -31,8 +31,8 @@ void RayTracingScene::build_blas()
 		{
 			auto mesh = mesh_node.getMesh();
 			// TODO: fix
-			//VkWrapper::copyBuffer(mesh->vertexBuffer->bufferHandle, big_vertex_buffer->bufferHandle, mesh->vertexBuffer->getSize(), big_vertex_buffer_last_offset);
-			//VkWrapper::copyBuffer(mesh->indexBuffer->bufferHandle, big_index_buffer->bufferHandle, mesh->indexBuffer->getSize(), big_index_buffer_last_offset);
+			//VkWrapper::copyBuffer(mesh->vertexBuffer->buffer_handle, big_vertex_buffer->buffer_handle, mesh->vertexBuffer->getSize(), big_vertex_buffer_last_offset);
+			//VkWrapper::copyBuffer(mesh->indexBuffer->buffer_handle, big_index_buffer->buffer_handle, mesh->indexBuffer->getSize(), big_index_buffer_last_offset);
 			MeshOffset offset;
 			offset.vertexBufferOffset = big_vertex_buffer_last_offset / sizeof(Engine::Vertex);
 			offset.indexBufferOffset = big_index_buffer_last_offset / sizeof(uint32_t);
@@ -78,9 +78,9 @@ void RayTracingScene::build_blas()
 				VkDeviceOrHostAddressConstKHR transformBufferDeviceAddress{};
 
 				// TODO: fix
-				//vertexBufferDeviceAddress.deviceAddress = VkWrapper::getBufferDeviceAddress(mesh->vertexBuffer->bufferHandle);
-				//indexBufferDeviceAddress.deviceAddress = VkWrapper::getBufferDeviceAddress(mesh->indexBuffer->bufferHandle);
-				//transformBufferDeviceAddress.deviceAddress = VkWrapper::getBufferDeviceAddress(transform_buffer->bufferHandle);
+				//vertexBufferDeviceAddress.deviceAddress = VkWrapper::getBufferDeviceAddress(mesh->vertexBuffer->buffer_handle);
+				//indexBufferDeviceAddress.deviceAddress = VkWrapper::getBufferDeviceAddress(mesh->indexBuffer->buffer_handle);
+				//transformBufferDeviceAddress.deviceAddress = VkWrapper::getBufferDeviceAddress(transform_buffer->buffer_handle);
 
 				VkAccelerationStructureGeometryTrianglesDataKHR triangles{};
 				triangles.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR;

@@ -290,19 +290,19 @@ void ShadowRenderer::addRayTracedShadowPasses(FrameGraph & fg)
 		const uint32_t handleSizeAligned = VkWrapper::alignedSize(VkWrapper::device->physicalRayTracingProperties.shaderGroupHandleSize, VkWrapper::device->physicalRayTracingProperties.shaderGroupHandleAlignment);
 		VkStridedDeviceAddressRegionKHR raygenShaderSbtEntry{};
 		// TODO: fix
-		//raygenShaderSbtEntry.deviceAddress = VkWrapper::getBufferDeviceAddress(p->current_pipeline->raygenShaderBindingTable->bufferHandle);
+		//raygenShaderSbtEntry.deviceAddress = VkWrapper::getBufferDeviceAddress(p->current_pipeline->raygenShaderBindingTable->buffer_handle);
 		raygenShaderSbtEntry.stride = handleSizeAligned;
 		raygenShaderSbtEntry.size = handleSizeAligned;
 
 		VkStridedDeviceAddressRegionKHR missShaderSbtEntry{};
 		// TODO: fix
-		//missShaderSbtEntry.deviceAddress = VkWrapper::getBufferDeviceAddress(p->current_pipeline->missShaderBindingTable->bufferHandle);
+		//missShaderSbtEntry.deviceAddress = VkWrapper::getBufferDeviceAddress(p->current_pipeline->missShaderBindingTable->buffer_handle);
 		missShaderSbtEntry.stride = handleSizeAligned;
 		missShaderSbtEntry.size = handleSizeAligned;
 
 		VkStridedDeviceAddressRegionKHR hitShaderSbtEntry{};
 		// TODO: fix
-		//hitShaderSbtEntry.deviceAddress = VkWrapper::getBufferDeviceAddress(p->current_pipeline->hitShaderBindingTable->bufferHandle);
+		//hitShaderSbtEntry.deviceAddress = VkWrapper::getBufferDeviceAddress(p->current_pipeline->hitShaderBindingTable->buffer_handle);
 		hitShaderSbtEntry.stride = handleSizeAligned;
 		hitShaderSbtEntry.size = handleSizeAligned;
 

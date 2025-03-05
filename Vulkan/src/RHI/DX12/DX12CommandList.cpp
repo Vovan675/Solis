@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "DX12CommandList.h"
 #include "DX12DynamicRHI.h"
+#include "DX12Utils.h"
 #include "RHI/DynamicRHI.h"
 #include "RHI/RHITexture.h"
 #include "RHI/RHIPipeline.h"
@@ -98,4 +99,21 @@ void DX12CommandList::setIndexBuffer(std::shared_ptr<RHIBuffer> buffer)
 {
 	DX12Buffer *native_buffer = static_cast<DX12Buffer *>(buffer.get());
 	cmd_list->IASetIndexBuffer(&native_buffer->getIndexBufferView());
+}
+
+void DX12CommandList::beginDebugLabel(const char *label, glm::vec3 color, uint32_t line, const char* source, size_t source_size, const char* function, size_t function_size)
+{
+	#ifdef TRACY_ENABLE
+		auto tracy_scope = std::make_unique<tracy::D3D12ZoneScope>(DX12Utils::getNativeRHI()->tracy_ctx, line, source, source_size, function, function_size, label, strlen(label), cmd_list.Get(), true);
+		tracy_debug_label_stack.emplace_back(std::move(tracy_scope));
+	#endif
+	// TODO: integrate pix events
+}
+
+void DX12CommandList::endDebugLabel()
+{
+	#ifdef TRACY_ENABLE
+		tracy_debug_label_stack.pop_back();
+	#endif
+	// TODO: integrate pix events
 }

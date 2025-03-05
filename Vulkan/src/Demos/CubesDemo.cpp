@@ -133,7 +133,7 @@ void CubesDemo::render(RHICommandList *cmd_list)
 		texture->transitLayout(cmd_list, TEXTURE_LAYOUT_SHADER_READ);
 
 	// Set swapchain color image layout for writing
-	auto swapchain_texture = gDynamicRHI->getSwapchainTexture(gDynamicRHI->current_frame);
+	auto swapchain_texture = gDynamicRHI->getCurrentSwapchainTexture();
 	swapchain_texture->transitLayout(cmd_list, TEXTURE_LAYOUT_ATTACHMENT);
 	depth_stencil_texture->transitLayout(cmd_list, TEXTURE_LAYOUT_ATTACHMENT);
 	cmd_list->setRenderTargets({swapchain_texture}, {depth_stencil_texture}, 0, 0, true);
@@ -198,7 +198,7 @@ void CubesDemo::renderBindless(RHICommandList *cmd_list)
 		texture->transitLayout(cmd_list, TEXTURE_LAYOUT_SHADER_READ);
 
 	// Set swapchain color image layout for writing
-	auto swapchain_texture = gDynamicRHI->getSwapchainTexture(gDynamicRHI->current_frame);
+	auto swapchain_texture = gDynamicRHI->getCurrentSwapchainTexture();
 	swapchain_texture->transitLayout(cmd_list, TEXTURE_LAYOUT_ATTACHMENT);
 	depth_stencil_texture->transitLayout(cmd_list, TEXTURE_LAYOUT_ATTACHMENT);
 	cmd_list->setRenderTargets({swapchain_texture}, {depth_stencil_texture}, 0, 0, true);
@@ -305,7 +305,7 @@ void RenderTargetsDemo::initResources()
 
 void RenderTargetsDemo::render(RHICommandList *cmd_list)
 {
-	auto swapchain_texture = gDynamicRHI->getSwapchainTexture(gDynamicRHI->current_frame);
+	auto swapchain_texture = gDynamicRHI->getCurrentSwapchainTexture();
 
 	result_texture->transitLayout(cmd_list, TEXTURE_LAYOUT_ATTACHMENT);
 	depth_stencil_texture->transitLayout(cmd_list, TEXTURE_LAYOUT_ATTACHMENT);
@@ -392,7 +392,7 @@ void RenderTargetsDemo::renderFrameGraph(RHICommandList *cmd_list)
 {
 	FrameGraph fg;
 
-	auto swapchain_texture = gDynamicRHI->getSwapchainTexture(gDynamicRHI->current_frame);
+	auto swapchain_texture = gDynamicRHI->getCurrentSwapchainTexture();
 
 	// Per frame constant buffer
 	{

@@ -1,5 +1,6 @@
 #pragma once
 #include "RHI/DynamicRHI.h"
+#include "TracyD3D12.hpp"
 
 class DX12CommandList: public RHICommandList
 {
@@ -64,18 +65,13 @@ public:
 		cmd_list->Dispatch(group_x, group_y, group_z);
 	}
 
-	void beginDebugLabel(const char *label, glm::vec3 color)
-	{
-		// TODO: integrate pix events
-	}
-
-	void endDebugLabel()
-	{
-		// TODO: integrate pix events
-	}
+	void beginDebugLabel(const char *label, glm::vec3 color, uint32_t line, const char* source, size_t source_size, const char* function, size_t function_size);
+	void endDebugLabel();
 
 	ComPtr<ID3D12CommandAllocator> cmd_allocator;
 	ComPtr<ID3D12GraphicsCommandList> cmd_list;
 	std::shared_ptr<RHIPipeline> current_pipeline;
 	std::vector<std::shared_ptr<RHITexture>> current_render_targets;
+
+	std::vector<std::unique_ptr<tracy::D3D12ZoneScope>> tracy_debug_label_stack;
 };

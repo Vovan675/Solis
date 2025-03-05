@@ -70,7 +70,7 @@ void ImGuiWrapper::init(GLFWwindow *window)
 		ImGui_ImplGlfw_InitForOther(window, true);
 
 		DX12DynamicRHI *rhi = (DX12DynamicRHI *)gDynamicRHI;
-		ImGui_ImplDX12_Init(rhi->device.Get(), 2, DXGI_FORMAT_R8G8B8A8_UNORM, rhi->cbv_srv_uav_additional_heap, rhi->cbv_srv_uav_additional_heap->GetCPUDescriptorHandleForHeapStart(), rhi->cbv_srv_uav_additional_heap->GetGPUDescriptorHandleForHeapStart());
+		ImGui_ImplDX12_Init(rhi->device.Get(), MAX_FRAMES_IN_FLIGHT, DXGI_FORMAT_R8G8B8A8_UNORM, rhi->cbv_srv_uav_additional_heap, rhi->cbv_srv_uav_additional_heap->GetCPUDescriptorHandleForHeapStart(), rhi->cbv_srv_uav_additional_heap->GetGPUDescriptorHandleForHeapStart());
 	}
 
 	GuiUtils::init();

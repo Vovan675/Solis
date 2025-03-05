@@ -211,9 +211,14 @@ public:
 		uint32_t depth);
 	
 private:
+	friend class VulkanDynamicRHI;
+
 	inline static PFN_vkSetDebugUtilsObjectNameEXT p_vkSetDebugUtilsObjectNameEXT;
 	inline static PFN_vkCmdBeginDebugUtilsLabelEXT p_vkCmdBeginDebugUtilsLabelEXT;
 	inline static PFN_vkCmdEndDebugUtilsLabelEXT p_vkCmdEndDebugUtilsLabelEXT;
+
+	inline static PFN_vkGetPhysicalDeviceCalibrateableTimeDomainsEXT p_vkGetPhysicalDeviceCalibrateableTimeDomainsEXT;
+	inline static PFN_vkGetCalibratedTimestampsEXT p_vkGetCalibratedTimestampsEXT;
 
 	inline static PFN_vkGetBufferDeviceAddressKHR p_vkGetBufferDeviceAddressKHR;
 

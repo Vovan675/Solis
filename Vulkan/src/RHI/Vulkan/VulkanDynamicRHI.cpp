@@ -4,6 +4,7 @@
 
 #include <Rendering/Renderer.h>
 #include "VulkanUtils.h"
+#include "TracyVulkan.hpp"
 
 void VulkanDynamicRHI::init()
 {
@@ -51,8 +52,12 @@ void VulkanDynamicRHI::init()
 
 	cmd_queue = new VulkanCommandQueue(device->graphicsQueue, false);
 	cmd_copy_queue = new VulkanCommandQueue(device->graphicsQueue);
-	cmd_list = new VulkanCommandList();
+	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+	{
+		cmd_lists[i] = new VulkanCommandList();
+	}
 	cmd_list_immediate = new VulkanCommandList();
+	tracy_cmd_list = new VulkanCommandList();
 
 	DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(&dxc_utils));
 	DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(&dxc_compiler));
@@ -61,10 +66,15 @@ void VulkanDynamicRHI::init()
 
 	bindless_resources = new VulkanBindlessResources();
 	bindless_resources->init();
+
+	tracy_ctx = TracyVkContextCalibrated(device->physicalHandle, device->logicalHandle, cmd_queue->queue, tracy_cmd_list->cmd_buffer,
+										 VulkanUtils::p_vkGetPhysicalDeviceCalibrateableTimeDomainsEXT, VulkanUtils::p_vkGetCalibratedTimestampsEXT);
 }
 
 void VulkanDynamicRHI::shutdown()
 {
+	TracyVkDestroy(tracy_ctx);
+
 	auto *bindless = bindless_resources;
 	bindless_resources = nullptr;
 	buffers_for_shaders.clear();
@@ -234,6 +244,7 @@ void VulkanDynamicRHI::waitGPU()
 
 void VulkanDynamicRHI::prepareRenderCall()
 {
+	PROFILE_CPU_FUNCTION();
 	VulkanCommandList *cmd_list_native = static_cast<VulkanCommandList *>(getCmdList());
 	VulkanPipeline *native_pso = static_cast<VulkanPipeline *>(cmd_list_native->current_pipeline.get());
 	bool pso_changed = false;
@@ -248,6 +259,7 @@ void VulkanDynamicRHI::prepareRenderCall()
 	VkDescriptorSet current_set;
 
 	size_t descriptor_hash = native_pso->getHash();
+	hash_combine(descriptor_hash, current_frame);
 	auto &all_descriptors = descriptors[descriptor_hash];
 
 	if (is_something_changed || all_descriptors.current_offset == 0)
@@ -325,7 +337,7 @@ void VulkanDynamicRHI::prepareRenderCall()
 
 				VkDescriptorType descriptor_type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 
-				writer.writeBuffer(desc.binding, descriptor_type, buffer->bufferHandle, buffer->description.size);
+				writer.writeBuffer(desc.binding, descriptor_type, buffer->buffer_handle, buffer->description.size);
 			}
 		}
 
@@ -336,13 +348,14 @@ void VulkanDynamicRHI::prepareRenderCall()
 	if (native_pso->description.is_compute_pipeline)
 		bind_point = VK_PIPELINE_BIND_POINT_COMPUTE;
 
+	VulkanCommandList *native_cmd_list = cmd_lists[current_frame];
 	// use offset?
-	vkCmdBindDescriptorSets(cmd_list->cmd_buffer, bind_point, native_pso->pipeline_layout, 0, 1, &current_set, 0, nullptr);
+	vkCmdBindDescriptorSets(native_cmd_list->cmd_buffer, bind_point, native_pso->pipeline_layout, 0, 1, &current_set, 0, nullptr);
 
 	// Bind bindless
 	VulkanBindlessResources *native_bindless = (VulkanBindlessResources *)gDynamicRHI->getBindlessResources();
 	VkDescriptorSet bindless_set = native_bindless->getDescriptorSet();
-	vkCmdBindDescriptorSets(cmd_list->cmd_buffer, bind_point, native_pso->pipeline_layout, 1, 1, &bindless_set, 0, nullptr);
+	vkCmdBindDescriptorSets(native_cmd_list->cmd_buffer, bind_point, native_pso->pipeline_layout, 1, 1, &bindless_set, 0, nullptr);
 }
 
 void VulkanDynamicRHI::init_instance()
@@ -400,18 +413,17 @@ void VulkanDynamicRHI::init_vma()
 
 void VulkanDynamicRHI::beginFrame()
 {
-	Renderer::beginFrame(current_frame, current_frame);
+	PROFILE_CPU_FUNCTION();
 
 	for (auto &tex : current_bind_textures)
 		tex = nullptr;
 	for (auto &buf : current_bind_structured_buffers)
 		buf = nullptr;
 
-	// getBackBufferImageIndex
 	// Acquire image and trigger semaphore
 	VkResult result = vkAcquireNextImageKHR(device->logicalHandle, swapchain->swapchain, UINT64_MAX, imageAvailableSemaphores[current_frame], VK_NULL_HANDLE, &image_index);
 
-	vkResetFences(device->logicalHandle, 1, &in_flight_fences[current_frame]);
+	Renderer::beginFrame(current_frame, image_index);
 
 	// Reset offsets for uniform buffers
 	for (auto &buffers : buffers_for_shaders)
@@ -425,12 +437,17 @@ void VulkanDynamicRHI::beginFrame()
 	}
 
 	getCmdList()->open();
+
+	VulkanCommandList *native_cmd_list = (VulkanCommandList *)gDynamicRHI->getCmdList();
+	TracyVkCollect(VulkanUtils::getNativeRHI()->tracy_ctx, native_cmd_list->cmd_buffer);
 }
 
 void VulkanDynamicRHI::endFrame()
 {
+	PROFILE_CPU_FUNCTION();
 	// Update bindless
 	bindless_resources->updateSets();
+	VulkanCommandList *native_cmd_list = cmd_lists[current_frame];
 
 	gDynamicRHI->getCmdList()->close();
 
@@ -444,7 +461,7 @@ void VulkanDynamicRHI::endFrame()
 	submit_info.pWaitSemaphores = wait_semaphores;
 	submit_info.pWaitDstStageMask = wait_stages;
 	submit_info.commandBufferCount = 1;
-	submit_info.pCommandBuffers = &cmd_list->cmd_buffer;
+	submit_info.pCommandBuffers = &native_cmd_list->cmd_buffer;
 	// Signal semaphore when queue submitted
 	VkSemaphore signal_semaphores[] = {renderFinishedSemaphores[current_frame]};
 	submit_info.signalSemaphoreCount = 1;
@@ -452,7 +469,7 @@ void VulkanDynamicRHI::endFrame()
 	// Also trigger fence when queue completed to work with this 'currentFrame'
 
 	cmd_queue->fence = in_flight_fences[current_frame];
-	cmd_queue->execute(cmd_list, submit_info);
+	cmd_queue->execute(native_cmd_list, submit_info);
 
 	VkPresentInfoKHR present_info{};
 	present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
@@ -466,7 +483,7 @@ void VulkanDynamicRHI::endFrame()
 	VkResult result = vkQueuePresentKHR(device->presentQueue, &present_info);
 
 	Renderer::endFrame(image_index);
-	cmd_queue->wait(0);
+
 
 	if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || framebuffer_resized)
 	{
@@ -485,14 +502,17 @@ void VulkanDynamicRHI::endFrame()
 	{
 		CORE_CRITICAL("Failed to present swap chain image");
 	}
-	//vkQueueWaitIdle(VkWrapper::device->presentQueue);
-
-	// Wait when queue for next frame is completed (device -> host sync)
-	//vkWaitForFences(VkWrapper::device->logicalHandle, 1, &in_flight_fences[current_frame], VK_TRUE, UINT64_MAX);
-
-	releaseGPUResources(current_frame);
+	//vkQueueWaitIdle(device->presentQueue);
 
 	current_frame = (current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
+
+	{
+		PROFILE_CPU_SCOPE("Wait in flight fence");
+		// Wait when queue for next frame is completed (device -> host sync)
+		cmd_queue->fence = in_flight_fences[current_frame];
+		cmd_queue->wait(0);
+	}
+	releaseGPUResources(current_frame);
 }
 
 void VulkanDynamicRHI::releaseGPUResources(uint32_t current_frame)

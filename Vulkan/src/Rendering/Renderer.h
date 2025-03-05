@@ -26,7 +26,6 @@ struct RendererDebugInfo
 	size_t descriptor_bindings_count = 0;
 	size_t descriptors_max_offset = 0;
 	size_t drawcalls = 0;
-	std::vector<DebugTime> times;
 };
 
 struct RenderBatch
@@ -54,10 +53,6 @@ public:
 	static void deleteResources(unsigned int frame_in_flight);
 	
 	static RendererDebugInfo getDebugInfo() { return prev_debug_info; };
-
-	static uint32_t beginTimestamp();
-	static void endTimestamp(uint32_t index);
-	static float getTimestampTime(uint32_t index);
 
 	static std::shared_ptr<RHITexture> getRenderTarget(RENDER_TARGETS rt) { return screen_resources[rt]; }
 	static uint32_t getRenderTargetBindlessId(RENDER_TARGETS rt) { return gDynamicRHI->getBindlessResources()->getTextureIndex(screen_resources[rt].get()); }
@@ -90,7 +85,6 @@ public:
 	static void deleteResource(RESOURCE_TYPE type, void *resource) { deletion_queue[current_frame_in_flight].push_back(std::make_pair(type, resource)); }
 
 	static void addDrawCalls(size_t count) { debug_info.drawcalls += count; }
-	static void addDebugTime(uint32_t index, std::string name) { debug_info.times.push_back({index, name}); }
 private:
 	
 	static RendererDebugInfo prev_debug_info;
@@ -121,42 +115,5 @@ private:
 	static int current_frame_in_flight;
 	static int current_image_index;
 	static uint64_t current_frame;
-	static uint32_t timestamp_index;
 	static glm::ivec2 viewport_size;
 };
-
-#include "RHI/Vulkan/VulkanUtils.h"
-
-struct GPUScope
-{
-	GPUScope(const char *name, RHICommandList *cmd_list = nullptr, glm::vec3 color = glm::vec3(0.7, 0.7, 0.7))
-	{
-		timestamp = Renderer::beginTimestamp();
-		Renderer::addDebugTime(timestamp, name);
-		// TODO: fix, integrate tracy
-		if (cmd_list)
-		{
-			this->cmd_list = cmd_list;
-			cmd_list->beginDebugLabel(name, color);
-		}
-	}
-
-	~GPUScope()
-	{
-		// TODO: fix, integrate tracy
-		Renderer::endTimestamp(timestamp + 1);
-		if (cmd_list)
-		{
-			cmd_list->endDebugLabel();
-		}
-	}
-
-	uint32_t timestamp = 0;
-	RHICommandList *cmd_list = nullptr;
-};
-
-#define GPU_PROFILE_SCOPE(name) GPUScope gpu_scope__LINE__(name)
-#define GPU_PROFILE_SCOPE_FUNCTION() GPUScope gpu_scope__LINE__(__FUNCTION__)
-
-#define GPU_SCOPE_FUNCTION(cmd_list) GPUScope gpu_scope__LINE__(__FUNCTION__, cmd_list)
-#define GPU_SCOPE(name, cmd_list) GPUScope gpu_scope__LINE__(name, cmd_list)

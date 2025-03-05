@@ -14,7 +14,6 @@ std::array<std::vector<std::pair<RESOURCE_TYPE, void *>>, MAX_FRAMES_IN_FLIGHT> 
 int Renderer::current_frame_in_flight = 0;
 int Renderer::current_image_index = 0;
 uint64_t Renderer::current_frame = 0;
-uint32_t Renderer::timestamp_index = 0;
 
 glm::ivec2 Renderer::viewport_size;
 
@@ -56,18 +55,11 @@ void Renderer::beginFrame(unsigned int current_frame_in_flight, unsigned int cur
 	prev_debug_info = debug_info;
 	debug_info = RendererDebugInfo{};
 
-	timestamp_index = 0;
-
 	//deleteResources(current_frame_in_flight);
 }
 
 void Renderer::endFrame(unsigned int image_index)
 {
-	// Reset offsets for uniform buffers
-	
-	int count = timestamp_index;
-	//if (count > 0)
-	//	vkGetQueryPoolResults(VkWrapper::device->logicalHandle, VkWrapper::device->query_pools[current_frame_in_flight], 0, count, VkWrapper::device->time_stamps[current_frame_in_flight].size() * sizeof(uint64_t), VkWrapper::device->time_stamps[current_frame_in_flight].data(), sizeof(uint64_t), VK_QUERY_RESULT_64_BIT);
 }
 
 void Renderer::deleteResources(unsigned int frame_in_flight)
@@ -102,27 +94,6 @@ void Renderer::deleteResources(unsigned int frame_in_flight)
 		deletion_queue[frame_in_flight].clear();
 		*/
 	}
-}
-
-uint32_t Renderer::beginTimestamp()
-{
-	uint32_t current_timestep = timestamp_index;
-	//vkCmdWriteTimestamp2(getCurrentCommandBuffer().get_buffer(), VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VkWrapper::device->query_pools[current_frame_in_flight], timestamp_index++);
-	timestamp_index++;
-	return current_timestep;
-}
-
-void Renderer::endTimestamp(uint32_t index)
-{
-	//vkCmdWriteTimestamp2(getCurrentCommandBuffer().get_buffer(), VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VkWrapper::device->query_pools[current_frame_in_flight], index);
-}
-
-float Renderer::getTimestampTime(uint32_t index)
-{
-	//float period = VkWrapper::device->physicalProperties.properties.limits.timestampPeriod;
-	//float delta_in_ms = (VkWrapper::device->time_stamps[current_frame_in_flight][index + 1] - VkWrapper::device->time_stamps[current_frame_in_flight][index]) * period / 1000000.0f;
-	//return delta_in_ms;
-	return 0;
 }
 
 void Renderer::setShadersAccelerationStructure(std::vector<std::shared_ptr<RHIShader>> shaders, VkAccelerationStructureKHR *acceleration_structure, unsigned int binding)
@@ -182,7 +153,7 @@ void Renderer::setShadersStorageBuffer(std::vector<std::shared_ptr<RHIShader>> s
 
 			// Update set
 			DescriptorWriter writer;
-			writer.writeBuffer(binding, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, current_binding.first->bufferHandle, params_size);
+			writer.writeBuffer(binding, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, current_binding.first->buffer_handle, params_size);
 			writer.updateSet(descriptors[descriptor_hash][i].descriptor_per_offset[offset]);
 		}
 	}
@@ -220,7 +191,7 @@ void Renderer::setShadersStorageBuffer(std::vector<std::shared_ptr<RHIShader>> s
 
 			// Update set
 			DescriptorWriter writer;
-			writer.writeBuffer(binding, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, current_binding.first->bufferHandle, buffer->getSize());
+			writer.writeBuffer(binding, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, current_binding.first->buffer_handle, buffer->getSize());
 			writer.updateSet(descriptors[descriptor_hash][i].descriptor_per_offset[offset]);
 		}
 	}
@@ -265,7 +236,7 @@ void Renderer::setShadersUniformBuffer(std::vector<std::shared_ptr<RHIShader>> s
 
 			// Update set
 			DescriptorWriter writer;
-			writer.writeBuffer(binding, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, current_binding.first->bufferHandle, params_size);
+			writer.writeBuffer(binding, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, current_binding.first->buffer_handle, params_size);
 			writer.updateSet(descriptors[descriptor_hash][i].descriptor_per_offset[offset]);
 		}
 	}

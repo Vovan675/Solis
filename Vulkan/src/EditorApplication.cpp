@@ -181,7 +181,7 @@ void EditorApplication::recordCommands(RHICommandList *cmd_list)
 	// Render ImGui to backbuffer
 	DefaultResourcesData &default_data = frameGraph.getBlackboard().add<DefaultResourcesData>();
 	default_data.final = importTexture(frameGraph, viewport_panel.viewport_texture);
-	default_data.backbuffer = importTexture(frameGraph, gDynamicRHI->getSwapchainTexture(gDynamicRHI->current_frame));
+	default_data.backbuffer = importTexture(frameGraph, gDynamicRHI->getCurrentSwapchainTexture());
 
 	default_data = frameGraph.addCallbackPass<DefaultResourcesData>("ImGui Pass",
 	[&](RenderPassBuilder &builder, DefaultResourcesData &data)

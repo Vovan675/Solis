@@ -6,7 +6,7 @@ class DX12DynamicRHI;
 class DX12Buffer : public RHIBuffer
 {
 public:
-	DX12Buffer(DX12DynamicRHI *rhi, ComPtr<ID3D12Device> device, BufferDescription description);
+	DX12Buffer(BufferDescription description);
 	~DX12Buffer();
 
 	void destroy() override;
@@ -35,10 +35,6 @@ public:
 		return view;
 	}
 
-	DX12DynamicRHI *rhi;
-	ComPtr<ID3D12Device> device;
 	ComPtr<ID3D12Resource> resource;
-
-	ComPtr<ID3D12Resource> intermediate_resource;
 	bool is_mapped = false;
 };

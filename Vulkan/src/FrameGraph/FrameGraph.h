@@ -87,7 +87,11 @@ private:
 
 	RenderPassNode(std::string name, uint32_t id, std::unique_ptr<RenderPassAbstract> &&pass)
 		: FrameGraphNode(name, id), pass(std::move(pass))
-	{}
+	{
+		creates.reserve(8);
+		reads.reserve(16);
+		writes.reserve(8);
+	}
 
 	std::unique_ptr<RenderPassAbstract> pass;
 
@@ -237,6 +241,13 @@ private:
 
 class FrameGraph
 {
+public:
+	FrameGraph()
+	{
+		resource_registry.reserve(128);
+		renderpass_nodes.reserve(128);
+		resource_nodes.reserve(128);
+	}
 private:
 	template <typename T>
 	FrameGraphResource createResource(const std::string name, const typename T::Description &desc, T &&resource, bool transient)
@@ -253,9 +264,10 @@ public:
 	template <typename Data, typename Setup, typename Execute>
 	Data addCallbackPass(std::string name, Setup setup, Execute execute)
 	{
+		PROFILE_CPU_SCOPE_VAR(("Setup: " + name).c_str());
 		RenderPass<Data, Execute> *pass = new RenderPass<Data, Execute>(execute);
 		int32_t node_id = renderpass_nodes.size();
-		RenderPassNode &pass_node = renderpass_nodes.emplace_back(RenderPassNode(name, node_id, std::unique_ptr<RenderPass<Data, Execute>>(pass)));
+		RenderPassNode &pass_node = renderpass_nodes.emplace_back(RenderPassNode(name, node_id, std::unique_ptr<RenderPass<Data, Execute>>(pass))); // TODO: allocator for PassNodes
 
 		RenderPassBuilder builder(*this, pass_node);
 
@@ -389,6 +401,7 @@ public:
 	template <typename T>
 	FrameGraphResource createResource(std::string name, const typename T::Description &desc)
 	{
+		PROFILE_CPU_FUNCTION();
 		FrameGraphResource resource_id = frameGraph.createResource<T>(name, desc, T{}, true);
 		renderpass_node.creates.emplace_back(resource_id);
 		return resource_id;

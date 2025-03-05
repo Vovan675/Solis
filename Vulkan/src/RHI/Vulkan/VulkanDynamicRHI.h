@@ -9,6 +9,7 @@
 #include "VulkanSwapchain.h"
 #include "VulkanTexture.h"
 #include "VulkanPipeline.h"
+#include "TracyVulkan.hpp"
 
 
 class VulkanDynamicRHI : public DynamicRHI
@@ -34,7 +35,7 @@ public:
 	std::shared_ptr<RHIBuffer> createBuffer(BufferDescription description) override;
 	std::shared_ptr<RHITexture> createTexture(TextureDescription description) override;
 
-	RHICommandList *getCmdList() override { return cmd_list; };
+	RHICommandList *getCmdList() override { return cmd_lists[current_frame]; };
 	RHICommandList *getCmdListCopy() override { return cmd_list_immediate; };
 
 	RHICommandQueue *getCmdQueue() override { return cmd_queue; };
@@ -43,6 +44,7 @@ public:
 	RHIBindlessResources *getBindlessResources() override { return bindless_resources; };
 
 	std::shared_ptr<RHITexture> getSwapchainTexture(int index) override { return swapchain->getTexture(index); }
+	std::shared_ptr<RHITexture> getCurrentSwapchainTexture() override { return swapchain->getTexture(image_index); }
 
 	void waitGPU() override;
 
@@ -74,7 +76,7 @@ public:
 
 	void setConstantBufferData(unsigned int binding, void *params_struct, size_t params_size) override
 	{
-		VulkanPipeline *native_pso = static_cast<VulkanPipeline *>(cmd_list->current_pipeline.get());
+		VulkanPipeline *native_pso = static_cast<VulkanPipeline *>(cmd_lists[current_frame]->current_pipeline.get());
 		size_t descriptor_hash = native_pso->getHash();
 
 		// Create buffer if there is no for this descriptor and offset
@@ -104,7 +106,7 @@ public:
 
 	void setConstantBufferDataPerFrame(unsigned int binding, void *params_struct, size_t params_size) override
 	{
-		VulkanPipeline *native_pso = static_cast<VulkanPipeline *>(cmd_list->current_pipeline.get());
+		VulkanPipeline *native_pso = static_cast<VulkanPipeline *>(cmd_lists[current_frame]->current_pipeline.get());
 		size_t descriptor_hash = 0;
 		hash_combine(descriptor_hash, binding);
 		hash_combine(descriptor_hash, params_size);
@@ -168,8 +170,9 @@ public:
 
 	VulkanCommandQueue *cmd_queue;
 	VulkanCommandQueue *cmd_copy_queue;
-	VulkanCommandList *cmd_list;
+	VulkanCommandList *cmd_lists[MAX_FRAMES_IN_FLIGHT];
 	VulkanCommandList *cmd_list_immediate;
+	VulkanCommandList *tracy_cmd_list;
 
 	std::shared_ptr<DescriptorAllocator> global_descriptor_allocator;
 
@@ -195,8 +198,9 @@ public:
 
 	VulkanPipeline *last_native_pso;
 
-	std::array<std::vector<std::pair<RESOURCE_TYPE, void *>>, 2> gpu_release_queue;
+	std::array<std::vector<std::pair<RESOURCE_TYPE, void *>>, MAX_FRAMES_IN_FLIGHT> gpu_release_queue;
 
+	TracyVkCtx tracy_ctx;
 
 	void beginFrame() override;
 	void endFrame() override;

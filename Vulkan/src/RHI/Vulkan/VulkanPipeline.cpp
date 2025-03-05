@@ -26,6 +26,8 @@ void VulkanPipeline::destroy()
 
 void VulkanPipeline::create(const PipelineDescription &description)
 {
+	PROFILE_CPU_FUNCTION();
+	destroy();
 	this->description = description;
 	hash = description.getHash();
 

@@ -21,6 +21,7 @@ void DX12Pipeline::destroy()
 
 void DX12Pipeline::create(const PipelineDescription &description)
 {
+	PROFILE_CPU_FUNCTION();
 	destroy();
 	this->description = description;
 	hash = description.getHash();

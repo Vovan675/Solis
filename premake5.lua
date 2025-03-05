@@ -31,6 +31,7 @@ IncludeDir["YamlCpp"] = "vendor/yaml-cpp/include"
 IncludeDir["Entt"] = "vendor/entt/include"
 IncludeDir["PhysX"] = "vendor/physx/physx/include"
 IncludeDir["SPIRV_Reflect"] = "vendor/spirv-reflect"
+IncludeDir["Tracy"] = "vendor/tracy"
 
 LibDir = {}
 LibDir["Vulkan"] = "%{VULKAN_SDK}/Lib"
@@ -43,6 +44,15 @@ include "vendor/ImGuizmo"
 include "vendor/yaml-cpp"
 include "vendor/premake/premake-physx.lua"
 group ""
+
+function copy_file_to_target_dir(from_dir, folder, name)
+	postbuildcommands
+	{
+		string.format("{ECHO} Copying %s/%s to $(targetdir)%s%s", from_dir, name, folder, name),
+		string.format('if not exist "$(targetdir)%s" mkdir "$(targetdir)%s"', folder, folder),
+		string.format("{COPYFILE} \"%s/%s\" \"$(targetdir)%s%s\"", from_dir, name, folder, name)
+	}
+end
 
 project "Vulkan"
 	location "Vulkan"
@@ -65,6 +75,7 @@ project "Vulkan"
 		"%{IncludeDir.Entt}/../natvis/**.natvis",
 		--"%{IncludeDir.SPIRV_Reflect}/spirv_reflect.c",
 		"%{IncludeDir.SPIRV_Reflect}/spirv_reflect.cpp",
+		"%{IncludeDir.Tracy}/TracyClient.cpp",
 	}
 
 	includedirs
@@ -83,6 +94,7 @@ project "Vulkan"
 		"%{IncludeDir.Entt}",
 		"%{IncludeDir.PhysX}",
 		"%{IncludeDir.SPIRV_Reflect}",
+		"%{IncludeDir.Tracy}/tracy",
 	}
 
 	links
@@ -112,16 +124,32 @@ project "Vulkan"
 
 	filter "system:windows"
 		systemversion "latest"
+		copy_file_to_target_dir("%{wks.location}%{IncludeDir.DirectX}/../dlls/D3D12", "D3D12/", "D3D12Core.dll")
+		copy_file_to_target_dir("%{wks.location}%{IncludeDir.DirectX}/../dlls/D3D12", "D3D12/", "D3D12Core.pdb")
+		copy_file_to_target_dir("%{wks.location}%{IncludeDir.DirectX}/../dlls/D3D12", "D3D12/", "d3d12SDKLayers.dll")
+		copy_file_to_target_dir("%{wks.location}%{IncludeDir.DirectX}/../dlls/D3D12", "D3D12/", "d3d12SDKLayers.pdb")
 
 	filter "configurations:Debug"
+		editandcontinue "On"
 		symbols "On"
 		defines
 		{
-			"DEBUG"
+			"DEBUG",
+			"_DEBUG"
 		}
 
 	filter "configurations:Fast Debug"
+		editandcontinue "Off"
 		symbols "On"
+		defines
+		{
+			"TRACY_ENABLE"
+		}
 
 	filter "configurations:Release"
 		optimize "On"
+		defines
+		{
+			"TRACY_ENABLE",
+			"NDEBUG"
+		}

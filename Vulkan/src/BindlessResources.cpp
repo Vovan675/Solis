@@ -7,7 +7,7 @@
 #include "RHI/Vulkan/VulkanDynamicRHI.h"
 #include <Rendering/Renderer.h>
 
-static const int MAX_BINDLESS_TEXTURES = 10000;
+static const int MAX_BINDLESS_TEXTURES = 1000;
 static const int BINDLESS_TEXTURES_BINDING = 0;
 
 void RHIBindlessResources::init()
@@ -211,17 +211,13 @@ void DX12BindlessResources::setTexture(uint32_t index, RHITexture *texture)
 		return;
 	textures_indices[texture] = index;
 	CORE_INFO("Set texture {} at index {} w {} h {}", texture->getDebugName(), index, texture->getWidth(), texture->getHeight());
-	if (strcmp(texture->getDebugName(), "SSAO Raw Image") == 0)
-	{
-		int i = 0;
-	}
 
 	DX12DynamicRHI *rhi = (DX12DynamicRHI *)gDynamicRHI;
 
 	DX12Texture *native_texture = (DX12Texture *)texture;
 
 	// TODO: 
-	for (int i = 0; i < 2; i++)
+	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
 		CD3DX12_CPU_DESCRIPTOR_HANDLE cpu_handle_srv_heap(rhi->cbv_srv_uav_heap[i]->GetCPUDescriptorHandleForHeapStart());
 		cpu_handle_srv_heap.Offset(rhi->cbv_srv_uav_heap_bindless_start + index, rhi->cbv_srv_uav_descriptor_size);
@@ -232,7 +228,6 @@ void DX12BindlessResources::setTexture(uint32_t index, RHITexture *texture)
 
 
 		{
-			//index = 0;
 			CD3DX12_CPU_DESCRIPTOR_HANDLE cpu_handle_samplers_heap(rhi->samplers_heap[i]->GetCPUDescriptorHandleForHeapStart());
 			cpu_handle_samplers_heap.Offset(rhi->sampler_heap_bindless_start + index, rhi->sampler_descriptor_size);
 
@@ -254,7 +249,7 @@ void DX12BindlessResources::set_invalid_texture(uint32_t index)
 	DX12Texture *texture = (DX12Texture *)invalid_texture.get();
 
 	// TODO: 
-	for (int i = 0; i < 2; i++)
+	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
 		CD3DX12_CPU_DESCRIPTOR_HANDLE cpu_handle_srv_heap(rhi->cbv_srv_uav_heap[i]->GetCPUDescriptorHandleForHeapStart());
 		cpu_handle_srv_heap.Offset(rhi->cbv_srv_uav_heap_bindless_start + index, rhi->cbv_srv_uav_descriptor_size);
@@ -265,7 +260,6 @@ void DX12BindlessResources::set_invalid_texture(uint32_t index)
 
 
 		{
-			index = 0;
 			CD3DX12_CPU_DESCRIPTOR_HANDLE cpu_handle_samplers_heap(rhi->samplers_heap[i]->GetCPUDescriptorHandleForHeapStart());
 			cpu_handle_samplers_heap.Offset(rhi->sampler_heap_bindless_start + index, rhi->sampler_descriptor_size);
 

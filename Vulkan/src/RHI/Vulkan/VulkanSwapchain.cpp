@@ -14,6 +14,12 @@ VulkanSwapchain::VulkanSwapchain(VkSurfaceKHR surface, const SwapchainInfo &info
 VulkanSwapchain::~VulkanSwapchain()
 {
 	cleanup();
+
+	if (surface)
+	{
+		vkDestroySurfaceKHR(VulkanUtils::getNativeRHI()->instance, surface, nullptr);
+		surface = nullptr;
+	}
 }
 
 void VulkanSwapchain::cleanup()
@@ -31,12 +37,6 @@ void VulkanSwapchain::cleanup()
 	{
 		vkDestroySwapchainKHR(VulkanUtils::getNativeRHI()->device->logicalHandle, swapchain, nullptr);
 		swapchain = nullptr;
-	}
-
-	if (surface)
-	{
-		vkDestroySurfaceKHR(VulkanUtils::getNativeRHI()->instance, surface, nullptr);
-		surface = nullptr;
 	}
 }
 

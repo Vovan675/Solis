@@ -9,14 +9,26 @@ project "PhysX"
 	filter "configurations:Debug"
 		runtime "Debug"
 		symbols "on"
+		defines
+		{
+			"_DEBUG"
+		}
 
 	filter "configurations:Fast Debug"
 		runtime "Debug"
 		symbols "on"
+		defines
+		{
+			"_DEBUG"
+		}
 
 	filter "configurations:Release"
 		runtime "Release"
 		optimize "on"
+		defines
+		{
+			"NDEBUG"
+		}
 
 	filter "system:windows"
 		systemversion "latest"

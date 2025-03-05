@@ -2,6 +2,7 @@
 #include "RHI/RHIDefinitions.h"
 #include "RHI/RHICommandQueue.h"
 #include "RHI/RHICommandList.h"
+#include "Tracy.hpp"
 
 class DynamicRHI;
 extern DynamicRHI *gDynamicRHI;
@@ -49,6 +50,7 @@ public:
 	virtual RHIBindlessResources *getBindlessResources() = 0;
 
 	virtual std::shared_ptr<RHITexture> getSwapchainTexture(int index) = 0;
+	virtual std::shared_ptr<RHITexture> getCurrentSwapchainTexture() = 0;
 
 	virtual void waitGPU() = 0;
 
@@ -75,3 +77,39 @@ protected:
 
 	static inline std::unordered_map<size_t, std::shared_ptr<RHIShader>> cached_shaders;
 };
+
+
+struct GPUScope
+{
+	GPUScope(const char *name, RHICommandList *cmd_list, glm::vec3 color, uint32_t line, const char* source, size_t source_size, const char* function, size_t function_size)
+	{
+		if (cmd_list)
+		{
+			this->cmd_list = cmd_list;
+			cmd_list->beginDebugLabel(name, color, line, source, source_size, function, function_size);
+		}
+	}
+
+	~GPUScope()
+	{
+		if (cmd_list)
+		{
+			cmd_list->endDebugLabel();
+		}
+	}
+
+	RHICommandList *cmd_list = nullptr;
+};
+
+#define PROFILE_GPU_FUNCTION(cmd_list, name) GPUScope gpu_scope__LINE__(__FUNCTION__, cmd_list, glm::vec3(0.7, 0.7, 0.7), TracyLine, TracyFile, strlen(TracyFile), TracyFunction, strlen(TracyFunction));
+#define PROFILE_GPU_SCOPE_VAR(cmd_list, name) GPUScope gpu_scope__LINE__(name, cmd_list, glm::vec3(0.7, 0.7, 0.7), TracyLine, TracyFile, strlen(TracyFile), TracyFunction, strlen(TracyFunction));
+
+#ifdef TRACY_ENABLE
+	#define PROFILE_CPU_FUNCTION() ZoneScoped;
+	#define PROFILE_CPU_SCOPE(name) ZoneScopedN(name);
+	#define PROFILE_CPU_SCOPE_VAR(name) ZoneScoped; ZoneName(name, strlen(name));
+#else
+	#define PROFILE_CPU_FUNCTION()
+	#define PROFILE_CPU_SCOPE(name)
+	#define PROFILE_CPU_SCOPE_VAR(name)
+#endif

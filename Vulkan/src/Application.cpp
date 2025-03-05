@@ -10,6 +10,7 @@
 
 #include "RHI/Vulkan/VulkanDynamicRHI.h"
 #include "RHI/DX12/DX12DynamicRHI.h"
+#include "RHI/DX12/DX12Utils.h"
 
 #include "Demos/CubesDemo.h"
 #include "Demos/TowerGame.h"
@@ -19,6 +20,7 @@
 #endif
 #include <imgui/ImGuiWrapper.h>
 #include <imgui.h>
+#include "Tracy.hpp"
 
 Input gInput;
 GPUResourceManager gGpuResourceManager;
@@ -114,6 +116,7 @@ void Application::run()
 
 	while (!glfwWindowShouldClose(window))
 	{
+		FrameMark;
 		glfwPollEvents();
 
 		gDynamicRHI->beginFrame();
@@ -123,8 +126,11 @@ void Application::run()
 		if (current_demo == DEMO_NONE)
 		{
 			ImGuiWrapper::begin();
-			update(delta_seconds);
-			updateBuffers(delta_seconds);
+			{
+				PROFILE_CPU_SCOPE("Application::update");
+				update(delta_seconds);
+				updateBuffers(delta_seconds);
+			}
 		} else if (current_demo == DEMO_TOWER)
 		{
 			tower_game.update(delta_seconds);
@@ -150,12 +156,15 @@ void Application::run()
 
 void Application::render(RHICommandList *cmd_list)
 {
+	PROFILE_CPU_FUNCTION();
+	PROFILE_GPU_FUNCTION(cmd_list);
+	
 	//vkCmdResetQueryPool(command_buffer.get_buffer(), VkWrapper::device->query_pools[Renderer::getCurrentFrameInFlight()], 0, VkWrapper::device->time_stamps[Renderer::getCurrentFrameInFlight()].size());
 	
 	//GPU_SCOPE_FUNCTION(&command_buffer);
 
 	// Set swapchain color image layout for writing
-	auto swapchain_texture = gDynamicRHI->getSwapchainTexture(gDynamicRHI->current_frame);
+	auto swapchain_texture = gDynamicRHI->getCurrentSwapchainTexture();
 	swapchain_texture->transitLayout(cmd_list, TEXTURE_LAYOUT_ATTACHMENT);
 	//depth_stencil_texture->transitLayout(cmd_list, TEXTURE_LAYOUT_ATTACHMENT);
 	//cmd_list->setRenderTargets({swapchain_texture}, {depth_stencil_texture}, 0, 0, true);
@@ -171,12 +180,12 @@ void Application::render(RHICommandList *cmd_list)
 		tower_game.render();
 	} else if (current_demo == DEMO_OTHER)
 	{
-		//auto swapchain_texture = gDynamicRHI->getSwapchainTexture(gDynamicRHI->current_frame);
+		//auto swapchain_texture = gDynamicRHI->getCurrentSwapchainTexture();
 		//swapchain_texture->transitLayout(cmd_list, TEXTURE_LAYOUT_ATTACHMENT);
 		//cmd_list->setRenderTargets({swapchain_texture}, nullptr, 0, 0, true);
 
-		///CubesDemo::render(cmd_list);
-		//CubesDemo::renderBindless(cmd_list);
+		//CubesDemo::render(cmd_list);
+		CubesDemo::renderBindless(cmd_list);
 		//RenderTargetsDemo::render(cmd_list);
 		//RenderTargetsDemo::renderFrameGraph(cmd_list);
 
@@ -185,7 +194,7 @@ void Application::render(RHICommandList *cmd_list)
 	}
 
 	// Set swapchain color image layout for presenting
-	gDynamicRHI->getSwapchainTexture(gDynamicRHI->current_frame)->transitLayout(cmd_list, TEXTURE_LAYOUT_PRESENT);
+	gDynamicRHI->getCurrentSwapchainTexture()->transitLayout(cmd_list, TEXTURE_LAYOUT_PRESENT);
 }
 
 void Application::cleanup()

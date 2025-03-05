@@ -22,6 +22,7 @@ VulkanCommandList::VulkanCommandList()
 
 void VulkanCommandList::setRenderTargets(const std::vector<std::shared_ptr<RHITexture>> &color_attachments, std::shared_ptr<RHITexture> depth_attachment, int layer, int mip, bool clear)
 {
+	PROFILE_CPU_FUNCTION();
 	VkExtent2D extent;
 	if (color_attachments.size() > 0)
 	{
@@ -109,21 +110,28 @@ void VulkanCommandList::setVertexBuffer(std::shared_ptr<RHIBuffer> buffer)
 {
 	VulkanBuffer *native_buffer = static_cast<VulkanBuffer *>(buffer.get());
 	VkDeviceSize offsets[] = {0};
-	vkCmdBindVertexBuffers(cmd_buffer, 0, 1, &native_buffer->bufferHandle, offsets);
+	vkCmdBindVertexBuffers(cmd_buffer, 0, 1, &native_buffer->buffer_handle, offsets);
 }
 
 void VulkanCommandList::setIndexBuffer(std::shared_ptr<RHIBuffer> buffer)
 {
 	VulkanBuffer *native_buffer = static_cast<VulkanBuffer *>(buffer.get());
-	vkCmdBindIndexBuffer(cmd_buffer, native_buffer->bufferHandle, 0, VK_INDEX_TYPE_UINT32); // TODO 16 bit?
+	vkCmdBindIndexBuffer(cmd_buffer, native_buffer->buffer_handle, 0, VK_INDEX_TYPE_UINT32); // TODO 16 bit?
 }
 
-void VulkanCommandList::beginDebugLabel(const char *label, glm::vec3 color)
+void VulkanCommandList::beginDebugLabel(const char *label, glm::vec3 color, uint32_t line, const char *source, size_t source_size, const char *function, size_t function_size)
 {
+	#ifdef TRACY_ENABLE
+		auto tracy_scope = std::make_unique<tracy::VkCtxScope>(VulkanUtils::getNativeRHI()->tracy_ctx, line, source, source_size, function, function_size,label, strlen(label), cmd_buffer, true);
+		tracy_debug_label_stack.emplace_back(std::move(tracy_scope));
+	#endif
 	VulkanUtils::cmdBeginDebugLabel(this, label, color);
 }
 
 void VulkanCommandList::endDebugLabel()
 {
+	#ifdef TRACY_ENABLE
+		tracy_debug_label_stack.pop_back();
+	#endif
 	VulkanUtils::cmdEndDebugLabel(this);
 }

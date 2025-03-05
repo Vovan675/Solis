@@ -28,7 +28,7 @@ VulkanBuffer::VulkanBuffer(BufferDescription description) : RHIBuffer(descriptio
 		memory_usage = VMA_MEMORY_USAGE_CPU_ONLY;
 	}
 
-	VulkanUtils::createBuffer(bufferSize, bufferUsageFlags, memory_usage, bufferHandle, allocation, description.alignment);
+	VulkanUtils::createBuffer(bufferSize, bufferUsageFlags, memory_usage, buffer_handle, allocation, description.alignment);
 }
 
 VulkanBuffer::~VulkanBuffer()
@@ -41,10 +41,10 @@ void VulkanBuffer::destroy()
 	auto *native_rhi = VulkanUtils::getNativeRHI();
 	if (is_mapped)
 		unmap();
-	if (bufferHandle)
+	if (buffer_handle)
 	{
-		native_rhi->gpu_release_queue[native_rhi->current_frame].push_back({RESOURCE_TYPE_BUFFER, bufferHandle});
-		bufferHandle = nullptr;
+		native_rhi->gpu_release_queue[native_rhi->current_frame].push_back({RESOURCE_TYPE_BUFFER, buffer_handle});
+		buffer_handle = nullptr;
 	}
 
 	if (allocation)
@@ -57,36 +57,40 @@ void VulkanBuffer::destroy()
 
 void VulkanBuffer::fill(const void *sourceData)
 {
-	auto rhi = VulkanUtils::getNativeRHI();
-	VkDeviceSize bufferSize = description.size;
+	if (!sourceData)
+		return;
+	PROFILE_CPU_FUNCTION();
+
+	auto native_rhi = VulkanUtils::getNativeRHI();
+	uint64_t buffer_size = description.size;
 
 	if (description.useStagingBuffer)
 	{
 		// Staging buffer
 		VkBuffer stagingBuffer;
 		VmaAllocation stagingAllocation;
-		VulkanUtils::createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VmaMemoryUsage::VMA_MEMORY_USAGE_CPU_ONLY, stagingBuffer, stagingAllocation, description.alignment);
+		VulkanUtils::createBuffer(buffer_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VmaMemoryUsage::VMA_MEMORY_USAGE_CPU_ONLY, stagingBuffer, stagingAllocation, description.alignment);
 
 		// Map buffer memory to CPU accessible memory
 		void* data;
-		vmaMapMemory(rhi->allocator, stagingAllocation, &data);
-		memcpy(data, sourceData, bufferSize);
-		vmaUnmapMemory(rhi->allocator, stagingAllocation);
+		vmaMapMemory(native_rhi->allocator, stagingAllocation, &data);
+		memcpy(data, sourceData, buffer_size);
+		vmaUnmapMemory(native_rhi->allocator, stagingAllocation);
 
 		// Copy from staging to buffer
-		VulkanUtils::copyBuffer(stagingBuffer, bufferHandle, bufferSize);
+		VulkanUtils::copyBuffer(stagingBuffer, buffer_handle, buffer_size);
 
 		// Destroy staging buffer
-		vkDestroyBuffer(rhi->device->logicalHandle, stagingBuffer, nullptr);
-		vmaFreeMemory(rhi->allocator, stagingAllocation);
+		vkDestroyBuffer(native_rhi->device->logicalHandle, stagingBuffer, nullptr);
+		vmaFreeMemory(native_rhi->allocator, stagingAllocation);
 	}
 	else
 	{
 		// Map buffer memory to CPU accessible memory
 		void* data;
-		vmaMapMemory(rhi->allocator, allocation, &data);
-		memcpy(data, sourceData, bufferSize);
-		vmaUnmapMemory(rhi->allocator, allocation);
+		vmaMapMemory(native_rhi->allocator, allocation, &data);
+		memcpy(data, sourceData, buffer_size);
+		vmaUnmapMemory(native_rhi->allocator, allocation);
 	}
 }
 
@@ -109,5 +113,5 @@ void VulkanBuffer::unmap()
 
 void VulkanBuffer::setDebugName(const char *name)
 {
-	VulkanUtils::setDebugName(VK_OBJECT_TYPE_BUFFER, (uint64_t)bufferHandle, name);
+	VulkanUtils::setDebugName(VK_OBJECT_TYPE_BUFFER, (uint64_t)buffer_handle, name);
 }

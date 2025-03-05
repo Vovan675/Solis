@@ -245,7 +245,7 @@ void TowerGame::update(float dt)
 {
 	bool mouse_pressed = gInput.isMouseKeyDown(GLFW_MOUSE_BUTTON_1);
 
-	auto swapchain = gDynamicRHI->getSwapchainTexture(gDynamicRHI->current_frame);
+	auto swapchain = gDynamicRHI->getCurrentSwapchainTexture();
 	camera->setAspect(swapchain->getWidth() / (float)swapchain->getHeight());
 	camera->update(dt, gInput.getMousePosition(), mouse_pressed);
 	camera->updateMatrices();
@@ -275,7 +275,7 @@ void TowerGame::update(float dt)
 
 void TowerGame::render()
 {
-	scene_renderer->render(camera, gDynamicRHI->getSwapchainTexture(gDynamicRHI->current_frame));
+	scene_renderer->render(camera, gDynamicRHI->getCurrentSwapchainTexture());
 }
 
 void TowerGame::end() {

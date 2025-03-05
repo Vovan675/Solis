@@ -9,6 +9,7 @@
 #include <fstream>
 #include <filesystem>
 #include <memory.h>
+#define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 #include <dwmapi.h>
 
@@ -16,7 +17,7 @@
 #include <D3Dcompiler.h>
 #include <dxgi1_4.h>
 #include <dxcapi.h>
-#include "d3dx12.h"
+#include <d3dx12/d3dx12.h>
 
 #include <wrl.h>
 using Microsoft::WRL::ComPtr;

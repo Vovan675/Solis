@@ -3,10 +3,12 @@
 #include "DX12DynamicRHI.h"
 #include "DX12Utils.h"
 
-DX12Buffer::DX12Buffer(DX12DynamicRHI *rhi, ComPtr<ID3D12Device> device, BufferDescription description) : rhi(rhi), device(device), RHIBuffer(description)
+DX12Buffer::DX12Buffer(BufferDescription description) : RHIBuffer(description)
 {
+	auto *native_rhi = DX12Utils::getNativeRHI();
+
 	D3D12_HEAP_TYPE heap_type = description.useStagingBuffer ? D3D12_HEAP_TYPE_DEFAULT : D3D12_HEAP_TYPE_UPLOAD;
-	device->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(heap_type), D3D12_HEAP_FLAG_NONE, &CD3DX12_RESOURCE_DESC::Buffer(description.size, D3D12_RESOURCE_FLAG_NONE),
+	native_rhi->device->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(heap_type), D3D12_HEAP_FLAG_NONE, &CD3DX12_RESOURCE_DESC::Buffer(description.size, D3D12_RESOURCE_FLAG_NONE),
 									description.useStagingBuffer ? D3D12_RESOURCE_STATE_COMMON
 									: D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&resource));
 }
@@ -29,34 +31,38 @@ void DX12Buffer::fill(const void *sourceData)
 {
 	if (!sourceData)
 		return;
+	PROFILE_CPU_FUNCTION();
 
+	auto *native_rhi = DX12Utils::getNativeRHI();
+	uint64_t buffer_size = description.size;
 
 	if (description.useStagingBuffer)
 	{
-		device->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), D3D12_HEAP_FLAG_NONE, &CD3DX12_RESOURCE_DESC::Buffer(description.size),
+		ComPtr<ID3D12Resource> intermediate_resource;
+		native_rhi->device->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), D3D12_HEAP_FLAG_NONE, &CD3DX12_RESOURCE_DESC::Buffer(buffer_size),
 										D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&intermediate_resource));
 		D3D12_SUBRESOURCE_DATA subresourceData = {};
 		subresourceData.pData = sourceData;
-		subresourceData.RowPitch = description.size;
+		subresourceData.RowPitch = buffer_size;
 		subresourceData.SlicePitch = subresourceData.RowPitch;
 
 
-		RHICommandList *copy_cmd_list = rhi->getCmdListCopy();
+		RHICommandList *copy_cmd_list = native_rhi->getCmdListCopy();
 		// Upload buffer data.
 		copy_cmd_list->open();
 
-		UpdateSubresources(rhi->cmd_list_copy->cmd_list.Get(),
+		UpdateSubresources(native_rhi->cmd_list_copy->cmd_list.Get(),
 						   resource.Get(), intermediate_resource.Get(),
 						   0, 0, 1, &subresourceData);
 
 		copy_cmd_list->close();
-		rhi->getCmdQueueCopy()->execute(copy_cmd_list);
+		native_rhi->getCmdQueueCopy()->execute(copy_cmd_list);
 
 
 		// Wait queue
-		auto last_fence = rhi->getCmdQueueCopy()->getLastFenceValue();
-		rhi->getCmdQueueCopy()->signal(last_fence + 1);
-		rhi->getCmdQueueCopy()->wait(last_fence + 1);
+		auto last_fence = native_rhi->getCmdQueueCopy()->getLastFenceValue();
+		native_rhi->getCmdQueueCopy()->signal(last_fence + 1);
+		native_rhi->getCmdQueueCopy()->wait(last_fence + 1);
 
 		intermediate_resource.Reset();
 	} else
@@ -65,7 +71,7 @@ void DX12Buffer::fill(const void *sourceData)
 		void* data = nullptr;
 		CD3DX12_RANGE readRange(0, 0); // We do not intend to read from this resource on the CPU.
 		resource->Map(0, &readRange, &data);
-		memcpy(data, sourceData, description.size);
+		memcpy(data, sourceData, buffer_size);
 		resource->Unmap(0, nullptr);
 	}
 }

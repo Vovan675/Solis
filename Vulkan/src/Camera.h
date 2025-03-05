@@ -18,6 +18,7 @@ public:
 
 	void update(float dt, glm::vec2 mouse_pos, bool mouse_pressed)
 	{
+		PROFILE_CPU_FUNCTION();
 		dt = 1.0f / 60.0f;
 		if (mouse_pressed)
 		{
@@ -58,6 +59,7 @@ public:
 
 	void updateMatrices()
 	{
+		PROFILE_CPU_FUNCTION();
 		orientation = glm::quat(glm::vec3(pitch, yaw, 0));
 		view = glm::inverse(glm::translate(glm::mat4(1.0f), position) * glm::toMat4(orientation));
 		proj = glm::perspectiveLH(glm::radians(45.0f), aspect, near_plane, far_plane);

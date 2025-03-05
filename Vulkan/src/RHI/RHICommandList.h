@@ -25,6 +25,6 @@ public:
 
 	virtual void dispatch(uint32_t group_x, uint32_t group_y, uint32_t group_z) = 0;
 
-	virtual void beginDebugLabel(const char *label, glm::vec3 color) = 0;
+	virtual void beginDebugLabel(const char *label, glm::vec3 color, uint32_t line, const char* source, size_t source_size, const char* function, size_t function_size) = 0;
 	virtual void endDebugLabel() = 0;
 };

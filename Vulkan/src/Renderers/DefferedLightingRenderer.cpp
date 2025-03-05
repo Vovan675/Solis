@@ -159,10 +159,10 @@ void DefferedLightingRenderer::renderLights(FrameGraph &fg)
 				// Render mesh
 				// TODO: fix
 				/*
-				VkBuffer vertexBuffers[] = {icosphere_mesh->vertexBuffer->bufferHandle};
+				VkBuffer vertexBuffers[] = {icosphere_mesh->vertexBuffer->buffer_handle};
 				VkDeviceSize offsets[] = {0};
 				vkCmdBindVertexBuffers(command_buffer.get_buffer(), 0, 1, vertexBuffers, offsets);
-				vkCmdBindIndexBuffer(command_buffer.get_buffer(), icosphere_mesh->indexBuffer->bufferHandle, 0, VK_INDEX_TYPE_UINT32);
+				vkCmdBindIndexBuffer(command_buffer.get_buffer(), icosphere_mesh->indexBuffer->buffer_handle, 0, VK_INDEX_TYPE_UINT32);
 				vkCmdDrawIndexed(command_buffer.get_buffer(), icosphere_mesh->indices.size(), 1, 0, 0, 0);
 				p->unbind(command_buffer);
 				*/

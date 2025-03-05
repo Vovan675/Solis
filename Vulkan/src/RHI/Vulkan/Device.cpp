@@ -100,6 +100,11 @@ void Device::CreateLogicalDevice()
 		VK_KHR_SWAPCHAIN_EXTENSION_NAME,
 	};
 
+	#ifdef DEBUG
+		extensions.push_back(VK_EXT_CALIBRATED_TIMESTAMPS_EXTENSION_NAME);
+	#endif
+
+
 	if (engine_ray_tracing)
 	{
 		extensions.push_back(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME); // For building acceleration structures

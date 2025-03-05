@@ -4,6 +4,9 @@
 #include "d3d12.h"
 #include "GLFW/glfw3native.h"
 #include "Rendering/Renderer.h"
+#include "Variables.h"
+
+static UINT64 fenceValues[MAX_FRAMES_IN_FLIGHT] = {};
 
 void DX12DynamicRHI::init()
 {
@@ -51,8 +54,11 @@ void DX12DynamicRHI::init()
 
 	// Command Queues (for submitting groups of commands)
 	cmd_queue = new DX12CommandQueue(device, D3D12_COMMAND_LIST_TYPE_DIRECT);
-	cmd_lists[0] = new DX12CommandList(device, D3D12_COMMAND_LIST_TYPE_DIRECT);
-	cmd_lists[1] = new DX12CommandList(device, D3D12_COMMAND_LIST_TYPE_DIRECT);
+	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+	{
+		cmd_lists[i] = new DX12CommandList(device, D3D12_COMMAND_LIST_TYPE_DIRECT);
+		fenceValues[i] = MAX_FRAMES_IN_FLIGHT - 1 - i;
+	}
 
 	cmd_list_copy = new DX12CommandList(device, D3D12_COMMAND_LIST_TYPE_COPY);
 	cmd_queue_copy = new DX12CommandQueue(device, D3D12_COMMAND_LIST_TYPE_COPY);
@@ -65,7 +71,7 @@ void DX12DynamicRHI::init()
 	cbv_srv_uav_descriptor_size = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 	sampler_descriptor_size = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
 
-	for (int i = 0; i < 2; i++)
+	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
 		// Heaps for resources (one for all srv types, because docs says that it will be better)
 		D3D12_DESCRIPTOR_HEAP_DESC heap_desc{};
@@ -94,7 +100,7 @@ void DX12DynamicRHI::init()
 		device->CreateDescriptorHeap(&heap_desc, IID_PPV_ARGS(&cbv_srv_uav_additional_heap));
 	}
 
-	for (int i = 0; i < 2; i++)
+	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
 		// Heaps for samplers
 		D3D12_DESCRIPTOR_HEAP_DESC heap_desc{};
@@ -134,18 +140,24 @@ void DX12DynamicRHI::init()
 
 	bindless_resources = new DX12BindlessResources();
 	bindless_resources->init();
+
+	tracy_ctx = TracyD3D12Context(device.Get(), cmd_queue->cmd_queue.Get());
 }
 
 void DX12DynamicRHI::shutdown()
 {
+	TracyD3D12Destroy(tracy_ctx);
+
 	auto *bindless = bindless_resources;
 	bindless_resources = nullptr;
 	buffers_for_shaders.clear();
 	delete bindless;
 	
 	delete cmd_queue;
-	delete cmd_lists[0];
-	delete cmd_lists[1];
+	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+	{
+		delete cmd_lists[i];
+	}
 
 	delete cmd_queue_copy;
 	delete cmd_list_copy;
@@ -167,10 +179,12 @@ void DX12DynamicRHI::shutdown()
 
 	gGpuResourceManager.cleanup();
 
-	releaseGPUResources(0);
-	releaseGPUResources(1);
+	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+	{
+		releaseGPUResources(i);
+	}
 
-	for (int i = 0; i < 2; i++) {
+	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
 		if (cbv_srv_uav_heap[i]) {
 			SAFE_RELEASE(cbv_srv_uav_heap[i]);
 		}
@@ -321,7 +335,7 @@ std::shared_ptr<RHIPipeline> DX12DynamicRHI::createPipeline()
 
 std::shared_ptr<RHIBuffer> DX12DynamicRHI::createBuffer(BufferDescription description)
 {
-	auto buffer = std::make_shared<DX12Buffer>(this, device, description);
+	auto buffer = std::make_shared<DX12Buffer>(description);
 	gGpuResourceManager.registerResource(buffer);
 	return buffer;
 }
@@ -333,17 +347,16 @@ std::shared_ptr<RHITexture> DX12DynamicRHI::createTexture(TextureDescription des
 	return texture;
 }
 
-static UINT64 fenceValues[2] = {1, 0};
-
 void DX12DynamicRHI::waitGPU()
 {
-		const UINT64 current_fence_value = fenceValues[current_frame] + 2;
-		cmd_queue->signal(current_fence_value);
-		cmd_queue->wait(current_fence_value);
+	const UINT64 current_fence_value = fenceValues[current_frame] + MAX_FRAMES_IN_FLIGHT;
+	cmd_queue->signal(current_fence_value);
+	cmd_queue->wait(current_fence_value);
 }
 
 void DX12DynamicRHI::prepareRenderCall()
 {
+	PROFILE_CPU_FUNCTION();
 	DX12CommandList *cmd_list_native = static_cast<DX12CommandList *>(getCmdList());
 	DX12Pipeline *native_pso = static_cast<DX12Pipeline *>(cmd_list_native->current_pipeline.get());
 	bool pso_changed = false;
@@ -501,13 +514,17 @@ void DX12DynamicRHI::prepareRenderCall()
 
 void DX12DynamicRHI::beginFrame()
 {
+	PROFILE_CPU_FUNCTION();
 	for (auto &tex : current_bind_textures)
 		tex = nullptr;
 	for (auto &buf : current_bind_buffers)
 		buf = nullptr;
 
-	current_frame = swapchain->swap_chain->GetCurrentBackBufferIndex();
-	Renderer::beginFrame(current_frame, current_frame);
+	image_index = swapchain->swap_chain->GetCurrentBackBufferIndex();
+	Renderer::beginFrame(current_frame, image_index);
+
+	TracyD3D12NewFrame(tracy_ctx);
+	TracyD3D12Collect(tracy_ctx);
 
 	// Reset offsets for uniform buffers
 	for (auto &buffers : buffers_for_shaders)
@@ -530,22 +547,25 @@ void DX12DynamicRHI::beginFrame()
 
 void DX12DynamicRHI::endFrame()
 {
+	PROFILE_CPU_FUNCTION();
 	gDynamicRHI->getCmdList()->close();
 
 	cmd_queue->execute(cmd_lists[current_frame]);
 
-	swapchain->swap_chain->Present(1, 0);
+	swapchain->swap_chain->Present(render_vsync ? 1 : 0, 0);
 
 	// Set current fence value on current frame completion
 	const UINT64 current_fence_value = fenceValues[current_frame];
-	//cmd_queue->cmd_queue->Signal(fence, current_fence_value);
 	cmd_queue->signal(current_fence_value);
 
 	// Wait for previous frame to complete
-	current_frame = swapchain->swap_chain->GetCurrentBackBufferIndex();
+	current_frame = (current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
 
-	const UINT64 prev_fence_value = fenceValues[current_frame];
-	cmd_queue->wait(prev_fence_value);
+	{
+		PROFILE_CPU_SCOPE("Wait in flight fence");
+		const UINT64 prev_fence_value = fenceValues[current_frame];
+		cmd_queue->wait(prev_fence_value);
+	}
 
 	// Set the fence value for the next frame.
 	fenceValues[current_frame] = current_fence_value + 1;

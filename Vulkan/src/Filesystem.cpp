@@ -2,6 +2,7 @@
 #include "Filesystem.h"
 #include <filesystem>
 #include <ShObjIdl_core.h>
+#include <commdlg.h>
 
 std::string Filesystem::saveFileDialog()
 {

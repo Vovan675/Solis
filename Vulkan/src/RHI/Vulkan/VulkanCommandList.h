@@ -1,5 +1,6 @@
 #pragma once
 #include "RHI/DynamicRHI.h"
+#include "TracyVulkan.hpp"
 
 class VulkanCommandList: public RHICommandList
 {
@@ -63,8 +64,7 @@ public:
 		vkCmdDispatch(cmd_buffer, group_x, group_y, group_z);
 	}
 	
-	void beginDebugLabel(const char *label, glm::vec3 color);
-
+	void beginDebugLabel(const char *label, glm::vec3 color, uint32_t line, const char* source, size_t source_size, const char* function, size_t function_size);
 	void endDebugLabel();
 
 	VkDevice device;
@@ -72,4 +72,6 @@ public:
 	VkCommandBuffer cmd_buffer;
 	std::shared_ptr<RHIPipeline> current_pipeline;
 	std::vector<std::shared_ptr<RHITexture>> current_render_targets;
+
+	std::vector<std::unique_ptr<tracy::VkCtxScope>> tracy_debug_label_stack;
 };

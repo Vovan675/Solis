@@ -92,7 +92,9 @@ void FrameGraph::execute(RHICommandList *cmd_list)
 		}
 
 		{
-			GPU_SCOPE(pass.getName().c_str(), cmd_list);
+			PROFILE_CPU_SCOPE_VAR(pass.getName().c_str());
+			PROFILE_GPU_SCOPE_VAR(cmd_list, pass.getName().c_str());
+			
 			RenderPassResources resources(*this, pass);
 			std::invoke(*pass.pass, resources, cmd_list);
 		}

@@ -24,10 +24,6 @@ void DebugPanel::renderImGui(EditorContext context)
 		ImGui::Text("descriptor_bindings_count: %u", info.descriptor_bindings_count);
 		ImGui::Text("descriptors_max_offset: %u", info.descriptors_max_offset);
 		ImGui::Text("Draw Calls: %u", info.drawcalls);
-		for (const auto &time : info.times)
-		{
-			ImGui::Text((time.name + ": %f").c_str(), Renderer::getTimestampTime(time.index));
-		}
 		ImGui::TreePop();
 	}
 
