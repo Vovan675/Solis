@@ -32,6 +32,7 @@ IncludeDir["Entt"] = "vendor/entt/include"
 IncludeDir["PhysX"] = "vendor/physx/physx/include"
 IncludeDir["SPIRV_Reflect"] = "vendor/spirv-reflect"
 IncludeDir["Tracy"] = "vendor/tracy"
+IncludeDir["WinPixRuntime"] = "vendor/WinPixEventRuntime"
 
 LibDir = {}
 LibDir["Vulkan"] = "%{VULKAN_SDK}/Lib"
@@ -95,6 +96,12 @@ project "Vulkan"
 		"%{IncludeDir.PhysX}",
 		"%{IncludeDir.SPIRV_Reflect}",
 		"%{IncludeDir.Tracy}/tracy",
+		"%{IncludeDir.WinPixRuntime}/include",
+	}
+
+	libdirs
+	{
+		"%{IncludeDir.WinPixRuntime}/lib"
 	}
 
 	links
@@ -114,6 +121,7 @@ project "Vulkan"
 		"YamlCpp",
 		"Dwmapi",
 		"PhysX",
+		"WinPixEventRuntime.lib",
 	}
 
 	defines
@@ -124,10 +132,13 @@ project "Vulkan"
 
 	filter "system:windows"
 		systemversion "latest"
+		-- Agility SDK
 		copy_file_to_target_dir("%{wks.location}%{IncludeDir.DirectX}/../dlls/D3D12", "D3D12/", "D3D12Core.dll")
 		copy_file_to_target_dir("%{wks.location}%{IncludeDir.DirectX}/../dlls/D3D12", "D3D12/", "D3D12Core.pdb")
 		copy_file_to_target_dir("%{wks.location}%{IncludeDir.DirectX}/../dlls/D3D12", "D3D12/", "d3d12SDKLayers.dll")
 		copy_file_to_target_dir("%{wks.location}%{IncludeDir.DirectX}/../dlls/D3D12", "D3D12/", "d3d12SDKLayers.pdb")
+		-- WinPixRuntime
+		copy_file_to_target_dir("%{wks.location}%{IncludeDir.WinPixRuntime}/dlls/", "/", "WinPixEventRuntime.dll")
 
 	filter "configurations:Debug"
 		editandcontinue "On"

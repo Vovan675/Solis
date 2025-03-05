@@ -5,6 +5,7 @@
 #include "RHI/DynamicRHI.h"
 #include "RHI/RHITexture.h"
 #include "RHI/RHIPipeline.h"
+#include <WinPixEventRuntime/pix3.h>
 
 void DX12CommandList::setRenderTargets(const std::vector<std::shared_ptr<RHITexture>> &color_attachments, std::shared_ptr<RHITexture> depth_attachment, int layer, int mip, bool clear)
 {
@@ -107,7 +108,7 @@ void DX12CommandList::beginDebugLabel(const char *label, glm::vec3 color, uint32
 		auto tracy_scope = std::make_unique<tracy::D3D12ZoneScope>(DX12Utils::getNativeRHI()->tracy_ctx, line, source, source_size, function, function_size, label, strlen(label), cmd_list.Get(), true);
 		tracy_debug_label_stack.emplace_back(std::move(tracy_scope));
 	#endif
-	// TODO: integrate pix events
+	PIXBeginEvent(cmd_list.Get(), PIX_COLOR(color.r, color.g, color.b), label);
 }
 
 void DX12CommandList::endDebugLabel()
@@ -115,5 +116,5 @@ void DX12CommandList::endDebugLabel()
 	#ifdef TRACY_ENABLE
 		tracy_debug_label_stack.pop_back();
 	#endif
-	// TODO: integrate pix events
+	PIXEndEvent(cmd_list.Get());
 }
