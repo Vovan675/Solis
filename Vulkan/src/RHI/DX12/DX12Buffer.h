@@ -9,7 +9,7 @@ public:
 	DX12Buffer(BufferDescription description);
 	~DX12Buffer();
 
-	void destroy() override;
+	void destroy();
 
 	void fill(const void *sourceData) override;
 	void map(void **data) override;

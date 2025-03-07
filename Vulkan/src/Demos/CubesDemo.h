@@ -9,18 +9,18 @@ public:
 	static void render(RHICommandList *cmd_list);
 	static void renderBindless(RHICommandList *cmd_list);
 private:
-	inline static std::shared_ptr<RHIBuffer> vertex_buffer;
-	inline static std::shared_ptr<RHIBuffer> index_buffer;
-	inline static std::shared_ptr<RHIShader> vertex_shader;
-	inline static std::shared_ptr<RHIShader> pixel_shader;
-	inline static std::shared_ptr<RHITexture> depth_stencil_texture;
-	inline static std::shared_ptr<RHIPipeline> pso;
+	inline static RHIBufferRef vertex_buffer;
+	inline static RHIBufferRef index_buffer;
+	inline static RHIShaderRef vertex_shader;
+	inline static RHIShaderRef pixel_shader;
+	inline static RHITextureRef depth_stencil_texture;
+	inline static RHIPipelineRef pso;
 
-	inline static std::vector<std::shared_ptr<RHITexture>> checker_textures;
+	inline static std::vector<RHITextureRef> checker_textures;
 
-	inline static std::shared_ptr<RHIShader> vertex_shader_bindless;
-	inline static std::shared_ptr<RHIShader> pixel_shader_bindless;
-	inline static std::shared_ptr<RHIPipeline> pso_bindless;
+	inline static RHIShaderRef vertex_shader_bindless;
+	inline static RHIShaderRef pixel_shader_bindless;
+	inline static RHIPipelineRef pso_bindless;
 
 	inline static float value = 0.0f;
 };
@@ -33,19 +33,19 @@ public:
 	static void render(RHICommandList *cmd_list);
 	static void renderFrameGraph(RHICommandList *cmd_list);
 private:
-	inline static std::shared_ptr<RHIBuffer> vertex_buffer;
-	inline static std::shared_ptr<RHIBuffer> index_buffer;
-	inline static std::shared_ptr<RHIShader> vertex_shader;
-	inline static std::shared_ptr<RHIShader> pixel_shader;
+	inline static RHIBufferRef vertex_buffer;
+	inline static RHIBufferRef index_buffer;
+	inline static RHIShaderRef vertex_shader;
+	inline static RHIShaderRef pixel_shader;
 
-	inline static std::shared_ptr<RHIShader> vertex_shader_quad;
-	inline static std::shared_ptr<RHIShader> pixel_shader_quad;
+	inline static RHIShaderRef vertex_shader_quad;
+	inline static RHIShaderRef pixel_shader_quad;
 
-	inline static std::shared_ptr<RHITexture> depth_stencil_texture;
-	inline static std::shared_ptr<RHITexture> result_texture;
-	inline static std::shared_ptr<RHIPipeline> pso;
+	inline static RHITextureRef depth_stencil_texture;
+	inline static RHITextureRef result_texture;
+	inline static RHIPipelineRef pso;
 
-	inline static std::vector<std::shared_ptr<RHITexture>> checker_textures;
+	inline static std::vector<RHITextureRef> checker_textures;
 
 	inline static float value = 0.0f;
 };

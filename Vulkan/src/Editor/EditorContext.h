@@ -4,5 +4,5 @@
 struct EditorContext
 {
 	Entity selected_entity;
-	std::shared_ptr<Camera> editor_camera;
+	Camera editor_camera;
 };

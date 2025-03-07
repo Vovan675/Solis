@@ -17,7 +17,7 @@ LutRenderer::LutRenderer()
 	brdf_lut_texture = gDynamicRHI->createTexture(desc);
 	brdf_lut_texture->fill();
 	brdf_lut_texture->setDebugName("IBL BRDF LUT Image");
-	gDynamicRHI->getBindlessResources()->addTexture(brdf_lut_texture.get());
+	gDynamicRHI->getBindlessResources()->addTexture(brdf_lut_texture);
 }
 
 void LutRenderer::addPasses(FrameGraph &fg)

@@ -4,7 +4,6 @@
 #include "Vulkan/Device.h"
 #include <yaml-cpp/yaml.h>
 #include "Assets/Asset.h"
-#include "GPUResourceManager.h"
 #include "EngineMath.h"
 #include "RHI/DynamicRHI.h"
 

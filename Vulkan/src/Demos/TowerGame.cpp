@@ -2,7 +2,7 @@
 #include "TowerGame.h"
 #include "Editor/EditorDefaultScene.h"
 
-static std::shared_ptr<Model> cube_model;
+static Ref<Model> cube_model;
 
 static const glm::vec3 BASE_BLOCK_SIZE = {4.0f, 1.0f, 4.0f};
 static const glm::vec4 COLOR_BASE = {0.27f, 0.27f, 0.27f, 1.0f};
@@ -21,7 +21,7 @@ Block createBlock(Scene* scene, const glm::vec3& size, const glm::vec3& pos, con
     transform.position = pos;
     Entity child(entity.getChildren()[0]);
     auto& mr = child.getComponent<MeshRendererComponent>();
-    std::shared_ptr<Material> mat = std::make_shared<Material>();
+    Ref<Material> mat = new Material();
     mat->albedo = color;
     mr.materials[0] = mat;
     Block block(size, pos, color);
@@ -210,15 +210,15 @@ void Tower::reset() {
 
 void TowerGame::initResources()
 {
-	camera = std::make_shared<Camera>();
-    camera->setPosition(glm::vec3(-9, 8, -9));
-    camera->setRotation(glm::vec3(35, 45, 0));
-	Renderer::setCamera(camera);
+	camera = Camera();
+    camera.setPosition(glm::vec3(-9, 8, -9));
+    camera.setRotation(glm::vec3(35, 45, 0));
+	Renderer::setCamera(& camera);
 
-	scene = std::make_shared<Scene>();
+	scene = new Scene();
 	Scene::setCurrentScene(scene);
 	
-	scene_renderer = std::make_shared<SceneRenderer>();
+	scene_renderer = new SceneRenderer();
 	scene_renderer->setScene(scene);
 
 	//EditorDefaultScene::createScene();
@@ -238,7 +238,7 @@ void TowerGame::initResources()
 	transform.scale = glm::vec3(0.01, 0.001, 0.01);
 	transform.position = glm::vec3(0.0, -1.01, 0.0);
 
-    tower = std::make_shared<Tower>(scene.get(), [this]() { end(); });
+    tower = std::make_shared<Tower>(scene, [this]() { end(); });
 }
 
 void TowerGame::update(float dt)
@@ -246,13 +246,13 @@ void TowerGame::update(float dt)
 	bool mouse_pressed = gInput.isMouseKeyDown(GLFW_MOUSE_BUTTON_1);
 
 	auto swapchain = gDynamicRHI->getCurrentSwapchainTexture();
-	camera->setAspect(swapchain->getWidth() / (float)swapchain->getHeight());
-	camera->update(dt, gInput.getMousePosition(), mouse_pressed);
-	camera->updateMatrices();
+	camera.setAspect(swapchain->getWidth() / (float)swapchain->getHeight());
+	camera.update(dt, gInput.getMousePosition(), mouse_pressed);
+	camera.updateMatrices();
 
 	Renderer::updateDefaultUniforms(dt);
-	scene_renderer->ssao_renderer.ubo_raw_pass.near_plane = camera->getNear();
-	scene_renderer->ssao_renderer.ubo_raw_pass.far_plane = camera->getFar();
+    scene_renderer->ssao_renderer.ubo_raw_pass.near_plane = camera.getNear();
+	scene_renderer->ssao_renderer.ubo_raw_pass.far_plane = camera.getFar();
 
 	static bool prev_down = false;
 	bool current_down = gInput.isMouseKeyDown(GLFW_MOUSE_BUTTON_2);
@@ -260,7 +260,7 @@ void TowerGame::update(float dt)
 	{
         tower->place();
 
-        camera->setPosition(glm::vec3(-9, 8 + tower->layers.size(), -9));
+        camera.setPosition(glm::vec3(-9, 8 + tower->layers.size(), -9));
 	}
 
     prev_down = current_down;
@@ -275,7 +275,7 @@ void TowerGame::update(float dt)
 
 void TowerGame::render()
 {
-	scene_renderer->render(camera, gDynamicRHI->getCurrentSwapchainTexture());
+	scene_renderer->render(&camera, gDynamicRHI->getCurrentSwapchainTexture());
 }
 
 void TowerGame::end() {
@@ -284,6 +284,6 @@ void TowerGame::end() {
 
 void TowerGame::restart() {
     tower->reset();
-    camera->setPosition(glm::vec3(-9, 8, -9));
+    camera.setPosition(glm::vec3(-9, 8, -9));
     isGameOver = false;
 }

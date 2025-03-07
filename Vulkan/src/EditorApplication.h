@@ -41,7 +41,7 @@ protected:
 	void recordCommands(RHICommandList *cmd_list) override;
 	void cleanupResources() override;
 private:
-	std::shared_ptr<RayTracingScene> ray_tracing_scene;
+	Ref<RayTracingScene> ray_tracing_scene;
 
 	EditorContext context;
 
@@ -51,5 +51,5 @@ private:
 	HierarchyPanel hierarchy_panel;
 	DebugPanel debug_panel;
 
-	std::shared_ptr<SceneRenderer> scene_renderer;
+	Ref<SceneRenderer> scene_renderer;
 };

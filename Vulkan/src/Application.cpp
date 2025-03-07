@@ -4,7 +4,6 @@
 #include "Assets/AssetManager.h"
 #include "Scene/Scene.h"
 #include "GLFW/glfw3native.h"
-#include "RHI/GPUResourceManager.h"
 #include "FrameGraph/TransientResources.h"
 #include "Physics/PhysXWrapper.h"
 
@@ -23,7 +22,6 @@
 #include "Tracy.hpp"
 
 Input gInput;
-GPUResourceManager gGpuResourceManager;
 DynamicRHI *gDynamicRHI = nullptr;
 GlobalPipeline *gGlobalPipeline = nullptr;
 
@@ -185,7 +183,7 @@ void Application::render(RHICommandList *cmd_list)
 		//cmd_list->setRenderTargets({swapchain_texture}, nullptr, 0, 0, true);
 
 		//CubesDemo::render(cmd_list);
-		CubesDemo::renderBindless(cmd_list);
+		//CubesDemo::renderBindless(cmd_list);
 		//RenderTargetsDemo::render(cmd_list);
 		//RenderTargetsDemo::renderFrameGraph(cmd_list);
 

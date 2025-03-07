@@ -1,4 +1,5 @@
 #pragma once
+#include "RHI/RHIDefinitions.h"
 #include "Asset.h"
 #include <filesystem>
 #include <assimp/Importer.hpp>
@@ -13,15 +14,15 @@ public:
 	static void init();
 	static void shutdown();
 
-	static std::shared_ptr<RHITexture> getTextureAsset(std::string path);
-	static std::shared_ptr<RHITexture> getTextureAsset(std::string path, TextureDescription desc);
-	static std::shared_ptr<Model> getModelAsset(std::string path);
+	static RHITextureRef getTextureAsset(std::string path);
+	static RHITextureRef getTextureAsset(std::string path, TextureDescription desc);
+	static Ref<Model> getModelAsset(std::string path);
 
 private:
 	AssetManager() = delete;
 
-	static std::shared_ptr<Asset> load_texture_asset(std::string path, TextureDescription desc);
-	static std::shared_ptr<Asset> load_model_asset(std::string path);
+	static Ref<Asset> load_texture_asset(std::string path, TextureDescription desc);
+	static Ref<Asset> load_model_asset(std::string path);
 
-	static std::unordered_map<std::string, std::shared_ptr<Asset>> loaded_assets;
+	static std::unordered_map<std::string, Ref<Asset>> loaded_assets;
 };

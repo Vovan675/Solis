@@ -19,8 +19,8 @@ struct MeshNode
 	}
 
 	std::string name = "";
-	std::vector<std::shared_ptr<Engine::Mesh>> meshes;
-	std::vector<std::shared_ptr<Material>> materials;
+	std::vector<Engine::Mesh *> meshes;
+	std::vector<Ref<Material>> materials;
 	MeshNode *parent = nullptr;
 	std::vector<MeshNode *> children;
 	
@@ -57,9 +57,9 @@ public:
 	void load(const char *path);
 	void process_node(MeshNode *parent_node, aiNode *node, const aiScene *scene);
 
-	static Entity createEntity(std::shared_ptr<Model> model);
+	static Entity createEntity(Model *model);
 
-	std::shared_ptr<Engine::Mesh> getMesh(size_t id)
+	Engine::Mesh *getMesh(size_t id)
 	{
 		if (meshes_id.find(id) == meshes_id.end())
 			return nullptr;
@@ -77,12 +77,12 @@ public:
 private:
 	void save_mesh_node(FileStream &stream, MeshNode *node);
 	void load_mesh_node(FileStream &stream, MeshNode *node);
-	static Entity create_entity_node(std::shared_ptr<Model> model, MeshNode *node, std::shared_ptr<Scene> scene);
+	static Entity create_entity_node(Model *model, MeshNode *node, Scene *scene);
 
 	MeshNode *root_node = nullptr;
 	std::vector<MeshNode *> linear_nodes = {};
 	std::string path;
 
-	std::unordered_map<size_t, std::shared_ptr<Engine::Mesh>> meshes_id;
+	std::unordered_map<size_t, Ref<Engine::Mesh>> meshes_id;
 };
 

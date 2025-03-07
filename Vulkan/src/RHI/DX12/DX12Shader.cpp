@@ -2,7 +2,7 @@
 #include "DX12Shader.h"
 
 static std::vector<CD3DX12_DESCRIPTOR_RANGE1> descriptor_ranges;
-std::vector<CD3DX12_ROOT_PARAMETER1> DX12Shader::getRootParameters(std::vector<std::shared_ptr<DX12Shader>> shaders, BindingInfo &binding_info)
+std::vector<CD3DX12_ROOT_PARAMETER1> DX12Shader::getRootParameters(std::vector<DX12Shader *> shaders, BindingInfo &binding_info)
 {
 	std::vector<CD3DX12_ROOT_PARAMETER1> params;
 

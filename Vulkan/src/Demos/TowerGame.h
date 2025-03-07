@@ -65,9 +65,9 @@ public:
 	void render();
 
 private:
-	std::shared_ptr<Camera> camera;
-	std::shared_ptr<Scene> scene;
-	std::shared_ptr<SceneRenderer> scene_renderer;
+	Camera camera;
+	Ref<Scene> scene;
+	Ref<SceneRenderer> scene_renderer;
     std::shared_ptr<Tower> tower;
 
     bool isGameOver = false;

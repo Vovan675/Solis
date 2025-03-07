@@ -9,7 +9,7 @@ public:
 	virtual ~VulkanSwapchain();
 	void cleanup();
 
-	std::shared_ptr<RHITexture> getTexture(uint8_t index) override;
+	RHITextureRef getTexture(uint8_t index) override;
 	void resize(uint32_t width, uint32_t height) override;
 private:
 	void create_swapchain();
@@ -21,6 +21,6 @@ private:
 	VkSwapchainKHR swapchain = nullptr;
 	VkExtent2D swap_extent;
 	std::vector<VkImage> swapchain_images;
-	std::vector<std::shared_ptr<RHITexture>> swapchain_textures;
+	std::vector<Ref<RHITexture>> swapchain_textures;
 };
 

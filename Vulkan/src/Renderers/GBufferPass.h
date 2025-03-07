@@ -13,6 +13,6 @@ public:
 	EntityRenderer *entity_renderer;
 
 private:
-	std::shared_ptr<RHIShader> gbuffer_vertex_shader;
-	std::shared_ptr<RHIShader> gbuffer_fragment_shader;
+	RHIShaderRef gbuffer_vertex_shader;
+	RHIShaderRef gbuffer_fragment_shader;
 };

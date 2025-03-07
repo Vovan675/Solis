@@ -1,8 +1,9 @@
 #pragma once
+#include "Core/Core.h"
 #include "Scene/Scene.h"
 #include "TopLevelAccelerationStructure.h"
 
-class RayTracingScene
+class RayTracingScene : public RefCounted
 {
 public:
 	RayTracingScene(Scene *scene): scene(scene)
@@ -13,8 +14,8 @@ public:
 	void update();
 
 	TopLevelAccelerationStructure &getTopLevelAS() { return topLevelAS; }
-	std::shared_ptr<RHIBuffer> &getBigVertexBuffer() { return big_vertex_buffer; }
-	std::shared_ptr<RHIBuffer> &getBigIndexBuffer() { return big_index_buffer; }
+	RHIBufferRef &getBigVertexBuffer() { return big_vertex_buffer; }
+	RHIBufferRef &getBigIndexBuffer() { return big_index_buffer; }
 
 	struct ObjDesc
 	{
@@ -43,10 +44,10 @@ private:
 	std::unordered_map<size_t, size_t> blas_meshes = {};
 
 
-	std::shared_ptr<RHIBuffer> transform_buffer;
+	RHIBufferRef transform_buffer;
 
-	std::shared_ptr<RHIBuffer> big_vertex_buffer;
-	std::shared_ptr<RHIBuffer> big_index_buffer;
+	RHIBufferRef big_vertex_buffer;
+	RHIBufferRef big_index_buffer;
 	uint64_t big_vertex_buffer_last_offset = 0;
 	uint64_t big_index_buffer_last_offset = 0;
 

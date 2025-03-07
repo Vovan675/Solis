@@ -177,8 +177,6 @@ void DX12DynamicRHI::shutdown()
 
 	cached_shaders.clear();
 
-	gGpuResourceManager.cleanup();
-
 	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
 		releaseGPUResources(i);
@@ -225,7 +223,7 @@ void DX12DynamicRHI::shutdown()
 	}
 }
 
-std::shared_ptr<RHISwapchain> DX12DynamicRHI::createSwapchain(GLFWwindow *window)
+RHISwapchainRef DX12DynamicRHI::createSwapchain(GLFWwindow *window)
 {
 	HWND hWnd = glfwGetWin32Window(window);
 	int width, height;
@@ -236,7 +234,7 @@ std::shared_ptr<RHISwapchain> DX12DynamicRHI::createSwapchain(GLFWwindow *window
 	info.height = height;
 	info.format = FORMAT_R8G8B8A8_UNORM;
 	info.textures_count = MAX_FRAMES_IN_FLIGHT;
-	swapchain = std::make_shared<DX12Swapchain>(hWnd, info);
+	swapchain = new DX12Swapchain(hWnd, info);
 	return swapchain;
 }
 
@@ -246,7 +244,7 @@ void DX12DynamicRHI::resizeSwapchain(int width, int height)
 	swapchain->resize(width, height);
 }
 
-std::shared_ptr<RHIShader> DX12DynamicRHI::createShader(std::wstring path, ShaderType type, std::wstring entry_point)
+RHIShaderRef DX12DynamicRHI::createShader(std::wstring path, ShaderType type, std::wstring entry_point)
 {
 	if (entry_point.empty())
 	{
@@ -278,12 +276,12 @@ std::shared_ptr<RHIShader> DX12DynamicRHI::createShader(std::wstring path, Shade
 
 	ComPtr<ID3D12ShaderReflection> reflection;
 	dxc_utils->CreateReflection(&reflectionBuffer, IID_PPV_ARGS(&reflection));
-	auto shader = std::make_shared<DX12Shader>(blob, reflection, type, hash);
+	auto shader = new DX12Shader(blob, reflection, type, hash);
 	cached_shaders[cache_hash] = shader;
 	return shader;
 }
 
-std::shared_ptr<RHIShader> DX12DynamicRHI::createShader(std::wstring path, ShaderType type, std::vector<std::pair<const char *, const char *>> defines)
+RHIShaderRef DX12DynamicRHI::createShader(std::wstring path, ShaderType type, std::vector<std::pair<const char *, const char *>> defines)
 {
 	std::wstring entry_point;
 	if (type == VERTEX_SHADER)
@@ -321,29 +319,26 @@ std::shared_ptr<RHIShader> DX12DynamicRHI::createShader(std::wstring path, Shade
 
 	ComPtr<ID3D12ShaderReflection> reflection;
 	dxc_utils->CreateReflection(&reflectionBuffer, IID_PPV_ARGS(&reflection));
-	auto shader = std::make_shared<DX12Shader>(blob, reflection, type, hash);
+	auto shader = new DX12Shader(blob, reflection, type, hash);
 	cached_shaders[cache_hash] = shader;
 	return shader;
 }
 
-std::shared_ptr<RHIPipeline> DX12DynamicRHI::createPipeline()
+RHIPipelineRef DX12DynamicRHI::createPipeline()
 {
-	auto pipeline = std::make_shared<DX12Pipeline>(device.Get());
-	gGpuResourceManager.registerResource(pipeline);
+	auto pipeline = new DX12Pipeline(device.Get());
 	return pipeline;
 }
 
-std::shared_ptr<RHIBuffer> DX12DynamicRHI::createBuffer(BufferDescription description)
+RHIBufferRef DX12DynamicRHI::createBuffer(BufferDescription description)
 {
-	auto buffer = std::make_shared<DX12Buffer>(description);
-	gGpuResourceManager.registerResource(buffer);
+	auto buffer = new DX12Buffer(description);
 	return buffer;
 }
 
-std::shared_ptr<RHITexture> DX12DynamicRHI::createTexture(TextureDescription description)
+RHITextureRef DX12DynamicRHI::createTexture(TextureDescription description)
 {
-	auto texture = std::make_shared<DX12Texture>(this, description);
-	gGpuResourceManager.registerResource(texture);
+	auto texture = new DX12Texture(this, description);
 	return texture;
 }
 
@@ -358,7 +353,7 @@ void DX12DynamicRHI::prepareRenderCall()
 {
 	PROFILE_CPU_FUNCTION();
 	DX12CommandList *cmd_list_native = static_cast<DX12CommandList *>(getCmdList());
-	DX12Pipeline *native_pso = static_cast<DX12Pipeline *>(cmd_list_native->current_pipeline.get());
+	DX12Pipeline *native_pso = static_cast<DX12Pipeline *>(cmd_list_native->current_pipeline);
 	bool pso_changed = false;
 	if (native_pso != last_native_pso)
 	{

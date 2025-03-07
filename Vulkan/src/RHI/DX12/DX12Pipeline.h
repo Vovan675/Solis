@@ -7,7 +7,7 @@ public:
 	DX12Pipeline(ID3D12Device *device): device(device) {}
 	~DX12Pipeline();
 
-	void destroy() override;
+	void destroy();
 
 	void create(const PipelineDescription &description) override;
 

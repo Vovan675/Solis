@@ -27,7 +27,7 @@ void VulkanSwapchain::cleanup()
 	// dont destroy image because it will be destroyed with swapchain implicitly
 	for (auto &tex : swapchain_textures)
 	{
-		VulkanTexture *native_texture = (VulkanTexture *)tex.get();
+		VulkanTexture *native_texture = (VulkanTexture *)tex.getReference();
 		native_texture->imageHandle = nullptr;
 	}
 
@@ -40,7 +40,7 @@ void VulkanSwapchain::cleanup()
 	}
 }
 
-std::shared_ptr<RHITexture> VulkanSwapchain::getTexture(uint8_t index)
+RHITextureRef VulkanSwapchain::getTexture(uint8_t index)
 {
 	return swapchain_textures[index];
 }
@@ -155,7 +155,7 @@ void VulkanSwapchain::create_resources()
 		desc.height = swap_extent.height;
 		desc.usage_flags = TEXTURE_USAGE_ATTACHMENT;
 		desc.format = info.format;
-		std::shared_ptr<RHITexture> tex = gDynamicRHI->createTexture(desc);
+		RHITextureRef tex = gDynamicRHI->createTexture(desc);
 		tex->fill_raw(&swapchain_images[i]);
 		tex->setDebugName("Swapchain Texture");
 		swapchain_textures.push_back(tex);

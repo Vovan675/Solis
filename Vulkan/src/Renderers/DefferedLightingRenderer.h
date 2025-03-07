@@ -42,7 +42,7 @@ public:
 
 	void renderImgui();
 public:
-	std::shared_ptr<Engine::Mesh> icosphere_mesh;
+	Engine::Mesh *icosphere_mesh;
 
 	struct LightData
 	{

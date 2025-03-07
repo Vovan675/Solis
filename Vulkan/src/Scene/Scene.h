@@ -5,7 +5,7 @@
 
 class Entity;
 
-class Scene
+class Scene : public RefCounted
 {
 public:
 	Scene();
@@ -17,7 +17,7 @@ public:
 
 	void destroyEntity(entt::entity id);
 
-	std::shared_ptr<Scene> copy();
+	Ref<Scene> copy();
 
 	template<typename ...T>
 	auto getEntitiesWith()
@@ -28,9 +28,9 @@ public:
 	void saveFile(const std::string &filename);
 	void loadFile(const std::string &filename);
 
-	static std::shared_ptr<Scene> getCurrentScene() { return current_scene; }
-	static std::shared_ptr<Scene> loadScene(const std::string &filename);
-	static void setCurrentScene(std::shared_ptr<Scene> scene) { current_scene = scene; }
+	static Ref<Scene> getCurrentScene() { return current_scene; }
+	static Ref<Scene> loadScene(const std::string &filename);
+	static void setCurrentScene(Ref<Scene> scene) { current_scene = scene; }
 	static void closeScene();
 
 	void updateRuntime();
@@ -38,7 +38,7 @@ private:
 	friend class Entity;
 	entt::registry registry;
 public:
-	std::shared_ptr<PhysicsScene> physics_scene;
+	Ref<PhysicsScene> physics_scene;
 
-	static std::shared_ptr<Scene> current_scene;
+	static Ref<Scene> current_scene;
 };

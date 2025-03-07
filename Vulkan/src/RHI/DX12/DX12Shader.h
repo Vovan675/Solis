@@ -33,7 +33,7 @@ public:
 		int srv_bindless;
 		int samplers_bindless;
 	};
-	static std::vector<CD3DX12_ROOT_PARAMETER1> getRootParameters(std::vector<std::shared_ptr<DX12Shader>> shaders, BindingInfo &binding_info);
+	static std::vector<CD3DX12_ROOT_PARAMETER1> getRootParameters(std::vector<DX12Shader *> shaders, BindingInfo &binding_info);
 
 	ShaderType type;
 	ComPtr<IDxcBlob> m_blob; // Compiled shader bytecode

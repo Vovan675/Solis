@@ -1,5 +1,6 @@
 #pragma once
 #include <entt/entt.hpp>
+#include "Core/Core.h"
 #include "Mesh.h"
 #include <glm/gtx/quaternion.hpp>
 #include <glm/gtx/matrix_decompose.hpp>
@@ -51,15 +52,15 @@ struct MeshRendererComponent
 {
 	struct MeshId
 	{
-		std::shared_ptr<Model> model;
+		Model *model;
 		size_t mesh_id = 0;
 
-		std::shared_ptr<Engine::Mesh> getMesh();
+		Engine::Mesh *getMesh();
 	};
 	std::vector<MeshId> meshes;
-	std::vector<std::shared_ptr<Material>> materials;
+	std::vector<Ref<Material>> materials;
 
-	void setFromMeshNode(std::shared_ptr<Model> model, MeshNode *mesh_node);
+	void setFromMeshNode(Ref<Model> model, MeshNode *mesh_node);
 };
 
 enum LIGHT_TYPE
@@ -74,6 +75,9 @@ struct LightComponent
 	LightComponent()
 	{
 		recreateTexture();
+	}
+	~LightComponent()
+	{
 	}
 
 	LIGHT_TYPE getType() const { return type; };
@@ -125,7 +129,7 @@ struct LightComponent
 
 	float shadow_map_size = 4096;
 
-	std::shared_ptr<RHITexture> shadow_map;
+	RHITextureRef shadow_map = nullptr;
 
 private:
 	LIGHT_TYPE type = LIGHT_TYPE_POINT;

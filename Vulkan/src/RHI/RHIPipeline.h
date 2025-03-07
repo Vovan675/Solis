@@ -48,8 +48,8 @@ struct VertexInputsDescription
 struct PipelineDescription
 {
 	// Default Pipeline
-	std::shared_ptr<RHIShader> vertex_shader;
-	std::shared_ptr<RHIShader> fragment_shader;
+	RHIShaderRef vertex_shader;
+	RHIShaderRef fragment_shader;
 
 	VertexInputsDescription vertex_inputs_descriptions;
 	std::vector<Format> color_formats {}; // MAX 8, TODO: replace with array
@@ -68,13 +68,13 @@ struct PipelineDescription
 
 	// Compute Pipeline
 	bool is_compute_pipeline = false;
-	std::shared_ptr<RHIShader> compute_shader;
+	RHIShaderRef compute_shader;
 	
 	// Ray Tracing Pipeline
 	bool is_ray_tracing_pipeline = false;
-	std::shared_ptr<RHIShader> ray_generation_shader;
-	std::shared_ptr<RHIShader> miss_shader;
-	std::shared_ptr<RHIShader> closest_hit_shader;
+	RHIShaderRef ray_generation_shader;
+	RHIShaderRef miss_shader;
+	RHIShaderRef closest_hit_shader;
 
 	size_t getHash() const
 	{
@@ -130,13 +130,13 @@ public:
 
 	std::vector<VkRayTracingShaderGroupCreateInfoKHR> shaderGroups{};
 
-	std::shared_ptr<RHIBuffer> raygenShaderBindingTable;
-	std::shared_ptr<RHIBuffer> missShaderBindingTable;
-	std::shared_ptr<RHIBuffer> hitShaderBindingTable;
+	RHIBufferRef raygenShaderBindingTable;
+	RHIBufferRef missShaderBindingTable;
+	RHIBufferRef hitShaderBindingTable;
 };
 */
 
-class RHIPipeline : public GPUResource
+class RHIPipeline : public RefCounted
 {
 public:
 	virtual void create(const PipelineDescription &description) = 0;
@@ -144,4 +144,3 @@ public:
 protected:
 	size_t hash = 0;
 };
-

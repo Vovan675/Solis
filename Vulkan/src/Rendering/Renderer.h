@@ -30,8 +30,8 @@ struct RendererDebugInfo
 
 struct RenderBatch
 {
-	std::shared_ptr<Engine::Mesh> mesh;
-	std::shared_ptr<Material> material;
+	Engine::Mesh *mesh;
+	Ref<Material> material;
 	glm::mat4 world_transform;
 	bool camera_visible;
 };
@@ -54,27 +54,27 @@ public:
 	
 	static RendererDebugInfo getDebugInfo() { return prev_debug_info; };
 
-	static std::shared_ptr<RHITexture> getRenderTarget(RENDER_TARGETS rt) { return screen_resources[rt]; }
-	static uint32_t getRenderTargetBindlessId(RENDER_TARGETS rt) { return gDynamicRHI->getBindlessResources()->getTextureIndex(screen_resources[rt].get()); }
+	static RHITextureRef getRenderTarget(RENDER_TARGETS rt) { return screen_resources[rt]; }
+	static uint32_t getRenderTargetBindlessId(RENDER_TARGETS rt) { return gDynamicRHI->getBindlessResources()->getTextureIndex(screen_resources[rt]); }
 
-	static void setShadersAccelerationStructure(std::vector<std::shared_ptr<RHIShader>> shaders,
+	static void setShadersAccelerationStructure(std::vector<RHIShaderRef> shaders,
 												VkAccelerationStructureKHR *acceleration_structure, unsigned int binding);
 
-	static void setShadersStorageBuffer(std::vector<std::shared_ptr<RHIShader>> shaders,
+	static void setShadersStorageBuffer(std::vector<RHIShaderRef> shaders,
 										unsigned int binding, void *params_struct, size_t params_size);
 
-	static void setShadersStorageBuffer(std::vector<std::shared_ptr<RHIShader>> shaders, unsigned int binding, std::shared_ptr<RHIBuffer> buffer);
+	static void setShadersStorageBuffer(std::vector<RHIShaderRef> shaders, unsigned int binding, RHIBufferRef buffer);
 
-	static void setShadersUniformBuffer(std::vector<std::shared_ptr<RHIShader>> shaders,
+	static void setShadersUniformBuffer(std::vector<RHIShaderRef> shaders,
 										unsigned int binding, void* params_struct, size_t params_size);
 
-	static void setShadersTexture(std::vector<std::shared_ptr<RHIShader>> shaders,
-										unsigned int binding, std::shared_ptr<RHITexture> texture, int mip = -1, int face = -1, bool is_uav = false);
+	static void setShadersTexture(std::vector<RHIShaderRef> shaders,
+										unsigned int binding, RHITextureRef texture, int mip = -1, int face = -1, bool is_uav = false);
 
-	static void bindShadersDescriptorSets(std::vector<std::shared_ptr<RHIShader>> shaders, RHICommandList *cmd_list, VkPipelineLayout pipeline_layout, VkPipelineBindPoint bind_point = VK_PIPELINE_BIND_POINT_GRAPHICS);
+	static void bindShadersDescriptorSets(std::vector<RHIShaderRef> shaders, RHICommandList *cmd_list, VkPipelineLayout pipeline_layout, VkPipelineBindPoint bind_point = VK_PIPELINE_BIND_POINT_GRAPHICS);
 
 	// Default Uniforms
-	static void setCamera(std::shared_ptr<Camera> camera) { Renderer::camera = camera; }
+	static void setCamera(Camera *camera) { Renderer::camera = camera; }
 	static void updateDefaultUniforms(float delta_time);
 	static const DefaultUniforms getDefaultUniforms();
 
@@ -91,7 +91,7 @@ private:
 	static RendererDebugInfo debug_info;
 
 public:
-	static std::array<std::shared_ptr<RHITexture>, RENDER_TARGET_TEXTURES_COUNT> screen_resources;
+	static std::array<RHITextureRef, RENDER_TARGET_TEXTURES_COUNT> screen_resources;
 private:
 	friend class VulkanDynamicRHI;
 	friend class DX12DynamicRHI;
@@ -108,7 +108,7 @@ private:
 		int frame = 0;
 	};
 	static DefaultUniforms default_uniforms;
-	static std::shared_ptr<Camera> camera;
+	static Camera *camera;
 
 	static std::array<std::vector<std::pair<RESOURCE_TYPE, void *>>, MAX_FRAMES_IN_FLIGHT> deletion_queue;
 

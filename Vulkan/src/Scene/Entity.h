@@ -14,7 +14,7 @@ public:
 	// TODO: return UUID
 	uint32_t getID() const { return (uint32_t)entity_id; }
 
-	std::weak_ptr<Scene> getScene() const { return scene; }
+	Scene *getScene() const { return scene; }
 
 	TransformComponent &getTransform() const { return getComponent<TransformComponent>(); }
 
@@ -86,6 +86,6 @@ public:
 
 private:
 	entt::entity entity_id = entt::null;
-	std::shared_ptr<Scene> scene;
+	Scene *scene;
 };
 

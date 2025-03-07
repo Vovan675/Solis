@@ -46,7 +46,7 @@ struct Descriptor
 	unsigned int first_member_offset = 0;
 };
 
-class RHIShader
+class RHIShader : public RefCounted
 {
 public:
 	size_t getHash() const { return hash; }
@@ -54,4 +54,3 @@ public:
 protected:
 	size_t hash = 0;
 };
-

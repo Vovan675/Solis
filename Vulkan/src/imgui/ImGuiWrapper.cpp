@@ -133,11 +133,11 @@ void ImGuiWrapper::render(RHICommandList *cmd_list)
 }
 
 
-ImTextureID ImGuiWrapper::getTextureId(std::shared_ptr<RHITexture> tex)
+ImTextureID ImGuiWrapper::getTextureId(RHITextureRef tex)
 {
 	if (gDynamicRHI->isVulkan())
 	{
-		VulkanTexture *native_texture = (VulkanTexture *)tex.get();
+		VulkanTexture *native_texture = (VulkanTexture *)tex.getReference();
 		if (image_view_to_descriptor_set.find(native_texture->getImageView()) != image_view_to_descriptor_set.end())
 		{
 			auto &set_usage = image_view_to_descriptor_set[native_texture->getImageView()];
@@ -153,7 +153,7 @@ ImTextureID ImGuiWrapper::getTextureId(std::shared_ptr<RHITexture> tex)
 	} else
 	{
 		auto *rhi = (DX12DynamicRHI *)gDynamicRHI;
-		DX12Texture *native_texture = (DX12Texture *)tex.get();
+		DX12Texture *native_texture = (DX12Texture *)tex.getReference();
 
 		// Copy from staging heap, to current frame's shader visible heap
 		D3D12_CPU_DESCRIPTOR_HANDLE cpu_handle_staging_heap = native_texture->shader_resource_view;

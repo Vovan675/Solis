@@ -3,7 +3,7 @@
 #include "FrameGraphRHIResources.h"
 #include "RHI/RHITexture.h"
 
-static FrameGraphResource importTexture(FrameGraph &fg, std::shared_ptr<RHITexture> t)
+static FrameGraphResource importTexture(FrameGraph &fg, RHITexture *t)
 {
 	PROFILE_CPU_FUNCTION();
 	FrameGraphTexture::Description desc;

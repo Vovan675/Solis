@@ -32,7 +32,7 @@ void DX12Swapchain::cleanup()
 	}
 }
 
-std::shared_ptr<RHITexture> DX12Swapchain::getTexture(uint8_t index)
+RHITextureRef DX12Swapchain::getTexture(uint8_t index)
 {
 	return swap_chain_textures[index];
 }
@@ -62,7 +62,7 @@ void DX12Swapchain::resize(uint32_t width, uint32_t height)
 		desc.height = height;
 		desc.usage_flags = TEXTURE_USAGE_ATTACHMENT;
 		desc.format = FORMAT_R8G8B8A8_UNORM;
-		swap_chain_textures[n] = std::make_shared<DX12Texture>(gDynamicRHI, desc);
+		swap_chain_textures[n] = new DX12Texture(gDynamicRHI, desc);
 		swap_chain_textures[n]->fill_raw(render_targets[n].Get());
 	}
 }
@@ -99,7 +99,7 @@ void DX12Swapchain::create_swapchain()
 		desc.height = info.height;
 		desc.usage_flags = TEXTURE_USAGE_ATTACHMENT;
 		desc.format = info.format;
-		swap_chain_textures[n] = std::make_shared<DX12Texture>(gDynamicRHI, desc);
+		swap_chain_textures[n] = new DX12Texture(gDynamicRHI, desc);
 		swap_chain_textures[n]->fill_raw(render_targets[n].Get());
 	}
 }

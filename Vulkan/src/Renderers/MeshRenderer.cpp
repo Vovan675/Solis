@@ -4,7 +4,7 @@
 #include "Rendering/Renderer.h"
 #include <stb_image.h>
 
-MeshRenderer::MeshRenderer(std::shared_ptr<Engine::Mesh> mesh) : RendererBase()
+MeshRenderer::MeshRenderer(Ref<Engine::Mesh> mesh) : RendererBase()
 {
 	rotation = glm::quat();
 	scale = glm::vec3(1.0f, 1.0f, 1.0f);

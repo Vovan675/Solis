@@ -8,10 +8,7 @@
 #include "RHI/DynamicRHI.h"
 #include "Input.h"
 
-class GPUResourceManager;
-
 extern Input gInput;
-extern GPUResourceManager gGpuResourceManager;
 
 class Application
 {

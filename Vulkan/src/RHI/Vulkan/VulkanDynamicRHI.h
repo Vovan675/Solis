@@ -27,13 +27,13 @@ public:
 		return "Vulkan";
 	}
 
-	std::shared_ptr<RHISwapchain> createSwapchain(GLFWwindow *window) override;
+	RHISwapchainRef createSwapchain(GLFWwindow *window) override;
 	void resizeSwapchain(int width, int height) override;
-	std::shared_ptr<RHIShader> createShader(std::wstring path, ShaderType type, std::wstring entry_point) override;
-	std::shared_ptr<RHIShader> createShader(std::wstring path, ShaderType type, std::vector<std::pair<const char *, const char *>> defines) override;
-	std::shared_ptr<RHIPipeline> createPipeline() override;
-	std::shared_ptr<RHIBuffer> createBuffer(BufferDescription description) override;
-	std::shared_ptr<RHITexture> createTexture(TextureDescription description) override;
+	RHIShaderRef createShader(std::wstring path, ShaderType type, std::wstring entry_point) override;
+	RHIShaderRef createShader(std::wstring path, ShaderType type, std::vector<std::pair<const char *, const char *>> defines) override;
+	RHIPipelineRef createPipeline() override;
+	RHIBufferRef createBuffer(BufferDescription description) override;
+	RHITextureRef createTexture(TextureDescription description) override;
 
 	RHICommandList *getCmdList() override { return cmd_lists[current_frame]; };
 	RHICommandList *getCmdListCopy() override { return cmd_list_immediate; };
@@ -43,8 +43,8 @@ public:
 
 	RHIBindlessResources *getBindlessResources() override { return bindless_resources; };
 
-	std::shared_ptr<RHITexture> getSwapchainTexture(int index) override { return swapchain->getTexture(index); }
-	std::shared_ptr<RHITexture> getCurrentSwapchainTexture() override { return swapchain->getTexture(image_index); }
+	RHITextureRef getSwapchainTexture(int index) override { return swapchain->getTexture(index); }
+	RHITextureRef getCurrentSwapchainTexture() override { return swapchain->getTexture(image_index); }
 
 	void waitGPU() override;
 
@@ -53,7 +53,7 @@ public:
 
 	struct ShaderDataBuffer
 	{
-		std::shared_ptr<RHIBuffer> buffer;
+		RHIBufferRef buffer;
 		void *mapped_data;
 	};
 
@@ -76,7 +76,7 @@ public:
 
 	void setConstantBufferData(unsigned int binding, void *params_struct, size_t params_size) override
 	{
-		VulkanPipeline *native_pso = static_cast<VulkanPipeline *>(cmd_lists[current_frame]->current_pipeline.get());
+		VulkanPipeline *native_pso = static_cast<VulkanPipeline *>(cmd_lists[current_frame]->current_pipeline);
 		size_t descriptor_hash = native_pso->getHash();
 
 		// Create buffer if there is no for this descriptor and offset
@@ -100,13 +100,13 @@ public:
 		memcpy(current_buffer.mapped_data, params_struct, params_size);
 		buffers.current_offset++;
 
-		current_bind_structured_buffers[binding] = static_cast<VulkanBuffer *>(current_buffer.buffer.get());
+		current_bind_structured_buffers[binding] = static_cast<VulkanBuffer *>(current_buffer.buffer.getReference());
 		is_buffers_dirty = true;
 	}
 
 	void setConstantBufferDataPerFrame(unsigned int binding, void *params_struct, size_t params_size) override
 	{
-		VulkanPipeline *native_pso = static_cast<VulkanPipeline *>(cmd_lists[current_frame]->current_pipeline.get());
+		VulkanPipeline *native_pso = static_cast<VulkanPipeline *>(cmd_lists[current_frame]->current_pipeline);
 		size_t descriptor_hash = 0;
 		hash_combine(descriptor_hash, binding);
 		hash_combine(descriptor_hash, params_size);
@@ -132,18 +132,18 @@ public:
 		memcpy(current_buffer.mapped_data, params_struct, params_size);
 		buffers.current_offset++;
 
-		current_bind_structured_buffers[binding] = static_cast<VulkanBuffer *>(current_buffer.buffer.get());
+		current_bind_structured_buffers[binding] = static_cast<VulkanBuffer *>(current_buffer.buffer.getReference());
 		is_buffers_dirty = true;
 	}
 
-	void setTexture(unsigned int binding, std::shared_ptr<RHITexture> texture) override
+	void setTexture(unsigned int binding, RHITextureRef texture) override
 	{
-		VulkanTexture *native_texture = (VulkanTexture *)texture.get();
+		VulkanTexture *native_texture = (VulkanTexture *)texture.getReference();
 		current_bind_textures[binding] = native_texture;
 		is_textures_dirty = true;
 	}
 
-	void setUAVTexture(unsigned int binding, std::shared_ptr<RHITexture> texture, int mip = 0) override
+	void setUAVTexture(unsigned int binding, RHITextureRef texture, int mip = 0) override
 	{
 		if ((texture->getUsageFlags() & TEXTURE_USAGE_STORAGE) == 0)
 		{
@@ -151,7 +151,7 @@ public:
 			return;
 		}
 
-		VulkanTexture *native_texture = (VulkanTexture *)texture.get();
+		VulkanTexture *native_texture = (VulkanTexture *)texture.getReference();
 		current_bind_uav_textures[binding] = native_texture;
 		current_bind_uav_textures_views[binding] = native_texture->getImageView(mip, -1, true);
 		is_uav_textures_dirty = true;
@@ -163,7 +163,7 @@ private:
 
 public:
 	VkInstance instance;
-	std::shared_ptr<Device> device;
+	Ref<Device> device;
 	VmaAllocator allocator;
 
 	VkCommandPool command_pool;
@@ -179,7 +179,7 @@ public:
 	VulkanBindlessResources *bindless_resources;
 	
 	GLFWwindow *window;
-	std::shared_ptr<VulkanSwapchain> swapchain;
+	Ref<VulkanSwapchain> swapchain;
 
 	std::vector<VkFence> in_flight_fences;
 	std::vector<VkSemaphore> imageAvailableSemaphores;

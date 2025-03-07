@@ -96,8 +96,8 @@ public:
 		VkAccelerationStructureKHR handle;
 		uint64_t deviceAddress = 0;
 		VkDeviceMemory memory;
-		std::shared_ptr<RHIBuffer> buffer;
-		std::shared_ptr<RHIBuffer> scratch_buffer;
+		RHIBufferRef buffer;
+		RHIBufferRef scratch_buffer;
 	};
 
 	std::vector<AccelerationStructure> blases;
@@ -269,6 +269,6 @@ public:
 	uint64_t deviceAddress = 0;
 	VkDeviceMemory memory;
 	VkBuffer buffer;
-	std::shared_ptr<RHIBuffer> acc_buffer;
-	std::shared_ptr<RHIBuffer> scratch_buffer;
+	RHIBufferRef acc_buffer;
+	RHIBufferRef scratch_buffer;
 };

@@ -11,7 +11,7 @@
 class DebugPanel
 {
 public:
-	void renderImGui(EditorContext context);
+	void renderImGui(EditorContext &context);
 
 	// TODO: make ability from inside renderers add them to debug panel settings
 	SkyRenderer *sky_renderer;

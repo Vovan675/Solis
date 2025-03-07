@@ -9,8 +9,8 @@ GlobalPipeline::GlobalPipeline()
 
 GlobalPipeline::~GlobalPipeline()
 {
-	cached_pipelines.clear();
 	current_pipeline = nullptr;
+	cached_pipelines.clear();
 }
 
 void GlobalPipeline::reset()
@@ -58,9 +58,9 @@ void GlobalPipeline::setBlendMode(VkBlendFactor srcColorBlendFactor, VkBlendFact
 	current_description.alphaBlendOp = alphaBlendOp;
 }
 
-std::vector<std::shared_ptr<RHIShader>> GlobalPipeline::getCurrentShaders()
+std::vector<RHIShaderRef> GlobalPipeline::getCurrentShaders()
 {
-	std::vector<std::shared_ptr<RHIShader>> shaders;
+	std::vector<RHIShaderRef> shaders;
 	if (current_description.vertex_shader)
 		shaders.push_back(current_description.vertex_shader);
 	if (current_description.fragment_shader)
@@ -76,7 +76,7 @@ std::vector<std::shared_ptr<RHIShader>> GlobalPipeline::getCurrentShaders()
 	return shaders;
 }
 
-void GlobalPipeline::bindScreenQuadPipeline(RHICommandList *cmd_list, std::shared_ptr<RHIShader> fragment_shader)
+void GlobalPipeline::bindScreenQuadPipeline(RHICommandList *cmd_list, RHIShaderRef fragment_shader)
 {
 	reset();
 

@@ -36,15 +36,15 @@ void DX12Pipeline::create(const PipelineDescription &description)
 
 	// Root signature should come from shader reflection
 
-	std::vector<std::shared_ptr<DX12Shader>> shaders;
+	std::vector<DX12Shader *> shaders;
 
 	if (description.is_compute_pipeline)
 	{
-		shaders.push_back(std::static_pointer_cast<DX12Shader>(description.compute_shader));
+		shaders.push_back(static_cast<DX12Shader *>(description.compute_shader.getReference()));
 	} else
 	{
-		shaders.push_back(std::static_pointer_cast<DX12Shader>(description.vertex_shader));
-		shaders.push_back(std::static_pointer_cast<DX12Shader>(description.fragment_shader));
+		shaders.push_back(static_cast<DX12Shader *>(description.vertex_shader.getReference()));
+		shaders.push_back(static_cast<DX12Shader *>(description.fragment_shader.getReference()));
 	}
 
 	auto root_params = DX12Shader::getRootParameters(shaders, binding_info);
@@ -79,7 +79,7 @@ void DX12Pipeline::create(const PipelineDescription &description)
 
 	if (description.is_compute_pipeline)
 	{
-		DX12Shader *cs = static_cast<DX12Shader *>(description.compute_shader.get());
+		DX12Shader *cs = static_cast<DX12Shader *>(description.compute_shader.getReference());
 
 		D3D12_COMPUTE_PIPELINE_STATE_DESC psoDesc = {};
 		psoDesc.pRootSignature = root_signature.Get();
@@ -88,8 +88,8 @@ void DX12Pipeline::create(const PipelineDescription &description)
 		device->CreateComputePipelineState(&psoDesc, IID_PPV_ARGS(&pipeline));
 	} else
 	{
-		DX12Shader *vs = static_cast<DX12Shader *>(description.vertex_shader.get());
-		DX12Shader *ps = static_cast<DX12Shader *>(description.fragment_shader.get());
+		DX12Shader *vs = static_cast<DX12Shader *>(description.vertex_shader.getReference());
+		DX12Shader *ps = static_cast<DX12Shader *>(description.fragment_shader.getReference());
 
 
 		std::vector<D3D12_INPUT_ELEMENT_DESC> input_layout;

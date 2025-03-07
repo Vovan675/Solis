@@ -9,13 +9,14 @@ public:
 
 	static void update();
 
-	static std::shared_ptr<RHITexture> getTemporaryTexture(const TextureDescription &desc);
-	static void releaseTemporaryTexture(std::shared_ptr<RHITexture> texture);
+	static RHITexture *getTemporaryTexture(const TextureDescription &desc);
+	static void releaseTemporaryTexture(RHITexture *texture);
 
 	struct ResourceEntry
 	{
-		std::shared_ptr<RHITexture> texture;
+		RHITextureRef texture;
 		uint32_t last_access_frame;
+		bool is_used;
 	};
 
 	static std::unordered_map<size_t, std::vector<ResourceEntry>> textures;

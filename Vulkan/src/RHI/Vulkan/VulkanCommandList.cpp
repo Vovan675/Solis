@@ -20,7 +20,7 @@ VulkanCommandList::VulkanCommandList()
 	vkAllocateCommandBuffers(device, &alloc_info, &cmd_buffer);
 }
 
-void VulkanCommandList::setRenderTargets(const std::vector<std::shared_ptr<RHITexture>> &color_attachments, std::shared_ptr<RHITexture> depth_attachment, int layer, int mip, bool clear)
+void VulkanCommandList::setRenderTargets(const std::vector<RHITexture *> &color_attachments, RHITexture *depth_attachment, int layer, int mip, bool clear)
 {
 	PROFILE_CPU_FUNCTION();
 	VkExtent2D extent;
@@ -43,7 +43,7 @@ void VulkanCommandList::setRenderTargets(const std::vector<std::shared_ptr<RHITe
 	std::vector<VkRenderingAttachmentInfo> color_attachments_info;
 	for (const auto &attachment : color_attachments)
 	{
-		VulkanTexture *texture = (VulkanTexture *)attachment.get();
+		VulkanTexture *texture = (VulkanTexture *)attachment;
 
 		VkRenderingAttachmentInfo info{};
 		info.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
@@ -60,7 +60,7 @@ void VulkanCommandList::setRenderTargets(const std::vector<std::shared_ptr<RHITe
 	VkRenderingAttachmentInfo depth_stencil_attachment_info{};
 	if (depth_attachment != nullptr)
 	{
-		VulkanTexture *texture = (VulkanTexture *)depth_attachment.get();
+		VulkanTexture *texture = (VulkanTexture *)depth_attachment;
 
 		depth_stencil_attachment_info.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
 		depth_stencil_attachment_info.imageView = texture->getImageView(mip, layer);
@@ -94,9 +94,9 @@ void VulkanCommandList::setRenderTargets(const std::vector<std::shared_ptr<RHITe
 		current_render_targets.push_back(depth_attachment);
 }
 
-void VulkanCommandList::setPipeline(std::shared_ptr<RHIPipeline> pipeline)
+void VulkanCommandList::setPipeline(RHIPipeline *pipeline)
 {
-	VulkanPipeline *native_pipeline = static_cast<VulkanPipeline *>(pipeline.get());
+	VulkanPipeline *native_pipeline = static_cast<VulkanPipeline *>(pipeline);
 	VkPipelineBindPoint bind_point = VK_PIPELINE_BIND_POINT_GRAPHICS;
 	if (native_pipeline->description.is_ray_tracing_pipeline)
 		bind_point = VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR;
@@ -106,16 +106,16 @@ void VulkanCommandList::setPipeline(std::shared_ptr<RHIPipeline> pipeline)
 	current_pipeline = pipeline;
 }
 
-void VulkanCommandList::setVertexBuffer(std::shared_ptr<RHIBuffer> buffer)
+void VulkanCommandList::setVertexBuffer(RHIBuffer *buffer)
 {
-	VulkanBuffer *native_buffer = static_cast<VulkanBuffer *>(buffer.get());
+	VulkanBuffer *native_buffer = static_cast<VulkanBuffer *>(buffer);
 	VkDeviceSize offsets[] = {0};
 	vkCmdBindVertexBuffers(cmd_buffer, 0, 1, &native_buffer->buffer_handle, offsets);
 }
 
-void VulkanCommandList::setIndexBuffer(std::shared_ptr<RHIBuffer> buffer)
+void VulkanCommandList::setIndexBuffer(RHIBuffer *buffer)
 {
-	VulkanBuffer *native_buffer = static_cast<VulkanBuffer *>(buffer.get());
+	VulkanBuffer *native_buffer = static_cast<VulkanBuffer *>(buffer);
 	vkCmdBindIndexBuffer(cmd_buffer, native_buffer->buffer_handle, 0, VK_INDEX_TYPE_UINT32); // TODO 16 bit?
 }
 

@@ -1,7 +1,7 @@
 #pragma once
 #include "RHI/RHITexture.h"
 
-class VulkanTexture: public RHITexture, public GPUResource
+class VulkanTexture: public RHITexture
 {
 public:
 	VulkanTexture(TextureDescription description) : RHITexture(description)
@@ -11,7 +11,7 @@ public:
 
 	~VulkanTexture();
 
-	void destroy() override;
+	void destroy();
 
 	void fill() override;
 	void fill(const void *sourceData) override;

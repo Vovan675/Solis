@@ -30,10 +30,10 @@ public:
 
 	void renderImgui();
 private:
-	std::shared_ptr<RHITexture> ssao_noise;
+	RHITextureRef ssao_noise;
 	std::vector<glm::vec3> ssao_kernel;
 
-	std::shared_ptr<RHIShader> fragment_shader_raw;
-	std::shared_ptr<RHIShader> fragment_shader_blur;
+	RHIShaderRef fragment_shader_raw;
+	RHIShaderRef fragment_shader_blur;
 };
 

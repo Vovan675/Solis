@@ -6,7 +6,7 @@ class VulkanPipeline : public RHIPipeline
 public:
 	~VulkanPipeline();
 
-	void destroy() override;
+	void destroy();
 	
 	void create(const PipelineDescription &description) override;
 

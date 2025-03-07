@@ -19,18 +19,18 @@
 #include "renderers/SSRRenderer.h"
 
 
-class SceneRenderer
+class SceneRenderer : public RefCounted
 {
 public:
 	SceneRenderer();
 
-	void setScene(std::shared_ptr<Scene> scene) { this->scene = scene; }
-	void render(std::shared_ptr<Camera> camera, std::shared_ptr<RHITexture> result_texture);
+	void setScene(Ref<Scene> scene) { this->scene = scene; }
+	void render(Camera *camera, RHITextureRef result_texture);
 
 public:
 	friend class EditorApplication;
 
-	std::shared_ptr<Scene> scene;
+	Ref<Scene> scene;
 
 	std::vector<RenderBatch> render_batches;
 

@@ -1,6 +1,9 @@
 #include "pch.h"
 #include "DynamicRHI.h"
 #include "EngineMath.h"
+#include "RHI/RHIShader.h"
+
+std::unordered_map<size_t, RHIShaderRef> DynamicRHI::cached_shaders;
 
 std::wstring string_to_wstring(const std::string& s)
 {

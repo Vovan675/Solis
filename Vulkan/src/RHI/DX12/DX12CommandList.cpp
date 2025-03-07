@@ -7,7 +7,7 @@
 #include "RHI/RHIPipeline.h"
 #include <WinPixEventRuntime/pix3.h>
 
-void DX12CommandList::setRenderTargets(const std::vector<std::shared_ptr<RHITexture>> &color_attachments, std::shared_ptr<RHITexture> depth_attachment, int layer, int mip, bool clear)
+void DX12CommandList::setRenderTargets(const std::vector<RHITexture *> &color_attachments, RHITexture *depth_attachment, int layer, int mip, bool clear)
 {
 	D3D12_VIEWPORT viewport;
 	D3D12_RECT surface_rect;
@@ -38,7 +38,7 @@ void DX12CommandList::setRenderTargets(const std::vector<std::shared_ptr<RHIText
 	std::vector<D3D12_CPU_DESCRIPTOR_HANDLE> rtvs;
 	for (const auto &attachment : color_attachments)
 	{
-		DX12Texture *texture = (DX12Texture *)attachment.get();
+		DX12Texture *texture = (DX12Texture *)attachment;
 		rtvs.push_back(texture->getRenderTargetView(mip, layer));
 
 		if (clear)
@@ -48,7 +48,7 @@ void DX12CommandList::setRenderTargets(const std::vector<std::shared_ptr<RHIText
 	D3D12_CPU_DESCRIPTOR_HANDLE *depth_stencil = nullptr;
 	if (depth_attachment)
 	{
-		DX12Texture *depth = (DX12Texture *)depth_attachment.get();
+		DX12Texture *depth = (DX12Texture *)depth_attachment;
 		depth_stencil = &depth->getDepthStencilView(mip, layer);
 	}
 
@@ -65,9 +65,9 @@ void DX12CommandList::setRenderTargets(const std::vector<std::shared_ptr<RHIText
 		current_render_targets.push_back(depth_attachment);
 }
 
-void DX12CommandList::setPipeline(std::shared_ptr<RHIPipeline> pipeline)
+void DX12CommandList::setPipeline(RHIPipeline *pipeline)
 {
-	DX12Pipeline *native_pipeline = static_cast<DX12Pipeline *>(pipeline.get());
+	DX12Pipeline *native_pipeline = static_cast<DX12Pipeline *>(pipeline);
 
 	cmd_list->SetPipelineState(native_pipeline->pipeline.Get());
 
@@ -90,15 +90,15 @@ void DX12CommandList::setPipeline(std::shared_ptr<RHIPipeline> pipeline)
 	current_pipeline = pipeline;
 }
 
-void DX12CommandList::setVertexBuffer(std::shared_ptr<RHIBuffer> buffer)
+void DX12CommandList::setVertexBuffer(RHIBuffer *buffer)
 {
-	DX12Buffer *native_buffer = static_cast<DX12Buffer *>(buffer.get());
+	DX12Buffer *native_buffer = static_cast<DX12Buffer *>(buffer);
 	cmd_list->IASetVertexBuffers(0, 1, &native_buffer->getVertexBufferView());
 }
 
-void DX12CommandList::setIndexBuffer(std::shared_ptr<RHIBuffer> buffer)
+void DX12CommandList::setIndexBuffer(RHIBuffer *buffer)
 {
-	DX12Buffer *native_buffer = static_cast<DX12Buffer *>(buffer.get());
+	DX12Buffer *native_buffer = static_cast<DX12Buffer *>(buffer);
 	cmd_list->IASetIndexBuffer(&native_buffer->getIndexBufferView());
 }
 

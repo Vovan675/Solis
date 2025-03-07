@@ -18,9 +18,9 @@ public:
 
 	void addPass(FrameGraph &fg);
 
-	std::shared_ptr<RHITexture> prefilter_texture;
+	RHITextureRef prefilter_texture;
 
 private:
-	std::shared_ptr<RHIShader> compute_shader;
+	RHIShaderRef compute_shader;
 };
 

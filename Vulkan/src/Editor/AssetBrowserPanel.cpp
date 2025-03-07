@@ -150,7 +150,7 @@ void AssetBrowserPanel::render_directory(const std::string &path)
 	}
 }
 
-std::shared_ptr<RHITexture> AssetBrowserPanel::get_file_icon(std::filesystem::path &file)
+RHITextureRef AssetBrowserPanel::get_file_icon(std::filesystem::path &file)
 {
 	auto &file_tex = AssetManager::getTextureAsset("assets/editor/icons/file.png");
 	auto &scene_tex = AssetManager::getTextureAsset("assets/editor/icons/scene.png");

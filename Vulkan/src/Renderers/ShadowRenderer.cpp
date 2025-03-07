@@ -147,7 +147,7 @@ void ShadowRenderer::addShadowMapPasses(FrameGraph &fg, const std::vector<Render
 			{
 				data.shadow_map = builder.write(shadow_map_resource);
 			},
-			[=, &batches](const CascadeShadowPass &data, const RenderPassResources &resources, RHICommandList *cmd_list)
+			[=, &batches, &light](const CascadeShadowPass &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 			{
 				// Render
 				auto &shadow_map = resources.getResource<FrameGraphTexture>(data.shadow_map);

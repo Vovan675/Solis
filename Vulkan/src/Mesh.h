@@ -38,15 +38,15 @@ namespace Engine
 	};
 
 	// Just a collection of data
-	class Mesh
+	class Mesh : public RefCounted
 	{
 	public:
 		size_t id = 0;
 		std::vector<Vertex> vertices;
 		std::vector<uint32_t> indices;
 
-		std::shared_ptr<RHIBuffer> vertexBuffer;
-		std::shared_ptr<RHIBuffer> indexBuffer;
+		RHIBufferRef vertexBuffer;
+		RHIBufferRef indexBuffer;
 		glm::mat4 root_transform = glm::mat4(1.0);
 
 		BoundBox bound_box;

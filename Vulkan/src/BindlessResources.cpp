@@ -180,7 +180,7 @@ void VulkanBindlessResources::set_invalid_texture(uint32_t index)
 	if (invalid_texture == nullptr)
 		return;
 
-	VulkanTexture *native_texture = (VulkanTexture *)invalid_texture.get();
+	VulkanTexture *native_texture = (VulkanTexture *)invalid_texture.getReference();
 	descriptor_writer.writeImage(BINDLESS_TEXTURES_BINDING, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, native_texture->getImageView(), native_texture->getSampler(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	descriptor_writer.writes.back().dstArrayElement = index;
 	is_dirty = true;
@@ -246,7 +246,7 @@ void DX12BindlessResources::set_invalid_texture(uint32_t index)
 	if (!invalid_texture->isValid())
 		return;
 	DX12DynamicRHI *rhi = (DX12DynamicRHI *)gDynamicRHI;
-	DX12Texture *texture = (DX12Texture *)invalid_texture.get();
+	DX12Texture *texture = (DX12Texture *)invalid_texture.getReference();
 
 	// TODO: 
 	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)

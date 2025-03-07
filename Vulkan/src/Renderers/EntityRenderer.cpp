@@ -11,7 +11,7 @@ EntityRenderer::EntityRenderer(): RendererBase()
 	return;
 	vertex_shader = gDynamicRHI->createShader(L"shaders/opaque.vert", VERTEX_SHADER);
 	fragment_shader = gDynamicRHI->createShader(L"shaders/opaque.frag", FRAGMENT_SHADER);
-	default_material = std::make_shared<Material>();
+	default_material = new Material();
 }
 
 EntityRenderer::~EntityRenderer()
@@ -32,7 +32,7 @@ void EntityRenderer::renderEntityShadow(RHICommandList *cmd_list, glm::mat4 &tra
 
 	for (int i = 0; i < mesh_renderer.meshes.size(); i++)
 	{
-		const std::shared_ptr<Engine::Mesh> mesh = mesh_renderer.meshes[i].getMesh();
+		const auto &mesh = mesh_renderer.meshes[i].getMesh();
 
 		// Render mesh
 		// TODO: fix
@@ -55,7 +55,7 @@ void EntityRenderer::render_entity(RHICommandList *cmd_list, Entity entity)
 
 	for (int i = 0; i < mesh_renderer.meshes.size(); i++)
 	{
-		const std::shared_ptr<Engine::Mesh> mesh = mesh_renderer.meshes[i].getMesh();
+		const auto &mesh = mesh_renderer.meshes[i].getMesh();
 		const auto material = mesh_renderer.materials.size() > i ? mesh_renderer.materials[i] : default_material;
 		// Push constant
 		////vkCmdPushConstants(command_buffer.get_buffer(), p->getPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(Material::PushConstant), &material->getPushConstant(entity.getWorldTransformMatrix()));

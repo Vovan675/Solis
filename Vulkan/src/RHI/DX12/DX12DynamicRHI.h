@@ -33,13 +33,13 @@ public:
 	}
 
 	// Inherited via DynamicRHI
-	std::shared_ptr<RHISwapchain> createSwapchain(GLFWwindow *window) override;
+	RHISwapchainRef createSwapchain(GLFWwindow *window) override;
 	void resizeSwapchain(int width, int height) override;
-	std::shared_ptr<RHIShader> createShader(std::wstring path, ShaderType type, std::wstring entry_point) override;
-	std::shared_ptr<RHIShader> createShader(std::wstring path, ShaderType type, std::vector<std::pair<const char *, const char *>> defines) override;
-	std::shared_ptr<RHIPipeline> createPipeline() override;
-	std::shared_ptr<RHIBuffer> createBuffer(BufferDescription description) override;
-	std::shared_ptr<RHITexture> createTexture(TextureDescription description) override;
+	RHIShaderRef createShader(std::wstring path, ShaderType type, std::wstring entry_point) override;
+	RHIShaderRef createShader(std::wstring path, ShaderType type, std::vector<std::pair<const char *, const char *>> defines) override;
+	RHIPipelineRef createPipeline() override;
+	RHIBufferRef createBuffer(BufferDescription description) override;
+	RHITextureRef createTexture(TextureDescription description) override;
 
 	RHICommandList *getCmdList() override { return cmd_lists[current_frame]; };
 	RHICommandList *getCmdListCopy() override { return cmd_list_copy; };
@@ -49,8 +49,8 @@ public:
 
 	RHIBindlessResources *getBindlessResources() override { return bindless_resources; };
 
-	std::shared_ptr<RHITexture> getSwapchainTexture(int index) override { return swapchain->getTexture(index); }
-	std::shared_ptr<RHITexture> getCurrentSwapchainTexture() override { return swapchain->getTexture(image_index); }
+	RHITextureRef getSwapchainTexture(int index) override { return swapchain->getTexture(index); }
+	RHITextureRef getCurrentSwapchainTexture() override { return swapchain->getTexture(image_index); }
 
 	void waitGPU() override;
 
@@ -58,7 +58,7 @@ public:
 
 	struct ShaderDataBuffer
 	{
-		std::shared_ptr<RHIBuffer> buffer;
+		RHIBufferRef buffer;
 		void *mapped_data;
 	};
 
@@ -72,7 +72,7 @@ public:
 
 	void setConstantBufferData(unsigned int binding, void *params_struct, size_t params_size) override
 	{
-		DX12Pipeline *native_pso = static_cast<DX12Pipeline *>(cmd_lists[current_frame]->current_pipeline.get());
+		DX12Pipeline *native_pso = static_cast<DX12Pipeline *>(cmd_lists[current_frame]->current_pipeline);
 		DX12DynamicRHI *rhi = (DX12DynamicRHI *)gDynamicRHI;
 
 		// If no descriptor set for this shader, create it
@@ -113,7 +113,7 @@ public:
 		buffers.current_offset++;
 
 		DX12CommandList *cmd_list_native = static_cast<DX12CommandList *>(rhi->getCmdList());
-		DX12Buffer *native_buffer = (DX12Buffer *)current_buffer.buffer.get();
+		DX12Buffer *native_buffer = (DX12Buffer *)current_buffer.buffer.getReference();
 		current_bind_buffers[binding] = native_buffer;
 		current_bind_buffers_gpu_address[binding] = native_buffer->resource->GetGPUVirtualAddress();
 		is_buffers_dirty = true;
@@ -150,25 +150,25 @@ public:
 		buffers.current_offset++;
 
 		DX12CommandList *cmd_list_native = static_cast<DX12CommandList *>(rhi->getCmdList());
-		DX12Buffer *native_buffer = (DX12Buffer *)current_buffer.buffer.get();
+		DX12Buffer *native_buffer = (DX12Buffer *)current_buffer.buffer.getReference();
 		current_bind_buffers[binding] = native_buffer;
 		current_bind_buffers_gpu_address[binding] = native_buffer->resource->GetGPUVirtualAddress();
 		is_buffers_dirty = true;
 	}
 
-	void setTexture(unsigned int binding, std::shared_ptr<RHITexture> texture) override
+	void setTexture(unsigned int binding, RHITextureRef texture) override
 	{
-		DX12Texture *native_texture = (DX12Texture *)texture.get();
-		current_bind_textures[binding] = texture.get();
+		DX12Texture *native_texture = (DX12Texture *)texture.getReference();
+		current_bind_textures[binding] = texture.getReference();
 		current_bind_textures_descriptors[binding] = native_texture->shader_resource_view;
 		current_bind_textures_samplers[binding] = native_texture->sampler_view;
 		is_textures_dirty = true;
 	}
 
-	void setUAVTexture(unsigned int binding, std::shared_ptr<RHITexture> texture, int mip = 0) override
+	void setUAVTexture(unsigned int binding, RHITextureRef texture, int mip = 0) override
 	{
-		DX12Texture *native_texture = (DX12Texture *)texture.get();
-		current_bind_uav_textures[binding] = texture.get();
+		DX12Texture *native_texture = (DX12Texture *)texture.getReference();
+		current_bind_uav_textures[binding] = texture.getReference();
 		current_bind_uav_textures_descriptors[binding] = native_texture->getUnorderedAccessView(mip);
 		is_uav_textures_dirty = true;
 	}
@@ -180,7 +180,7 @@ public:
 	ComPtr<ID3D12Device> device;
 	ComPtr<ID3D12DebugDevice> debug_device;
 
-	std::shared_ptr<DX12Swapchain> swapchain;
+	Ref<DX12Swapchain> swapchain;
 
 	UINT current_buffer;
 	ComPtr<ID3D12DescriptorHeap> render_target_view_heap;

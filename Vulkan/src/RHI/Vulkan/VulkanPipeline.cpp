@@ -31,15 +31,15 @@ void VulkanPipeline::create(const PipelineDescription &description)
 	this->description = description;
 	hash = description.getHash();
 
-	std::vector<std::shared_ptr<VulkanShader>> shaders;
+	std::vector<VulkanShader *> shaders;
 
 	if (description.is_compute_pipeline)
 	{
-		shaders.push_back(std::static_pointer_cast<VulkanShader>(description.compute_shader));
+		shaders.push_back(static_cast<VulkanShader *>(description.compute_shader.getReference()));
 	} else
 	{
-		shaders.push_back(std::static_pointer_cast<VulkanShader>(description.vertex_shader));
-		shaders.push_back(std::static_pointer_cast<VulkanShader>(description.fragment_shader));
+		shaders.push_back(static_cast<VulkanShader *>(description.vertex_shader.getReference()));
+		shaders.push_back(static_cast<VulkanShader *>(description.fragment_shader.getReference()));
 	}
 
 	descriptors = VulkanShader::getDescriptors(shaders);
@@ -68,7 +68,7 @@ void VulkanPipeline::create(const PipelineDescription &description)
 		VkPipelineShaderStageCreateInfo compShaderStageInfo{};
 		compShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 		compShaderStageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-		compShaderStageInfo.module = static_cast<VulkanShader *>(description.compute_shader.get())->handle;
+		compShaderStageInfo.module = static_cast<VulkanShader *>(description.compute_shader.getReference())->handle;
 		compShaderStageInfo.pName = "CSMain";
 
 		VkComputePipelineCreateInfo pipelineInfo{};
@@ -84,13 +84,13 @@ void VulkanPipeline::create(const PipelineDescription &description)
 		VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
 		vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 		vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
-		vertShaderStageInfo.module = static_cast<VulkanShader *>(description.vertex_shader.get())->handle;
+		vertShaderStageInfo.module = static_cast<VulkanShader *>(description.vertex_shader.getReference())->handle;
 		vertShaderStageInfo.pName = "VSMain";
 
 		VkPipelineShaderStageCreateInfo fragShaderStageInfo{};
 		fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 		fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-		fragShaderStageInfo.module = static_cast<VulkanShader *>(description.fragment_shader.get())->handle;
+		fragShaderStageInfo.module = static_cast<VulkanShader *>(description.fragment_shader.getReference())->handle;
 		fragShaderStageInfo.pName = "PSMain";
 
 		VkPipelineShaderStageCreateInfo shaderStagesInfo[] = {vertShaderStageInfo, fragShaderStageInfo};

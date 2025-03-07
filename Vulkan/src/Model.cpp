@@ -117,7 +117,7 @@ void Model::process_node(MeshNode *mesh_node, aiNode *node, const aiScene *scene
 			}
 		}
 
-		std::shared_ptr<Engine::Mesh> engine_mesh = std::make_shared<Engine::Mesh>();
+		Ref<Engine::Mesh> engine_mesh = new Engine::Mesh();
 		engine_mesh->setData(vertices, indices);
 		mesh_node->meshes.push_back(engine_mesh);
 
@@ -148,7 +148,7 @@ void Model::process_node(MeshNode *mesh_node, aiNode *node, const aiScene *scene
 		for (int p = 0; p < mat->mNumProperties; p++)
 			aiString name = mat->mProperties[p]->mKey;
 
-		std::shared_ptr<Material> engine_material = std::make_shared<Material>();
+		Ref<Material> engine_material = new Material();
 		mesh_node->materials.push_back(engine_material);
 
 		// Textures
@@ -170,7 +170,7 @@ void Model::process_node(MeshNode *mesh_node, aiNode *node, const aiScene *scene
 				auto tex = AssetManager::getTextureAsset(result_path.string(), tex_description);
 				if (!tex || !tex->isValid())
 					continue;
-				engine_material->albedo_tex_id = gDynamicRHI->getBindlessResources()->addTexture(tex.get());
+				engine_material->albedo_tex_id = gDynamicRHI->getBindlessResources()->addTexture(tex);
 			}
 		}
 
@@ -192,7 +192,7 @@ void Model::process_node(MeshNode *mesh_node, aiNode *node, const aiScene *scene
 				auto tex = AssetManager::getTextureAsset(result_path.string(), tex_description);
 				if (!tex || !tex->isValid())
 					continue;
-				engine_material->metalness_tex_id = gDynamicRHI->getBindlessResources()->addTexture(tex.get());
+				engine_material->metalness_tex_id = gDynamicRHI->getBindlessResources()->addTexture(tex);
 			}
 		}
 
@@ -214,7 +214,7 @@ void Model::process_node(MeshNode *mesh_node, aiNode *node, const aiScene *scene
 				auto tex = AssetManager::getTextureAsset(result_path.string(), tex_description);
 				if (!tex || !tex->isValid())
 					continue;
-				engine_material->roughness_tex_id = gDynamicRHI->getBindlessResources()->addTexture(tex.get());
+				engine_material->roughness_tex_id = gDynamicRHI->getBindlessResources()->addTexture(tex);
 			}
 		}
 
@@ -236,7 +236,7 @@ void Model::process_node(MeshNode *mesh_node, aiNode *node, const aiScene *scene
 				auto tex = AssetManager::getTextureAsset(result_path.string(), tex_description);
 				if (!tex || !tex->isValid())
 					continue;
-				engine_material->specular_tex_id = gDynamicRHI->getBindlessResources()->addTexture(tex.get());
+				engine_material->specular_tex_id = gDynamicRHI->getBindlessResources()->addTexture(tex);
 			}
 		}
 
@@ -257,7 +257,7 @@ void Model::process_node(MeshNode *mesh_node, aiNode *node, const aiScene *scene
 				auto tex = AssetManager::getTextureAsset(result_path.string(), tex_description);
 				if (!tex || !tex->isValid())
 					continue;
-				engine_material->normal_tex_id = gDynamicRHI->getBindlessResources()->addTexture(tex.get());
+				engine_material->normal_tex_id = gDynamicRHI->getBindlessResources()->addTexture(tex);
 			}
 		}
 
@@ -282,7 +282,7 @@ void Model::process_node(MeshNode *mesh_node, aiNode *node, const aiScene *scene
 
 }
 
-Entity Model::createEntity(std::shared_ptr<Model> model)
+Entity Model::createEntity(Model *model)
 {
 	return create_entity_node(model, model->root_node, Scene::getCurrentScene());
 }
@@ -340,7 +340,7 @@ void Model::load_mesh_node(FileStream &stream, MeshNode *node)
 	node->meshes.resize(meshes_count);
 	for (size_t i = 0; i < meshes_count; i++)
 	{
-		auto &mesh = std::make_shared<Engine::Mesh>();
+		Ref<Engine::Mesh> mesh = new Engine::Mesh();
 		mesh->deserialize(stream);
 		node->meshes[i] = mesh;
 		meshes_id[mesh->id] = mesh;
@@ -351,7 +351,7 @@ void Model::load_mesh_node(FileStream &stream, MeshNode *node)
 	node->materials.resize(materials_count);
 	for (size_t i = 0; i < materials_count; i++)
 	{
-		auto &mat = std::make_shared<Material>();
+		auto *mat = new Material();
 		mat->deserialize(stream);
 		node->materials[i] = mat;
 	}
@@ -368,7 +368,7 @@ void Model::load_mesh_node(FileStream &stream, MeshNode *node)
 	}
 }
 
-Entity Model::create_entity_node(std::shared_ptr<Model> model, MeshNode *node, std::shared_ptr<Scene> scene)
+Entity Model::create_entity_node(Model *model, MeshNode *node, Scene *scene)
 {
 	Entity entity = scene->createEntity(node->name);
 	auto &transform_component = entity.getComponent<TransformComponent>();

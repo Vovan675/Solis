@@ -5,7 +5,7 @@
 #include "Assets/AssetManager.h"
 #include "Utils/Stream.h"
 
-class Material
+class Material : public RefCounted
 {
 public:
 		int albedo_tex_id = -1;
@@ -94,7 +94,7 @@ public:
 				}
 
 				auto tex = non_srgb ? AssetManager::getTextureAsset(tex_path, non_srgb_description) : AssetManager::getTextureAsset(tex_path);
-				tex_id = gDynamicRHI->getBindlessResources()->addTexture(tex.get());
+				tex_id = gDynamicRHI->getBindlessResources()->addTexture(tex);
 			};
 
 			read_tex(albedo_tex_id);
@@ -107,7 +107,7 @@ public:
 
 namespace YAML
 {
-	static YAML::Emitter &operator <<(YAML::Emitter &out, const std::shared_ptr<Material> &mat)
+	static YAML::Emitter &operator <<(YAML::Emitter &out, const Ref<Material> &mat)
 	{
 		out << YAML::BeginMap;
 		out << YAML::Key << "Albedo" << YAML::Value << mat->albedo;
@@ -136,14 +136,14 @@ namespace YAML
 	}
 
 	template<>
-	struct convert<std::shared_ptr<Material>>
+	struct convert<Ref<Material>>
 	{
-		static bool decode(const Node &node, std::shared_ptr<Material> &mat)
+		static bool decode(const Node &node, Ref<Material> &mat)
 		{
 			if (!node.IsMap())
 				return false;
 
-			mat = std::make_shared<Material>();
+			mat = new Material();
 			mat->albedo = node["Albedo"].as<glm::vec4>();
 			mat->metalness = node["Metalness"].as<float>();
 			mat->roughness = node["Roughness"].as<float>();
@@ -152,25 +152,25 @@ namespace YAML
 			if (node["AlbedoTexture"])
 			{
 				auto tex = AssetManager::getTextureAsset(node["AlbedoTexture"].as<std::string>());
-				mat->albedo_tex_id = gDynamicRHI->getBindlessResources()->addTexture(tex.get());
+				mat->albedo_tex_id = gDynamicRHI->getBindlessResources()->addTexture(tex);
 			}
 
 			if (node["MetalnessTexture"])
 			{
 				auto tex = AssetManager::getTextureAsset(node["MetalnessTexture"].as<std::string>());
-				mat->metalness_tex_id = gDynamicRHI->getBindlessResources()->addTexture(tex.get());
+				mat->metalness_tex_id = gDynamicRHI->getBindlessResources()->addTexture(tex);
 			}
 
 			if (node["RoughnessTexture"])
 			{
 				auto tex = AssetManager::getTextureAsset(node["RoughnessTexture"].as<std::string>());
-				mat->roughness_tex_id = gDynamicRHI->getBindlessResources()->addTexture(tex.get());
+				mat->roughness_tex_id = gDynamicRHI->getBindlessResources()->addTexture(tex);
 			}
 
 			if (node["SpecularTexture"])
 			{
 				auto tex = AssetManager::getTextureAsset(node["SpecularTexture"].as<std::string>());
-				mat->specular_tex_id = gDynamicRHI->getBindlessResources()->addTexture(tex.get());
+				mat->specular_tex_id = gDynamicRHI->getBindlessResources()->addTexture(tex);
 			}
 
 			if (node["NormalTexture"])
@@ -180,7 +180,7 @@ namespace YAML
 				tex_description.usage_flags = TEXTURE_USAGE_TRANSFER_SRC;
 
 				auto tex = AssetManager::getTextureAsset(node["NormalTexture"].as<std::string>(), tex_description);
-				mat->normal_tex_id = gDynamicRHI->getBindlessResources()->addTexture(tex.get());
+				mat->normal_tex_id = gDynamicRHI->getBindlessResources()->addTexture(tex);
 			}
 
 			return true;

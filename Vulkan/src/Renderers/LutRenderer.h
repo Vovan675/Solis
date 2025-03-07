@@ -11,6 +11,6 @@ public:
 	LutRenderer();
 	void addPasses(FrameGraph &fg);
 
-	std::shared_ptr<RHITexture> brdf_lut_texture;
+	RHITextureRef brdf_lut_texture;
 };
 

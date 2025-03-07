@@ -13,9 +13,9 @@ public:
 
 	void addPass(FrameGraph &fg);
 	
-	std::shared_ptr<RHITexture> irradiance_texture;
+	RHITextureRef irradiance_texture;
 
 private:
-	std::shared_ptr<RHIShader> compute_shader;
+	RHIShaderRef compute_shader;
 };
 

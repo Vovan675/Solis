@@ -8,18 +8,19 @@
 class Camera
 {
 public:
-	Camera() 
+	Camera()
 	{
-		position = glm::vec3(0, 2, 0);
-		pitch = 0;
-		yaw = 0;
+		updateMatrices();
+	}
+
+	Camera(glm::vec3 position) : position(position)
+	{
 		updateMatrices();
 	}
 
 	void update(float dt, glm::vec2 mouse_pos, bool mouse_pressed)
 	{
 		PROFILE_CPU_FUNCTION();
-		dt = 1.0f / 60.0f;
 		if (mouse_pressed)
 		{
 			glm::vec2 delta_pos = mouse_pos - prev_mouse_pos;
@@ -62,20 +63,23 @@ public:
 		PROFILE_CPU_FUNCTION();
 		orientation = glm::quat(glm::vec3(pitch, yaw, 0));
 		view = glm::inverse(glm::translate(glm::mat4(1.0f), position) * glm::toMat4(orientation));
-		proj = glm::perspectiveLH(glm::radians(45.0f), aspect, near_plane, far_plane);
+		proj = glm::perspectiveLH(glm::radians(fov), aspect, near_plane, far_plane);
 	}
 
-	void setSpeed(float speed) { this->speed = speed; }
 	float getSpeed() const { return speed; }
+	void setSpeed(float speed) { this->speed = speed; }
 
-	void setNear(float near_plane) { this->near_plane = near_plane; }
+	float getFov() const { return fov; }
+	void setFov(float fov) { this->fov = fov; updateMatrices(); }
+
 	float getNear() const { return near_plane; }
+	void setNear(float near_plane) { this->near_plane = near_plane; updateMatrices(); }
 
-	void setFar(float far_plane) { this->far_plane = far_plane; }
 	float getFar() const { return far_plane; }
+	void setFar(float far_plane) { this->far_plane = far_plane; updateMatrices(); }
 
-	void setAspect(float aspect) { this->aspect = aspect; }
 	float getAspect() const { return aspect; }
+	void setAspect(float aspect) { this->aspect = aspect; updateMatrices(); }
 
 	const glm::vec3 &getPosition() const { return position; }
 	void setPosition(glm::vec3 position) { this->position = position; updateMatrices(); }
@@ -103,16 +107,19 @@ public:
 	} inputs;
 
 private:
-	glm::vec3 position;
+	glm::vec3 position = glm::vec3(0, 0, 0);
 	glm::mat4 view;
 	glm::mat4 proj;
 	glm::quat orientation;
-	float pitch, yaw;
+	float pitch = 0;
+	float yaw = 0;
 	float aspect;
+
+	float fov = 45.0f;
 
 	glm::vec2 prev_mouse_pos;
 
 	float near_plane = 0.1f;
 	float far_plane = 200.0f;
-	float speed = 2.0f;
+	float speed = 10.0f;
 };

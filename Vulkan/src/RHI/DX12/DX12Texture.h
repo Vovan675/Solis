@@ -1,7 +1,7 @@
 #pragma once
 #include "RHI/RHITexture.h"
 
-class DX12Texture: public RHITexture, public GPUResource
+class DX12Texture: public RHITexture
 {
 public:
 	DX12Texture(DynamicRHI *rhi, TextureDescription description) : rhi(rhi), RHITexture(description)
@@ -11,7 +11,7 @@ public:
 
 	~DX12Texture();
 
-	void destroy() override;
+	void destroy();
 
 	void fill() override;
 	void fill(const void *sourceData) override;

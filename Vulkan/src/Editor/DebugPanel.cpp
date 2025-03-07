@@ -4,7 +4,7 @@
 #include "Rendering/Renderer.h"
 #include "Variables.h"
 
-void DebugPanel::renderImGui(EditorContext context)
+void DebugPanel::renderImGui(EditorContext &context)
 {
 	ImGui::Begin((std::string(ICON_FA_CUBES) + " Debug Window###Debug Window").c_str());
 
@@ -51,28 +51,28 @@ void DebugPanel::renderImGui(EditorContext context)
 	ConVarSystem::drawImGui();
 
 	auto &camera = context.editor_camera;
-	float cam_speed = camera->getSpeed();
+	float cam_speed = camera.getSpeed();
 	if (ImGui::SliderFloat("Camera Speed", &cam_speed, 0.1f, 10.0f))
 	{
-		camera->setSpeed(cam_speed);
-		camera->updateMatrices();
+		camera.setSpeed(cam_speed);
+		camera.updateMatrices();
 	}
 
-	float cam_near = camera->getNear();
+	float cam_near = camera.getNear();
 	if (ImGui::SliderFloat("Camera Near", &cam_near, 0.01f, 3.5f))
 	{
-		camera->setNear(cam_near);
-		camera->updateMatrices();
+		camera.setNear(cam_near);
+		camera.updateMatrices();
 	}
 
-	float cam_far = camera->getFar();
+	float cam_far = camera.getFar();
 	if (ImGui::SliderFloat("Camera Far", &cam_far, 1.0f, 300.0f))
 	{
-		camera->setFar(cam_far);
-		camera->updateMatrices();
+		camera.setFar(cam_far);
+		camera.updateMatrices();
 	}
 
-	glm::vec3 cam_pos = camera->getPosition();
+	glm::vec3 cam_pos = camera.getPosition();
 	ImGui::InputFloat3("Camera Position", cam_pos.data.data);
 
 	post_renderer->renderImgui();

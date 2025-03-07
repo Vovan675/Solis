@@ -1,8 +1,7 @@
 #pragma once
-#include "GPUResourceManager.h"
 #include "RHIDefinitions.h"
 
-class RHIBuffer : public GPUResource
+class RHIBuffer : public RefCounted
 {
 public:
 	RHIBuffer(BufferDescription description): description(description) {}

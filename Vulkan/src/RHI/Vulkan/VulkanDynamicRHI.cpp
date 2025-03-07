@@ -9,7 +9,7 @@
 void VulkanDynamicRHI::init()
 {
 	init_instance();
-	device = std::make_shared<Device>(instance);
+	device = new Device(instance);
 	init_vma();
 
 	//Create Command Pool
@@ -23,8 +23,6 @@ void VulkanDynamicRHI::init()
 	global_descriptor_allocator = std::make_shared<DescriptorAllocator>();
 
 	VulkanUtils::init();
-
-
 
 	in_flight_fences.resize(MAX_FRAMES_IN_FLIGHT);
 	imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
@@ -107,15 +105,16 @@ void VulkanDynamicRHI::shutdown()
 
 	for (auto &shader : cached_shaders)
 	{
-		auto native_shader = (VulkanShader *)shader.second.get();
+		auto native_shader = (VulkanShader *)shader.second.getReference();
 		native_shader->destroy();
 	}
 	cached_shaders.clear();
 
-	gGpuResourceManager.cleanup();
-
-	releaseGPUResources(0);
-	releaseGPUResources(1);
+	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+	{
+		releaseGPUResources(i);
+	}
+	CORE_INFO("Releasing Resources");
 
 	DescriptorLayoutBuilder::clearAllCaches();
 	vkDestroyCommandPool(device->logicalHandle, command_pool, nullptr);
@@ -129,7 +128,7 @@ void VulkanDynamicRHI::shutdown()
 	vkDestroyInstance(instance, nullptr);
 }
 
-std::shared_ptr<RHISwapchain> VulkanDynamicRHI::createSwapchain(GLFWwindow *window)
+RHISwapchainRef VulkanDynamicRHI::createSwapchain(GLFWwindow *window)
 {
 	this->window = window;
 	VkSurfaceKHR surface;
@@ -142,7 +141,7 @@ std::shared_ptr<RHISwapchain> VulkanDynamicRHI::createSwapchain(GLFWwindow *wind
 	info.height = height;
 	info.format = FORMAT_R8G8B8A8_UNORM;
 	info.textures_count = MAX_FRAMES_IN_FLIGHT;
-	swapchain = std::make_shared<VulkanSwapchain>(surface, info);
+	swapchain = new VulkanSwapchain(surface, info);
 	return swapchain;
 }
 
@@ -152,7 +151,7 @@ void VulkanDynamicRHI::resizeSwapchain(int width, int height)
 	swapchain->resize(width, height);
 }
 
-std::shared_ptr<RHIShader> VulkanDynamicRHI::createShader(std::wstring path, ShaderType type, std::wstring entry_point)
+RHIShaderRef VulkanDynamicRHI::createShader(std::wstring path, ShaderType type, std::wstring entry_point)
 {
 	if (entry_point.empty())
 	{
@@ -176,12 +175,12 @@ std::shared_ptr<RHIShader> VulkanDynamicRHI::createShader(std::wstring path, Sha
 
 	size_t hash;
 	ComPtr<IDxcBlob> blob = compile_shader(path, type, entry_point, true, hash);
-	auto shader = std::make_shared<VulkanShader>((const uint32_t *)blob->GetBufferPointer(), blob->GetBufferSize(), this, type, hash);
+	auto shader = new VulkanShader((const uint32_t *)blob->GetBufferPointer(), blob->GetBufferSize(), this, type, hash);
 	cached_shaders[cache_hash] = shader;
 	return shader;
 }
 
-std::shared_ptr<RHIShader> VulkanDynamicRHI::createShader(std::wstring path, ShaderType type, std::vector<std::pair<const char *, const char *>> defines)
+RHIShaderRef VulkanDynamicRHI::createShader(std::wstring path, ShaderType type, std::vector<std::pair<const char *, const char *>> defines)
 {
 	std::wstring entry_point;
 	if (type == VERTEX_SHADER)
@@ -211,29 +210,26 @@ std::shared_ptr<RHIShader> VulkanDynamicRHI::createShader(std::wstring path, Sha
 
 	size_t hash;
 	ComPtr<IDxcBlob> blob = compile_shader(path, type, entry_point, true, hash, &defines);
-	auto shader = std::make_shared<VulkanShader>((const uint32_t *)blob->GetBufferPointer(), blob->GetBufferSize(), this, type, hash);
+	auto shader = new VulkanShader((const uint32_t *)blob->GetBufferPointer(), blob->GetBufferSize(), this, type, hash);
 	cached_shaders[cache_hash] = shader;
 	return shader;
 }
 
-std::shared_ptr<RHIPipeline> VulkanDynamicRHI::createPipeline()
+RHIPipelineRef VulkanDynamicRHI::createPipeline()
 {
-	auto pipeline = std::make_shared<VulkanPipeline>();
-	gGpuResourceManager.registerResource(pipeline);
+	auto pipeline = new VulkanPipeline();
 	return pipeline;
 }
 
-std::shared_ptr<RHIBuffer> VulkanDynamicRHI::createBuffer(BufferDescription description)
+RHIBufferRef VulkanDynamicRHI::createBuffer(BufferDescription description)
 {
-	auto buffer = std::make_shared<VulkanBuffer>(description);
-	gGpuResourceManager.registerResource(buffer);
+	auto buffer = new VulkanBuffer(description);
 	return buffer;
 }
 
-std::shared_ptr<RHITexture> VulkanDynamicRHI::createTexture(TextureDescription description)
+RHITextureRef VulkanDynamicRHI::createTexture(TextureDescription description)
 {
-	auto texture = std::make_shared<VulkanTexture>(description);
-	gGpuResourceManager.registerResource(texture);
+	auto texture = new VulkanTexture(description);
 	return texture;
 }
 
@@ -246,7 +242,7 @@ void VulkanDynamicRHI::prepareRenderCall()
 {
 	PROFILE_CPU_FUNCTION();
 	VulkanCommandList *cmd_list_native = static_cast<VulkanCommandList *>(getCmdList());
-	VulkanPipeline *native_pso = static_cast<VulkanPipeline *>(cmd_list_native->current_pipeline.get());
+	VulkanPipeline *native_pso = static_cast<VulkanPipeline *>(cmd_list_native->current_pipeline);
 	bool pso_changed = false;
 	if (native_pso != last_native_pso)
 	{

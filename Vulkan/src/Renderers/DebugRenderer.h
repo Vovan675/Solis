@@ -44,8 +44,8 @@ public:
 	std::vector<glm::vec3> addCirlce(glm::vec3 center, glm::vec3 normal, float radius, int segments);
 	void addArrow(glm::vec3 p0, glm::vec3 p1, float arrow_size);
 private:
-	std::shared_ptr<RHIShader> vertex_shader_lines;
-	std::shared_ptr<RHIShader> fragment_shader_lines;
+	RHIShaderRef vertex_shader_lines;
+	RHIShaderRef fragment_shader_lines;
 
 	struct LineVertex
 	{
@@ -53,8 +53,8 @@ private:
 		glm::vec3 color;
 	};
 	LineVertex *vertices;
-	std::shared_ptr<RHIBuffer> lines_index_buffer;
-	std::shared_ptr<RHIBuffer> lines_vertex_buffer;
+	RHIBufferRef lines_index_buffer;
+	RHIBufferRef lines_vertex_buffer;
 
 	int lines_index_count = 0;
 };

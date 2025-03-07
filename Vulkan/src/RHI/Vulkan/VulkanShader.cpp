@@ -24,7 +24,7 @@ void VulkanShader::destroy()
 	}
 }
 
-std::vector<Descriptor> VulkanShader::getDescriptors(std::vector<std::shared_ptr<VulkanShader>> shaders)
+std::vector<Descriptor> VulkanShader::getDescriptors(std::vector<VulkanShader *> shaders)
 {
 	std::vector<Descriptor> descriptors;
 	descriptors.clear();

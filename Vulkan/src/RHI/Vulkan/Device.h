@@ -1,6 +1,7 @@
 #pragma once
+#include "Core/Core.h"
 
-class Device
+class Device : public RefCounted
 {
 public:
 	VkPhysicalDeviceAccelerationStructurePropertiesKHR physicalAccelerationStructureProperties{};

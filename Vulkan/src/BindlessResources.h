@@ -1,4 +1,5 @@
 #pragma once
+#include "RHI/RHIDefinitions.h"
 #include "RHI/RHITexture.h"
 #include "RHI/Vulkan/Descriptors.h"
 
@@ -19,7 +20,7 @@ protected:
 	virtual void set_invalid_texture(uint32_t index) {}
 
 protected:
-	std::shared_ptr<RHITexture> invalid_texture;
+	RHITextureRef invalid_texture;
 
 	std::unordered_map<RHITexture *, uint32_t> textures_indices;
 	std::vector<int> empty_indices;

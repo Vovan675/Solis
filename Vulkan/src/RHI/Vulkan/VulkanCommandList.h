@@ -20,14 +20,16 @@ public:
 		info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT; // Because we don't need to submit the same command buffer twice
 		vkResetCommandBuffer(cmd_buffer, 0);
 		vkBeginCommandBuffer(cmd_buffer, &info);
+		is_open = true;
 	}
 
 	void close() override
 	{
 		vkEndCommandBuffer(cmd_buffer);
+		is_open = false;
 	}
 
-	void setRenderTargets(const std::vector<std::shared_ptr<RHITexture>> &color_attachments, std::shared_ptr<RHITexture> depth_attachment, int layer, int mip, bool clear) override;
+	void setRenderTargets(const std::vector<RHITexture *> &color_attachments, RHITexture *depth_attachment, int layer, int mip, bool clear) override;
 
 	void resetRenderTargets() override
 	{
@@ -35,16 +37,16 @@ public:
 		current_render_targets.clear();
 	}
 
-	std::vector<std::shared_ptr<RHITexture>> &getCurrentRenderTargets()
+	std::vector<RHITexture *> &getCurrentRenderTargets()
 	{
 		return current_render_targets;
 	}
 
-	void setPipeline(std::shared_ptr<RHIPipeline> pipeline) override;
+	void setPipeline(RHIPipeline *pipeline) override;
 
-	void setVertexBuffer(std::shared_ptr<RHIBuffer> buffer) override;
+	void setVertexBuffer(RHIBuffer *buffer) override;
 
-	void setIndexBuffer(std::shared_ptr<RHIBuffer> buffer) override;
+	void setIndexBuffer(RHIBuffer *buffer) override;
 
 	void drawIndexedInstanced(uint32_t indexCount, uint32_t instanceCount, uint32_t firstIndex, int32_t vertexOffset, uint32_t firstInstance) override
 	{
@@ -67,11 +69,13 @@ public:
 	void beginDebugLabel(const char *label, glm::vec3 color, uint32_t line, const char* source, size_t source_size, const char* function, size_t function_size);
 	void endDebugLabel();
 
+	bool is_open = false;
+
 	VkDevice device;
 	VkCommandPool cmd_pool;
 	VkCommandBuffer cmd_buffer;
-	std::shared_ptr<RHIPipeline> current_pipeline;
-	std::vector<std::shared_ptr<RHITexture>> current_render_targets;
+	RHIPipeline *current_pipeline;
+	std::vector<RHITexture *> current_render_targets;
 
 	std::vector<std::unique_ptr<tracy::VkCtxScope>> tracy_debug_label_stack;
 };

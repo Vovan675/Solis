@@ -101,7 +101,7 @@ void CubesDemo::initResources()
 		texture->load((std::string("assets/demo/checker_") + std::to_string(i + 1) + ".png").c_str());
 		checker_textures.push_back(texture);
 
-		gDynamicRHI->getBindlessResources()->addTexture(texture.get());
+		gDynamicRHI->getBindlessResources()->addTexture(texture);
 	}
 
 	// Bindless
@@ -133,10 +133,10 @@ void CubesDemo::render(RHICommandList *cmd_list)
 		texture->transitLayout(cmd_list, TEXTURE_LAYOUT_SHADER_READ);
 
 	// Set swapchain color image layout for writing
-	auto swapchain_texture = gDynamicRHI->getCurrentSwapchainTexture();
+	RHITextureRef swapchain_texture = gDynamicRHI->getCurrentSwapchainTexture();
 	swapchain_texture->transitLayout(cmd_list, TEXTURE_LAYOUT_ATTACHMENT);
 	depth_stencil_texture->transitLayout(cmd_list, TEXTURE_LAYOUT_ATTACHMENT);
-	cmd_list->setRenderTargets({swapchain_texture}, {depth_stencil_texture}, 0, 0, true);
+	cmd_list->setRenderTargets({swapchain_texture.getReference()}, {depth_stencil_texture.getReference()}, 0, 0, true);
 
 	// Set PSO
 	bool use_precached_pso = false;
@@ -164,7 +164,7 @@ void CubesDemo::render(RHICommandList *cmd_list)
 	float aspect = (float)swapchain_texture->getWidth() / (float)swapchain_texture->getHeight();
 	glm::mat4 view_proj = glm::perspectiveLH(glm::radians(45.0f), aspect, 0.01f, 100.0f) * glm::lookAtLH(glm::vec3(2.0f * sin(value), 0.0f, 5.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 
-	auto render_cube_at_position = [&](glm::vec3 pos, std::shared_ptr<RHITexture> texture, std::shared_ptr<RHITexture> texture2)
+	auto render_cube_at_position = [&](glm::vec3 pos, RHITextureRef texture, RHITextureRef texture2)
 	{
 		glm::mat4 model = glm::translate(pos) * glm::scale(glm::vec3(0.2f));
 		glm::mat4 mvp = view_proj * model;
@@ -201,7 +201,7 @@ void CubesDemo::renderBindless(RHICommandList *cmd_list)
 	auto swapchain_texture = gDynamicRHI->getCurrentSwapchainTexture();
 	swapchain_texture->transitLayout(cmd_list, TEXTURE_LAYOUT_ATTACHMENT);
 	depth_stencil_texture->transitLayout(cmd_list, TEXTURE_LAYOUT_ATTACHMENT);
-	cmd_list->setRenderTargets({swapchain_texture}, {depth_stencil_texture}, 0, 0, true);
+	cmd_list->setRenderTargets({swapchain_texture.getReference()}, {depth_stencil_texture.getReference()}, 0, 0, true);
 
 	// Set PSO
 	bool use_precached_pso = true;
@@ -229,7 +229,7 @@ void CubesDemo::renderBindless(RHICommandList *cmd_list)
 	float aspect = (float)swapchain_texture->getWidth() / (float)swapchain_texture->getHeight();
 	glm::mat4 view_proj = glm::perspectiveLH(glm::radians(45.0f), aspect, 0.01f, 100.0f) * glm::lookAtLH(glm::vec3(2.0f * sin(value), 0.0f, 5.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 
-	auto render_cube_at_position = [&](glm::vec3 pos, std::shared_ptr<RHITexture> texture, std::shared_ptr<RHITexture> texture2)
+	auto render_cube_at_position = [&](glm::vec3 pos, RHITextureRef texture, RHITextureRef texture2)
 	{
 		alignas(16) struct Uniform
 		{
@@ -242,8 +242,8 @@ void CubesDemo::renderBindless(RHICommandList *cmd_list)
 		glm::mat4 mvp = view_proj * model;
 
 		uniform.mvp = mvp;
-		uniform.texture_index = gDynamicRHI->getBindlessResources()->getTextureIndex(texture.get());
-		uniform.texture2_index = gDynamicRHI->getBindlessResources()->getTextureIndex(texture2.get());
+		uniform.texture_index = gDynamicRHI->getBindlessResources()->getTextureIndex(texture);
+		uniform.texture2_index = gDynamicRHI->getBindlessResources()->getTextureIndex(texture2);
 
 		gDynamicRHI->setConstantBufferData(0, &uniform, sizeof(uniform));
 		gDynamicRHI->setTexture(1, texture);
@@ -309,7 +309,7 @@ void RenderTargetsDemo::render(RHICommandList *cmd_list)
 
 	result_texture->transitLayout(cmd_list, TEXTURE_LAYOUT_ATTACHMENT);
 	depth_stencil_texture->transitLayout(cmd_list, TEXTURE_LAYOUT_ATTACHMENT);
-	cmd_list->setRenderTargets({result_texture}, {depth_stencil_texture}, 0, 0, true);
+	cmd_list->setRenderTargets({result_texture.getReference()}, {depth_stencil_texture.getReference()}, 0, 0, true);
 
 	// PSO
 	gGlobalPipeline->reset();

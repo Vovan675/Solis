@@ -17,7 +17,7 @@ class SkyRenderer: public RendererBase
 {
 public:
 	SkyRenderer();
-
+	~SkyRenderer() {}
 	void addProceduralPasses(FrameGraph &fg);
 	void addCompositePasses(FrameGraph &fg);
 	void renderImgui();
@@ -32,12 +32,12 @@ public:
 		glm::vec3 sun_direction = glm::vec3(1, 0.7, 0);
 	} procedural_uniforms;
 
-	std::shared_ptr<RHITexture> cube_texture;
+	RHITextureRef cube_texture;
 private:
-	std::shared_ptr<RHIShader> vertex_shader;
-	std::shared_ptr<RHIShader> fragment_shader;
+	RHIShaderRef vertex_shader;
+	RHIShaderRef fragment_shader;
 
-	std::shared_ptr<Engine::Mesh> mesh;
+	Engine::Mesh *mesh;
 	SKY_MODE mode;
 
 	Uniforms prev_uniform;

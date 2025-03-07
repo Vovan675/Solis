@@ -7,7 +7,7 @@
 #include <glm/gtc/type_ptr.hpp>
 #include "Application.h"
 
-bool ViewportPanel::renderImGui(EditorContext context, float delta_time)
+bool ViewportPanel::renderImGui(EditorContext &context, float delta_time)
 {
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
 	ImGui::Begin((std::string(ICON_FA_EXPAND) + " Viewport###Viewport").c_str());
@@ -35,14 +35,14 @@ bool ViewportPanel::renderImGui(EditorContext context, float delta_time)
 		viewport_texture = gDynamicRHI->createTexture(description);
 		viewport_texture->fill();
 		viewport_texture->setDebugName("Viewport Texture");
-		gDynamicRHI->getBindlessResources()->addTexture(viewport_texture.get());
+		gDynamicRHI->getBindlessResources()->addTexture(viewport_texture);
 	}
 
 	if (viewport_texture)
 		ImGui::Image(ImGuiWrapper::getTextureId(viewport_texture), viewport_size);
 
 	Renderer::setViewportSize({viewport_size.x, viewport_size.y});
-	context.editor_camera->setAspect(viewport_size.x / viewport_size.y);
+	context.editor_camera.setAspect(viewport_size.x / viewport_size.y);
 
 	// ImGuizmo
 	Entity &selected_entity = context.selected_entity;
@@ -53,13 +53,13 @@ bool ViewportPanel::renderImGui(EditorContext context, float delta_time)
 		ImGuizmo::SetDrawlist();
 		ImGuizmo::SetRect(viewport_pos.x, viewport_pos.y, viewport_size.x, viewport_size.y);
 
-		glm::mat4 proj = context.editor_camera->getProj();
+		glm::mat4 proj = context.editor_camera.getProj();
 
 		glm::mat4 delta_transform;
 		glm::mat4 transform = selected_entity.getWorldTransformMatrix();
 
 		ImGuizmo::SetOrthographic(false);
-		if (ImGuizmo::Manipulate(glm::value_ptr(context.editor_camera->getView()), glm::value_ptr(proj), guizmo_tool_type, ImGuizmo::WORLD, glm::value_ptr(transform), glm::value_ptr(delta_transform)))
+		if (ImGuizmo::Manipulate(glm::value_ptr(context.editor_camera.getView()), glm::value_ptr(proj), guizmo_tool_type, ImGuizmo::WORLD, glm::value_ptr(transform), glm::value_ptr(delta_transform)))
 		{
 			//
 			glm::vec3 dposition, drotation, dscale;

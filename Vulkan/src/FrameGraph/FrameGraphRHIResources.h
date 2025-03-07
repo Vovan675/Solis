@@ -32,7 +32,7 @@ public:
 
 		std::string debug_name;
 	};
-	std::shared_ptr<RHITexture> texture;
+	RHITexture *texture;
 
 
 	void create(const Description &desc)
@@ -45,7 +45,7 @@ public:
 			texture->fill();
 		}
 		texture->setDebugName(desc.debug_name.c_str());
-		gDynamicRHI->getBindlessResources()->addTexture(texture.get());
+		gDynamicRHI->getBindlessResources()->addTexture(texture);
 
 		if (strcmp(texture->getDebugName(), "SSAO Raw Image") == 0)
 		{
@@ -91,11 +91,11 @@ public:
 	
 	uint32_t addToBindless() const
 	{
-		return gDynamicRHI->getBindlessResources()->addTexture(texture.get());
+		return gDynamicRHI->getBindlessResources()->addTexture(texture);
 	}
 
 	uint32_t getBindlessId() const
 	{
-		return gDynamicRHI->getBindlessResources()->getTextureIndex(texture.get());
+		return gDynamicRHI->getBindlessResources()->getTextureIndex(texture);
 	}
 };

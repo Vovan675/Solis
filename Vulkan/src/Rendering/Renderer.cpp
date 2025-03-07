@@ -5,10 +5,10 @@
 
 RendererDebugInfo Renderer::prev_debug_info = {};
 RendererDebugInfo Renderer::debug_info = {};
-std::array<std::shared_ptr<RHITexture>, RENDER_TARGET_TEXTURES_COUNT> Renderer::screen_resources;
+std::array<RHITextureRef, RENDER_TARGET_TEXTURES_COUNT> Renderer::screen_resources;
 
 Renderer::DefaultUniforms Renderer::default_uniforms;
-std::shared_ptr<Camera> Renderer::camera;
+Camera *Renderer::camera;
 
 std::array<std::vector<std::pair<RESOURCE_TYPE, void *>>, MAX_FRAMES_IN_FLIGHT> Renderer::deletion_queue;
 int Renderer::current_frame_in_flight = 0;
@@ -96,7 +96,7 @@ void Renderer::deleteResources(unsigned int frame_in_flight)
 	}
 }
 
-void Renderer::setShadersAccelerationStructure(std::vector<std::shared_ptr<RHIShader>> shaders, VkAccelerationStructureKHR *acceleration_structure, unsigned int binding)
+void Renderer::setShadersAccelerationStructure(std::vector<RHIShaderRef> shaders, VkAccelerationStructureKHR *acceleration_structure, unsigned int binding)
 {
 	// TODO:
 	//auto descriptor_layout = VkWrapper::getDescriptorLayout(shaders);
@@ -116,7 +116,7 @@ void Renderer::setShadersAccelerationStructure(std::vector<std::shared_ptr<RHISh
 	//writer.updateSet(descriptors[descriptor_hash][current_frame_in_flight].descriptor_per_offset[offset]);
 }
 
-void Renderer::setShadersStorageBuffer(std::vector<std::shared_ptr<RHIShader>> shaders, unsigned int binding, void *params_struct, size_t params_size)
+void Renderer::setShadersStorageBuffer(std::vector<RHIShaderRef> shaders, unsigned int binding, void *params_struct, size_t params_size)
 {
 	/*
 	auto descriptor_layout = VkWrapper::getDescriptorLayout(shaders);
@@ -163,7 +163,7 @@ void Renderer::setShadersStorageBuffer(std::vector<std::shared_ptr<RHIShader>> s
 	*/
 }
 
-void Renderer::setShadersStorageBuffer(std::vector<std::shared_ptr<RHIShader>> shaders, unsigned int binding, std::shared_ptr<RHIBuffer> buffer)
+void Renderer::setShadersStorageBuffer(std::vector<RHIShaderRef> shaders, unsigned int binding, RHIBufferRef buffer)
 {
 	/*
 	auto descriptor_layout = VkWrapper::getDescriptorLayout(shaders);
@@ -198,7 +198,7 @@ void Renderer::setShadersStorageBuffer(std::vector<std::shared_ptr<RHIShader>> s
 	*/
 }
 
-void Renderer::setShadersUniformBuffer(std::vector<std::shared_ptr<RHIShader>> shaders, unsigned int binding, void *params_struct, size_t params_size)
+void Renderer::setShadersUniformBuffer(std::vector<RHIShaderRef> shaders, unsigned int binding, void *params_struct, size_t params_size)
 {
 	/*
 	auto descriptor_layout = VkWrapper::getDescriptorLayout(shaders);
@@ -246,7 +246,7 @@ void Renderer::setShadersUniformBuffer(std::vector<std::shared_ptr<RHIShader>> s
 	*/
 }
 
-void Renderer::setShadersTexture(std::vector<std::shared_ptr<RHIShader>> shaders, unsigned int binding, std::shared_ptr<RHITexture> texture, int mip, int face, bool is_uav)
+void Renderer::setShadersTexture(std::vector<RHIShaderRef> shaders, unsigned int binding, RHITextureRef texture, int mip, int face, bool is_uav)
 {
 	// TODO: fix
 	/*
@@ -275,7 +275,7 @@ void Renderer::setShadersTexture(std::vector<std::shared_ptr<RHIShader>> shaders
 	*/
 }
 
-void Renderer::bindShadersDescriptorSets(std::vector<std::shared_ptr<RHIShader>> shaders, RHICommandList *cmd_list, VkPipelineLayout pipeline_layout, VkPipelineBindPoint bind_point)
+void Renderer::bindShadersDescriptorSets(std::vector<RHIShaderRef> shaders, RHICommandList *cmd_list, VkPipelineLayout pipeline_layout, VkPipelineBindPoint bind_point)
 {
 	// TODO:
 	//// Bind bindless

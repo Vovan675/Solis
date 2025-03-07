@@ -113,13 +113,13 @@ namespace YAML
 	}
 }
 
-std::shared_ptr<Scene> Scene::current_scene;
+Ref<Scene> Scene::current_scene;
 
 using namespace physx;
 
 Scene::Scene()
 {
-	physics_scene = std::make_shared<PhysicsScene>(this);
+	physics_scene = new PhysicsScene(this);
 }
 
 Scene::~Scene()
@@ -184,9 +184,9 @@ static void copy_component(entt::registry &src, entt::registry &dst)
 	}(), ...);
 }
 
-std::shared_ptr<Scene> Scene::copy()
+Ref<Scene> Scene::copy()
 {
-	auto scene = std::make_shared<Scene>();
+	auto scene = new Scene();
 
 	// Copy all entities & components
 	auto view = registry.view<TransformComponent>();
@@ -243,7 +243,7 @@ void Scene::loadFile(const std::string &filename)
 		{
 			auto &c = engine_entity.addComponent<MeshRendererComponent>();
 			c.meshes = comp["Meshes"].as<std::vector<MeshRendererComponent::MeshId>>();
-			c.materials = comp["Materials"].as<std::vector<std::shared_ptr<Material>>>();
+			c.materials = comp["Materials"].as<std::vector<Ref<Material>>>();
 		}
 
 		comp = entity["LightComponent"];
@@ -277,9 +277,9 @@ void Scene::loadFile(const std::string &filename)
 	}
 }
 
-std::shared_ptr<Scene> Scene::loadScene(const std::string &filename)
+Ref<Scene> Scene::loadScene(const std::string &filename)
 {
-	current_scene = std::make_shared<Scene>();
+	current_scene = new Scene();
 	current_scene->loadFile(filename);
 	return current_scene;
 }

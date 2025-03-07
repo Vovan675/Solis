@@ -31,8 +31,8 @@ public:
 
 private:
 	void render_entity(RHICommandList *cmd_list, Entity entityx);
-	std::shared_ptr<RHIShader> vertex_shader;
-	std::shared_ptr<RHIShader> fragment_shader;
-	std::shared_ptr<Material> default_material;
+	RHIShaderRef vertex_shader;
+	RHIShaderRef fragment_shader;
+	Ref<Material> default_material;
 };
 

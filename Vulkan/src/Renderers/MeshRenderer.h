@@ -9,7 +9,7 @@
 class MeshRenderer : public RendererBase
 {
 public:
-	MeshRenderer(std::shared_ptr<Engine::Mesh> mesh);
+	MeshRenderer(Ref<Engine::Mesh> mesh);
 	virtual ~MeshRenderer();
 
 	void fillCommandBuffer(RHICommandList *cmd_list) override;
@@ -17,7 +17,7 @@ public:
 	void setPosition(glm::vec3 pos) { position = pos; }
 	void setRotation(glm::quat rot) { rotation = rot; }
 	void setScale(glm::vec3 scale) { this->scale = scale; }
-	void setMaterial(Material mat) { this->mat = mat; }
+	void setMaterial(Material *mat) { this->mat = mat; }
 
 private:
 	struct PushConstant
@@ -25,15 +25,15 @@ private:
 		alignas(16) glm::mat4 model;
 	};
 
-	std::shared_ptr<RHIShader> vertex_shader;
-	std::shared_ptr<RHIShader> fragment_shader;
+	RHIShaderRef vertex_shader;
+	RHIShaderRef fragment_shader;
 
-	std::shared_ptr<Texture> texture;
-	std::shared_ptr<Engine::Mesh> mesh;
+	RHITextureRef texture;
+	Ref<Engine::Mesh> mesh;
 
 	glm::vec3 position = glm::vec3(0.0f);
 	glm::quat rotation = glm::quat();
 	glm::vec3 scale = glm::vec3(1.0f);
-	Material mat {};
+	Material *mat {};
 };
 

@@ -2,12 +2,12 @@
 #include "Components.h"
 #include "Model.h"
 
-std::shared_ptr<Engine::Mesh> MeshRendererComponent::MeshId::getMesh()
+Engine::Mesh *MeshRendererComponent::MeshId::getMesh()
 {
     return model->getMesh(mesh_id);
 }
 
-void MeshRendererComponent::setFromMeshNode(std::shared_ptr<Model> model, MeshNode *mesh_node)
+void MeshRendererComponent::setFromMeshNode(Ref<Model> model, MeshNode *mesh_node)
 {
 	meshes.clear();
 	materials.clear();

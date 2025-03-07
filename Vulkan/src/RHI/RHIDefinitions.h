@@ -1,4 +1,5 @@
 #pragma once
+#include "Core/Core.h"
 #include "EngineMath.h"
 
 static const int MAX_FRAMES_IN_FLIGHT = 2;
@@ -148,3 +149,16 @@ enum RESOURCE_TYPE
 	RESOURCE_TYPE_ROOT_SIGNATURE,
 	RESOURCE_TYPE_PIPELINE_LAYOUT,
 };
+
+class RHISwapchain;
+class RHIShader;
+class RHIPipeline;
+class RHIBuffer;
+class RHITexture;
+class RHIBindlessResources;
+
+using RHISwapchainRef = Ref<RHISwapchain>;
+using RHIShaderRef = Ref<RHIShader>;
+using RHIPipelineRef = Ref<RHIPipeline>;
+using RHIBufferRef = Ref<RHIBuffer>;
+using RHITextureRef = Ref<RHITexture>;

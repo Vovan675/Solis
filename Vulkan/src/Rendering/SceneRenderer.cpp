@@ -12,12 +12,12 @@ SceneRenderer::SceneRenderer()
 
 	if (engine_ray_tracing)
 	{
-		///ray_tracing_scene = std::make_shared<RayTracingScene>(nullptr);
+		///ray_tracing_scene = new RayTracingScene(nullptr);
 		//shadow_renderer.ray_tracing_scene = ray_tracing_scene;
 	}
 }
 
-void SceneRenderer::render(std::shared_ptr<Camera> camera, std::shared_ptr<RHITexture> result_texture)
+void SceneRenderer::render(Camera *camera, RHITextureRef result_texture)
 {
 	PROFILE_CPU_FUNCTION();
 	PROFILE_GPU_FUNCTION(gDynamicRHI->getCmdList());
@@ -38,8 +38,10 @@ void SceneRenderer::render(std::shared_ptr<Camera> camera, std::shared_ptr<RHITe
 
 			for (int i = 0; i < mesh_renderer.meshes.size(); i++)
 			{
-				const std::shared_ptr<Engine::Mesh> mesh = mesh_renderer.meshes[i].getMesh();
-				const auto material = mesh_renderer.materials.size() > i ? mesh_renderer.materials[i] : std::make_shared<Material>();
+				Engine::Mesh *mesh = mesh_renderer.meshes[i].getMesh();
+				if (mesh == nullptr)
+					continue;
+				Material *material = mesh_renderer.materials.size() > i ? mesh_renderer.materials[i] : new Material();
 
 				RenderBatch &batch = render_batches.emplace_back();
 				batch.mesh = mesh;
@@ -93,7 +95,7 @@ void SceneRenderer::render(std::shared_ptr<Camera> camera, std::shared_ptr<RHITe
 
 	// Shadows
 	{
-		shadow_renderer.camera = camera.get();
+		shadow_renderer.camera = camera;
 		if (render_shadows)
 			shadow_renderer.addShadowMapPasses(frameGraph, render_batches);
 

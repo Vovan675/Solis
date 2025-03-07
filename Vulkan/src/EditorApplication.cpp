@@ -24,13 +24,13 @@ static bool is_play = false;
 
 EditorApplication::EditorApplication(int argc, char *argv[]) : Application(argc, argv)
 {
-	context.editor_camera = std::make_shared<Camera>();
-	Renderer::setCamera(context.editor_camera);
+	context.editor_camera = Camera(glm::vec3(0, 2, 0));
+	Renderer::setCamera(&context.editor_camera);
 
-	Scene::setCurrentScene(std::make_shared<Scene>());
+	Scene::setCurrentScene(new Scene());
 	EditorDefaultScene::createScene();
 
-	scene_renderer = std::make_shared<SceneRenderer>();
+	scene_renderer = new SceneRenderer();
 
 	debug_panel.sky_renderer = &scene_renderer->sky_renderer;
 	debug_panel.defferred_lighting_renderer = &scene_renderer->defferred_lighting_renderer;
@@ -62,7 +62,7 @@ void EditorApplication::update(float delta_time)
 				std::string path = Filesystem::openFileDialog();
 				if (!path.empty())
 				{
-					Scene::setCurrentScene(std::make_shared<Scene>());
+					Scene::setCurrentScene(new Scene());
 					Scene::getCurrentScene()->loadFile(path);
 				}
 			}
@@ -131,13 +131,13 @@ void EditorApplication::update(float delta_time)
 		double mouse_x, mouse_y;
 		glfwGetCursorPos(window, &mouse_x, &mouse_y);
 		bool mouse_pressed = prev_is_viewport_focused != is_viewport_focused ? 0 : glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_1) == GLFW_PRESS;
-		context.editor_camera->update(delta_time, glm::vec2(mouse_x, mouse_y), mouse_pressed);
+		context.editor_camera.update(delta_time, glm::vec2(mouse_x, mouse_y), mouse_pressed);
 	}
-	context.editor_camera->updateMatrices();
+	context.editor_camera.updateMatrices();
 
 	prev_is_viewport_focused = is_viewport_focused;
 
-	static std::shared_ptr<Scene> saved_scene = nullptr;
+	static Ref<Scene> saved_scene = nullptr;
 	if (play_clicked)
 	{
 		context.selected_entity = Entity();
@@ -166,15 +166,15 @@ void EditorApplication::update(float delta_time)
 void EditorApplication::updateBuffers(float delta_time)
 {
 	Renderer::updateDefaultUniforms(delta_time);
-	scene_renderer->ssao_renderer.ubo_raw_pass.near_plane = context.editor_camera->getNear();
-	scene_renderer->ssao_renderer.ubo_raw_pass.far_plane = context.editor_camera->getFar();
+	scene_renderer->ssao_renderer.ubo_raw_pass.near_plane = context.editor_camera.getNear();
+	scene_renderer->ssao_renderer.ubo_raw_pass.far_plane = context.editor_camera.getFar();
 }
 
 
 void EditorApplication::recordCommands(RHICommandList *cmd_list)
 {
 	scene_renderer->setScene(Scene::getCurrentScene());
-	scene_renderer->render(context.editor_camera, viewport_panel.viewport_texture);
+	scene_renderer->render(&context.editor_camera, viewport_panel.viewport_texture);
 
 	FrameGraph frameGraph;
 
@@ -213,4 +213,7 @@ void EditorApplication::cleanupResources()
 	shadow_renderer.ray_tracing_scene = nullptr;
 	ray_tracing_scene = nullptr;
 	*/
+
+	scene_renderer = nullptr;
+	viewport_panel.viewport_texture = nullptr;
 }

@@ -10,7 +10,7 @@ public:
 	static void begin();
 	static void render(RHICommandList *cmd_list);
 
-	static ImTextureID getTextureId(std::shared_ptr<RHITexture> tex);
+	static ImTextureID getTextureId(RHITextureRef tex);
 private:
 	static VkDescriptorPool descriptor_pool;
 	
