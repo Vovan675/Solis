@@ -1,0 +1,49 @@
+- Entity: 2097152
+- Entity: 2097161
+- Entity: 2097160
+- Entity: 2097159
+- Entity: 2097157
+- Entity: 2097156
+- Entity: 2097158
+- Entity: 2097155
+- Entity: 2097153
+- Entity: 2097154
+- Entity: 11
+  TransformComponent:
+    Name: New Entity
+    Position: [0, 0, 0]
+    Rotation: [-0.707106769, 0, 0, 0.707106769]
+    RotationEuler: [-1.57079637, 0, 0]
+    Scale: [1, 1, 1]
+    Parent: 4294967295
+    Children:
+      []
+  MeshRendererComponent:
+    Meshes:
+      - ModelPath: C:\Projects\Personal\LearnVulkan\Vulkan\assets\cerberus\Cerberus_LP.FBX
+        MeshId: 14490699412619261250
+    Materials:
+      - Albedo: [0.588235319, 0.588235319, 0.588235319, 1]
+        Metalness: 1
+        Roughness: 0
+        Specular: 0.5
+        Normal: 0.5
+        AlbedoTexture: C:\Projects\Personal\LearnVulkan\Vulkan\assets\cerberus\Textures\Cerberus_A.tga
+        MetalnessTexture: C:\Projects\Personal\LearnVulkan\Vulkan\assets\cerberus\Textures\Cerberus_M.tga
+        RoughnessTexture: C:\Projects\Personal\LearnVulkan\Vulkan\assets\cerberus\Textures\Cerberus_R.tga
+        NormalTexture: C:\Projects\Personal\LearnVulkan\Vulkan\assets\cerberus\Textures\Cerberus_N.tga
+- Entity: 10
+  TransformComponent:
+    Name: Point Light
+    Position: [0, 0, 0]
+    Rotation: [0.353412569, 0.353412569, 0.146305859, 0.853694141]
+    RotationEuler: [0.954753458, 0.523598552, 0.614916623]
+    Scale: [1, 1, 1]
+    Parent: 4294967295
+    Children:
+      []
+  LightComponent:
+    Type: 1
+    Color: [0.992156863, 0.984313726, 0.827450991]
+    Intensity: 1
+    Radius: 10

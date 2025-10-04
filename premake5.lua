@@ -1,4 +1,4 @@
-workspace "LearnVulkan"
+workspace "RenderingEngine"
 	architecture "x64"
 
 	configurations
@@ -33,9 +33,11 @@ IncludeDir["PhysX"] = "vendor/physx/physx/include"
 IncludeDir["SPIRV_Reflect"] = "vendor/spirv-reflect"
 IncludeDir["Tracy"] = "vendor/tracy"
 IncludeDir["WinPixRuntime"] = "vendor/WinPixEventRuntime"
+IncludeDir["Compressonator"] = "vendor/Compressonator/include"
 
 LibDir = {}
 LibDir["Vulkan"] = "%{VULKAN_SDK}/Lib"
+LibDir["Compressonator"] = "vendor/Compressonator/lib/bin/x64"
 
 group "Dependencies"
 include "vendor/GLFW"
@@ -55,8 +57,8 @@ function copy_file_to_target_dir(from_dir, folder, name)
 	}
 end
 
-project "Vulkan"
-	location "Vulkan"
+project "Engine"
+	location "Engine"
 	kind "ConsoleApp"
 	language "C++"
 	cppdialect "C++17"
@@ -66,7 +68,7 @@ project "Vulkan"
 	objdir ("bin-int/" .. outputdir .. "/%{prj.name}")
 
 	pchheader "pch.h"
-	pchsource "Vulkan/src/pch.cpp"
+	pchsource "Engine/src/pch.cpp"
 	
 	files
 	{
@@ -81,7 +83,7 @@ project "Vulkan"
 
 	includedirs
 	{
-		"Vulkan/src",
+		"Engine/src",
 		"%{IncludeDir.GLFW}",
 		"%{IncludeDir.GLM}",
 		"%{IncludeDir.Vulkan}",
@@ -97,11 +99,13 @@ project "Vulkan"
 		"%{IncludeDir.SPIRV_Reflect}",
 		"%{IncludeDir.Tracy}/tracy",
 		"%{IncludeDir.WinPixRuntime}/include",
+		"%{IncludeDir.Compressonator}",
 	}
 
 	libdirs
 	{
-		"%{IncludeDir.WinPixRuntime}/lib"
+		"%{IncludeDir.WinPixRuntime}/lib",
+		"%{LibDir.Compressonator}"
 	}
 
 	links
@@ -148,13 +152,22 @@ project "Vulkan"
 			"DEBUG",
 			"_DEBUG"
 		}
+		links
+		{
+			"Compressonator_MTd.lib",
+		}
 
 	filter "configurations:Fast Debug"
 		editandcontinue "Off"
 		symbols "On"
 		defines
 		{
-			"TRACY_ENABLE"
+			"TRACY_ENABLE",
+			"TRACY_ON_DEMAND"
+		}
+		links
+		{
+			"Compressonator_MTd.lib",
 		}
 
 	filter "configurations:Release"
@@ -162,5 +175,10 @@ project "Vulkan"
 		defines
 		{
 			"TRACY_ENABLE",
+			"TRACY_ON_DEMAND",
 			"NDEBUG"
+		}
+		links
+		{
+			"Compressonator_MT.lib",
 		}

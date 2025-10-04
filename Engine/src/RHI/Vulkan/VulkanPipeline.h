@@ -1,0 +1,27 @@
+#pragma once
+#include "RHI/RHIPipeline.h"
+#include "VulkanResources.h"
+
+class VulkanPipeline final: public RHIPipeline
+{
+public:
+	~VulkanPipeline();
+
+	void destroy();
+	
+	void create(const PipelineDescription &description) override;
+
+	PipelineDescription description;
+
+	std::unique_ptr<VkPipelineResource> resource;
+	DescriptorLayout descriptor_layout;
+
+	std::vector<Descriptor> descriptors;
+
+	// TODO: refactor
+	std::vector<VkRayTracingShaderGroupCreateInfoKHR> shaderGroups{};
+
+	RHIBufferRef raygenShaderBindingTable;
+	RHIBufferRef missShaderBindingTable;
+	RHIBufferRef hitShaderBindingTable;
+};

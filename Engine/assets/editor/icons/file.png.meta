@@ -1,0 +1,6 @@
+guid: 6788446944916539396
+runtime_guid: 17456362029037480135
+type: 1
+Parameters:
+  generate_mipmaps: 1
+  format: FORMAT_R8G8B8A8_SRGB

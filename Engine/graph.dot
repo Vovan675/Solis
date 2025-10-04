@@ -1,0 +1,106 @@
+digraph G {
+rankdir=LR;
+node [style=filled shape=record]
+Pass0[label=<{GBuffer Pass} | {Refs: 4<BR/>Index: 0}> fillcolor=orange style=<filled,rounded>]
+subgraph cluster_Pass0 {
+Pass0
+label = <GBuffer >
+Resource5_0
+Resource6_0
+Resource7_0
+Resource8_0
+}
+Pass1[label=<{Cascaded Shadows Pass} | {Refs: 1<BR/>Index: 1}> fillcolor=orange style=<filled,rounded>]
+Pass2[label=<{Deffered Lighting Pass} | {Refs: 2<BR/>Index: 2}> fillcolor=orange style=<filled,rounded>]
+subgraph cluster_Pass2 {
+Pass2
+label = <Deffered Lighting >
+Resource10_0
+Resource11_0
+}
+Pass3[label=<{SSAO Raw Pass} | {Refs: 1<BR/>Index: 3}> fillcolor=orange style=<filled,rounded>]
+subgraph cluster_Pass3 {
+Pass3
+Resource12_0
+}
+Pass4[label=<{SSAO Blur Pass} | {Refs: 1<BR/>Index: 4}> fillcolor=orange style=<filled,rounded>]
+subgraph cluster_Pass4 {
+Pass4
+Resource13_0
+}
+Pass5[label=<{Sky Pass} | {Refs: 1<BR/>Index: 5}> fillcolor=orange style=<filled,rounded>]
+subgraph cluster_Pass5 {
+Pass5
+Resource14_0
+}
+Pass6[label=<{Composite Indirect Pass} | {Refs: 2<BR/>Index: 6}> fillcolor=orange style=<filled,rounded>]
+subgraph cluster_Pass6 {
+Pass6
+label = <Composite Indirect >
+Resource15_0
+Resource16_0
+}
+Pass7[label=<{Deffered Composite Pass} | {Refs: 1<BR/>Index: 7}> fillcolor=orange style=<filled,rounded>]
+Pass8[label=<{Film Pass} | {Refs: 1<BR/>Index: 8}> fillcolor=orange style=<filled,rounded>]
+subgraph cluster_Pass8 {
+Pass8
+Resource17_0
+}
+Pass9[label=<{FXAA Pass} | {Refs: 1<BR/>Index: 9}> fillcolor=orange style=<filled,rounded>]
+Pass10[label=<{Debug Visualizer Pass} | {Refs: 1<BR/>Index: 10}> fillcolor=orange style=<filled,rounded>]
+Resource0_0[label=<{Viewport Texture (0)} | {Refs: 1<BR/>Index: 0}> fillcolor=skyblue]
+Resource1_0[label=<{Sky Texture (0)} | {Refs: 1<BR/>Index: 1}> fillcolor=skyblue]
+Resource2_0[label=<{IBL BRDF LUT Image (0)} | {Refs: 1<BR/>Index: 2}> fillcolor=skyblue]
+Resource3_0[label=<{IBL Irradiance Image (0)} | {Refs: 1<BR/>Index: 3}> fillcolor=skyblue]
+Resource4_0[label=<{IBL Prefilter Image (0)} | {Refs: 1<BR/>Index: 4}> fillcolor=skyblue]
+Resource5_0[label=<{GBuffer Albedo Image (0)} | {Refs: 3<BR/>Index: 5}> fillcolor=skyblue]
+Resource6_0[label=<{GBuffer Normal Image (0)} | {Refs: 3<BR/>Index: 6}> fillcolor=skyblue]
+Resource7_0[label=<{GBuffer Shading Image (0)} | {Refs: 2<BR/>Index: 7}> fillcolor=skyblue]
+Resource8_0[label=<{GBuffer DepthStencil Image (0)} | {Refs: 4<BR/>Index: 8}> fillcolor=skyblue]
+Resource9_0[label=<{Cascaded Shadow Map (0)} | {Refs: 1<BR/>Index: 9}> fillcolor=skyblue]
+Resource9_1[label=<{Cascaded Shadow Map (1)} | {Refs: 1<BR/>Index: 9}> fillcolor=skyblue]
+Resource10_0[label=<{Lighting Diffuse Image (0)} | {Refs: 2<BR/>Index: 9}> fillcolor=skyblue]
+Resource11_0[label=<{Lighting Specular Image (0)} | {Refs: 2<BR/>Index: 10}> fillcolor=skyblue]
+Resource12_0[label=<{SSAO Raw Image (0)} | {Refs: 1<BR/>Index: 11}> fillcolor=skyblue]
+Resource13_0[label=<{SSAO Blurred Image (0)} | {Refs: 1<BR/>Index: 12}> fillcolor=skyblue]
+Resource14_0[label=<{No Post Final Image (0)} | {Refs: 1<BR/>Index: 13}> fillcolor=skyblue]
+Resource15_0[label=<{Indirect Ambient Image (0)} | {Refs: 1<BR/>Index: 14}> fillcolor=skyblue]
+Resource16_0[label=<{Indirect Specular Image (0)} | {Refs: 1<BR/>Index: 15}> fillcolor=skyblue]
+Resource14_1[label=<{No Post Final Image (1)} | {Refs: 1<BR/>Index: 13}> fillcolor=skyblue]
+Resource17_0[label=<{Film Pass Output (0)} | {Refs: 1<BR/>Index: 16}> fillcolor=skyblue]
+Resource0_1[label=<{Viewport Texture (1)} | {Refs: 1<BR/>Index: 0}> fillcolor=skyblue]
+Resource0_2[label=<{Viewport Texture (2)} | {Refs: 0<BR/>Index: 0}> fillcolor=skyblue]
+Pass0->{ Resource5_0 Resource6_0 Resource7_0 Resource8_0 } [color=orange]
+Pass1->{ Resource9_1 } [color=orange]
+Pass2->{ Resource10_0 Resource11_0 } [color=orange]
+Pass3->{ Resource12_0 } [color=orange]
+Pass4->{ Resource13_0 } [color=orange]
+Pass5->{ Resource14_0 } [color=orange]
+Pass6->{ Resource15_0 Resource16_0 } [color=orange]
+Pass7->{ Resource14_1 } [color=orange]
+Pass8->{ Resource17_0 } [color=orange]
+Pass9->{ Resource0_1 } [color=orange]
+Pass10->{ Resource0_2 } [color=orange]
+Resource0_0->{ Pass9 } [color=yellowgreen]
+Resource1_0->{ Pass5 } [color=yellowgreen]
+Resource2_0->{ Pass6 } [color=yellowgreen]
+Resource3_0->{ Pass6 } [color=yellowgreen]
+Resource4_0->{ Pass6 } [color=yellowgreen]
+Resource5_0->{ Pass2 Pass6 Pass7 } [color=yellowgreen]
+Resource6_0->{ Pass2 Pass3 Pass6 } [color=yellowgreen]
+Resource7_0->{ Pass2 Pass6 } [color=yellowgreen]
+Resource8_0->{ Pass2 Pass3 Pass6 Pass7 } [color=yellowgreen]
+Resource9_0->{ Pass1 } [color=yellowgreen]
+Resource9_1->{ Pass2 } [color=yellowgreen]
+Resource10_0->{ Pass6 Pass7 } [color=yellowgreen]
+Resource11_0->{ Pass6 Pass7 } [color=yellowgreen]
+Resource12_0->{ Pass4 } [color=yellowgreen]
+Resource13_0->{ Pass6 } [color=yellowgreen]
+Resource14_0->{ Pass7 } [color=yellowgreen]
+Resource15_0->{ Pass7 } [color=yellowgreen]
+Resource16_0->{ Pass7 } [color=yellowgreen]
+Resource14_1->{ Pass8 } [color=yellowgreen]
+Resource17_0->{ Pass9 } [color=yellowgreen]
+Resource0_1->{ Pass10 } [color=yellowgreen]
+Resource0_2->{ } [color=yellowgreen]
+}

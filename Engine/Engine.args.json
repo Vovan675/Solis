@@ -1,0 +1,31 @@
+{
+  "FileVersion": 2,
+  "Id": "dbc7d3b0-c769-fe86-b024-12db9c6585d7",
+  "Items": [
+    {
+      "Id": "b6003448-d7b2-4423-b13e-1c56d9d2ac5b",
+      "Command": "RHI",
+      "ExclusiveMode": true,
+      "Items": [
+        {
+          "Id": "7694615b-3558-48f5-a26b-c5892755a5f7",
+          "Command": "-rhi vk"
+        },
+        {
+          "Id": "495d9351-b4e3-4dc5-87ad-04d4e0181927",
+          "Command": "-rhi dx12"
+        }
+      ]
+    },
+    {
+      "Id": "a3659ada-e533-40b2-96e9-7649efb09029",
+      "Command": "Validation",
+      "Items": [
+        {
+          "Id": "7dbd63e2-dae2-48e9-bacc-f27801aa1b85",
+          "Command": "-rhi_validation 1"
+        }
+      ]
+    }
+  ]
+}

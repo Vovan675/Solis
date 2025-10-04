@@ -1,0 +1,34 @@
+#pragma once
+#include "RHI/RHIAccelerationStructure.h"
+#include "DX12DescriptorHeap.h"
+
+class DX12BottomLevelAccelerationStructure final: public RHIBottomLevelAccelerationStructure
+{
+public:
+	~DX12BottomLevelAccelerationStructure()
+	{
+	}
+
+	void build(const std::vector<RayTracingGeometry> &geometries) override;
+
+	RHIBufferRef buffer;
+	RHIBufferRef scratch_buffer;
+};
+
+
+
+class DX12TopLevelAccelerationStructure final: public RHITopLevelAccelerationStructure
+{
+public:
+	~DX12TopLevelAccelerationStructure()
+	{
+	}
+
+	void build(bool update, const std::vector<RayTracingInstance> &instances) override;
+
+	RHIBufferRef instances_buffer;
+	RHIBufferRef buffer;
+	RHIBufferRef scratch_buffer;
+
+	DX12Descriptor shader_resource_view;
+};

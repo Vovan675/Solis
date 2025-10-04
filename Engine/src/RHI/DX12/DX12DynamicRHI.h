@@ -1,0 +1,245 @@
+#pragma once
+
+#include "RHI/DynamicRHI.h"
+#include "glm/glm.hpp"
+#include "RHI/BindlessResources.h"
+#include "DX12Swapchain.h"
+#include "DX12CommandQueue.h"
+#include "DX12CommandList.h"
+#include "DX12Shader.h"
+#include "DX12Texture.h"
+#include "DX12Pipeline.h"
+#include "DX12Buffer.h"
+#include "DX12AccelerationStructure.h"
+#include "DX12DescriptorHeap.h"
+#include "D3D12MemoryAllocator/D3D12MemAlloc.h"
+
+class DX12CommandQueue;
+class DX12CommandList;
+
+#define SAFE_RELEASE(x) { if ((x) != nullptr) { (x)->Release(); (x) = nullptr; } }
+
+class DX12DynamicRHI final: public DynamicRHI
+{
+public:
+	DX12DynamicRHI()
+	{
+		graphics_api = GRAPHICS_API_DX12;
+	}
+
+	// DynamicRHI
+	void init() override;
+	void shutdown() override;
+	const char *getName() override
+	{
+		return "DirectX 12";
+	}
+
+	// Inherited via DynamicRHI
+	RHISwapchainRef createSwapchain(GLFWwindow *window) override;
+	void resizeSwapchain(int width, int height) override;
+	RHIShaderRef createShader(std::wstring path, ShaderType type, std::wstring entry_point) override;
+	RHIShaderRef createShader(std::wstring path, ShaderType type, std::vector<std::pair<const char *, const char *>> defines) override;
+	RHIPipelineRef createPipeline() override;
+	RHIBufferRef createBuffer(BufferDescription description) override;
+	RHITextureRef createTexture(TextureDescription description) override;
+	RHIBottomLevelAccelerationStructureRef createBottomLevelAccelerationStructure() override;
+	RHITopLevelAccelerationStructureRef createTopLevelAccelerationStructure() override;
+
+	RHICommandList *getCmdList() override { return cmd_lists[frame_in_flight]; };
+	RHICommandList *getCmdListCopy() override { return cmd_list_copy; };
+
+	RHICommandQueue *getCmdQueue() override { return cmd_queue; };
+	RHICommandQueue *getCmdQueueCopy() override { return cmd_queue_copy; };
+
+	RHIBindlessResources *getBindlessResources() override { return bindless_resources; };
+
+	RHITextureRef getSwapchainTexture(int index) override { return swapchain->getTexture(index); }
+	RHITextureRef getCurrentSwapchainTexture() override { return swapchain->getTexture(image_index); }
+
+	void waitGPU() override;
+
+	void prepareRenderCall() override;
+
+	struct ShaderDataBuffer
+	{
+		RHIBufferRef buffer;
+		void *mapped_data;
+	};
+
+	struct ShaderDataBuffers
+	{
+		std::vector<ShaderDataBuffer> buffers;
+		uint32_t current_offset = 0;
+	};
+
+	std::unordered_map<size_t, ShaderDataBuffers> buffers_for_shaders;
+
+	void setConstantBufferData(unsigned int binding, void *params_struct, size_t params_size) override
+	{
+		DX12Pipeline *native_pso = static_cast<DX12Pipeline *>(cmd_lists[frame_in_flight]->current_pipeline);
+		DX12DynamicRHI *rhi = (DX12DynamicRHI *)gDynamicRHI;
+
+		// If no descriptor set for this shader, create it
+		size_t descriptor_hash = native_pso->getHash();
+		hash_combine(descriptor_hash, frame_in_flight); // TODO: add Frame Allocator for these buffers
+
+		// Create buffer if there is no for this descriptor and offset
+		auto &buffers = buffers_for_shaders[descriptor_hash];
+		
+		if (buffers.buffers.size() <= buffers.current_offset)
+		{
+			BufferDescription desc;
+			desc.size = params_size;
+			desc.useStagingBuffer = false;
+			desc.usage = BufferUsage::UNIFORM_BUFFER;
+			ShaderDataBuffer data_buffer;
+			data_buffer.buffer = gDynamicRHI->createBuffer(desc);
+			data_buffer.buffer->map(&data_buffer.mapped_data);
+
+			buffers.buffers.push_back(data_buffer);
+		}
+
+		// Now we have buffer for this data in this descriptor
+		auto &current_buffer = buffers.buffers[buffers.current_offset];
+		memcpy(current_buffer.mapped_data, params_struct, params_size);
+		buffers.current_offset++;
+
+		DX12CommandList *cmd_list_native = static_cast<DX12CommandList *>(rhi->getCmdList());
+		DX12Buffer *native_buffer = (DX12Buffer *)current_buffer.buffer.getReference();
+		current_bind_buffers[binding] = native_buffer;
+		current_bind_buffers_gpu_address[binding] = native_buffer->resource->resource->GetGPUVirtualAddress();
+		is_buffers_dirty = true;
+	}
+
+	void setConstantBufferDataPerFrame(unsigned int binding, void *params_struct, size_t params_size) override
+	{
+		DX12DynamicRHI *rhi = (DX12DynamicRHI *)gDynamicRHI;
+
+		size_t data_hash = 0;
+		hash_combine(data_hash, binding);
+		hash_combine(data_hash, params_size);
+		hash_combine(data_hash, frame_in_flight);
+
+		// Create buffer if there is no for this descriptor and offset
+		auto &buffers = buffers_for_shaders[data_hash];
+
+		if (buffers.buffers.size() <= buffers.current_offset)
+		{
+			BufferDescription desc;
+			desc.size = params_size;
+			desc.useStagingBuffer = false;
+			desc.usage = BufferUsage::UNIFORM_BUFFER;
+			ShaderDataBuffer data_buffer;
+			data_buffer.buffer = gDynamicRHI->createBuffer(desc);
+			data_buffer.buffer->map(&data_buffer.mapped_data);
+
+			buffers.buffers.push_back(data_buffer);
+		}
+
+		// Now we have buffer for this data in this descriptor
+		auto &current_buffer = buffers.buffers[buffers.current_offset];
+		memcpy(current_buffer.mapped_data, params_struct, params_size);
+		buffers.current_offset++;
+
+		DX12CommandList *cmd_list_native = static_cast<DX12CommandList *>(rhi->getCmdList());
+		DX12Buffer *native_buffer = (DX12Buffer *)current_buffer.buffer.getReference();
+		current_bind_buffers[binding] = native_buffer;
+		current_bind_buffers_gpu_address[binding] = native_buffer->resource->resource->GetGPUVirtualAddress();
+		is_buffers_dirty = true;
+	}
+
+	void setTexture(unsigned int binding, RHITextureRef texture) override
+	{
+		DX12Texture *native_texture = (DX12Texture *)texture.getReference();
+		current_bind_textures[binding] = texture.getReference();
+		current_bind_textures_descriptors[binding] = native_texture->shader_resource_view.getCpuHandle();
+		current_bind_textures_samplers[binding] = native_texture->sampler_view.getCpuHandle();
+		is_textures_dirty = true;
+	}
+
+	void setUAVTexture(unsigned int binding, RHITextureRef texture, int mip = 0) override
+	{
+		DX12Texture *native_texture = (DX12Texture *)texture.getReference();
+		current_bind_uav_textures[binding] = texture.getReference();
+		current_bind_uav_textures_descriptors[binding] = native_texture->getUnorderedAccessView(mip).getCpuHandle();
+		is_uav_textures_dirty = true;
+	}
+
+	void setAccelerationStructure(unsigned int binding, RHITopLevelAccelerationStructureRef acceleration_structure) override
+	{
+		DX12TopLevelAccelerationStructure *native_tlas = (DX12TopLevelAccelerationStructure *)acceleration_structure.getReference();
+		current_bind_acceleration_structures[binding] = acceleration_structure;
+		//current_bind_acceleration_structures_descriptors[binding] = acceleration_structure;
+		is_acceleration_structures_dirty = true;
+	}
+
+public:
+
+	ComPtr<IDXGIFactory4> factory;
+
+	ComPtr<IDXGIAdapter1> adapter;
+	ComPtr<ID3D12Device5> device;
+	ComPtr<ID3D12DebugDevice> debug_device;
+
+	D3D12MA::Allocator *allocator;
+
+	Ref<DX12Swapchain> swapchain;
+
+	UINT current_buffer;
+
+	UINT frameIndex;
+	HANDLE fenceEvent;
+	UINT64 fenceValue;
+
+	DX12CommandList *cmd_lists[MAX_FRAMES_IN_FLIGHT];
+	DX12CommandQueue *cmd_queue;
+
+	DX12CommandList *cmd_list_copy;
+	DX12CommandQueue *cmd_queue_copy;
+
+	DX12BindlessResources *bindless_resources;
+
+
+	DX12FrameDescriptorHeap *cbv_srv_uav_heap;
+	DX12DescriptorHeap *cbv_srv_uav_staging_heap;
+
+	// Additional heap (for imgui)
+	DX12FrameDescriptorHeap *cbv_srv_uav_additional_heap;
+
+	DX12FrameDescriptorHeap *samplers_heap;
+	DX12DescriptorHeap *samplers_staging_heap;
+
+	DX12DescriptorHeap *render_target_view_heap;
+	DX12DescriptorHeap *depth_stencil_view_heap;
+
+
+	RHITexture *current_bind_textures[64];
+	D3D12_CPU_DESCRIPTOR_HANDLE current_bind_textures_descriptors[64];
+
+	D3D12_CPU_DESCRIPTOR_HANDLE current_bind_textures_samplers[64];
+
+	RHITexture *current_bind_uav_textures[64];
+	D3D12_CPU_DESCRIPTOR_HANDLE current_bind_uav_textures_descriptors[64];
+
+	RHIBuffer *current_bind_buffers[64];
+	D3D12_GPU_VIRTUAL_ADDRESS current_bind_buffers_gpu_address[64];
+
+	RHITopLevelAccelerationStructure *current_bind_acceleration_structures[64];
+	D3D12_CPU_DESCRIPTOR_HANDLE current_bind_acceleration_structures_descriptors[64];
+
+	bool is_textures_dirty = false;
+	bool is_uav_textures_dirty = false;
+	bool is_buffers_dirty = false;
+	bool is_acceleration_structures_dirty = false;
+
+	DX12Pipeline *last_native_pso;
+
+	TracyD3D12Ctx tracy_ctx;
+
+	uint32_t image_index;
+
+	void beginFrame() override;
+	void endFrame() override;
+};
+

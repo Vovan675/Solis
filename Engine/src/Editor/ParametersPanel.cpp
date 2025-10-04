@@ -1,0 +1,296 @@
+#include "pch.h"
+#include "ParametersPanel.h"
+#include "Core/Filesystem.h"
+#include "imgui.h"
+#include "imgui/IconsFontAwesome6.h"
+#include "Rendering/Model.h"
+#include "imgui/ImGuiWrapper.h"
+#include "Scene/Components.h"
+
+
+template <typename C, typename F>
+static void drawComponent(Entity entity, const char *title, F func)
+{
+	if (entity.hasComponent<C>())
+	{
+		bool close = true;
+		if (ImGui::CollapsingHeader(title, &close, ImGuiTreeNodeFlags_DefaultOpen))
+		{
+			func(entity.getComponent<C>());
+		}
+		if (!close)
+		{
+			entity.removeComponent<C>();
+		}
+	}
+}
+
+static void alignForWidth(float width, float alignment = 0.5f)
+{
+	float avail = ImGui::GetContentRegionAvail().x;
+	float off = (avail - width) * alignment;
+	if (off > 0.0f)
+		ImGui::SetCursorPosX(ImGui::GetCursorPosX() + off);
+}
+
+static bool centeredButton(const char *label, float alignment = 0.5f)
+{
+	ImGuiStyle& style = ImGui::GetStyle();
+	float width = ImGui::CalcTextSize(label).x + style.FramePadding.x * 2.0f;
+	alignForWidth(width, alignment);
+	return ImGui::Button(label);
+}
+
+template <typename C>
+static void addComponentButton(Entity entity, const char *title)
+{
+	bool selected = entity.hasComponent<C>();
+	if (ImGui::Selectable(title, false, selected ? ImGuiSelectableFlags_Disabled : 0))
+		entity.addComponent<C>();
+}
+
+bool ParametersPanel::renderImGui(EditorContext context, DebugRenderer &debug_renderer)
+{
+	ImGui::Begin((std::string(ICON_FA_PEN) + " Parameters###Parameters").c_str());
+	bool is_using_ui = ImGui::IsWindowFocused();
+
+	auto selected_path = context.selected_path;
+	Entity entity = context.selected_entity;
+	if (entity)
+	{
+		drawComponent<TransformComponent>(entity, "Transform", [&](TransformComponent &transform_component) {
+			glm::vec3 position = transform_component.getLocalPosition();
+			if (ImGui::InputFloat3("Position", position.data.data))
+				transform_component.setPosition(position);
+
+			glm::vec3 rot = glm::degrees(transform_component.getLocalRotationEuler());
+			if(ImGui::InputFloat3("Rotation", rot.data.data))
+				transform_component.setLocalRotationEuler(glm::radians(rot));
+			
+			glm::vec3 scale = transform_component.getLocalScale();
+			if (ImGui::InputFloat3("Scale", scale.data.data))
+				transform_component.setLocalScale(scale);
+		});
+
+		drawComponent<MeshRendererComponent>(entity, "Mesh Renderer", [&](MeshRendererComponent &mesh_renderer)
+		{
+			for (auto &mesh_id : mesh_renderer.meshes)
+			{
+				auto mesh = mesh_id.getMesh();
+				debug_renderer.addBoundBox(mesh->bound_box * entity.getWorldTransformMatrix());
+			}
+
+			ImGui::SeparatorText("Mesh Settings");
+			if (mesh_renderer.meshes.empty())
+				ImGui::TextColored(ImVec4(1, 0, 0, 1), "No mesh");
+
+			// TODO: Select mesh (one piece of already loaded model asset)
+			if (ImGui::Button("Select mesh"))
+			{
+				std::string path = Filesystem::openFileDialog();
+				if (!path.empty())
+				{
+					auto model = AssetManager::getModelAsset(path);
+					mesh_renderer.meshes.clear();
+					auto &linear_nodes = model->getLinearNodes();
+					for (auto node : linear_nodes)
+					{
+						if (!node->meshes.empty())
+						{
+							mesh_renderer.setFromMeshNode(model, node);
+							break;
+						}
+					}
+				}
+			}
+
+			ImGui::SeparatorText("Materials");
+			for (int i = 0; i < mesh_renderer.materials.size(); i++)
+			{
+				auto mat = mesh_renderer.materials[i];
+				std::string name = "Material " + std::to_string(i);
+
+				if (ImGui::TreeNode(name.c_str()))
+				{
+
+					auto show_texture_edit = [](Material::MaterialTexture &material_texture, const char *name)
+					{
+						bool use_texture = material_texture.bindless_id != -1;
+						std::string label = std::string("Use ") + name + " texture";
+						if (ImGui::Checkbox(label.c_str(), &use_texture))
+						{
+							if (!use_texture)
+								material_texture.asset_handle = 0;
+							material_texture.bindless_id = use_texture ? 0 : -1;
+						}
+						if (use_texture)
+						{
+							if (ImGui::Button("Select"))
+							{
+								std::string path = Filesystem::openFileDialog();
+								if (!path.empty())
+								{
+									material_texture.asset_handle = AssetManager::getGUIDFromPath(path);
+									material_texture.bindless_id = -1;
+								}
+							}
+
+							// TODO: make for all, unify using struct for payload
+							if (ImGui::BeginDragDropTarget())
+							{
+								if (const ImGuiPayload *payload = ImGui::AcceptDragDropPayload("DND_ASSET_PATH", ImGuiDragDropFlags_AcceptPeekOnly))
+								{
+									const char *payload_str = (const char *)payload->Data;
+									std::string extension = std::filesystem::path(payload_str).extension().string();
+									if (extension == ".dds" || extension == ".png" || extension == ".jpg" || extension == ".tga")
+									{
+										if (payload = ImGui::AcceptDragDropPayload("DND_ASSET_PATH"))
+										{
+											material_texture.asset_handle = AssetManager::getGUIDFromPath(payload_str);
+											material_texture.bindless_id = -1;
+										}
+									}
+								}
+								ImGui::EndDragDropTarget();
+							}
+							return true;
+						} else
+						{
+							return false;
+						}
+					};
+
+					if (!show_texture_edit(mat->albedo_tex, "albedo"))
+					{
+						ImGui::ColorEdit4("Color", mat->albedo.data.data);
+					}
+
+					show_texture_edit(mat->normal_tex, "normal");
+
+					if (!show_texture_edit(mat->metalness_tex, "metalness"))
+					{
+						ImGui::DragFloat("Metalness", &mat->metalness, 0.1, 0, 1.0);
+					}
+
+					if (!show_texture_edit(mat->roughness_tex, "roughness"))
+					{
+						ImGui::DragFloat("Roughness", &mat->roughness, 0.1, 0, 1.0);
+					}
+
+					if (!show_texture_edit(mat->specular_tex, "specular"))
+					{
+						ImGui::DragFloat("Specular", &mat->specular, 0.1, 0, 1.0);
+					}
+				
+					ImGui::TreePop();
+				}
+			}
+		});
+
+		drawComponent<LightComponent>(entity, "Light", [](LightComponent &light) {
+			int light_type = light.getType();
+			char *items[] = {"Point", "Directional"};
+			if (ImGui::BeginCombo("Light type", items[light_type]))
+			{
+				for (int n = 0; n < IM_ARRAYSIZE(items); n++)
+				{
+					bool is_selected = (light_type == n);
+					if (ImGui::Selectable(items[n], is_selected))
+						light_type = n;
+					if (is_selected)
+						ImGui::SetItemDefaultFocus();
+				}
+				ImGui::EndCombo();
+			}
+			light.setType((LIGHT_TYPE)light_type);
+			ImGui::ColorEdit3("Light Color", light.color.data.data);
+			ImGui::SliderFloat("Light Radius", &light.radius, 0.001f, 40.0);
+			ImGui::SliderFloat("Light Intensity", &light.intensity, 0.01f, 25);
+		});
+
+
+		drawComponent<RigidBodyComponent>(entity, "Rigid Body", [&](RigidBodyComponent &rb) {
+			ImGui::Checkbox("Is Static", &rb.is_static);
+			ImGui::DragFloat("Linear Damping", &rb.linear_damping, 0.01f, 0.0f, 1.0f);
+			ImGui::DragFloat("Angular Damping", &rb.angular_damping, 0.05f, 0.0f, 1.0f);
+			ImGui::Checkbox("Use Gravity", &rb.gravity);
+			ImGui::Checkbox("Is Kinematic", &rb.is_kinematic);
+		});
+
+		drawComponent<BoxColliderComponent>(entity, "Box Collider", [&](BoxColliderComponent &collider) {
+			ImGui::InputFloat3("Half Extent", collider.half_extent.data.data);
+			if (ImGui::Button("Extent to Bounds"))
+			{
+				MeshRendererComponent &mesh_renderer = entity.getComponent<MeshRendererComponent>();
+				BoundBox bbox;
+				for (auto &mesh_id : mesh_renderer.meshes)
+				{
+					auto mesh = mesh_id.getMesh();
+					bbox.extend(mesh->bound_box);
+				}
+
+				TransformComponent &transform = entity.getComponent<TransformComponent>();
+				collider.half_extent = bbox.getSize() * transform.getLocalScale() / 2.0f;
+			}
+		});
+
+
+		if (centeredButton("Add component..."))
+			ImGui::OpenPopup("add_component_popup");
+		if (ImGui::BeginPopup("add_component_popup"))
+		{
+			addComponentButton<MeshRendererComponent>(entity, "Mesh Renderer");
+			addComponentButton<LightComponent>(entity, "Light");
+			addComponentButton<RigidBodyComponent>(entity, "Rigid Body");
+			addComponentButton<BoxColliderComponent>(entity, "Box Collider");
+			ImGui::EndPopup();
+		}
+	} else if (!selected_path.empty())
+	{
+		auto &metadata = AssetManager::getMutableMetadata(selected_path);
+		if (metadata.isValid())
+		{
+			ImGui::Text("Asset Handle: %llu", metadata.asset_handle);
+			ImGui::Text("Runtime Handle: %llu", metadata.runtime_handle);
+
+			static bool reimported = false;
+
+			if (metadata.type == ASSET_TYPE_TEXTURE)
+			{
+				bool generate_mipmaps = metadata.params["generate_mipmaps"].as<int>(1);
+				if (ImGui::Checkbox("Generate Mipmaps", &generate_mipmaps))
+				{
+					metadata.params["generate_mipmaps"] = (int)generate_mipmaps;
+					AssetManager::saveMetadata(metadata);
+				}
+
+				auto texture = AssetManager::getTextureAsset(AssetManager::getRuntimeAssetPath(selected_path).string());
+
+				static int mip_index = 0;
+				if (reimported)
+				{
+					mip_index = 0;
+				}
+				ImGui::SliderInt("Mip", &mip_index, 0, texture->getDescription().mip_levels - 1);
+
+				float aspect = (float)texture->getWidth() / (float)texture->getHeight();
+				ImVec2 viewport_size = ImGui::GetContentRegionAvail();
+				float min_size = std::min(viewport_size.x, viewport_size.y);
+				viewport_size.x = min_size;
+				viewport_size.y = min_size / aspect;
+
+				if (texture)
+					ImGui::Image(ImGuiWrapper::getTextureId(texture, mip_index), viewport_size, {0, 0}, {1, 1});
+			}
+
+			reimported = false;
+			if (ImGui::Button("Reimport"))
+			{
+				reimported = true;
+				AssetManager::reloadAsset(selected_path);
+			}
+		}
+	}
+	ImGui::End();
+	return false;
+}
