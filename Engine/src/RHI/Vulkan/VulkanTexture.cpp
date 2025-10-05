@@ -13,7 +13,6 @@ VulkanTexture::~VulkanTexture()
 void VulkanTexture::destroy()
 {
 	auto native_rhi = VulkanUtils::getNativeRHI();
-	native_rhi->releaseGPUResource(sampler.release());
 
 	for (auto &view : image_views)
 		native_rhi->releaseGPUResource(view.image_view.release());
@@ -72,7 +71,7 @@ void VulkanTexture::fill()
 	vmaCreateImage(VulkanUtils::getNativeRHI()->allocator, &imageInfo, &alloc_info, &image->resource, &allocation->resource, nullptr);
 
 	getImageView();
-	create_sampler();
+	gDynamicRHI->getBindlessResources()->addTexture(this);
 }
 
 void VulkanTexture::fill(const void *sourceData)
@@ -161,13 +160,15 @@ void VulkanTexture::loadEquirectangularCubemap(const char *path)
 	p->bind(cmd_list);
 
 	gDynamicRHI->setUAVTexture(0, this);
-	gDynamicRHI->setTexture(1, equirect_texture);
+	struct Uniforms
+	{
+		uint32_t equirect_tex_id;
+	} uniforms;
+	uniforms.equirect_tex_id = gDynamicRHI->getBindlessResources()->getTextureIndex(equirect_texture);
+	gDynamicRHI->setConstantBufferData(1, &uniforms, sizeof(uniforms));
 
 	cmd_list->dispatch(getWidth() / 32, getHeight() / 32, 6);
 	p->unbind(cmd_list);
-	//cmd_list->resetRenderTargets();
-
-	//copy_buffer_to_image(native_copy_cmd_list->cmd_buffer, stagingBuffer);
 
 	transitLayout(cmd_list, TEXTURE_LAYOUT_SHADER_READ);
 
@@ -463,53 +464,6 @@ VkImageView VulkanTexture::getImageView(int mip, int layer, bool for_uav)
 	view.image_view->resource = image_view_resource;
 	
 	return image_view_resource;
-}
-
-void VulkanTexture::create_sampler()
-{
-	VkFilter filter = VK_FILTER_LINEAR;
-	if (description.filtering == FILTER_LINEAR)
-		filter = VK_FILTER_LINEAR;
-	else if (description.filtering == FILTER_NEAREST)
-		filter = VK_FILTER_NEAREST;
-
-	VkSamplerAddressMode sampler_mode = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	if (description.sampler_mode == SAMPLER_MODE_REPEAT)
-		sampler_mode = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	else if (description.sampler_mode == SAMPLER_MODE_CLAMP_TO_EDGE)
-		sampler_mode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-	else if (description.sampler_mode == SAMPLER_MODE_CLAMP_TO_BORDER)
-		sampler_mode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
-
-	VkSamplerCreateInfo samplerInfo{};
-	samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-	samplerInfo.magFilter = filter;
-	samplerInfo.minFilter = filter;
-	samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
-	samplerInfo.addressModeU = sampler_mode;
-	samplerInfo.addressModeV = sampler_mode;
-	samplerInfo.addressModeW = sampler_mode;
-	samplerInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
-
-	samplerInfo.compareEnable = VK_FALSE;
-	samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
-
-	if (description.use_comparison_less)
-	{
-		samplerInfo.compareEnable = true;
-		samplerInfo.compareOp = VK_COMPARE_OP_LESS_OR_EQUAL; // For shadows hardware comparison
-	}
-
-	samplerInfo.anisotropyEnable = description.anisotropy;
-	samplerInfo.maxAnisotropy = description.anisotropy ? VulkanUtils::getNativeRHI()->device->physicalProperties.properties.limits.maxSamplerAnisotropy : 1.0f;
-	samplerInfo.unnormalizedCoordinates = VK_FALSE;
-	samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-	samplerInfo.mipLodBias = 0.0f;
-	samplerInfo.minLod = 0;
-	samplerInfo.maxLod = description.mip_levels;
-
-	sampler = std::make_unique<VkSamplerResource>();
-	CHECK_ERROR(vkCreateSampler(VulkanUtils::getNativeRHI()->device->logicalHandle, &samplerInfo, nullptr, &sampler->resource));
 }
 
 VkImageLayout VulkanTexture::get_vk_layout(TextureLayoutType layout_type)

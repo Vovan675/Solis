@@ -151,10 +151,10 @@ public:
 
 	void setTexture(unsigned int binding, RHITextureRef texture) override
 	{
+		CORE_INFO("setTexture was used, please consider bindless instead");
 		DX12Texture *native_texture = (DX12Texture *)texture.getReference();
 		current_bind_textures[binding] = texture.getReference();
 		current_bind_textures_descriptors[binding] = native_texture->shader_resource_view.getCpuHandle();
-		current_bind_textures_samplers[binding] = native_texture->sampler_view.getCpuHandle();
 		is_textures_dirty = true;
 	}
 
@@ -207,8 +207,7 @@ public:
 	// Additional heap (for imgui)
 	DX12FrameDescriptorHeap *cbv_srv_uav_additional_heap;
 
-	DX12FrameDescriptorHeap *samplers_heap;
-	DX12DescriptorHeap *samplers_staging_heap;
+	DX12DescriptorHeap *samplers_heap;
 
 	DX12DescriptorHeap *render_target_view_heap;
 	DX12DescriptorHeap *depth_stencil_view_heap;
@@ -216,8 +215,6 @@ public:
 
 	RHITexture *current_bind_textures[64];
 	D3D12_CPU_DESCRIPTOR_HANDLE current_bind_textures_descriptors[64];
-
-	D3D12_CPU_DESCRIPTOR_HANDLE current_bind_textures_samplers[64];
 
 	RHITexture *current_bind_uav_textures[64];
 	D3D12_CPU_DESCRIPTOR_HANDLE current_bind_uav_textures_descriptors[64];

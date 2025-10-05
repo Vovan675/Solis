@@ -10,14 +10,14 @@ public:
 	static void createScene()
 	{
 		//return;
-		Scene::getCurrentScene()->loadFile("assets/demo_scene.scene");
+		//Scene::getCurrentScene()->loadFile("assets/demo_scene.scene");
 		//Scene::getCurrentScene()->loadFile("assets/cerberus/cerberus.scene");
-		return;
+		//return;
 		// Demo Scene
-		auto model = AssetManager::getModelAsset("assets/demo_scene.fbx");
+		//auto model = AssetManager::getModelAsset("assets/demo_scene.fbx");
 		//auto model = AssetManager::getModelAsset("assets/cube.fbx");
 		//auto model = AssetManager::getModelAsset("assets/game/map.fbx");
-		//auto model = AssetManager::getModelAsset("assets/sponza/sponza.obj");
+		auto model = AssetManager::getModelAsset("assets/sponza/sponza.obj");
 		//auto model = AssetManager::getModelAsset("assets/new_sponza/NewSponza_Main_Yup_002.fbx");
 		//auto model = AssetManager::getModelAsset("assets/bistro/BistroExterior.fbx");
 		//auto model = AssetManager::getModelAsset("assets/hideout/source/FullSceneSubstance.fbx");

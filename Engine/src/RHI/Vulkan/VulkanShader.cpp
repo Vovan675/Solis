@@ -115,8 +115,8 @@ std::vector<Descriptor> VulkanShader::getDescriptors(std::vector<VulkanShader *>
 					if (binding->descriptor_type == SPV_REFLECT_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
 					{
 						uint32_t size = binding->block.size;
-						if (!isDefined(DESCRIPTOR_TYPE_COMBINED_IMAGE, binding->set, binding->binding))
-							auto &desc = descriptors.emplace_back(DESCRIPTOR_TYPE_COMBINED_IMAGE, binding->set, binding->binding, size, stage, binding->name);
+						if (!isDefined(DESCRIPTOR_TYPE_SAMPLED_IMAGE, binding->set, binding->binding))
+							auto &desc = descriptors.emplace_back(DESCRIPTOR_TYPE_SAMPLED_IMAGE, binding->set, binding->binding, size, stage, binding->name);
 					} else if (binding->descriptor_type  = SPV_REFLECT_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR)
 					{
 						uint32_t size = binding->block.size;

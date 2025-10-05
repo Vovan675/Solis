@@ -1,3 +1,4 @@
+#define TEST
 #include "../common.h"
 #include "../bindless.h"
 
@@ -24,7 +25,8 @@ void RayGen() {
     float2 d = inUV * 2.0f - 1.0f;
     d.y *= -1.0f;
 
-	float depth = SampleTextureLevel(depthTexId, inUV, 0).r;
+    Texture2D<float> depth_texture = ResourceDescriptorHeap[depthTexId];
+	float depth = depth_texture.Load(int3(launchId, 0)).r;
 	float3 world_pos = GetWSPosition(inUV, depth);
 
     float3 origin = world_pos;

@@ -5,6 +5,7 @@
 #include "Rendering/Renderer.h"
 #include "Math.h"
 #include <random>
+#include "FrameGraph/FrameGraphUtils.h"
 
 SSAORenderer::SSAORenderer() : RendererBase()
 {
@@ -49,6 +50,7 @@ SSAORenderer::SSAORenderer() : RendererBase()
 	}
 
 	ssao_noise->fill(ssao_noise_data.data());
+	ssao_noise->setDebugName("SSAO Noise Texture");
 
 	fragment_shader_raw = gDynamicRHI->createShader(L"shaders/ssao.hlsl", FRAGMENT_SHADER);
 	fragment_shader_blur = gDynamicRHI->createShader(L"shaders/ssao_blur.hlsl", FRAGMENT_SHADER);
@@ -59,6 +61,8 @@ void SSAORenderer::addPasses(FrameGraph &fg)
 	auto &ssao_data = fg.getBlackboard().add<SSAOData>();
 
 	auto &gbuffer_data = fg.getBlackboard().get<GBufferData>();
+
+	ssao_data.ssao_noise = importTexture(fg, ssao_noise);
 
 	// Raw Pass
 	ssao_data = fg.addCallbackPass<SSAOData>("SSAO Raw Pass",
@@ -71,8 +75,10 @@ void SSAORenderer::addPasses(FrameGraph &fg)
 		desc.format = FORMAT_R8_UNORM;
 		desc.usage_flags = TEXTURE_USAGE_ATTACHMENT;
 
+		data = ssao_data;
 		data.ssao_raw = builder.createTexture("SSAO Raw Image", desc);
 		data.ssao_raw = builder.write(data.ssao_raw);
+		builder.read(data.ssao_noise);
 
 		builder.read(gbuffer_data.normal);
 		builder.read(gbuffer_data.depth);
@@ -83,10 +89,11 @@ void SSAORenderer::addPasses(FrameGraph &fg)
 		auto &normal = resources.getResource<FrameGraphTexture>(gbuffer_data.normal);
 		auto &depth = resources.getResource<FrameGraphTexture>(gbuffer_data.depth);
 		auto &ssao_raw = resources.getResource<FrameGraphTexture>(data.ssao_raw);
+		auto &ssao_noise = resources.getResource<FrameGraphTexture>(data.ssao_noise);
 
 		ubo_raw_pass.normal_tex_id = normal.getBindlessId();
 		ubo_raw_pass.depth_tex_id = depth.getBindlessId();
-		ubo_blur_pass.raw_tex_id = ssao_raw.getBindlessId();
+		ubo_raw_pass.noise_tex_id = ssao_noise.getBindlessId();
 
 		cmd_list->setRenderTargets({ssao_raw.texture}, nullptr, -1, 0, true);
 
@@ -95,7 +102,6 @@ void SSAORenderer::addPasses(FrameGraph &fg)
 
 		// Uniforms
 		gDynamicRHI->setConstantBufferData(0, &ubo_raw_pass, sizeof(UBO_RAW));
-		gDynamicRHI->setTexture(1, ssao_noise);
 
 		// Render quad
 		cmd_list->drawInstanced(6, 1, 0, 0);
@@ -116,6 +122,7 @@ void SSAORenderer::addPasses(FrameGraph &fg)
 		desc.format = FORMAT_R8_UNORM;
 		desc.usage_flags = TEXTURE_USAGE_ATTACHMENT;
 
+		data = ssao_data;
 		data.ssao_blurred = builder.createTexture("SSAO Blurred Image", desc);
 		data.ssao_blurred = builder.write(data.ssao_blurred);
 
@@ -125,6 +132,7 @@ void SSAORenderer::addPasses(FrameGraph &fg)
 	{
 		// Render
 		auto &ssao_blurred = resources.getResource<FrameGraphTexture>(data.ssao_blurred);
+		auto &ssao_raw = resources.getResource<FrameGraphTexture>(data.ssao_raw);
 
 		cmd_list->setRenderTargets({ssao_blurred.texture}, nullptr, -1, 0, true);
 
@@ -132,7 +140,7 @@ void SSAORenderer::addPasses(FrameGraph &fg)
 		p->bindScreenQuadPipeline(cmd_list, fragment_shader_blur);
 
 		// Uniforms
-		ubo_blur_pass.raw_tex_id = resources.getResource<FrameGraphTexture>(ssao_data.ssao_raw).getBindlessId();
+		ubo_blur_pass.raw_tex_id = ssao_raw.getBindlessId();
 
 		gDynamicRHI->setConstantBufferData(0, &ubo_blur_pass, sizeof(UBO_BLUR));
 

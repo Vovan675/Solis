@@ -27,7 +27,6 @@ public:
 	virtual ~EntityRenderer();
 
 	void renderEntity(RHICommandList *cmd_list, Entity entity);
-	void renderEntityShadow(RHICommandList *cmd_list, glm::mat4 &transform_matrix, MeshRendererComponent &mesh_renderer);
 
 private:
 	void render_entity(RHICommandList *cmd_list, Entity entityx);

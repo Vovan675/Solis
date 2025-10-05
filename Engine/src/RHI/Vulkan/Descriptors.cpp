@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <functional>
 #include "Descriptors.h"
+#include "Core/Variables.h"
 #include "Math.h"
 #include "Math/EngineMath.h"
 #include "VulkanUtils.h"
@@ -136,11 +137,15 @@ VkDescriptorPool DescriptorAllocator::create_pool()
 {
 	VkDescriptorPool descriptor_pool;
 
+	auto pool_sizes_copy = pool_sizes;
+	if (engine_ray_tracing)
+		pool_sizes_copy.push_back({VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 64});
+
 	VkDescriptorPoolCreateInfo poolInfo{};
 	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 	poolInfo.flags = 0;
-	poolInfo.poolSizeCount = POOL_SIZES.size();
-	poolInfo.pPoolSizes = POOL_SIZES.data();
+	poolInfo.poolSizeCount = pool_sizes_copy.size();
+	poolInfo.pPoolSizes = pool_sizes_copy.data();
 	poolInfo.maxSets = 1000; // how many sets can be allocated from this pool
 	CHECK_ERROR(vkCreateDescriptorPool(VulkanUtils::getNativeRHI()->device->logicalHandle, &poolInfo, nullptr, &descriptor_pool));
 	return descriptor_pool;

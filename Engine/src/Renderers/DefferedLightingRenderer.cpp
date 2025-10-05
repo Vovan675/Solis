@@ -139,10 +139,10 @@ void DefferedLightingRenderer::renderLights(FrameGraph &fg)
 				constants.light_range_square = pow(light_component->radius, 2);
 				constants.light_intensity = light_component->intensity;
 				constants.z_far = light_component->radius;
+				constants.shadow_map_tex_id = visibility.getBindlessId();
 
 				gDynamicRHI->setConstantBufferData(0, &ubo_sphere, sizeof(ubo_sphere));
 				gDynamicRHI->setConstantBufferData(1, &ubo, sizeof(ubo));
-				gDynamicRHI->setTexture(5, visibility.texture);
 
 				gDynamicRHI->setConstantBufferData(2, &constants, sizeof(PushConstant));
 
@@ -210,10 +210,10 @@ void DefferedLightingRenderer::renderLights(FrameGraph &fg)
 				constants.light_range_square = pow(light.radius, 2);
 				constants.light_intensity = light.intensity;
 				constants.z_far = light.radius;
+				constants.shadow_map_tex_id = gDynamicRHI->getBindlessResources()->getTextureIndex(light.shadow_map);
 
 				gDynamicRHI->setConstantBufferData(1, &ubo, sizeof(UBO));
 				gDynamicRHI->setConstantBufferData(0, &ubo_sphere, sizeof(UniformBufferObject));
-				gDynamicRHI->setTexture(5, light.shadow_map);
 
 				gDynamicRHI->setConstantBufferData(2, &constants, sizeof(PushConstant));
 

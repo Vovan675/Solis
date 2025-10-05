@@ -71,6 +71,21 @@ public:
 		if (resource)
 			gpu_release_queue.emplace(resource, frame);
 	}
+
+	template <typename F>
+	struct ReleaseNextFrameResource : public RenderResource
+	{
+		ReleaseNextFrameResource(F func): f(std::move(func)) {};
+		void Release() override { f(); }
+		F f;
+	};
+
+	template <typename F>
+	void releaseNextFrame(F func)
+	{
+		auto *resource = new ReleaseNextFrameResource<F>(std::move(func));
+		gpu_release_queue.emplace(resource, frame);
+	}
 protected:
 	DynamicRHI() = default;
 	void release_gpu_resources(uint64_t frame);

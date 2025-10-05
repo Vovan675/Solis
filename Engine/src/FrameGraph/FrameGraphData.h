@@ -26,6 +26,7 @@ struct SSAOData
 {
 	FrameGraphResource ssao_raw;
 	FrameGraphResource ssao_blurred;
+	FrameGraphResource ssao_noise;
 };
 
 struct SSRData

@@ -68,9 +68,6 @@ struct PixelOutput {
     float4 shading : SV_Target2;
 };
 
-Texture2D<float4> textures[] : register(t0, space1);
-SamplerState texSampler : register(s0);
-
 PixelOutput PSMain(PixelInput IN)
 {
     PixelOutput OUT;

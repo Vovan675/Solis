@@ -1,8 +1,13 @@
 #include "../common.h"
 
-RWTexture2DArray<float4> irradianceMap : register(u1);
-TextureCube texSampler : register(t2);
-SamplerState texSamplerState : register(s2);
+
+cbuffer Constants : register(b0)
+{
+    uint input_tex_id;
+}
+
+RWTexture2DArray<float4> output_texture : register(u1);
+static TextureCube input_texture = ResourceDescriptorHeap[input_tex_id];
 
 float RadicalInverse_VdC(uint bits) {
     bits = (bits << 16u) | (bits >> 16u);
@@ -25,7 +30,7 @@ float3 sampleHemisphere(float u1, float u2) {
 [numthreads(32, 32, 1)]
 void CSMain(uint3 dispatchID : SV_DispatchThreadID) {
     uint3 size;
-    irradianceMap.GetDimensions(size.x, size.y, size.z);
+    output_texture.GetDimensions(size.x, size.y, size.z);
     
     float3 N = GetCubemapNormal(size.xy, dispatchID);
     float3 up, right;
@@ -39,10 +44,10 @@ void CSMain(uint3 dispatchID : SV_DispatchThreadID) {
         float3 sample_tangent = sampleHemisphere(Xi.x, Xi.y);
         float3 sample_dir = sample_tangent.x * right + sample_tangent.y * up + sample_tangent.z * N;
         float cosTheta = max(0.0, dot(N, sample_dir));
-        irradiance += texSampler.SampleLevel(texSamplerState, sample_dir, 0).rgb * cosTheta;
+        irradiance += input_texture.SampleLevel(linear_wrap_sampler, sample_dir, 0).rgb * cosTheta;
     }
     
     irradiance = PI * irradiance / float(samples_count);
     
-    irradianceMap[dispatchID] = float4(irradiance, 1.0);
+    output_texture[dispatchID] = float4(irradiance, 1.0);
 }

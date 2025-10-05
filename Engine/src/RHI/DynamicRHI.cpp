@@ -2,6 +2,7 @@
 #include "DynamicRHI.h"
 #include "Math/EngineMath.h"
 #include "RHI/RHIShader.h"
+#include "RHI/BindlessResources.h"
 
 std::unordered_map<size_t, RHIShaderRef> DynamicRHI::cached_shaders;
 
@@ -53,17 +54,37 @@ ComPtr<IDxcBlob> DynamicRHI::compile_shader(std::wstring path, ShaderType type, 
 
 	args.push_back(DXC_ARG_PACK_MATRIX_COLUMN_MAJOR);
 
+	std::wstring bindless_resource_heap_binding = std::to_wstring(BINDLESS_TEXTURES_BINDING);
+	std::wstring bindless_resource_heap_set = std::to_wstring(BINDLESS_TEXTURES_SET);
+
+	std::wstring bindless_samplers_heap_binding = std::to_wstring(BINDLESS_SAMPLERS_BINDING);
+	std::wstring bindless_samplers_heap_set = std::to_wstring(BINDLESS_SAMPLERS_SET);
 	if (is_vulkan)
 	{
 		args.push_back(L"-spirv");
 		args.push_back(L"-D");
 		args.push_back(L"VULKAN");
+
+		args.push_back(L"-fvk-bind-resource-heap");
+		args.push_back(bindless_resource_heap_binding.c_str());
+		args.push_back(bindless_resource_heap_set.c_str());
+
+		args.push_back(L"-fvk-bind-sampler-heap");
+		args.push_back(bindless_samplers_heap_binding.c_str());
+		args.push_back(bindless_samplers_heap_set.c_str());
+
 		args.push_back(L"-fvk-use-dx-layout");
 		args.push_back(L"-fvk-auto-shift-bindings");
 		args.push_back(L"-fspv-target-env=vulkan1.3");
 	} else
 	{
 		args.push_back(L"-Wno-ignored-attributes");
+	}
+
+	if (type == RAY_GENERATION_SHADER || type == MISS_SHADER || type == CLOSEST_HIT_SHADER)
+	{
+		args.push_back(L"-D");
+		args.push_back(L"RAY_TRACING_SHADER");
 	}
 
 	std::vector<std::wstring> wargs;
@@ -80,9 +101,6 @@ ComPtr<IDxcBlob> DynamicRHI::compile_shader(std::wstring path, ShaderType type, 
 		}
 	}
 
-	//
-	// Open source file.  
-	//
 	ComPtr<IDxcBlobEncoding> pSource = nullptr;
 	dxc_utils->LoadFile(path.c_str(), nullptr, &pSource);
 	DxcBuffer Source;
@@ -91,38 +109,25 @@ ComPtr<IDxcBlob> DynamicRHI::compile_shader(std::wstring path, ShaderType type, 
 	Source.Encoding = DXC_CP_ACP; // Assume BOM says UTF8 or UTF16 or this is ANSI text.
 
 
-	//
-	// Compile it with specified arguments.
-	//
 	ComPtr<IDxcResult> pResults;
 	dxc_compiler->Compile(
-		&Source,                // Source buffer.
-		args.data(),                // Array of pointers to arguments.
-		args.size(),      // Number of arguments.
+		&Source,
+		args.data(),
+		args.size(),
 		dxc_include_handler,
-		IID_PPV_ARGS(&pResults) // Compiler output status, buffer, and errors.
+		IID_PPV_ARGS(&pResults)
 	);
 
-	//
-	// Print errors if present.
-	//
 	ComPtr<IDxcBlobUtf8> pErrors = nullptr;
 	pResults->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(&pErrors), nullptr);
-	// Note that d3dcompiler would return null if no errors or warnings are present.
-	// IDxcCompiler3::Compile will always return an error buffer, but its length
-	// will be zero if there are no warnings or errors.
 	if (pErrors != nullptr && pErrors->GetStringLength() != 0)
-		wprintf(L"Warnings and Errors:\n%S\n", pErrors->GetStringPointer());
+		CORE_WARN("Warnings and Errors:\n{}\n", pErrors->GetStringPointer());
 
-	//
 	// Quit if the compilation failed.
-	//
 	HRESULT hrStatus;
 	pResults->GetStatus(&hrStatus);
 	if (FAILED(hrStatus))
-	{
-		wprintf(L"Compilation Failed\n");
-	}
+		CORE_ERROR("Compilation Failed\n");
 
 	ComPtr<IDxcBlob> shader;
 	pResults->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&shader), nullptr);

@@ -342,6 +342,4 @@ void Scene::propagate_local_transforms_update(entt::entity entity_id)
 	{
 		propagate_local_transforms_update(child_id);
 	}
-
-	//update_childs_transforms(entity_id, transform.getLocalTransform());
 }

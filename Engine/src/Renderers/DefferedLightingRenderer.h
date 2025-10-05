@@ -33,6 +33,7 @@ public:
 		float light_intensity;
 		float light_range_square; // radius ^ 2
 		float z_far;
+		uint32_t shadow_map_tex_id;
 	} constants;
 
 	DefferedLightingRenderer();

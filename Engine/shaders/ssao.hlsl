@@ -8,20 +8,19 @@ struct VSInput {
 struct PSOutput {
     float ao : SV_Target;
 };
-
-Texture2D noise_tex : register(t1);
-SamplerState noise_sampler : register(t1);
-
 cbuffer UBO : register(b0)
 {
     uint normal_tex_id;
     uint depth_tex_id;
+    uint noise_tex_id;
     float4 kernel[64];
     float near;
     float far;
     int samples;
     float sample_radius;
 };
+
+static Texture2D noise_tex = ResourceDescriptorHeap[noise_tex_id];
 
 PSOutput PSMain(VSInput input)
 {
@@ -37,13 +36,14 @@ PSOutput PSMain(VSInput input)
 
     float3 view_pos = GetVSPosition(input.uv, depth);
 
-    int2 tex_dim;
+    int2 depth_tex_dim;
     int2 noise_dim;
-    BindlessTextures[depth_tex_id].GetDimensions(tex_dim.x, tex_dim.y);
+    Texture2D depth_tex = ResourceDescriptorHeap[depth_tex_id];
+    depth_tex.GetDimensions(depth_tex_dim.x, depth_tex_dim.y);
     noise_tex.GetDimensions(noise_dim.x, noise_dim.y);
 
-    float2 noise_uv = float2(float(tex_dim.x) / float(noise_dim.x), float(tex_dim.y) / float(noise_dim.y)) * input.uv;
-    float3 noise = noise_tex.Sample(noise_sampler, noise_uv).rgb * 2.0f - 1.0f;
+    float2 noise_uv = float2(float(depth_tex_dim.x) / float(noise_dim.x), float(depth_tex_dim.y) / float(noise_dim.y)) * input.uv;
+    float3 noise = noise_tex.Sample(point_wrap_sampler, noise_uv).rgb * 2.0f - 1.0f;
 
     float3 tangent = normalize(noise - normal * dot(noise, normal));
     float3 bitangent = cross(normal, tangent);

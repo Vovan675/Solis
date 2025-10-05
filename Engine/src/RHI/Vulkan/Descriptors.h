@@ -25,7 +25,7 @@ private:
 class DescriptorAllocator
 {
 public:
-	const std::vector<VkDescriptorPoolSize> POOL_SIZES = {
+	std::vector<VkDescriptorPoolSize> pool_sizes = {
 		{ VK_DESCRIPTOR_TYPE_SAMPLER, 500 },
         { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000 },
         { VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000 },
@@ -37,7 +37,6 @@ public:
         { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000 },
         { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000 },
         { VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 500 },
-        { VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 64 }
 	};
 
 	void cleanup();

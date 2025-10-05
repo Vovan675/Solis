@@ -87,11 +87,8 @@ void DX12DynamicRHI::init()
 	cbv_srv_uav_additional_heap = new DX12FrameDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1'000, 16);
 
 	// 2048 is maximum for sampler descriptor heap visible for shaders
-	samplers_heap = new DX12FrameDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, 2048, 512);
-
-	// It contains only unique samplers
-	// These unique samplers then copy into shader visible heap on prepare draw call
-	samplers_staging_heap = new DX12DescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, 2048, false);
+	// It contains only unique samplers, this should be enough for all use cases
+	samplers_heap = new DX12DescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, 2048, true);
 
 	render_target_view_heap = new DX12DescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 1024, false);
 	depth_stencil_view_heap = new DX12DescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 1024, false);
@@ -104,6 +101,9 @@ void DX12DynamicRHI::init()
 void DX12DynamicRHI::shutdown()
 {
 	TracyD3D12Destroy(tracy_ctx);
+
+	release_gpu_resources(UINT64_MAX);
+	gDynamicRHI->getBindlessResources()->cleanup();
 
 	auto *bindless = bindless_resources;
 	bindless_resources = nullptr;
@@ -128,8 +128,7 @@ void DX12DynamicRHI::shutdown()
 
 	cached_shaders.clear();
 
-	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-		release_gpu_resources(UINT64_MAX);
+	release_gpu_resources(UINT64_MAX);
 
 	SAFE_RELEASE(allocator);
 
@@ -139,9 +138,6 @@ void DX12DynamicRHI::shutdown()
 	delete cbv_srv_uav_staging_heap;
 
 	delete cbv_srv_uav_additional_heap;
-
-	delete samplers_staging_heap;
-
 
 	SAFE_RELEASE(dxc_include_handler);
 	SAFE_RELEASE(dxc_compiler);
@@ -336,7 +332,6 @@ void DX12DynamicRHI::prepareRenderCall()
 	const DX12Shader::BindingInfo &binding_info = native_pso->binding_info;
 
 	DX12Descriptor first_srv_heap_textures_descriptor = {};
-	DX12Descriptor first_sampler_descriptor = {};
 	DX12Descriptor first_cbv_heap_uav_textures_descriptor = {};
 
 	if (binding_info.srv_table.registersCount() > 0)
@@ -347,7 +342,6 @@ void DX12DynamicRHI::prepareRenderCall()
 
 	if (is_textures_dirty)
 	{
-		first_sampler_descriptor = samplers_heap->allocate(binding_info.srv_table.registersCount());
 		for (int i = binding_info.srv_table.begin_register; i < binding_info.srv_table.end_register; i++)
 		{
 			if (current_bind_textures[i] == nullptr)
@@ -355,15 +349,11 @@ void DX12DynamicRHI::prepareRenderCall()
 
 			int relative_index = i - binding_info.srv_table.begin_register;
 			D3D12_CPU_DESCRIPTOR_HANDLE cpu_handle_srv_heap(cbv_srv_uav_heap->getHandle(first_srv_heap_textures_descriptor.getIndex() + relative_index).getCpuHandle());
-			D3D12_CPU_DESCRIPTOR_HANDLE cpu_handle_sampler_heap(samplers_heap->getHandle(first_sampler_descriptor.getIndex() + relative_index).getCpuHandle());
 
 			// Copy from staging heap, to current frame's shader visible heap
 			D3D12_CPU_DESCRIPTOR_HANDLE cpu_handle_staging_heap = current_bind_textures_descriptors[i];
 
 			device->CopyDescriptorsSimple(1, cpu_handle_srv_heap, cpu_handle_staging_heap, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-
-			// Sampler
-			device->CopyDescriptorsSimple(1, cpu_handle_sampler_heap, current_bind_textures_samplers[i], D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
 		}
 	}
 
@@ -442,9 +432,6 @@ void DX12DynamicRHI::prepareRenderCall()
 	if (binding_info.srv_table.registersCount() > 0 && is_update_srv_table)
 		setRootDescriptorTable(binding_info.srv_table.table_index, first_srv_heap_textures_descriptor.getGpuHandle());
 
-	if (binding_info.samplers_table.table_index != -1 && is_textures_dirty)
-		setRootDescriptorTable(binding_info.samplers_table.table_index, first_sampler_descriptor.getGpuHandle());
-
 	if (binding_info.uav_table.table_index != -1 && is_uav_textures_dirty)
 		setRootDescriptorTable(binding_info.uav_table.table_index, first_cbv_heap_uav_textures_descriptor.getGpuHandle());
 
@@ -495,7 +482,6 @@ void DX12DynamicRHI::beginFrame()
 
 	cmd_lists[frame_in_flight]->cmd_list->SetDescriptorHeaps(_countof(heaps), heaps); // do it when open cmd list?
 	cbv_srv_uav_heap->releaseFrame(fenceValues[frame_in_flight]);
-	samplers_heap->releaseFrame(fenceValues[frame_in_flight]);
 	cbv_srv_uav_additional_heap->releaseFrame(fenceValues[frame_in_flight]);
 }
 
@@ -525,7 +511,6 @@ void DX12DynamicRHI::endFrame()
 	fenceValues[frame_in_flight] = current_fence_value + 1;
 
 	cbv_srv_uav_heap->finishFrame(frame);
-	samplers_heap->finishFrame(frame);
 	cbv_srv_uav_additional_heap->finishFrame(frame);
 	release_gpu_resources(frame);
 	frame++;

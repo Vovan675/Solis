@@ -52,7 +52,6 @@ void PhysicsScene::reinit()
 	for (auto [e, rb] : rbs.each())
 	{
 		Entity entity(e);
-		//entity.getWorldTransformMatrix()
 		auto &t = entity.getComponent<TransformComponent>();
 		glm::vec3 position = t.getLocalPosition();
 		glm::quat rotation = t.getLocalRotation();

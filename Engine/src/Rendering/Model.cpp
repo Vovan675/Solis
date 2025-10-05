@@ -73,7 +73,7 @@ void Model::process_node(MeshNode *mesh_node, aiNode *node, const aiScene *scene
 	std::vector<uint32_t> indices;
 
 	mesh_node->local_model_matrix = convertAssimpMat4(node->mTransformation);
-	//materials.resize(node->mNumMeshes);
+
 	for (int m = 0; m < node->mNumMeshes; m++)
 	{
 		vertices.clear();

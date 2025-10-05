@@ -30,6 +30,16 @@ cbuffer CameraConstants : register(b32) {
     int frame;
 };
 
+#ifndef RAY_TRACING_SHADER
+// Must match in code
+static SamplerState linear_wrap_sampler = SamplerDescriptorHeap[0];
+static SamplerState linear_clamp_sampler = SamplerDescriptorHeap[1];
+static SamplerState point_wrap_sampler = SamplerDescriptorHeap[2];
+static SamplerState point_clamp_sampler = SamplerDescriptorHeap[3];
+static SamplerComparisonState shadow_wrap_sampler = SamplerDescriptorHeap[4];
+static SamplerComparisonState shadow_clamp_sampler = SamplerDescriptorHeap[5];
+#endif
+
 // Convert viewport coordinates to view space position
 float3 GetVSPosition(float2 uv, float hardware_depth) {
     uv.y = 1.0f - uv.y;

@@ -51,9 +51,14 @@ void IrradianceRenderer::addPass(FrameGraph &fg)
 		p->flush();
 		p->bind(cmd_list);
 
-		// Uniforms
+		struct Constants
+		{
+			uint32_t input_tex_id;
+		} constants;
+		constants.input_tex_id = sky.getBindlessId();
+
 		gDynamicRHI->setUAVTexture(1, irradiance.texture);
-		gDynamicRHI->setTexture(2, sky.texture);
+		gDynamicRHI->setConstantBufferData(0, &constants, sizeof(constants));
 
 		cmd_list->dispatch(irradiance.texture->getWidth() / 32, irradiance.texture->getHeight() / 32, 6);
 		

@@ -28,7 +28,6 @@ public:
 	void generateMipmaps(RHICommandList *cmd_list);
 
 	VkImageView getImageView(int mip = -1, int layer = -1, bool for_uav = false);
-	VkSampler getSampler() { return sampler->resource; }
 
 	bool isValid() const override { return image != nullptr; }
 protected:
@@ -41,8 +40,6 @@ protected:
 			image = std::make_unique<VkImageResource>();
 		image->resource = *reinterpret_cast<VkImage *>(raw_resource);
 	}
-
-	void create_sampler();
 
 	void copy_buffer_to_image(VkCommandBuffer command_buffer, VkBuffer buffer)
 	{
@@ -145,7 +142,6 @@ protected:
 
 	std::unique_ptr<VkImageResource> image = nullptr;
 	std::unique_ptr<VkAllocationResource> allocation = nullptr;
-	std::unique_ptr<VkSamplerResource> sampler = nullptr;
 
 	struct ImageView
 	{

@@ -11,6 +11,7 @@ class PrefilterRenderer: public RendererBase
 public:
 	struct PushConstantFrag
 	{
+		uint32_t input_tex_id = 0;
 		float roughness = 0;
 		uint32_t mip_count;
 	} constants_frag;

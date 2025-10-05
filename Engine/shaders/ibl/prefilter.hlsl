@@ -1,14 +1,14 @@
 #include "../common.h"
 
-RWTexture2DArray<float4> prefilterMap : register(u1);
-TextureCube texSampler : register(t2);
-SamplerState texSamplerState : register(s2);
-
 cbuffer Constants : register(b0)
 {
+    uint input_tex_id;
     float roughness;
     uint mip_count;
 }
+
+RWTexture2DArray<float4> output_texture : register(u1);
+static TextureCube input_texture = ResourceDescriptorHeap[input_tex_id];
 
 float RadicalInverse_VdC(uint bits) 
 {
@@ -70,13 +70,13 @@ float3 prefilterEnvMap(float3 R, float roughness)
             float pdf = D_GGX(NdotH, roughness) * NdotH / (4.0 * HdotV) + 0.0001;
             
             float width, height;
-            texSampler.GetDimensions(width, height);
+            input_texture.GetDimensions(width, height);
 
             float saTexel  = 4.0 * PI / (6.0 * width * width);
             float saSample = 1.0 / (float(SAMPLES_COUNT) * pdf + 0.0001);
             float mip_level = roughness == 0.0 ? 0.0 : 0.5 * log2(saSample / saTexel); 
             
-            prefiltered_color += texSampler.SampleLevel(texSamplerState, L, mip_level).rgb * NdotL;
+            prefiltered_color += input_texture.SampleLevel(linear_wrap_sampler, L, mip_level).rgb * NdotL;
             total_weight += NdotL;
         }
     }
@@ -88,10 +88,10 @@ float3 prefilterEnvMap(float3 R, float roughness)
 void CSMain(uint3 id : SV_DispatchThreadID)
 {
     uint3 size;
-    prefilterMap.GetDimensions(size.x, size.y, size.z);
+    output_texture.GetDimensions(size.x, size.y, size.z);
     if (id.x >= size.x || id.y >= size.y) return;
     
     float3 N = GetCubemapNormal(float2(size.x, size.y), id);
     float3 color = prefilterEnvMap(N, roughness);
-    prefilterMap[id] = float4(color, 1);
+    output_texture[id] = float4(color, 1);
 }

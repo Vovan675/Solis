@@ -8,7 +8,6 @@
 
 GBufferPass::GBufferPass()
 {
-	// TODO: fix
 	gbuffer_vertex_shader = gDynamicRHI->createShader(L"shaders/opaque.hlsl", VERTEX_SHADER);
 	gbuffer_fragment_shader = gDynamicRHI->createShader(L"shaders/opaque.hlsl", FRAGMENT_SHADER);
 }
@@ -64,15 +63,10 @@ void GBufferPass::AddPass(FrameGraph &fg, const std::vector<RenderBatch> &batche
 		p->flush();
 		p->bind(cmd_list);
 
-		//Renderer::bindShadersDescriptorSets(p->getCurrentShaders(), command_buffer, p->getPipelineLayout());
-
 		for (const RenderBatch &batch : batches)
 		{
 			if (!batch.camera_visible)
 				continue;
-
-			// Push constant
-			//vkCmdPushConstants(command_buffer.get_buffer(), p->getPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(Material::PushConstant), &batch.material->getPushConstant(batch.world_transform));
 
 			// Render mesh
 			auto pc = batch.material->getPushConstant(batch.world_transform, batch.iworld_transform);
@@ -87,8 +81,5 @@ void GBufferPass::AddPass(FrameGraph &fg, const std::vector<RenderBatch> &batche
 		}
 		p->unbind(cmd_list);
 		cmd_list->resetRenderTargets();
-
-		//p->unbind(command_buffer);
-		//VkWrapper::cmdEndRendering(command_buffer);
 	});
 }

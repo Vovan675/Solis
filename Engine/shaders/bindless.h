@@ -1,13 +1,16 @@
 #pragma once
-Texture2D BindlessTextures[] : register(t0, space1);
-SamplerState BindlessSamplers[] : register(s0, space1);
+#include "common.h"
 
+#ifndef RAY_TRACING_SHADER
 float4 SampleTexture(uint index, float2 uv)
 {
-    return BindlessTextures[NonUniformResourceIndex(index)].Sample(BindlessSamplers[NonUniformResourceIndex(index)], uv);
+    Texture2D tex = ResourceDescriptorHeap[index];
+    return tex.Sample(linear_wrap_sampler, uv);
 }
 
 float4 SampleTextureLevel(uint index, float2 uv, int lod)
 {
-    return BindlessTextures[NonUniformResourceIndex(index)].SampleLevel(BindlessSamplers[NonUniformResourceIndex(index)], uv, 0);
+    Texture2D tex = ResourceDescriptorHeap[index];
+    return tex.SampleLevel(linear_wrap_sampler, uv, 0);
 }
+#endif

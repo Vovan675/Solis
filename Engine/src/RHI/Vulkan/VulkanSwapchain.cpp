@@ -153,7 +153,7 @@ void VulkanSwapchain::create_resources()
 		TextureDescription desc{};
 		desc.width = swap_extent.width;
 		desc.height = swap_extent.height;
-		desc.usage_flags = TEXTURE_USAGE_ATTACHMENT;
+		desc.usage_flags = TEXTURE_USAGE_ATTACHMENT | TEXTURE_USAGE_NO_SAMPLED;
 		desc.format = info.format;
 		RHITextureRef tex = gDynamicRHI->createTexture(desc);
 		tex->fill_raw(&swapchain_images[i]);

@@ -18,7 +18,8 @@ PSOutput PSMain(VSInput input)
     PSOutput output;
 
     int2 tex_dim;
-    BindlessTextures[raw_tex_id].GetDimensions(tex_dim.x, tex_dim.y);
+    Texture2D tex = ResourceDescriptorHeap[raw_tex_id];
+    tex.GetDimensions(tex_dim.x, tex_dim.y);
     float2 texel_size = 1.0 / float2(tex_dim);
 
     int samples = 0;

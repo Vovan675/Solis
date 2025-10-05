@@ -73,6 +73,9 @@ void VulkanDynamicRHI::shutdown()
 {
 	TracyVkDestroy(tracy_ctx);
 
+	release_gpu_resources(UINT64_MAX);
+	gDynamicRHI->getBindlessResources()->cleanup();
+
 	auto *bindless = bindless_resources;
 	bindless_resources = nullptr;
 	buffers_for_shaders.clear();
@@ -110,8 +113,7 @@ void VulkanDynamicRHI::shutdown()
 	}
 	cached_shaders.clear();
 
-	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-		release_gpu_resources(UINT64_MAX);
+	release_gpu_resources(UINT64_MAX);
 
 	DescriptorLayoutBuilder::clearAllCaches();
 	vkDestroyCommandPool(device->logicalHandle, command_pool, nullptr);
@@ -304,7 +306,7 @@ void VulkanDynamicRHI::prepareRenderCall()
 		{
 			for (auto &desc : descriptors_info)
 			{
-				if (desc.type != DESCRIPTOR_TYPE_COMBINED_IMAGE || desc.set != 0)
+				if (desc.type != DESCRIPTOR_TYPE_SAMPLED_IMAGE || desc.set != 0)
 					continue;
 
 				VulkanTexture *texture = current_bind_textures[desc.binding];
@@ -312,10 +314,9 @@ void VulkanDynamicRHI::prepareRenderCall()
 				if (texture == nullptr)
 					continue;
 
-				VkDescriptorType descriptor_type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 				VkImageLayout image_layout = texture->isDepthTexture() ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-				writer.writeImage(desc.binding, descriptor_type, texture->getImageView(-1, -1, false), texture->sampler->resource, image_layout);
+				writer.writeImage(desc.binding, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, texture->getImageView(-1, -1, false), nullptr, image_layout);
 			}
 		}
 
@@ -334,7 +335,7 @@ void VulkanDynamicRHI::prepareRenderCall()
 				VkDescriptorType descriptor_type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
 				VkImageLayout image_layout = VK_IMAGE_LAYOUT_GENERAL;
 
-				writer.writeImage(desc.binding, descriptor_type, current_bind_uav_textures_views[desc.binding], texture->sampler->resource, image_layout);
+				writer.writeImage(desc.binding, descriptor_type, current_bind_uav_textures_views[desc.binding], nullptr, image_layout);
 			}
 		}
 
@@ -389,7 +390,7 @@ void VulkanDynamicRHI::prepareRenderCall()
 	// Bind bindless
 	VulkanBindlessResources *native_bindless = (VulkanBindlessResources *)gDynamicRHI->getBindlessResources();
 	VkDescriptorSet bindless_set = native_bindless->getDescriptorSet();
-	vkCmdBindDescriptorSets(native_cmd_list->cmd_buffer, bind_point, native_pso->resource->pipeline_layout, 1, 1, &bindless_set, 0, nullptr);
+	vkCmdBindDescriptorSets(native_cmd_list->cmd_buffer, bind_point, native_pso->resource->pipeline_layout, BINDLESS_TEXTURES_SET, 1, &bindless_set, 0, nullptr);
 }
 
 void VulkanDynamicRHI::init_instance()

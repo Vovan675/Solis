@@ -10,13 +10,10 @@ struct PSOutput {
     float4 specular : SV_Target1;
 };
 
-TextureCube irradiance_tex : register(t1);
-TextureCube prefilter_tex : register(t2);
-SamplerState samplerState1 : register(s1);
-SamplerState samplerState2 : register(s2);
-
 cbuffer UBO : register(b0)
 {
+    uint irradiance_tex_id;
+    uint prefilter_tex_id;
     uint lighting_diffuse_tex_id;
     uint lighting_specular_tex_id;
     uint albedo_tex_id;
@@ -27,6 +24,9 @@ cbuffer UBO : register(b0)
     uint ssao_tex_id;
     uint ssr_tex_id;
 };
+
+static TextureCube irradiance_tex = ResourceDescriptorHeap[irradiance_tex_id];
+static TextureCube prefilter_tex = ResourceDescriptorHeap[prefilter_tex_id];
 
 PSOutput PSMain(VSInput input)
 {
@@ -48,7 +48,7 @@ PSOutput PSMain(VSInput input)
     float3 f = F_Schlick(f0, 1.0f, roughness);
     float3 kd = (1.0f - f);
 
-    float3 irradiance = irradiance_tex.Sample(samplerState1, normal).rgba;
+    float3 irradiance = irradiance_tex.Sample(linear_wrap_sampler, normal).rgb;
     float3 ibl_diffuse = irradiance * albedo.rgb * kd;
 
     float3 world_pos = GetWSPosition(input.uv, depth);
@@ -66,7 +66,7 @@ PSOutput PSMain(VSInput input)
 
     float lod = roughness * (float)levels;
 
-    float3 prefilter = prefilter_tex.SampleLevel(samplerState2, reflection, lod).rgba;
+    float3 prefilter = prefilter_tex.SampleLevel(linear_wrap_sampler, reflection, lod).rgb;
 
     float ssao = SampleTexture(ssao_tex_id, input.uv).r;
 
@@ -78,7 +78,7 @@ PSOutput PSMain(VSInput input)
     output.specular = float4(0, 0, 0, 1.0);
 
     #if SSR
-        float3 ssr = textures[ssr_tex_id].Sample(samplerState, input.uv).rgb;
+        float3 ssr = textures[ssr_tex_id].Sample(linear_wrap_sampler, input.uv).rgb;
         ssr *= 1.0f - roughness;
         //output.specular += ssr;
     #endif

@@ -4,8 +4,6 @@
 #include "DX12Utils.h"
 #include "Rendering/GlobalPipeline.h"
 
-std::unordered_set<uint16_t> DX12Texture::created_samplers;
-
 DX12Texture::~DX12Texture()
 {
 	destroy();
@@ -51,6 +49,7 @@ void DX12Texture::destroy()
 
 void DX12Texture::fill()
 {
+	destroy();
 	cleanup();
 
 	uint32_t sample_count = 1;
@@ -112,6 +111,7 @@ void DX12Texture::fill()
 		&allocation->resource,
 		IID_PPV_ARGS(&resource->resource));
 	create_views();
+	gDynamicRHI->getBindlessResources()->addTexture(this);
 }
 
 void DX12Texture::fill(const void *sourceData)
@@ -216,19 +216,20 @@ void DX12Texture::loadEquirectangularCubemap(const char *path)
 	p->setComputeShader(gDynamicRHI->createShader(L"shaders/equirect_to_cubemap.hlsl", COMPUTE_SHADER));
 	p->flush();
 	p->bind(cmd_list);
-
+	
+	equirect_texture->transitLayout(cmd_list, TEXTURE_LAYOUT_SHADER_READ);
 	gDynamicRHI->setUAVTexture(0, this);
-	gDynamicRHI->setTexture(1, equirect_texture);
+	struct Uniforms
+	{
+		uint32_t equirect_tex_id;
+	} uniforms;
+	uniforms.equirect_tex_id = gDynamicRHI->getBindlessResources()->getTextureIndex(equirect_texture);
+	gDynamicRHI->setConstantBufferData(1, &uniforms, sizeof(uniforms));
 
 	cmd_list->dispatch(getWidth() / 32, getHeight() / 32, 6);
 	p->unbind(cmd_list);
-	//cmd_list->resetRenderTargets();
-
-	//copy_buffer_to_image(native_copy_cmd_list->cmd_buffer, stagingBuffer);
 
 	transitLayout(cmd_list, TEXTURE_LAYOUT_SHADER_READ);
-	// Create mipmaps
-	////createMipmaps(command_buffer);
 
 	this->path = path;
 }
@@ -307,62 +308,6 @@ void DX12Texture::create_views()
 	if (isDepthTexture())
 	{
 		depth_stencil_view = getDepthStencilView();
-	}
-
-	// Sampler
-	uint16_t sampler_key = getSamplerKey(description);
-	if (created_samplers.find(sampler_key) != created_samplers.end())
-	{
-		assert(sampler_key < 2048);
-		sampler_view = rhi->samplers_staging_heap->getHandle(sampler_key);
-	} else
-	{
-		// Allocate in staging heap
-		sampler_view = rhi->samplers_staging_heap->allocate();
-
-		D3D12_FILTER filter = D3D12_FILTER_MIN_MAG_MIP_POINT;
-		if (description.filtering == FILTER_LINEAR)
-			filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
-		else if (description.filtering == FILTER_NEAREST)
-			filter = D3D12_FILTER_MIN_MAG_MIP_POINT;
-
-		D3D12_TEXTURE_ADDRESS_MODE address_mode = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-		if (description.sampler_mode == SAMPLER_MODE_REPEAT)
-			address_mode = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-		else if (description.sampler_mode == SAMPLER_MODE_CLAMP_TO_EDGE)
-			address_mode = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
-		else if (description.sampler_mode == SAMPLER_MODE_CLAMP_TO_BORDER)
-			address_mode = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
-
-
-		D3D12_SAMPLER_DESC sampler_desc = {};
-		sampler_desc.Filter = filter;
-		sampler_desc.AddressU = address_mode;
-		sampler_desc.AddressV = address_mode;
-		sampler_desc.AddressW = address_mode;
-		sampler_desc.MipLODBias = 0;
-		sampler_desc.MaxAnisotropy = description.anisotropy ? 4 : 1.0f;
-		sampler_desc.ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
-		sampler_desc.MinLOD = 0.0f;
-		sampler_desc.MaxLOD = D3D12_FLOAT32_MAX;
-		sampler_desc.BorderColor[0] = 1.0f;
-		sampler_desc.BorderColor[1] = 1.0f;
-		sampler_desc.BorderColor[2] = 1.0f;
-		sampler_desc.BorderColor[3] = 1.0f;
-
-		if (description.use_comparison_less)
-		{
-			D3D12_FILTER filter = D3D12_FILTER_COMPARISON_MIN_MAG_MIP_POINT;
-			if (description.filtering == FILTER_LINEAR)
-				filter = D3D12_FILTER_COMPARISON_MIN_MAG_MIP_LINEAR;
-			else if (description.filtering == FILTER_NEAREST)
-				filter = D3D12_FILTER_COMPARISON_MIN_MAG_MIP_POINT;
-			sampler_desc.Filter = filter;
-			sampler_desc.ComparisonFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL; // For shadows hardware comparison
-		}
-
-		rhi->device->CreateSampler(&sampler_desc, sampler_view.getCpuHandle());
-		created_samplers.insert(sampler_key);
 	}
 }
 
@@ -607,14 +552,4 @@ DX12Descriptor DX12Texture::getUnorderedAccessView(int mip, int layer)
 	}
 	rhi->device->CreateUnorderedAccessView(resource->resource, nullptr, &uav_desc, view.handle.getCpuHandle());
 	return view.handle;
-}
-
-uint16_t DX12Texture::getSamplerKey(TextureDescription description)
-{
-	// We have 11 bits
-	uint16_t sampler_key = 0;
-	sampler_key |= (description.filtering & 0b1) << 0; // 0bit - filtering
-	sampler_key |= (description.sampler_mode & 0b11) << 1; // 1-2bits - sampler_mode
-	sampler_key |= (description.anisotropy & 0b1) << 3; // 3bit - anisotropy
-	return sampler_key;
 }

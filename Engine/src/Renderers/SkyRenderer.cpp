@@ -135,7 +135,12 @@ void SkyRenderer::addCompositePasses(FrameGraph &fg)
 
 	
 		// Render mesh
-		gDynamicRHI->setTexture(0, sky.texture);
+		struct Constants
+		{
+			uint32_t cubemap_tex_id;
+		} constants;
+		constants.cubemap_tex_id = sky.getBindlessId();
+		gDynamicRHI->setConstantBufferData(0, &constants, sizeof(Constants));
 
 		cmd_list->setVertexBuffer(mesh->vertexBuffer);
 		cmd_list->setIndexBuffer(mesh->indexBuffer);

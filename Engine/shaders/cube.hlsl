@@ -13,7 +13,6 @@ struct VertexOutput {
     float3 dir : TEXCOORD0;
 };
 
-// Cube vertices and indices
 static const float3 cubePositions[8] = {
     float3(-1.0, -1.0,  1.0),
     float3( 1.0, -1.0,  1.0),
@@ -41,14 +40,13 @@ static const int cubeIndices[36] = {
 };
 
 float4x4 RemoveTranslation(float4x4 m) {
-    // Create a new matrix without the translation component
     float4x4 result = m;
     
     // Zero out the translation part (last column)
-    result[0][3] = 0.0; // Set the 4th column, 1st row to 0
-    result[1][3] = 0.0; // Set the 4th column, 2nd row to 0
-    result[2][3] = 0.0; // Set the 4th column, 3rd row to 0
-    result[3][3] = 1.0; // Keep the 4th column, 4th row as 1 (homogeneous coordinate)
+    result[0][3] = 0.0;
+    result[1][3] = 0.0;
+    result[2][3] = 0.0;
+    result[3][3] = 1.0;
 
     return result;
 }
@@ -66,12 +64,13 @@ VertexOutput VSMain(VertexInput IN) {
     return OUT;
 }
 
-// Pixel Shader
-TextureCube<float4> texSampler : register(t0);
-SamplerState texSamplerState : register(s0);
+cbuffer Constants : register(b0)
+{
+	uint cubemap_tex_id;
+};
 
 float4 PSMain(VertexOutput IN) : SV_TARGET {
-    // Sample cubemap texture
-    float3 color = texSampler.Sample(texSamplerState, IN.dir).rgb;
+    TextureCube texture = ResourceDescriptorHeap[cubemap_tex_id];
+    float3 color = texture.Sample(linear_wrap_sampler, IN.dir).rgb;
     return float4(color, 1.0);
 }

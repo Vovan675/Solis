@@ -41,7 +41,12 @@ void PrefilterRenderer::addPass(FrameGraph &fg)
 		FrameGraphTexture &prefilter = resources.getResource<FrameGraphTexture>(data.prefilter);
 		FrameGraphTexture &sky = resources.getResource<FrameGraphTexture>(sky_data.sky);
 
-		for (int mip = 0; mip < 5; mip++)
+		const int MIP_COUNT = 5;
+
+		constants_frag.input_tex_id = sky.getBindlessId();
+		constants_frag.mip_count = MIP_COUNT;
+
+		for (int mip = 0; mip < MIP_COUNT; mip++)
 		{
 			auto &p = gGlobalPipeline;
 			p->reset();
@@ -54,11 +59,9 @@ void PrefilterRenderer::addPass(FrameGraph &fg)
 
 			float roughness = (float)mip / (float)(5 - 1);
 			constants_frag.roughness = roughness;
-			constants_frag.mip_count = 5;
 
 			// Uniforms
-			gDynamicRHI->setUAVTexture(1, prefilter.texture, mip); // mip, uav
-			gDynamicRHI->setTexture(2, sky.texture);
+			gDynamicRHI->setUAVTexture(1, prefilter.texture, mip);
 			gDynamicRHI->setConstantBufferData(0, &constants_frag, sizeof(PushConstantFrag));
 
 			cmd_list->dispatch(prefilter.texture->getWidth() / 32, prefilter.texture->getHeight() / 32, 6);

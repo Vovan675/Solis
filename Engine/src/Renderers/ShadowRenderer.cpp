@@ -48,8 +48,6 @@ void ShadowRenderer::addShadowMapPasses(FrameGraph &fg, const std::vector<Render
 		Entity light_entity(light_entity_id);
 		auto &light = light_entity.getComponent<LightComponent>();
 
-		//light.shadow_map->transitLayout(command_buffer, TEXTURE_LAYOUT_ATTACHMENT);
-
 		glm::vec3 scale, position, skew;
 		glm::vec4 persp;
 		glm::quat rotation;
@@ -274,15 +272,8 @@ void ShadowRenderer::addRayTracedShadowPasses(FrameGraph & fg)
 
 		gDynamicRHI->setConstantBufferData(1, &ubo_light, sizeof(LightUBO));
 
-
-		VulkanDynamicRHI *native_rhi = VulkanUtils::getNativeRHI();
-		VulkanPipeline *native_pipeline = (VulkanPipeline *)p->current_pipeline.getReference();
-
-
-		VulkanCommandList *native_cmd_list = (VulkanCommandList *)cmd_list;
-
 		gDynamicRHI->setUAVTexture(0, ray_traced_lighting);
-		native_rhi->setAccelerationStructure(2, ray_tracing_scene->getTopLevelAS());
+		gDynamicRHI->setAccelerationStructure(2, ray_tracing_scene->getTopLevelAS());
 
 		cmd_list->dispatchRays(Renderer::getViewportSize().x, Renderer::getViewportSize().y, 1);
 
@@ -314,12 +305,7 @@ void ShadowRenderer::update_cascades(LightComponent &light, glm::vec3 light_dir)
 		float d = 0.95 * (log - uniform) + uniform;
 		cascadeSplits[i] = (d - nearClip) / clipRange;
 	}
-	// TODO: calculate
-	//cascadeSplits[3] = 0.3f;
-	//cascadeSplits[0] = 0.05f;
-	//cascadeSplits[1] = 0.15f;
-	//cascadeSplits[2] = 0.3f;
-	//cascadeSplits[3] = 1.0f;
+	
 	// Calculate orthographic projection matrix for each cascade
 	float lastSplitDist = 0.0;
 	for (uint32_t i = 0; i < SHADOW_MAP_CASCADE_COUNT; i++)

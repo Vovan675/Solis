@@ -1,8 +1,12 @@
 #include "common.h"
 
-RWTexture2DArray<float4> cubemapImage : register(u0);
-Texture2D<float4> equirectangularTexture : register(t1);
-SamplerState equirectSampler : register(s1);
+cbuffer Uniforms : register(b1)
+{
+    uint equirect_tex_id;
+};
+
+RWTexture2DArray<float4> cubemap_image : register(u0);
+static Texture2D equirect_texture = ResourceDescriptorHeap[equirect_tex_id];
 
 float2 cartesianToSpherical(float3 cartesian)
 {
@@ -18,7 +22,7 @@ void CSMain(uint3 dispatchID : SV_DispatchThreadID)
     // Get cubemap face coordinates
     uint3 coord = dispatchID;
     uint3 size;
-    cubemapImage.GetDimensions(size.x, size.y, size.z);
+    cubemap_image.GetDimensions(size.x, size.y, size.z);
     
     if (coord.x >= size.x || coord.y >= size.y) return;
     
@@ -26,6 +30,6 @@ void CSMain(uint3 dispatchID : SV_DispatchThreadID)
     
     // Convert to spherical coordinates and sample equirectangular texture
     float2 sphericalUV = cartesianToSpherical(N);
-    float4 color = equirectangularTexture.SampleLevel(equirectSampler, sphericalUV, 0);
-    cubemapImage[coord] = color;
+    float4 color = equirect_texture.SampleLevel(linear_wrap_sampler, sphericalUV, 0);
+    cubemap_image[coord] = color;
 }

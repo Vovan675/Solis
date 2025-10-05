@@ -178,18 +178,9 @@ void Application::render(RHICommandList *cmd_list)
 	PROFILE_CPU_FUNCTION();
 	PROFILE_GPU_FUNCTION(cmd_list);
 	
-	//vkCmdResetQueryPool(command_buffer.get_buffer(), VkWrapper::device->query_pools[Renderer::getCurrentFrameInFlight()], 0, VkWrapper::device->time_stamps[Renderer::getCurrentFrameInFlight()].size());
-	
-	//GPU_SCOPE_FUNCTION(&command_buffer);
-
 	// Set swapchain color image layout for writing
 	auto swapchain_texture = gDynamicRHI->getCurrentSwapchainTexture();
 	swapchain_texture->transitLayout(cmd_list, TEXTURE_LAYOUT_ATTACHMENT);
-	//depth_stencil_texture->transitLayout(cmd_list, TEXTURE_LAYOUT_ATTACHMENT);
-	//cmd_list->setRenderTargets({swapchain_texture}, {depth_stencil_texture}, 0, 0, true);
-
-	// Set PSO
-	//cmd_list->setPipeline(pso_rhi);
 
 	if (current_demo == DEMO_NONE)
 	{
@@ -227,7 +218,6 @@ void Application::cleanup()
 	TransientResources::cleanup();
 	ImGuiWrapper::shutdown();
 	cleanupResources();
-	gDynamicRHI->getBindlessResources()->cleanup();
 	// Shader::destroyAllShaders(); // TODO: implement
 	Renderer::shutdown();
 

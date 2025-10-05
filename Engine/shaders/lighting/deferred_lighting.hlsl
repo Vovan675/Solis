@@ -32,19 +32,6 @@ VSOutput VSMain(VSInput input)
 }
 
 // Pixel Shader
-
-#if RAY_TRACED_SHADOWS == 1
-	Texture2D shadow_map : register(t5);
-#else
-	#if LIGHT_TYPE == 0
-		TextureCube shadow_map : register(t5);
-		SamplerState shadow_map_sampler : register(s5);
-	#else
-		Texture2DArray shadow_map : register(t5);
-		SamplerComparisonState shadow_map_sampler : register(s5);
-	#endif
-#endif
-
 cbuffer UBOTextures : register(b1)
 {
 	uint albedoTexId;
@@ -61,6 +48,7 @@ cbuffer PushConstants : register(b2)
 	float light_intensity;
 	float light_range_square;
 	float z_far;
+	uint shadow_map_tex_id;
 };
 
 struct PSOutput
@@ -68,6 +56,18 @@ struct PSOutput
 	float3 outDiffuse : SV_Target0;
 	float3 outSpecular : SV_Target1;
 };
+
+#if RAY_TRACED_SHADOWS == 1
+	static Texture2D shadow_map = ResourceDescriptorHeap[shadow_map_tex_id];
+#else
+	#if LIGHT_TYPE == 0
+		static TextureCube shadow_map = ResourceDescriptorHeap[shadow_map_tex_id];
+		#define SHADOW_MAP_SAMPLER point_wrap_sampler
+	#else
+		static Texture2DArray shadow_map = ResourceDescriptorHeap[shadow_map_tex_id];
+		#define SHADOW_MAP_SAMPLER shadow_clamp_sampler
+	#endif
+#endif
 
 static const float3 sampling_offsets[20] = {
 	float3(1, 1, 1), float3(1, -1, 1), float3(-1, -1, 1), float3(-1, 1, 1),
@@ -108,7 +108,7 @@ float2( -0.8595296839803187f, -0.3859107698213548f ),
 			float sampling_radius = 0.003;
 			for (int i = 0; i < samples; i++)
 			{
-				float closest_depth = shadow_map.Sample(shadow_map_sampler, fragToLight + sampling_offsets[i] * sampling_radius).r;
+				float closest_depth = shadow_map.Sample(SHADOW_MAP_SAMPLER, fragToLight + sampling_offsets[i] * sampling_radius).r;
 				shadow += current_depth - bias < closest_depth ? 1.0 : 0.0;
 			}
 
@@ -171,12 +171,12 @@ float2( -0.8595296839803187f, -0.3859107698213548f ),
 					float2 offset = POISSON_SAMPLES[i] * filter_size;
 				#endif
 				float3 sample_coord = float3((proj_coords.xy * float2(0.5, -0.5) + 0.5) + offset, layer);
-				shadow += shadow_map.SampleCmpLevelZero(shadow_map_sampler, sample_coord, current_depth - bias);
+				shadow += shadow_map.SampleCmpLevelZero(SHADOW_MAP_SAMPLER, sample_coord, current_depth - bias);
 			}
 			shadow /= 12.0f;
 			
 			//shadow = 0.0f;
-			//float closest_depth = shadow_map.Sample(shadow_map_sampler, float3(proj_coords.xy * float2(0.5, -0.5) + 0.5, layer)).r;
+			//float closest_depth = shadow_map.Sample(SHADOW_MAP_SAMPLER, float3(proj_coords.xy * float2(0.5, -0.5) + 0.5, layer)).r;
 			//shadow += current_depth - bias < closest_depth ? 1.0 : 0.0;
 			//return closest_depth;
 			return clamp(shadow, 0.0, 1.0);
@@ -237,7 +237,7 @@ PSOutput PSMain(VSOutput input)
 	#if RAY_TRACED_SHADOWS == 1
 		L = normalize(light_pos.xyz);
 		#if USE_SHADOWS == 1
-			shadow = shadow_map.Sample(BindlessSamplers[0], inUV).r;
+			shadow = shadow_map.Sample(linear_wrap_sampler, inUV).r;
 		#endif
 	#else
 		#if LIGHT_TYPE == 0

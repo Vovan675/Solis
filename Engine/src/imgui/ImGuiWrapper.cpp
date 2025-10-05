@@ -148,8 +148,11 @@ ImTextureID ImGuiWrapper::getTextureId(RHITextureRef tex, int mip)
 			return set_usage.set;
 		}
 
+		VulkanBindlessResources *native_bindless = (VulkanBindlessResources *)gDynamicRHI->getBindlessResources();
+		VkSampler linear_wrap_sampler = native_bindless->getNativeSampler(0);
+
 		DescriptorSetUsage set_usage;
-		set_usage.set = ImGui_ImplVulkan_AddTexture(native_texture->getSampler(), view, VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL);
+		set_usage.set = ImGui_ImplVulkan_AddTexture(linear_wrap_sampler, view, VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL);
 		set_usage.last_access_frame = gDynamicRHI->getFrame();
 		image_view_to_descriptor_set[view] = set_usage;
 		return (ImTextureID)set_usage.set;

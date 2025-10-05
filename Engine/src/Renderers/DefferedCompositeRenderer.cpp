@@ -68,6 +68,8 @@ void DefferedCompositeRenderer::addPasses(FrameGraph &fg)
 
 		struct UBO
 		{
+			uint32_t irradiance_tex_id = 0;
+			uint32_t prefilter_tex_id = 0;
 			uint32_t lighting_diffuse_tex_id = 0;
 			uint32_t lighting_specular_tex_id = 0;
 			uint32_t albedo_tex_id = 0;
@@ -79,6 +81,9 @@ void DefferedCompositeRenderer::addPasses(FrameGraph &fg)
 			uint32_t ssr_tex_id = 0;
 		} ubo;
 
+		ubo.irradiance_tex_id = ibl_irradiance.getBindlessId();
+		ubo.prefilter_tex_id = ibl_prefilter.getBindlessId();
+		ubo.lighting_diffuse_tex_id = resources.getResource<FrameGraphTexture>(lighting_data.diffuse_light).getBindlessId();
 		ubo.lighting_diffuse_tex_id = resources.getResource<FrameGraphTexture>(lighting_data.diffuse_light).getBindlessId();
 		ubo.lighting_specular_tex_id = resources.getResource<FrameGraphTexture>(lighting_data.specular_light).getBindlessId();
 		ubo.albedo_tex_id = resources.getResource<FrameGraphTexture>(gbuffer_data.albedo).getBindlessId();
@@ -99,8 +104,6 @@ void DefferedCompositeRenderer::addPasses(FrameGraph &fg)
 		p->bindScreenQuadPipeline(cmd_list, shader);
 
 		gDynamicRHI->setConstantBufferData(0, &ubo, sizeof(UBO));
-		gDynamicRHI->setTexture(1, ibl_irradiance.texture);
-		gDynamicRHI->setTexture(2, ibl_prefilter.texture);
 
 		// Render quad
 		cmd_list->drawInstanced(6, 1, 0, 0);

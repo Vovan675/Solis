@@ -51,14 +51,10 @@ void DX12Swapchain::resize(uint32_t width, uint32_t height)
 
 	swap_chain->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, 0);
 
-	//D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle(render_target_view_heap->GetCPUDescriptorHandleForHeapStart());
-
 	// Create a RTV for each frame.
 	for (UINT n = 0; n < info.textures_count; n++)
 	{
 		swap_chain->GetBuffer(n, IID_PPV_ARGS(&render_targets[n]));
-		//device->CreateRenderTargetView(render_targets[n].Get(), nullptr, rtvHandle);
-		//rtvHandle.ptr += (1 * rtvDescriptorSize);
 
 		TextureDescription desc{};
 		desc.width = width;
@@ -94,8 +90,6 @@ void DX12Swapchain::create_swapchain()
 	for (UINT n = 0; n < info.textures_count; n++)
 	{
 		swap_chain->GetBuffer(n, IID_PPV_ARGS(&render_targets[n]));
-		//device->CreateRenderTargetView(render_targets[n].Get(), nullptr, rtvHandle);
-		//rtvHandle.ptr += (1 * rtvDescriptorSize);
 
 		TextureDescription desc{};
 		desc.width = info.width;

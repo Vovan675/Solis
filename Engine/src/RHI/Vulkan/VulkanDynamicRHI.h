@@ -73,7 +73,6 @@ public:
 	struct PerFrameDescriptor
 	{
 		// each draw call can contain multiple sets
-		//std::vector<std::vector<VkDescriptorSet>> descriptors;
 		std::vector<VkDescriptorSet> descriptors;
 		uint32_t current_offset = 0;
 	};
@@ -144,6 +143,7 @@ public:
 
 	void setTexture(unsigned int binding, RHITextureRef texture) override
 	{
+		CORE_INFO("setTexture was used, please consider bindless instead");
 		VulkanTexture *native_texture = (VulkanTexture *)texture.getReference();
 		current_bind_textures[binding] = native_texture;
 		is_textures_dirty = true;

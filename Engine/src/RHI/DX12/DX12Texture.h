@@ -43,8 +43,6 @@ public:
 	DX12Descriptor getDepthStencilView(int mip = 0, int layer = -1);
 	DX12Descriptor getUnorderedAccessView(int mip = 0, int layer = -1);
 
-	static uint16_t getSamplerKey(TextureDescription description);
-
 protected:
 	friend class DX12DynamicRHI;
 	friend class DX12Swapchain;
@@ -93,11 +91,6 @@ protected:
 		if (description.usage_flags & TEXTURE_USAGE_NO_SAMPLED)
 			flags |= D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE;
 
-		//if (description.usage_flags & TEXTURE_USAGE_TRANSFER_SRC)
-		//	flags |= D3d12;
-		//if (description.usage_flags & TEXTURE_USAGE_TRANSFER_DST)
-		//	flags |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-
 		if (description.usage_flags & TEXTURE_USAGE_STORAGE)
 			flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
 		if (description.usage_flags & TEXTURE_USAGE_ATTACHMENT)
@@ -120,7 +113,6 @@ public:
 	DX12Descriptor unordered_access_view;
 	DX12Descriptor render_target_view;
 	DX12Descriptor depth_stencil_view;
-	DX12Descriptor sampler_view;
 
 	struct DescriptorView
 	{
@@ -134,6 +126,4 @@ public:
 	std::vector<DescriptorView> depth_stencil_views;
 
 	const char *debug_name = "";
-
-	static std::unordered_set<uint16_t> created_samplers;
 };
