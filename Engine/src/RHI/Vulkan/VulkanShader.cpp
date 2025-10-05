@@ -2,15 +2,10 @@
 #include "VulkanShader.h"
 #include "VulkanDynamicRHI.h"
 
-
-VulkanShader::VulkanShader(const uint32_t *spirvCode, size_t codeSize, VulkanDynamicRHI *rhi, ShaderType type, size_t hash): rhi(rhi), type(type)
+VulkanShader::VulkanShader(const std::wstring &path, ShaderType type, std::wstring entry_point, std::vector<std::pair<const char *, const char *>> defines)
+	: RHIShader(path, type, entry_point, defines)
 {
-	this->hash = hash;
-	create_info = {VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
-	create_info.codeSize = codeSize;
-	create_info.pCode = spirvCode;
-	vkCreateShaderModule(VulkanUtils::getNativeRHI()->device->logicalHandle, &create_info, nullptr, &handle);
-	reflection = spv_reflect::ShaderModule(codeSize, spirvCode);
+	recompile();
 }
 
 void VulkanShader::destroy()
@@ -22,6 +17,19 @@ void VulkanShader::destroy()
 		vkDestroyShaderModule(rhi->device->logicalHandle, handle, nullptr);
 		handle = nullptr;
 	}
+}
+
+void VulkanShader::recompile()
+{
+	destroy();
+
+	ComPtr<IDxcBlob> blob = gDynamicRHI->compile_shader(path, type, entry_point, true, hash, &defines);
+
+	create_info = {VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
+	create_info.codeSize = blob->GetBufferSize();
+	create_info.pCode = (const uint32_t *)blob->GetBufferPointer();
+	vkCreateShaderModule(VulkanUtils::getNativeRHI()->device->logicalHandle, &create_info, nullptr, &handle);
+	reflection = spv_reflect::ShaderModule(create_info.codeSize, create_info.pCode);
 }
 
 std::vector<Descriptor> VulkanShader::getDescriptors(std::vector<VulkanShader *> shaders)

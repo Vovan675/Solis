@@ -178,9 +178,7 @@ RHIShaderRef VulkanDynamicRHI::createShader(std::wstring path, ShaderType type, 
 		return cached_shaders[cache_hash];
 	}
 
-	size_t hash;
-	ComPtr<IDxcBlob> blob = compile_shader(path, type, entry_point, true, hash);
-	auto shader = new VulkanShader((const uint32_t *)blob->GetBufferPointer(), blob->GetBufferSize(), this, type, hash);
+	auto shader = new VulkanShader(path, type, entry_point, {});
 	cached_shaders[cache_hash] = shader;
 	return shader;
 }
@@ -219,9 +217,7 @@ RHIShaderRef VulkanDynamicRHI::createShader(std::wstring path, ShaderType type, 
 		return cached_shaders[cache_hash];
 	}
 
-	size_t hash;
-	ComPtr<IDxcBlob> blob = compile_shader(path, type, entry_point, true, hash, &defines);
-	auto shader = new VulkanShader((const uint32_t *)blob->GetBufferPointer(), blob->GetBufferSize(), this, type, hash);
+	auto shader = new VulkanShader(path, type, entry_point, defines);
 	cached_shaders[cache_hash] = shader;
 	return shader;
 }
@@ -339,7 +335,7 @@ void VulkanDynamicRHI::prepareRenderCall()
 			}
 		}
 
-		if (is_buffers_dirty)
+		if (is_buffers_dirty || true)
 		{
 			for (auto &desc : descriptors_info)
 			{
@@ -391,6 +387,11 @@ void VulkanDynamicRHI::prepareRenderCall()
 	VulkanBindlessResources *native_bindless = (VulkanBindlessResources *)gDynamicRHI->getBindlessResources();
 	VkDescriptorSet bindless_set = native_bindless->getDescriptorSet();
 	vkCmdBindDescriptorSets(native_cmd_list->cmd_buffer, bind_point, native_pso->resource->pipeline_layout, BINDLESS_TEXTURES_SET, 1, &bindless_set, 0, nullptr);
+
+	is_textures_dirty = false;
+	is_uav_textures_dirty = false;
+	is_buffers_dirty = false;
+	is_acceleration_structures_dirty = false;
 }
 
 void VulkanDynamicRHI::init_instance()

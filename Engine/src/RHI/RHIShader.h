@@ -46,11 +46,24 @@ struct Descriptor
 	unsigned int first_member_offset = 0;
 };
 
-class RHIShader : public RefCounted
+class RHIShader: public RefCounted
 {
 public:
+	RHIShader(const std::wstring &path, ShaderType type, std::wstring entry_point, std::vector<std::pair<const char *, const char *>> defines);
+	virtual ~RHIShader();
+
 	size_t getHash() const { return hash; }
+
+	virtual void recompile() = 0;
+	
+	static std::list<RHIShader *> getAllShadersAtPath(const std::wstring &path);
 
 protected:
 	size_t hash = 0;
+	std::filesystem::path path;
+	ShaderType type;
+	std::wstring entry_point;
+	std::vector<std::pair<const char *, const char *>> defines;
+
+	static std::unordered_map<std::filesystem::path, std::list<RHIShader *>> path_to_shaders;
 };

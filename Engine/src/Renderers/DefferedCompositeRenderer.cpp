@@ -51,7 +51,8 @@ void DefferedCompositeRenderer::addPasses(FrameGraph &fg)
 		builder.read(lut_data.brdf_lut);
 		builder.read(ibl_data.irradiance);
 		builder.read(ibl_data.prefilter);
-		builder.read(ssao_data->ssao_blurred);
+		if (ssao_data)
+			builder.read(ssao_data->ssao_blurred);
 
 		if (ssr_data)
 			builder.read(ssr_data->ssr);
@@ -98,7 +99,10 @@ void DefferedCompositeRenderer::addPasses(FrameGraph &fg)
 		if (ssr_data)
 			ubo.ssr_tex_id = resources.getResource<FrameGraphTexture>(ssr_data->ssr).getBindlessId();
 
-		auto shader = gDynamicRHI->createShader(L"shaders/composite_indirect.hlsl", FRAGMENT_SHADER, {{"SSR", ssr_data ? "1" : "0"}});
+		auto shader = gDynamicRHI->createShader(L"shaders/composite_indirect.hlsl", FRAGMENT_SHADER, {
+			{"SSR", ssr_data ? "1" : "0"},
+			{"SSAO", ssao_data ? "1" : "0"},
+		});
 		
 		auto &p = gGlobalPipeline;
 		p->bindScreenQuadPipeline(cmd_list, shader);

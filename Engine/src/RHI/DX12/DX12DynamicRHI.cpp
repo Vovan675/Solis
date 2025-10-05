@@ -210,21 +210,7 @@ RHIShaderRef DX12DynamicRHI::createShader(std::wstring path, ShaderType type, st
 		return cached_shaders[cache_hash];
 	}
 
-	size_t hash;
-	ComPtr<IDxcBlob> blob = compile_shader(path, type, entry_point, false, hash);
-
-	DxcBuffer reflectionBuffer = {};
-	reflectionBuffer.Ptr = blob->GetBufferPointer();
-	reflectionBuffer.Size = blob->GetBufferSize();
-	reflectionBuffer.Encoding = 0;
-
-	ComPtr<ID3D12ShaderReflection> reflection;
-	ComPtr<ID3D12LibraryReflection> reflection_library;
-	if (type == RAY_GENERATION_SHADER || type == MISS_SHADER || type == CLOSEST_HIT_SHADER)
-		dxc_utils->CreateReflection(&reflectionBuffer, IID_PPV_ARGS(&reflection_library));
-	else
-		dxc_utils->CreateReflection(&reflectionBuffer, IID_PPV_ARGS(&reflection));
-	auto shader = new DX12Shader(blob, reflection, reflection_library, type, hash);
+	auto shader = new DX12Shader(path, type, entry_point, {}, dxc_utils);
 	cached_shaders[cache_hash] = shader;
 	return shader;
 }
@@ -263,21 +249,7 @@ RHIShaderRef DX12DynamicRHI::createShader(std::wstring path, ShaderType type, st
 		return cached_shaders[cache_hash];
 	}
 
-	size_t hash;
-	ComPtr<IDxcBlob> blob = compile_shader(path, type, entry_point, false, hash, &defines);
-
-	DxcBuffer reflectionBuffer = {};
-	reflectionBuffer.Ptr = blob->GetBufferPointer();
-	reflectionBuffer.Size = blob->GetBufferSize();
-	reflectionBuffer.Encoding = 0;
-
-	ComPtr<ID3D12ShaderReflection> reflection;
-	ComPtr<ID3D12LibraryReflection> reflection_library;
-	if (type == RAY_GENERATION_SHADER || type == MISS_SHADER || type == CLOSEST_HIT_SHADER)
-		dxc_utils->CreateReflection(&reflectionBuffer, IID_PPV_ARGS(&reflection_library));
-	else
-		dxc_utils->CreateReflection(&reflectionBuffer, IID_PPV_ARGS(&reflection));
-	auto shader = new DX12Shader(blob, reflection, reflection_library, type, hash);
+	auto shader = new DX12Shader(path, type, entry_point, defines, dxc_utils);
 	cached_shaders[cache_hash] = shader;
 	return shader;
 }

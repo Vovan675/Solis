@@ -29,6 +29,8 @@ EditorApplication::EditorApplication(int argc, char *argv[]) : Application(argc,
 
 void EditorApplication::init()
 {
+	shaders_watcher.addPath(L"shaders", true);
+
 	context.editor_camera = Camera(glm::vec3(0, 2, 0));
 	Renderer::setCamera(&context.editor_camera);
 
@@ -49,6 +51,18 @@ void EditorApplication::init()
 void EditorApplication::update(float delta_time)
 {
 	//ImGui::ShowDemoWindow();
+	if (auto_refresh_shaders)
+	{
+		shaders_watcher.checkUpdates([](std::wstring path)
+		{
+			auto all_shaders = RHIShader::getAllShadersAtPath(path);
+			for (RHIShader *shader : all_shaders)
+			{
+				shader->recompile();
+			}
+			CORE_INFO("Shader recompiled {}", std::filesystem::path(path).string());
+		});
+	}
 
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0);
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
@@ -73,6 +87,11 @@ void EditorApplication::update(float delta_time)
 					Scene::getCurrentScene()->loadFile(path);
 				}
 			}
+			ImGui::EndMenu();
+		}
+		if (ImGui::BeginMenu("Options"))
+		{
+			ImGui::MenuItem("Auto refresh shaders", 0, &auto_refresh_shaders);
 			ImGui::EndMenu();
 		}
 		ImGui::EndMainMenuBar();

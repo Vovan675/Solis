@@ -22,8 +22,8 @@ ComPtr<IDxcBlob> DynamicRHI::compile_shader(std::wstring path, ShaderType type, 
 {
 	std::vector<LPCWSTR> args =
 	{
-		path.c_str(),            // Optional shader source file name for error reporting
-		// and for PIX shader source view.  
+		path.c_str(),            // Optional shader_blob source file name for error reporting
+		// and for PIX shader_blob source view.  
 		L"-E", entry_point.c_str(),              // Entry point.
 		L"-Zs",                      // Enable debug information (slim format)
 		//L"-Zi",
@@ -87,53 +87,81 @@ ComPtr<IDxcBlob> DynamicRHI::compile_shader(std::wstring path, ShaderType type, 
 		args.push_back(L"RAY_TRACING_SHADER");
 	}
 
-	std::vector<std::wstring> wargs;
+	std::vector<std::string> defines_args;
+
+	std::vector<std::wstring> wdefines;
 	if (defines)
 	{
-		for (auto &define : *defines)
+		for (const auto &define : *defines)
+		{
+			std::string key = std::string(define.first);
+			std::string value = std::string(define.second);
+
+			std::string full_define = key + "=" + value;
+
+			wdefines.emplace_back(full_define.begin(), full_define.end());
+		}
+
+		for (const auto &def : wdefines)
 		{
 			args.push_back(L"-D");
-			std::string arg = define.first;
-			arg += "=";
-			arg += define.second;
-			auto &warg = wargs.emplace_back(std::wstring(arg.begin(), arg.end()));
-			args.push_back(warg.c_str());
+			args.push_back(def.c_str());
 		}
 	}
 
-	ComPtr<IDxcBlobEncoding> pSource = nullptr;
-	dxc_utils->LoadFile(path.c_str(), nullptr, &pSource);
-	DxcBuffer Source;
-	Source.Ptr = pSource->GetBufferPointer();
-	Source.Size = pSource->GetBufferSize();
-	Source.Encoding = DXC_CP_ACP; // Assume BOM says UTF8 or UTF16 or this is ANSI text.
+	ComPtr<IDxcResult> dxc_results;
+
+	auto try_compile_shader = [&]()
+	{
+		ComPtr<IDxcBlobEncoding> pSource = nullptr;
+		HRESULT res = dxc_utils->LoadFile(path.c_str(), nullptr, &pSource);
+		if (FAILED(res))
+			return false;
+		DxcBuffer Source;
+		Source.Ptr = pSource->GetBufferPointer();
+		Source.Size = pSource->GetBufferSize();
+		Source.Encoding = DXC_CP_ACP; // Assume BOM says UTF8 or UTF16 or this is ANSI text.
 
 
-	ComPtr<IDxcResult> pResults;
-	dxc_compiler->Compile(
-		&Source,
-		args.data(),
-		args.size(),
-		dxc_include_handler,
-		IID_PPV_ARGS(&pResults)
-	);
+		dxc_compiler->Compile(
+			&Source,
+			args.data(),
+			args.size(),
+			dxc_include_handler,
+			IID_PPV_ARGS(&dxc_results)
+		);
 
-	ComPtr<IDxcBlobUtf8> pErrors = nullptr;
-	pResults->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(&pErrors), nullptr);
-	if (pErrors != nullptr && pErrors->GetStringLength() != 0)
-		CORE_WARN("Warnings and Errors:\n{}\n", pErrors->GetStringPointer());
+		ComPtr<IDxcBlobUtf8> pErrors = nullptr;
+		dxc_results->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(&pErrors), nullptr);
+		if (pErrors != nullptr && pErrors->GetStringLength() != 0)
+		{
+			CORE_WARN("Warnings and Errors:\n{}\n", pErrors->GetStringPointer());
+			std::string message = "Fix shader error: \n";
+			message += pErrors->GetStringPointer();
+			MessageBoxA(NULL, message.c_str(), NULL, MB_OK);
+			return false;
+		}
 
-	// Quit if the compilation failed.
-	HRESULT hrStatus;
-	pResults->GetStatus(&hrStatus);
-	if (FAILED(hrStatus))
-		CORE_ERROR("Compilation Failed\n");
+		// Quit if the compilation failed.
+		HRESULT result_status;
+		dxc_results->GetStatus(&result_status);
+		if (FAILED(result_status))
+		{
+			CORE_ERROR("Compilation Failed\n");
+			std::string message = "Fix shader errors";
+			MessageBoxA(NULL, message.c_str(), NULL, MB_OK);
+			return false;
+		}
+		return true;
+	};
 
-	ComPtr<IDxcBlob> shader;
-	pResults->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&shader), nullptr);
+	while (try_compile_shader() == false);
 
-	source_hash = Engine::Math::fnv1aHash((const uint32_t *)shader->GetBufferPointer(), shader->GetBufferSize());
-	return shader;
+	ComPtr<IDxcBlob> shader_blob;
+	dxc_results->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&shader_blob), nullptr);
+
+	source_hash = Engine::Math::fnv1aHash((const uint32_t *)shader_blob->GetBufferPointer(), shader_blob->GetBufferSize());
+	return shader_blob;
 }
 
 void DynamicRHI::release_gpu_resources(uint64_t frame)

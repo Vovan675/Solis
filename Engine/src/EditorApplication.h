@@ -30,6 +30,7 @@
 #include "Core/ConsoleVariables.h"
 #include "FrameGraph/FrameGraph.h"
 #include "Rendering/SceneRenderer.h"
+#include "Utils/FileWatcher.h"
 
 class EditorApplication : public Application
 {
@@ -42,6 +43,9 @@ protected:
 	void recordCommands(RHICommandList *cmd_list) override;
 	void cleanupResources() override;
 private:
+	bool auto_refresh_shaders = true;
+	FileWatcher shaders_watcher;
+
 	Ref<RayTracingScene> ray_tracing_scene;
 
 	EditorContext context;

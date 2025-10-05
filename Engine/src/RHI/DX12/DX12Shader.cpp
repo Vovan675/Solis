@@ -1,7 +1,38 @@
 #include "pch.h"
 #include "DX12Shader.h"
+#include "RHI/DynamicRHI.h"
 
-static std::vector<CD3DX12_DESCRIPTOR_RANGE1> descriptor_ranges;
+
+DX12Shader::DX12Shader(const std::wstring &path, ShaderType type, std::wstring entry_point, std::vector<std::pair<const char *, const char *>> defines, IDxcUtils* dxc_utils)
+	: RHIShader(path, type, entry_point, defines), dxc_utils(dxc_utils)
+{
+	recompile();
+}
+
+void DX12Shader::destroy()
+{
+	blob.Reset();
+	reflection.Reset();
+	reflection_library.Reset();
+}
+
+void DX12Shader::recompile()
+{
+	destroy();
+
+	blob = gDynamicRHI->compile_shader(path, type, entry_point, false, hash, &defines);
+
+	DxcBuffer reflectionBuffer = {};
+	reflectionBuffer.Ptr = blob->GetBufferPointer();
+	reflectionBuffer.Size = blob->GetBufferSize();
+	reflectionBuffer.Encoding = 0;
+
+	if (type == RAY_GENERATION_SHADER || type == MISS_SHADER || type == CLOSEST_HIT_SHADER)
+		dxc_utils->CreateReflection(&reflectionBuffer, IID_PPV_ARGS(&reflection_library));
+	else
+		dxc_utils->CreateReflection(&reflectionBuffer, IID_PPV_ARGS(&reflection));
+}
+
 std::vector<CD3DX12_ROOT_PARAMETER1> DX12Shader::getRootParameters(std::vector<DX12Shader *> shaders, BindingInfo &binding_info)
 {
 	std::vector<CD3DX12_ROOT_PARAMETER1> params;
@@ -233,6 +264,11 @@ std::vector<CD3DX12_ROOT_PARAMETER1> DX12Shader::getRootParameters(std::vector<D
 	}
 	*/
 
+	static std::vector<CD3DX12_DESCRIPTOR_RANGE1> descriptor_ranges;
+
+	descriptor_ranges.reserve(1000);
+	descriptor_ranges.clear();
+
 	// Create descriptor ranges for continuous register blocks
 	auto createDescriptorRanges = [](const std::vector<D3D12_SHADER_INPUT_BIND_DESC> &resources, D3D12_DESCRIPTOR_RANGE_TYPE range_type) -> std::pair<int, CD3DX12_DESCRIPTOR_RANGE1 *>
 	{
@@ -279,9 +315,6 @@ std::vector<CD3DX12_ROOT_PARAMETER1> DX12Shader::getRootParameters(std::vector<D
 		return std::make_pair(ranges_count, start_range_ptr);
 	};
 
-
-	descriptor_ranges.reserve(1000);
-	descriptor_ranges.clear();
 
 	// Add descriptor tables to root parameters
 	auto addDescriptorTables = [&params, createDescriptorRanges](const std::map<int, std::vector<D3D12_SHADER_INPUT_BIND_DESC>> &bindings_map, D3D12_DESCRIPTOR_RANGE_TYPE range_type, TableInfo &table_info)

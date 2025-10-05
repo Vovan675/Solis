@@ -82,6 +82,7 @@ public:
 	{
 		VulkanPipeline *native_pso = static_cast<VulkanPipeline *>(cmd_lists[frame_in_flight]->current_pipeline);
 		size_t descriptor_hash = native_pso->getHash();
+		hash_combine(descriptor_hash, binding);
 
 		// Create buffer if there is no for this descriptor and offset
 		auto &buffers = buffers_for_shaders[descriptor_hash];

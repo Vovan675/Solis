@@ -90,7 +90,7 @@ void DX12Pipeline::create(const PipelineDescription &description)
 
 		D3D12_COMPUTE_PIPELINE_STATE_DESC psoDesc = {};
 		psoDesc.pRootSignature = pipeline->root_signature;
-		psoDesc.CS = {cs->m_blob->GetBufferPointer(), cs->m_blob->GetBufferSize()};
+		psoDesc.CS = {cs->blob->GetBufferPointer(), cs->blob->GetBufferSize()};
 		psoDesc.Flags = D3D12_PIPELINE_STATE_FLAG_NONE;
 		device->CreateComputePipelineState(&psoDesc, IID_PPV_ARGS(&pipeline->pipeline_state));
 	} else if (description.is_ray_tracing_pipeline)
@@ -119,9 +119,9 @@ void DX12Pipeline::create(const PipelineDescription &description)
 		const wchar_t* hitname = L"ClosestHit";
 		const wchar_t* hitGroupName = L"HitGroup";
 
-		addLibrary(raytracingPipeline, ray_gen->m_blob.Get(), {raygenname});
-		addLibrary(raytracingPipeline, miss->m_blob.Get(), { missname });
-		addLibrary(raytracingPipeline, closest_hit->m_blob.Get(), { hitname });
+		addLibrary(raytracingPipeline, ray_gen->blob.Get(), {raygenname});
+		addLibrary(raytracingPipeline, miss->blob.Get(), { missname });
+		addLibrary(raytracingPipeline, closest_hit->blob.Get(), { hitname });
 
 		// Triangle hit group
 		auto hitGroup = raytracingPipeline.CreateSubobject<CD3DX12_HIT_GROUP_SUBOBJECT>();
@@ -204,8 +204,8 @@ void DX12Pipeline::create(const PipelineDescription &description)
 		D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
 		psoDesc.InputLayout = {input_layout.data(), (uint32_t)input_layout.size()};
 		psoDesc.pRootSignature = pipeline->root_signature;
-		psoDesc.VS = {vs->m_blob->GetBufferPointer(), vs->m_blob->GetBufferSize()};
-		psoDesc.PS = {ps->m_blob->GetBufferPointer(), ps->m_blob->GetBufferSize()};
+		psoDesc.VS = {vs->blob->GetBufferPointer(), vs->blob->GetBufferSize()};
+		psoDesc.PS = {ps->blob->GetBufferPointer(), ps->blob->GetBufferSize()};
 		psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
 		//psoDesc.RasterizerState.FrontCounterClockwise = true;
 		psoDesc.RasterizerState.CullMode = cull_mode;

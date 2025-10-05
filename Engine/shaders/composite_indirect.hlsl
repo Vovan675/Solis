@@ -2,27 +2,27 @@
 #include "shading.h"
 
 struct VSInput {
-    float2 uv : TEXCOORD0;
+	float2 uv : TEXCOORD0;
 };
 
 struct PSOutput {
-    float4 ambient : SV_Target0;
-    float4 specular : SV_Target1;
+	float4 ambient : SV_Target0;
+	float4 specular : SV_Target1;
 };
 
 cbuffer UBO : register(b0)
 {
-    uint irradiance_tex_id;
-    uint prefilter_tex_id;
-    uint lighting_diffuse_tex_id;
-    uint lighting_specular_tex_id;
-    uint albedo_tex_id;
-    uint normal_tex_id;
-    uint depth_tex_id;
-    uint shading_tex_id;
-    uint brdf_lut_tex_id;
-    uint ssao_tex_id;
-    uint ssr_tex_id;
+	uint irradiance_tex_id;
+	uint prefilter_tex_id;
+	uint lighting_diffuse_tex_id;
+	uint lighting_specular_tex_id;
+	uint albedo_tex_id;
+	uint normal_tex_id;
+	uint depth_tex_id;
+	uint shading_tex_id;
+	uint brdf_lut_tex_id;
+	uint ssao_tex_id;
+	uint ssr_tex_id;
 };
 
 static TextureCube irradiance_tex = ResourceDescriptorHeap[irradiance_tex_id];
@@ -30,58 +30,64 @@ static TextureCube prefilter_tex = ResourceDescriptorHeap[prefilter_tex_id];
 
 PSOutput PSMain(VSInput input)
 {
-    PSOutput output;
+	PSOutput output;
 
-    float depth = SampleTexture(depth_tex_id, input.uv).r;
-    if (depth == 1.0)
-        discard;
+	float depth = SampleTexture(depth_tex_id, input.uv).r;
+	if (depth == 1.0)
+		discard;
 
-    float4 albedo = SampleTexture(albedo_tex_id, input.uv);
-    float3 normal = normalize(SampleTexture(normal_tex_id, input.uv).rgb * 2.0f - 1.0f);
+	float4 albedo = SampleTexture(albedo_tex_id, input.uv);
+	float3 normal = normalize(SampleTexture(normal_tex_id, input.uv).rgb * 2.0f - 1.0f);
 
-    float4 shading = SampleTexture(shading_tex_id, input.uv);
-    float metalness = shading.r;
-    float roughness = saturate(shading.g);
+	float4 shading = SampleTexture(shading_tex_id, input.uv);
+	float metalness = shading.r;
+	float roughness = saturate(shading.g);
 
-    // IBL
-    float3 f0 = lerp(float3(0.04f, 0.04f, 0.04f), albedo.rgb, metalness);
-    float3 f = F_Schlick(f0, 1.0f, roughness);
-    float3 kd = (1.0f - f);
+	// IBL
+	float3 f0 = lerp(float3(0.04f, 0.04f, 0.04f), albedo.rgb, metalness);
+	float3 f = F_Schlick(f0, 1.0f, roughness);
+	float3 kd = (1.0f - f);
 
-    float3 irradiance = irradiance_tex.Sample(linear_wrap_sampler, normal).rgb;
-    float3 ibl_diffuse = irradiance * albedo.rgb * kd;
+	float3 irradiance = irradiance_tex.Sample(linear_wrap_sampler, normal).rgb;
+	float3 ibl_diffuse = irradiance * albedo.rgb * kd;
 
-    float3 world_pos = GetWSPosition(input.uv, depth);
+	float3 world_pos = GetWSPosition(input.uv, depth);
 
-    float3 v = normalize(camera_position.xyz - world_pos.rgb);
-    float NdotV = saturate(dot(normal, v));
+	float3 v = normalize(camera_position.xyz - world_pos.rgb);
+	float NdotV = saturate(dot(normal, v));
 
-    float2 brdf_uv = float2(NdotV, 1.0 - roughness);
-    float3 brdf_lut = SampleTexture(brdf_lut_tex_id, brdf_uv).rgb;
+	float2 brdf_uv = float2(NdotV, 1.0 - roughness);
+	
+	Texture2D brdf_lut_tex = ResourceDescriptorHeap[brdf_lut_tex_id];
+	float3 brdf_lut = brdf_lut_tex.Sample(linear_clamp_sampler, brdf_uv).rgb;
 
-    float3 reflection = normalize(reflect(-v, normal));
+	float3 reflection = normalize(reflect(-v, normal));
 
-    uint mip_level, width, height, levels;
-    prefilter_tex.GetDimensions(mip_level, width, height, levels);
+	uint mip_level, width, height, levels;
+	prefilter_tex.GetDimensions(mip_level, width, height, levels);
 
-    float lod = roughness * (float)levels;
+	float lod = roughness * (float)levels;
 
-    float3 prefilter = prefilter_tex.SampleLevel(linear_wrap_sampler, reflection, lod).rgb;
+	float3 prefilter = prefilter_tex.SampleLevel(linear_wrap_sampler, reflection, lod).rgb;
 
-    float ssao = SampleTexture(ssao_tex_id, input.uv).r;
+	#if SSAO
+		float ssao = SampleTexture(ssao_tex_id, input.uv).r;
+	#else
+		float ssao = 1.0f;
+	#endif
 
-    float3 diffuse = ibl_diffuse * ssao;
-    float3 specular = prefilter * (f0 * brdf_lut.x + brdf_lut.y);
-    float3 ibl = diffuse + specular;
+	float3 diffuse = ibl_diffuse * ssao;
+	float3 specular = prefilter * (f0 * brdf_lut.x + brdf_lut.y);
+	float3 ibl = diffuse + specular;
 
-    output.ambient = float4(ibl * 0.1, 1.0);
-    output.specular = float4(0, 0, 0, 1.0);
+	output.ambient = float4(ibl * 0.1, 1.0);
+	output.specular = float4(0, 0, 0, 1.0);
 
-    #if SSR
-        float3 ssr = textures[ssr_tex_id].Sample(linear_wrap_sampler, input.uv).rgb;
-        ssr *= 1.0f - roughness;
-        //output.specular += ssr;
-    #endif
+	#if SSR
+		float3 ssr = textures[ssr_tex_id].Sample(linear_wrap_sampler, input.uv).rgb;
+		ssr *= 1.0f - roughness;
+		//output.specular += ssr;
+	#endif
 
-    return output;
+	return output;
 }

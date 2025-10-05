@@ -80,7 +80,7 @@ PixelOutput PSMain(PixelInput IN)
     }
 
     // Alpha discard
-    if (OUT.color.a < 1.0) {
+    if (OUT.color.a < 0.5) {
         discard;
     }
 

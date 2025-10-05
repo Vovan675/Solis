@@ -82,6 +82,7 @@ public:
 
 		// If no descriptor set for this shader, create it
 		size_t descriptor_hash = native_pso->getHash();
+		hash_combine(descriptor_hash, binding);
 		hash_combine(descriptor_hash, frame_in_flight); // TODO: add Frame Allocator for these buffers
 
 		// Create buffer if there is no for this descriptor and offset

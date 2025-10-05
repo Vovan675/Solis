@@ -3,11 +3,11 @@
 
 class DX12Shader final: public RHIShader {
 public:
-	DX12Shader(ComPtr<IDxcBlob> blob, ComPtr<ID3D12ShaderReflection> reflection, ComPtr<ID3D12LibraryReflection> reflection_library, ShaderType type, size_t hash) 
-		: m_blob(blob), reflection(reflection), reflection_library(reflection_library), type(type)
-	{
-		this->hash = hash;
-	}
+	DX12Shader(const std::wstring &path, ShaderType type, std::wstring entry_point, std::vector<std::pair<const char *, const char *>> defines, IDxcUtils* dxc_utils);
+	~DX12Shader() { destroy(); }
+
+	void destroy();
+	void recompile() override;
 
 	struct TableInfo
 	{
@@ -36,8 +36,9 @@ public:
 	};
 	static std::vector<CD3DX12_ROOT_PARAMETER1> getRootParameters(std::vector<DX12Shader *> shaders, BindingInfo &binding_info);
 
-	ShaderType type;
-	ComPtr<IDxcBlob> m_blob; // Compiled shader bytecode
+	ComPtr<IDxcBlob> blob; // Compiled shader bytecode
+
+	IDxcUtils *dxc_utils;
 
 	ComPtr<ID3D12ShaderReflection> reflection;
 	ComPtr<ID3D12LibraryReflection> reflection_library;
