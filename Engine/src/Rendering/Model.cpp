@@ -35,7 +35,7 @@ void Model::load(const char *path)
 	if (AssetManager::isRuntimeExists(path))
 	{
 		runtime_path = AssetManager::getRuntimeAssetPath(path).string();
-		loadFile(runtime_path.string());
+		loadFile(runtime_path.string().c_str());
 		return;
 	}
 
@@ -69,8 +69,8 @@ void Model::process_node(MeshNode *mesh_node, aiNode *node, const aiScene *scene
 	else if (node->mNumMeshes > 0)
 		mesh_node->name = scene->mMeshes[node->mMeshes[0]]->mName.C_Str();
 
-	std::vector<Engine::Vertex> vertices;
-	std::vector<uint32_t> indices;
+	eastl::vector<Engine::Vertex> vertices;
+	eastl::vector<uint32_t> indices;
 
 	mesh_node->local_model_matrix = convertAssimpMat4(node->mTransformation);
 
@@ -135,7 +135,7 @@ void Model::process_node(MeshNode *mesh_node, aiNode *node, const aiScene *scene
 		{
 			size_t mesh_hash = 0;
 			int id = 0;
-			std::string name = mesh_node->name;
+			eastl::string name = mesh_node->name;
 			Engine::Math::hash_combine(mesh_hash, name);
 			name = mesh->mName.C_Str();
 			Engine::Math::hash_combine(mesh_hash, name);
@@ -175,7 +175,7 @@ void Model::process_node(MeshNode *mesh_node, aiNode *node, const aiScene *scene
 				tex_description.usage_flags = TEXTURE_USAGE_TRANSFER_SRC;
 				tex_description.anisotropy = true;
 
-				std::filesystem::path result_path(path);
+				std::filesystem::path result_path(path.c_str());
 				result_path = result_path.remove_filename();
 				result_path = result_path.concat(texture_path.C_Str());
 				engine_material->albedo_tex.asset_handle = AssetManager::getGUIDFromPath(result_path.string());
@@ -194,7 +194,7 @@ void Model::process_node(MeshNode *mesh_node, aiNode *node, const aiScene *scene
 				tex_description.usage_flags = TEXTURE_USAGE_TRANSFER_SRC;
 				tex_description.anisotropy = true;
 
-				std::filesystem::path result_path(path);
+				std::filesystem::path result_path(path.c_str());
 				result_path = result_path.remove_filename();
 				result_path = result_path.concat(texture_path.C_Str());
 				engine_material->metalness_tex.asset_handle = AssetManager::getGUIDFromPath(result_path.string());
@@ -213,7 +213,7 @@ void Model::process_node(MeshNode *mesh_node, aiNode *node, const aiScene *scene
 				tex_description.usage_flags = TEXTURE_USAGE_TRANSFER_SRC;
 				tex_description.anisotropy = true;
 
-				std::filesystem::path result_path(path);
+				std::filesystem::path result_path(path.c_str());
 				result_path = result_path.remove_filename();
 				result_path = result_path.concat(texture_path.C_Str());
 				engine_material->roughness_tex.asset_handle = AssetManager::getGUIDFromPath(result_path.string());
@@ -232,7 +232,7 @@ void Model::process_node(MeshNode *mesh_node, aiNode *node, const aiScene *scene
 				tex_description.usage_flags = TEXTURE_USAGE_TRANSFER_SRC;
 				tex_description.anisotropy = true;
 
-				std::filesystem::path result_path(path);
+				std::filesystem::path result_path(path.c_str());
 				result_path = result_path.remove_filename();
 				result_path = result_path.concat(texture_path.C_Str());
 				engine_material->specular_tex.asset_handle = AssetManager::getGUIDFromPath(result_path.string());
@@ -250,7 +250,7 @@ void Model::process_node(MeshNode *mesh_node, aiNode *node, const aiScene *scene
 				tex_description.format = FORMAT_R8G8B8A8_UNORM;
 				tex_description.usage_flags = TEXTURE_USAGE_TRANSFER_SRC;
 
-				std::filesystem::path result_path(path);
+				std::filesystem::path result_path(path.c_str());
 				result_path = result_path.remove_filename();
 				result_path = result_path.concat(texture_path.C_Str());
 				engine_material->normal_tex.asset_handle = AssetManager::getGUIDFromPath(result_path.string());
@@ -283,13 +283,13 @@ Entity Model::createEntity(Model *model)
 	return create_entity_node(model, model->root_node, Scene::getCurrentScene());
 }
 
-void Model::saveFile(const std::string &filename)
+void Model::saveFile(const eastl::string &filename)
 {
 	FileStream stream(filename, std::ofstream::out | std::ofstream::binary);
 	save_mesh_node(stream, root_node);
 }
 
-void Model::loadFile(const std::string &filename)
+void Model::loadFile(const eastl::string &filename)
 {
 	cleanup();
 	FileStream stream(filename, std::ofstream::in | std::ofstream::binary);

@@ -18,6 +18,8 @@ outputdir = "%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}"
 VULKAN_SDK = os.getenv("VULKAN_SDK")
 
 IncludeDir = {}
+IncludeDir["EABase"] = "vendor/EABase/include/Common"
+IncludeDir["EASTL"] = "vendor/EASTL/include"
 IncludeDir["GLFW"] = "vendor/GLFW/include"
 IncludeDir["GLM"] = "vendor/glm"
 IncludeDir["Vulkan"] = "%{VULKAN_SDK}/include"
@@ -40,6 +42,7 @@ LibDir["Vulkan"] = "%{VULKAN_SDK}/Lib"
 LibDir["Compressonator"] = "vendor/Compressonator/lib/bin/x64"
 
 group "Dependencies"
+include "vendor/EASTL"
 include "vendor/GLFW"
 include "vendor/Assimp"
 include "vendor/ImGui"
@@ -74,6 +77,7 @@ project "Engine"
 	{
 		"%{prj.name}/src/**.h",
 		"%{prj.name}/src/**.cpp",
+		"%{IncludeDir.EASTL}/../**.natvis",
 		"%{IncludeDir.YamlCpp}/../**.natvis",
 		"%{IncludeDir.Entt}/../natvis/**.natvis",
 		--"%{IncludeDir.SPIRV_Reflect}/spirv_reflect.c",
@@ -84,6 +88,8 @@ project "Engine"
 	includedirs
 	{
 		"Engine/src",
+		"%{IncludeDir.EABase}",
+		"%{IncludeDir.EASTL}",
 		"%{IncludeDir.GLFW}",
 		"%{IncludeDir.GLM}",
 		"%{IncludeDir.Vulkan}",
@@ -110,6 +116,7 @@ project "Engine"
 
 	links
 	{
+		"EASTL",
 		"GLFW",
 		"%{LibDir.Vulkan}/vulkan-1.lib",
 		"%{LibDir.Vulkan}/shaderc_shared.lib",

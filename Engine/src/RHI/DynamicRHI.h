@@ -33,8 +33,8 @@ public:
 
 	virtual RHISwapchainRef createSwapchain(GLFWwindow *window) = 0;
 	virtual void resizeSwapchain(int width, int height) {};
-	virtual RHIShaderRef createShader(std::wstring path, ShaderType type, std::wstring entry_point = L"") = 0;
-	virtual RHIShaderRef createShader(std::wstring path, ShaderType type, std::vector<std::pair<const char *, const char *>> defines) = 0;
+	virtual RHIShaderRef createShader(eastl::wstring path, ShaderType type, eastl::wstring entry_point = L"") = 0;
+	virtual RHIShaderRef createShader(eastl::wstring path, ShaderType type, eastl::vector<eastl::pair<const char *, const char *>> defines) = 0;
 	virtual RHIPipelineRef createPipeline() = 0;
 	virtual RHIBufferRef createBuffer(BufferDescription description) = 0;
 	virtual RHITextureRef createTexture(TextureDescription description) = 0;
@@ -64,7 +64,14 @@ public:
 	virtual void setUAVTexture(unsigned int binding, RHITextureRef texture, int mip = 0) = 0;
 	virtual void setAccelerationStructure(unsigned int binding, RHITopLevelAccelerationStructureRef acceleration_structure) = 0;
 
-	ComPtr<IDxcBlob> compile_shader(std::wstring path, ShaderType type, std::wstring entry_point, bool is_vulkan, size_t &source_hash, std::vector<std::pair<const char *, const char *>> *defines = nullptr);
+	struct CompileShaderResult
+	{
+		ComPtr<IDxcBlob> data;
+		size_t source_hash;
+		eastl::hash_set<eastl::wstring> included_files;
+	};
+
+	CompileShaderResult compile_shader(eastl::wstring path, ShaderType type, eastl::wstring entry_point, bool is_vulkan, eastl::vector<eastl::pair<const char *, const char *>> *defines = nullptr);
 
 	void releaseGPUResource(RenderResource *resource)
 	{
@@ -75,7 +82,7 @@ public:
 	template <typename F>
 	struct ReleaseNextFrameResource : public RenderResource
 	{
-		ReleaseNextFrameResource(F func): f(std::move(func)) {};
+		ReleaseNextFrameResource(F func): f(eastl::move(func)) {};
 		void Release() override { f(); }
 		F f;
 	};
@@ -83,7 +90,7 @@ public:
 	template <typename F>
 	void releaseNextFrame(F func)
 	{
-		auto *resource = new ReleaseNextFrameResource<F>(std::move(func));
+		auto *resource = new ReleaseNextFrameResource<F>(eastl::move(func));
 		gpu_release_queue.emplace(resource, frame);
 	}
 protected:
@@ -94,7 +101,7 @@ protected:
 	int frame_in_flight = 0;
 	uint64_t frame = 0;
 
-	static std::unordered_map<size_t, RHIShaderRef> cached_shaders;
+	static eastl::unordered_map<size_t, RHIShaderRef> cached_shaders;
 
 	IDxcUtils* dxc_utils;
 	IDxcCompiler3* dxc_compiler;
@@ -107,7 +114,7 @@ private:
 
 		ReleaseItem(RenderResource *resource, uint64_t release_frame): resource(resource), release_frame(release_frame) {}
 	};
-	std::queue<ReleaseItem> gpu_release_queue;
+	eastl::queue<ReleaseItem> gpu_release_queue;
 };
 
 

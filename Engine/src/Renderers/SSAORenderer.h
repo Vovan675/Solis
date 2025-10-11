@@ -32,7 +32,7 @@ public:
 	void renderImgui();
 private:
 	RHITextureRef ssao_noise;
-	std::vector<glm::vec3> ssao_kernel;
+	eastl::vector<glm::vec3> ssao_kernel;
 
 	RHIShaderRef fragment_shader_raw;
 	RHIShaderRef fragment_shader_blur;

@@ -2,13 +2,13 @@
 #include "ConsoleVariables.h"
 #include "imgui.h"
 
-std::vector<ConVar<int>> ConVarSystem::int_cvars;
-std::vector<ConVar<float>> ConVarSystem::float_cvars;
-std::vector<ConVar<bool>> ConVarSystem::bool_cvars;
+eastl::vector<ConVar<int>> ConVarSystem::int_cvars;
+eastl::vector<ConVar<float>> ConVarSystem::float_cvars;
+eastl::vector<ConVar<bool>> ConVarSystem::bool_cvars;
 
 void ConVarSystem::drawImGui()
 {
-	std::vector<ConVarDescription *> con_vars;
+	eastl::vector<ConVarDescription *> con_vars;
 
 	auto &int_cvars = getCVars<int>();
 	for (auto &cvar : int_cvars)
@@ -22,7 +22,7 @@ void ConVarSystem::drawImGui()
 	for (auto &cvar : bool_cvars)
 		con_vars.push_back(&cvar.description);
 
-	std::sort(con_vars.begin(), con_vars.end(), [](ConVarDescription *a, ConVarDescription *b)
+	eastl::sort(con_vars.begin(), con_vars.end(), [](ConVarDescription *a, ConVarDescription *b)
 	{
 		return a->name < b->name;
 	});

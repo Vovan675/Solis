@@ -7,15 +7,15 @@ class VulkanDynamicRHI;
 class VulkanShader final: public RHIShader
 {
 public:
-	VulkanShader(const std::wstring &path, ShaderType type, std::wstring entry_point, std::vector<std::pair<const char *, const char *>> defines);
+	VulkanShader(const eastl::wstring &path, ShaderType type, eastl::wstring entry_point, eastl::vector<eastl::pair<const char *, const char *>> defines);
 	~VulkanShader() { destroy(); }
 
 	void destroy();
 	void recompile() override;
 
-	static std::vector<Descriptor> getDescriptors(std::vector<VulkanShader *> shaders);
+	static eastl::vector<Descriptor> getDescriptors(eastl::vector<VulkanShader *> shaders);
 
-	static std::vector<VkPushConstantRange> getPushConstantRanges(std::vector<Descriptor> &descriptors);
+	static eastl::vector<VkPushConstantRange> getPushConstantRanges(eastl::vector<Descriptor> &descriptors);
 
 	VulkanDynamicRHI *rhi;
 
@@ -25,4 +25,6 @@ public:
 	spv_reflect::ShaderModule reflection;
 
 	VkShaderModuleCreateInfo create_info;
+
+	eastl::hash_set<eastl::wstring> included_files;
 };

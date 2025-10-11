@@ -10,9 +10,9 @@ public:
 	Scene();
 	~Scene();
 
-	Entity createEntity(std::string name);
-	Entity createEntity(std::string name, entt::entity id);
-	Entity findEntityByName(std::string name);
+	Entity createEntity(eastl::string name);
+	Entity createEntity(eastl::string name, entt::entity id);
+	Entity findEntityByName(eastl::string name);
 
 	void destroyEntity(entt::entity id);
 
@@ -24,11 +24,11 @@ public:
 		return registry.view<T...>();
 	}
 
-	void saveFile(const std::string &filename);
-	void loadFile(const std::string &filename);
+	void saveFile(const eastl::string &filename);
+	void loadFile(const eastl::string &filename);
 
 	static Ref<Scene> getCurrentScene() { return current_scene; }
-	static Ref<Scene> loadScene(const std::string &filename);
+	static Ref<Scene> loadScene(const eastl::string &filename);
 	static void setCurrentScene(Ref<Scene> scene) { current_scene = scene; }
 	static void closeScene();
 

@@ -39,12 +39,12 @@ public:
 	}
 
 	Entity getParent() const { return Entity(getTransform().parent); }
-	std::vector<entt::entity> getChildren() const { return getTransform().children; }
+	eastl::vector<entt::entity> getChildren() const { return getTransform().children; }
 
 	void removeChild(entt::entity child)
 	{
 		auto &childs = getTransform().children;
-		auto found = std::find(childs.begin(), childs.end(), child);
+		auto found = eastl::find(childs.begin(), childs.end(), child);
 		if (found != childs.end())
 			childs.erase(found);
 	}

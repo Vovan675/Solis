@@ -2,7 +2,7 @@
 #include "TransientResources.h"
 #include "Rendering/Renderer.h"
 
-std::unordered_map<size_t, std::vector<TransientResources::ResourceEntry>> TransientResources::textures;
+eastl::unordered_map<size_t, eastl::vector<TransientResources::ResourceEntry>> TransientResources::textures;
 
 void TransientResources::init()
 {}

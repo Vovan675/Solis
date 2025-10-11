@@ -11,7 +11,7 @@ class ShadowRenderer
 public:
 	ShadowRenderer();
 
-	void addShadowMapPasses(FrameGraph &fg, const std::vector<RenderBatch> &batches);
+	void addShadowMapPasses(FrameGraph &fg, const eastl::vector<RenderBatch> &batches);
 	void addRayTracedShadowPasses(FrameGraph &fg);
 
 	// TODO: remove from it, do itsomehow else

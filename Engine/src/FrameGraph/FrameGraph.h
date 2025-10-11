@@ -29,16 +29,16 @@ public:
 	FrameGraphNode &operator=(FrameGraphNode &&) = delete;
 
 	uint32_t getId() const { return id; }
-	std::string getName() const { return name; }
+	eastl::string getName() const { return name; }
 	uint32_t getRefCount() const { return ref_count; }
 protected:
-	FrameGraphNode(const std::string name, uint32_t id): name(name), id(id) {}
+	FrameGraphNode(const eastl::string name, uint32_t id): name(name), id(id) {}
 
 private:
 	friend class FrameGraph;
 
 	const uint32_t id;
-	std::string name;
+	eastl::string name;
 	uint32_t ref_count = 0;
 };
 
@@ -66,18 +66,18 @@ public:
 	bool isReading(FrameGraphResource resource) const
 	{
 		const auto match = [resource](const auto &e) { return e.resource == resource; };
-		return std::find_if(reads.cbegin(), reads.cend(), match) != reads.cend();
+		return eastl::find_if(reads.cbegin(), reads.cend(), match) != reads.cend();
 	}
 
 	bool isWriting(FrameGraphResource resource) const
 	{
 		const auto match = [resource](const auto &e) { return e.resource == resource; };
-		return std::find_if(writes.cbegin(), writes.cend(), match) != writes.cend();
+		return eastl::find_if(writes.cbegin(), writes.cend(), match) != writes.cend();
 	}
 
 	bool isCreating(FrameGraphResource resource) const
 	{
-		return std::find(creates.cbegin(), creates.cend(), resource) != creates.cend();
+		return eastl::find(creates.cbegin(), creates.cend(), resource) != creates.cend();
 	}
 
 	const auto &getCreates() const { return creates; }
@@ -90,8 +90,8 @@ private:
 	friend class FrameGraph;
 	friend class RenderPassBuilder;
 
-	RenderPassNode(std::string name, uint32_t id, std::unique_ptr<RenderPassAbstract> &&pass)
-		: FrameGraphNode(name, id), pass(std::move(pass))
+	RenderPassNode(eastl::string name, uint32_t id, std::unique_ptr<RenderPassAbstract> &&pass)
+		: FrameGraphNode(name, id), pass(eastl::move(pass))
 	{
 		creates.reserve(8);
 		reads.reserve(16);
@@ -101,11 +101,11 @@ private:
 	std::unique_ptr<RenderPassAbstract> pass; // TODO: this is error (leak memory)
 
 	// Resources that were created by this pass
-	std::vector<FrameGraphResource> creates;
+	eastl::vector<FrameGraphResource> creates;
 	// Resources that needed read access to execute this pass
-	std::vector<ResourceAccessDescription> reads;
+	eastl::vector<ResourceAccessDescription> reads;
 	// Resources that needed write access to execute this pass
-	std::vector<ResourceAccessDescription> writes;
+	eastl::vector<ResourceAccessDescription> writes;
 
 	bool has_side_effect = false;
 };
@@ -125,7 +125,7 @@ public:
 private:
 	friend class FrameGraph;
 
-	ResourceNode(std::string name, uint32_t id, const FrameGraphResource &resource, uint32_t version)
+	ResourceNode(eastl::string name, uint32_t id, const FrameGraphResource &resource, uint32_t version)
 		: FrameGraphNode(name, id), resource(resource), version(version)
 	{}
 
@@ -172,7 +172,7 @@ public:
 		return getModel<T>()->desc;
 	}
 
-	std::string toString() const
+	eastl::string toString() const
 	{
 		return concept->toString();
 	}
@@ -209,13 +209,13 @@ private:
 		virtual void destroy() = 0;
 		virtual void preRead(RHICommandList *cmd_list, uint32_t flags) = 0;
 		virtual void preWrite(RHICommandList *cmd_list, uint32_t flags) = 0;
-		virtual std::string toString() const = 0;
+		virtual eastl::string toString() const = 0;
 	};
 
 	template <typename T>
 	struct Model : Concept
 	{
-		Model(const typename T::Description &desc, T &&resource): desc(desc), resource(std::move(resource)) {}
+		Model(const typename T::Description &desc, T &&resource): desc(desc), resource(eastl::move(resource)) {}
 
 		void create() override
 		{
@@ -237,7 +237,7 @@ private:
 			resource.preWrite(desc, cmd_list, flags);
 		}
 
-		std::string toString() const override
+		eastl::string toString() const override
 		{
 			return resource.toString(desc);
 		}
@@ -267,10 +267,10 @@ public:
 
 private:
 	template <typename T>
-	FrameGraphResource createResource(const std::string name, const typename T::Description &desc, T &&resource, bool transient)
+	FrameGraphResource createResource(const eastl::string name, const typename T::Description &desc, T &&resource, bool transient)
 	{
 		uint32_t resource_id = resource_registry.size();
-		resource_registry.emplace_back(ResourceEntry(resource_id, desc, std::forward<T>(resource), transient));
+		resource_registry.emplace_back(ResourceEntry(resource_id, desc, eastl::forward<T>(resource), transient));
 
 		auto &resource_node = createResourceNode(name, resource_id, 0);
 
@@ -279,7 +279,7 @@ private:
 
 public:
 	template <typename Data, typename Setup, typename Execute>
-	Data addCallbackPass(std::string name, Setup setup, Execute execute)
+	Data addCallbackPass(eastl::string name, Setup setup, Execute execute)
 	{
 		PROFILE_CPU_SCOPE_VAR(("Setup: " + name).c_str());
 		RenderPass<Data, Execute> *pass = new RenderPass<Data, Execute>(execute);
@@ -295,9 +295,9 @@ public:
 
 	// Used for importing persistent resources
 	template <typename T>
-	FrameGraphResource importResource(const std::string name, const typename T::Description &desc, T &&resource)
+	FrameGraphResource importResource(const eastl::string name, const typename T::Description &desc, T &&resource)
 	{
-		return createResource<T>(name, desc, std::forward<T>(resource), false);
+		return createResource<T>(name, desc, eastl::forward<T>(resource), false);
 	}
 
 	template <typename T>
@@ -321,7 +321,7 @@ private:
 
 
 
-	ResourceNode &createResourceNode(const std::string name, FrameGraphResource resource, int version)
+	ResourceNode &createResourceNode(const eastl::string name, FrameGraphResource resource, int version)
 	{
 		uint32_t node_id = resource_nodes.size();
 		resource_nodes.emplace_back(ResourceNode(name, node_id, resource, version));
@@ -349,10 +349,10 @@ private:
 	}
 
 
-	std::vector<ResourceEntry> resource_registry;
+	eastl::vector<ResourceEntry> resource_registry;
 
-	std::vector<RenderPassNode> renderpass_nodes;
-	std::vector<ResourceNode> resource_nodes;
+	eastl::vector<RenderPassNode> renderpass_nodes;
+	eastl::vector<ResourceNode> resource_nodes;
 
 	FrameGraphBlackboard blackboard;
 };
@@ -416,7 +416,7 @@ public:
 	}
 
 	template <typename T>
-	FrameGraphResource createResource(std::string name, const typename T::Description &desc)
+	FrameGraphResource createResource(eastl::string name, const typename T::Description &desc)
 	{
 		PROFILE_CPU_FUNCTION();
 		FrameGraphResource resource_id = frameGraph.createResource<T>(name, desc, T{}, true);
@@ -424,7 +424,7 @@ public:
 		return resource_id;
 	}
 
-	FrameGraphResource createTexture(std::string name, FrameGraphTexture::Description &desc)
+	FrameGraphResource createTexture(eastl::string name, FrameGraphTexture::Description &desc)
 	{
 		desc.debug_name = name;
 		return createResource<FrameGraphTexture>(name, desc);

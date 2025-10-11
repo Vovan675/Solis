@@ -51,7 +51,7 @@ static void addComponentButton(Entity entity, const char *title)
 
 bool ParametersPanel::renderImGui(EditorContext context, DebugRenderer &debug_renderer)
 {
-	ImGui::Begin((std::string(ICON_FA_PEN) + " Parameters###Parameters").c_str());
+	ImGui::Begin((eastl::string(ICON_FA_PEN) + " Parameters###Parameters").c_str());
 	bool is_using_ui = ImGui::IsWindowFocused();
 
 	auto selected_path = context.selected_path;
@@ -87,7 +87,7 @@ bool ParametersPanel::renderImGui(EditorContext context, DebugRenderer &debug_re
 			// TODO: Select mesh (one piece of already loaded model asset)
 			if (ImGui::Button("Select mesh"))
 			{
-				std::string path = Filesystem::openFileDialog();
+				eastl::string path = Filesystem::openFileDialog();
 				if (!path.empty())
 				{
 					auto model = AssetManager::getModelAsset(path);
@@ -108,7 +108,7 @@ bool ParametersPanel::renderImGui(EditorContext context, DebugRenderer &debug_re
 			for (int i = 0; i < mesh_renderer.materials.size(); i++)
 			{
 				auto mat = mesh_renderer.materials[i];
-				std::string name = "Material " + std::to_string(i);
+				eastl::string name = "Material " + eastl::to_string(i);
 
 				if (ImGui::TreeNode(name.c_str()))
 				{
@@ -116,7 +116,7 @@ bool ParametersPanel::renderImGui(EditorContext context, DebugRenderer &debug_re
 					auto show_texture_edit = [](Material::MaterialTexture &material_texture, const char *name)
 					{
 						bool use_texture = material_texture.bindless_id != -1;
-						std::string label = std::string("Use ") + name + " texture";
+						eastl::string label = eastl::string("Use ") + name + " texture";
 						if (ImGui::Checkbox(label.c_str(), &use_texture))
 						{
 							if (!use_texture)
@@ -127,10 +127,10 @@ bool ParametersPanel::renderImGui(EditorContext context, DebugRenderer &debug_re
 						{
 							if (ImGui::Button("Select"))
 							{
-								std::string path = Filesystem::openFileDialog();
+								eastl::string path = Filesystem::openFileDialog();
 								if (!path.empty())
 								{
-									material_texture.asset_handle = AssetManager::getGUIDFromPath(path);
+									material_texture.asset_handle = AssetManager::getGUIDFromPath(path.c_str());
 									material_texture.bindless_id = -1;
 								}
 							}
@@ -141,7 +141,7 @@ bool ParametersPanel::renderImGui(EditorContext context, DebugRenderer &debug_re
 								if (const ImGuiPayload *payload = ImGui::AcceptDragDropPayload("DND_ASSET_PATH", ImGuiDragDropFlags_AcceptPeekOnly))
 								{
 									const char *payload_str = (const char *)payload->Data;
-									std::string extension = std::filesystem::path(payload_str).extension().string();
+									eastl::string extension = std::filesystem::path(payload_str).extension().string().c_str();
 									if (extension == ".dds" || extension == ".png" || extension == ".jpg" || extension == ".tga")
 									{
 										if (payload = ImGui::AcceptDragDropPayload("DND_ASSET_PATH"))
@@ -264,7 +264,7 @@ bool ParametersPanel::renderImGui(EditorContext context, DebugRenderer &debug_re
 					AssetManager::saveMetadata(metadata);
 				}
 
-				auto texture = AssetManager::getTextureAsset(AssetManager::getRuntimeAssetPath(selected_path).string());
+				auto texture = AssetManager::getTextureAsset(AssetManager::getRuntimeAssetPath(selected_path).string().c_str());
 
 				static int mip_index = 0;
 				if (reimported)

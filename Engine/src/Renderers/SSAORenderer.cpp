@@ -38,7 +38,7 @@ SSAORenderer::SSAORenderer() : RendererBase()
 	}
 	memcpy(ubo_raw_pass.kernel, ssao_kernel.data(), sizeof(ubo_raw_pass.kernel));
 
-	std::vector<glm::vec4> ssao_noise_data;
+	eastl::vector<glm::vec4> ssao_noise_data;
 	for (unsigned int i = 0; i < 16; i++)
 	{
 		glm::vec4 noise(

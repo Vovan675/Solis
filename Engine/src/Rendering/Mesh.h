@@ -32,8 +32,8 @@ namespace Engine
 	{
 	public:
 		size_t id = 0;
-		std::vector<Vertex> vertices;
-		std::vector<uint32_t> indices;
+		eastl::vector<Vertex> vertices;
+		eastl::vector<uint32_t> indices;
 
 		RHIBufferRef vertexBuffer;
 		RHIBufferRef indexBuffer;
@@ -43,7 +43,7 @@ namespace Engine
 	public:
 		Mesh() = default;
 		~Mesh() = default;
-		void setData(std::vector<Vertex> vertices, std::vector<uint32_t> indices);
+		void setData(eastl::vector<Vertex> vertices, eastl::vector<uint32_t> indices);
 
 		void serialize(Stream &stream);
 		void deserialize(Stream &stream);

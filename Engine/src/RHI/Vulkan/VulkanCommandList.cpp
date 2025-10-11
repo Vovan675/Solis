@@ -21,7 +21,7 @@ VulkanCommandList::VulkanCommandList()
 	vkAllocateCommandBuffers(device, &alloc_info, &cmd_buffer);
 }
 
-void VulkanCommandList::setRenderTargets(const std::vector<RHITexture *> &color_attachments, RHITexture *depth_attachment, int layer, int mip, bool clear)
+void VulkanCommandList::setRenderTargets(const eastl::vector<RHITexture *> &color_attachments, RHITexture *depth_attachment, int layer, int mip, bool clear)
 {
 	PROFILE_CPU_FUNCTION();
 	VkExtent2D extent;
@@ -41,7 +41,7 @@ void VulkanCommandList::setRenderTargets(const std::vector<RHITexture *> &color_
 	rendering_info.renderArea.extent = extent;
 	rendering_info.layerCount = 1;
 
-	std::vector<VkRenderingAttachmentInfo> color_attachments_info;
+	eastl::vector<VkRenderingAttachmentInfo> color_attachments_info;
 	for (const auto &attachment : color_attachments)
 	{
 		VulkanTexture *texture = (VulkanTexture *)attachment;
@@ -167,7 +167,7 @@ void VulkanCommandList::beginDebugLabel(const char *label, glm::vec3 color, uint
 {
 	#ifdef TRACY_ENABLE
 		auto tracy_scope = std::make_unique<tracy::VkCtxScope>(VulkanUtils::getNativeRHI()->tracy_ctx, line, source, source_size, function, function_size,label, strlen(label), cmd_buffer, true);
-		tracy_debug_label_stack.emplace_back(std::move(tracy_scope));
+		tracy_debug_label_stack.emplace_back(eastl::move(tracy_scope));
 	#endif
 	VulkanUtils::cmdBeginDebugLabel(this, label, color);
 }

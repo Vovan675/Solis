@@ -23,7 +23,7 @@ namespace Engine
 	};
 }
 
-namespace std
+namespace eastl
 {
 	template <>
 	struct hash<Engine::GUID>

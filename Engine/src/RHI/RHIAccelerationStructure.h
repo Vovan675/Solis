@@ -28,11 +28,11 @@ struct RayTracingInstance
 class RHIBottomLevelAccelerationStructure : public RefCounted
 {
 public:
-	virtual void build(const std::vector<RayTracingGeometry> &geometries) = 0;
+	virtual void build(const eastl::vector<RayTracingGeometry> &geometries) = 0;
 };
 
 class RHITopLevelAccelerationStructure : public RefCounted
 {
 public:
-	virtual void build(bool update, const std::vector<RayTracingInstance> &instances) = 0;
+	virtual void build(bool update, const eastl::vector<RayTracingInstance> &instances) = 0;
 };

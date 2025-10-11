@@ -2,7 +2,7 @@
 #include "VulkanShader.h"
 #include "VulkanDynamicRHI.h"
 
-VulkanShader::VulkanShader(const std::wstring &path, ShaderType type, std::wstring entry_point, std::vector<std::pair<const char *, const char *>> defines)
+VulkanShader::VulkanShader(const eastl::wstring &path, ShaderType type, eastl::wstring entry_point, eastl::vector<eastl::pair<const char *, const char *>> defines)
 	: RHIShader(path, type, entry_point, defines)
 {
 	recompile();
@@ -17,24 +17,32 @@ void VulkanShader::destroy()
 		vkDestroyShaderModule(rhi->device->logicalHandle, handle, nullptr);
 		handle = nullptr;
 	}
+
+	for (auto path : included_files)
+		path_to_shaders[path].remove(this);
 }
 
 void VulkanShader::recompile()
 {
 	destroy();
 
-	ComPtr<IDxcBlob> blob = gDynamicRHI->compile_shader(path, type, entry_point, true, hash, &defines);
+	DynamicRHI::CompileShaderResult result = gDynamicRHI->compile_shader(path.wstring().c_str(), type, entry_point, true, &defines);
+	hash = result.source_hash;
+	included_files = result.included_files;
+
+	for (auto path : included_files)
+		path_to_shaders[path].push_back(this);
 
 	create_info = {VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
-	create_info.codeSize = blob->GetBufferSize();
-	create_info.pCode = (const uint32_t *)blob->GetBufferPointer();
+	create_info.codeSize = result.data->GetBufferSize();
+	create_info.pCode = (const uint32_t *)result.data->GetBufferPointer();
 	vkCreateShaderModule(VulkanUtils::getNativeRHI()->device->logicalHandle, &create_info, nullptr, &handle);
 	reflection = spv_reflect::ShaderModule(create_info.codeSize, create_info.pCode);
 }
 
-std::vector<Descriptor> VulkanShader::getDescriptors(std::vector<VulkanShader *> shaders)
+eastl::vector<Descriptor> VulkanShader::getDescriptors(eastl::vector<VulkanShader *> shaders)
 {
-	std::vector<Descriptor> descriptors;
+	eastl::vector<Descriptor> descriptors;
 	descriptors.clear();
 
 	for (auto &shader : shaders)
@@ -80,7 +88,7 @@ std::vector<Descriptor> VulkanShader::getDescriptors(std::vector<VulkanShader *>
 		{
 			sm.EnumeratePushConstants(&count, nullptr);
 
-			std::vector<SpvReflectBlockVariable *> blocks(count);
+			eastl::vector<SpvReflectBlockVariable *> blocks(count);
 			sm.EnumeratePushConstants(&count, blocks.data());
 
 			for (auto *pc : blocks)
@@ -99,7 +107,7 @@ std::vector<Descriptor> VulkanShader::getDescriptors(std::vector<VulkanShader *>
 		{
 			sm.EnumerateDescriptorBindings(&count, nullptr);
 
-			std::vector<SpvReflectDescriptorBinding *> bindings(count);
+			eastl::vector<SpvReflectDescriptorBinding *> bindings(count);
 			sm.EnumerateDescriptorBindings(&count, bindings.data());
 
 			for (auto *binding : bindings)
@@ -150,7 +158,7 @@ std::vector<Descriptor> VulkanShader::getDescriptors(std::vector<VulkanShader *>
 	return descriptors;
 }
 
-std::vector<VkPushConstantRange> VulkanShader::getPushConstantRanges(std::vector<Descriptor> &descriptors)
+eastl::vector<VkPushConstantRange> VulkanShader::getPushConstantRanges(eastl::vector<Descriptor> &descriptors)
 {
 	// Create desciptor ranges based on descriptors
 	const auto stage_to_vk = [](DescriptorStage stage) {
@@ -170,7 +178,7 @@ std::vector<VkPushConstantRange> VulkanShader::getPushConstantRanges(std::vector
 		return vk_stage;
 	};
 
-	std::vector<VkPushConstantRange> ranges;
+	eastl::vector<VkPushConstantRange> ranges;
 	for (auto &desc : descriptors)
 	{
 		if (desc.type == DESCRIPTOR_TYPE_PUSH_CONSTANT)

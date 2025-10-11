@@ -12,7 +12,7 @@ GBufferPass::GBufferPass()
 	gbuffer_fragment_shader = gDynamicRHI->createShader(L"shaders/opaque.hlsl", FRAGMENT_SHADER);
 }
 
-void GBufferPass::AddPass(FrameGraph &fg, const std::vector<RenderBatch> &batches)
+void GBufferPass::AddPass(FrameGraph &fg, const eastl::vector<RenderBatch> &batches)
 {
 	auto &gbuffer_data = fg.getBlackboard().add<GBufferData>();
 

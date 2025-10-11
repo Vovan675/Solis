@@ -10,7 +10,7 @@
 
 using namespace Engine::Math;
 
-std::unordered_map<size_t, DescriptorLayout> DescriptorLayoutBuilder::cached_descriptor_layouts;
+eastl::unordered_map<size_t, DescriptorLayout> DescriptorLayoutBuilder::cached_descriptor_layouts;
 
 void DescriptorLayoutBuilder::add_binding(uint32_t binding, VkDescriptorType type, uint32_t count)
 {

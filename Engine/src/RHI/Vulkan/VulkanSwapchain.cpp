@@ -72,13 +72,13 @@ void VulkanSwapchain::create_swapchain()
 	uint32_t surface_formats_count;
 	vkGetPhysicalDeviceSurfaceFormatsKHR(device->physicalHandle, surface, &surface_formats_count, nullptr);
 
-	std::vector<VkSurfaceFormatKHR> surface_formats(surface_formats_count);
+	eastl::vector<VkSurfaceFormatKHR> surface_formats(surface_formats_count);
 	vkGetPhysicalDeviceSurfaceFormatsKHR(device->physicalHandle, surface, &surface_formats_count, surface_formats.data());
 
 	uint32_t present_modes_count;
 	vkGetPhysicalDeviceSurfacePresentModesKHR(device->physicalHandle, surface, &present_modes_count, nullptr);
 
-	std::vector<VkPresentModeKHR> present_modes(present_modes_count);
+	eastl::vector<VkPresentModeKHR> present_modes(present_modes_count);
 	vkGetPhysicalDeviceSurfacePresentModesKHR(device->physicalHandle, surface, &present_modes_count, present_modes.data());
 
 	if (surface_formats_count == 0 || present_modes_count == 0)

@@ -4,8 +4,8 @@
 #include "RHI/RHITexture.h"
 #include "Rendering/Model.h"
 
-std::unordered_map<Engine::GUID, AssetMetadata> AssetManager::registered_metadata;
-std::unordered_map<std::string, Ref<Asset>> AssetManager::loaded_assets;
+eastl::unordered_map<Engine::GUID, AssetMetadata> AssetManager::registered_metadata;
+eastl::unordered_map<eastl::string, Ref<Asset>> AssetManager::loaded_assets;
 
 static AssetMetadata invalid_metadata;
 
@@ -19,7 +19,7 @@ void AssetManager::shutdown()
 	loaded_assets.clear();
 }
 
-RHITextureRef AssetManager::getTextureAsset(std::string path)
+RHITextureRef AssetManager::getTextureAsset(eastl::string path)
 {
 	TextureDescription tex_description{};
 	tex_description.format = FORMAT_R8G8B8A8_UNORM;
@@ -27,14 +27,14 @@ RHITextureRef AssetManager::getTextureAsset(std::string path)
 	return getTextureAsset(path, tex_description);
 }
 
-RHITextureRef AssetManager::getTextureAsset(std::string path, TextureDescription desc)
+RHITextureRef AssetManager::getTextureAsset(eastl::string path, TextureDescription desc)
 {
 	if (loaded_assets.find(path) != loaded_assets.end())
 		return loaded_assets[path];
 
 	Ref<Asset> new_asset;
 
-	auto std_path = std::filesystem::path(path);
+	auto std_path = std::filesystem::path(path.c_str());
 	std::string extension = std_path.extension().string();
 	new_asset = load_texture_asset(path, desc);
 
@@ -42,14 +42,14 @@ RHITextureRef AssetManager::getTextureAsset(std::string path, TextureDescription
 	return new_asset;
 }
 
-Ref<Model> AssetManager::getModelAsset(std::string path)
+Ref<Model> AssetManager::getModelAsset(eastl::string path)
 {
 	if (loaded_assets.find(path) != loaded_assets.end())
 		return loaded_assets[path];
 
 	Ref<Asset> new_asset;
 
-	auto std_path = std::filesystem::path(path);
+	auto std_path = std::filesystem::path(path.c_str());
 	std::string extension = std_path.extension().string();
 	if (Assimp::Importer().IsExtensionSupported(extension))
 	{
@@ -95,16 +95,17 @@ std::filesystem::path AssetManager::getRuntimeAssetPath(const std::filesystem::p
 	return std::filesystem::path();
 }
 
-std::filesystem::path AssetManager::getRuntimeAssetPath(Engine::GUID runtime_guid, std::string extension)
+std::filesystem::path AssetManager::getRuntimeAssetPath(Engine::GUID runtime_guid, eastl::string extension)
 {
 	std::filesystem::path runtime_path = "assets/.runtimes/";
-	runtime_path += std::to_string(runtime_guid) + extension;
+	eastl::string name = eastl::to_string(runtime_guid) + extension;
+	runtime_path += name.c_str();
 	return runtime_path;
 }
 
-std::string AssetManager::getRuntimeExtension(AssetType asset_type)
+eastl::string AssetManager::getRuntimeExtension(AssetType asset_type)
 {
-	static std::unordered_map<AssetType, std::string> type_to_extension =
+	static eastl::unordered_map<AssetType, eastl::string> type_to_extension =
 	{
 		{ASSET_TYPE_TEXTURE, ".dds"},
 		{ASSET_TYPE_MODEL, ".mesh"},
@@ -116,12 +117,13 @@ std::string AssetManager::getRuntimeExtension(AssetType asset_type)
 	return type_to_extension.at(asset_type);
 }
 
-AssetType AssetManager::getAssetTypeFromExtension(const std::string &extension)
+AssetType AssetManager::getAssetTypeFromExtension(const eastl::string &extension)
 {
-	static std::unordered_map<std::string, AssetType> extension_to_type =
+	static eastl::unordered_map<eastl::string, AssetType> extension_to_type =
 	{
 		{".dds", ASSET_TYPE_TEXTURE},
 		{".png", ASSET_TYPE_TEXTURE},
+		{".jpg", ASSET_TYPE_TEXTURE},
 		{".fbx", ASSET_TYPE_MODEL},
 		{".obj", ASSET_TYPE_MODEL},
 	};
@@ -194,15 +196,15 @@ void AssetManager::recreateRuntime(const std::filesystem::path &source_path)
 		// Create runtime for it
 		int generate_mipmaps = metadata.params["generate_mipmaps"].as<int>(1);
 
-		Ref<Image> image = new Image(source_path.string());
+		Ref<Image> image = new Image(source_path.string().c_str());
 
 		if (generate_mipmaps)
 			image->createMipmaps();
 
 		auto runtime_path = getRuntimeAssetPath(source_path);
 		image->save(runtime_path);
-		loaded_assets.erase(source_path.string());
-		loaded_assets.erase(runtime_path.string());
+		loaded_assets.erase(source_path.string().c_str());
+		loaded_assets.erase(runtime_path.string().c_str());
 		//AssetImporter::loadAsset(new_metadata, Ref<Asset>(image));
 	} else if (asset_type == ASSET_TYPE_MODEL)
 	{
@@ -211,9 +213,9 @@ void AssetManager::recreateRuntime(const std::filesystem::path &source_path)
 		model->load(source_path.string().c_str());
 
 		auto runtime_path = getRuntimeAssetPath(source_path);
-		model->saveFile(runtime_path.string());
-		loaded_assets.erase(source_path.string());
-		loaded_assets.erase(runtime_path.string());
+		model->saveFile(runtime_path.string().c_str());
+		loaded_assets.erase(source_path.string().c_str());
+		loaded_assets.erase(runtime_path.string().c_str());
 	}
 }
 
@@ -231,7 +233,7 @@ void AssetManager::removeAsset(const std::filesystem::path &source_path)
 	if (!metadata.isValid())
 		return;
 	registered_metadata.erase(metadata.runtime_handle);
-	loaded_assets.erase(source_path.string());
+	loaded_assets.erase(source_path.string().c_str());
 }
 
 const AssetMetadata &AssetManager::importAsset(const std::filesystem::path &path)
@@ -266,7 +268,7 @@ const AssetMetadata &AssetManager::importAsset(const std::filesystem::path &path
 		return new_metadata;
 	}
 
-	AssetType asset_type = getAssetTypeFromExtension(path.extension().string());
+	AssetType asset_type = getAssetTypeFromExtension(path.extension().string().c_str());
 	if (asset_type == ASSET_TYPE_UNDEFINED)
 		return invalid_metadata;
 
@@ -322,14 +324,14 @@ void AssetManager::reloadAssets(const std::filesystem::path &path)
 	}
 }
 
-Ref<Asset> AssetManager::load_texture_asset(std::string path, TextureDescription desc)
+Ref<Asset> AssetManager::load_texture_asset(eastl::string path, TextureDescription desc)
 {
 	auto tex = gDynamicRHI->createTexture(desc);
 	tex->load(path.c_str());
 	return tex;
 }
 
-Ref<Asset> AssetManager::load_model_asset(std::string path)
+Ref<Asset> AssetManager::load_model_asset(eastl::string path)
 {
 	auto model = new Model();
 	model->load(path.c_str());

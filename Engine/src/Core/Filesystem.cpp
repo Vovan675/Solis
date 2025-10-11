@@ -4,7 +4,7 @@
 #include <ShObjIdl_core.h>
 #include <commdlg.h>
 
-std::string Filesystem::saveFileDialog()
+eastl::string Filesystem::saveFileDialog()
 {
 	std::filesystem::path currentPath = std::filesystem::current_path();
 
@@ -18,14 +18,14 @@ std::string Filesystem::saveFileDialog()
 
 	if (GetSaveFileNameA(&ofn))
 	{
-		std::string path = ofn.lpstrFile;
+		eastl::string path = ofn.lpstrFile;
 		std::filesystem::current_path(currentPath);
-		return std::filesystem::path(path).string();
+		return Filesystem::normalizePath(path);
 	}
 	return "";
 }
 
-std::string Filesystem::openFileDialog()
+eastl::string Filesystem::openFileDialog()
 {
 	std::filesystem::path currentPath = std::filesystem::current_path();
 
@@ -39,9 +39,21 @@ std::string Filesystem::openFileDialog()
 
 	if (GetOpenFileNameA(&ofn))
 	{
-		std::string path = ofn.lpstrFile;
+		eastl::string path = ofn.lpstrFile;
 		std::filesystem::current_path(currentPath);
-		return std::filesystem::path(path).string();
+		return Filesystem::normalizePath(path);
 	}
 	return "";
+}
+
+eastl::wstring Filesystem::normalizePath(eastl::wstring path)
+{
+	std::filesystem::path p = path.c_str();
+	return p.lexically_normal().wstring().c_str();
+}
+
+eastl::string Filesystem::normalizePath(eastl::string path)
+{
+	std::filesystem::path p = path.c_str();
+	return p.lexically_normal().string().c_str();
 }

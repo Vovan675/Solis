@@ -15,7 +15,7 @@ public:
 			VulkanUtils::vkDestroyAccelerationStructureKHR(handle, nullptr);
 	}
 
-	void build(const std::vector<RayTracingGeometry> &geometries) override;
+	void build(const eastl::vector<RayTracingGeometry> &geometries) override;
 
 	VkAccelerationStructureKHR handle = nullptr;
 	uint64_t deviceAddress = 0;
@@ -34,7 +34,7 @@ public:
 			VulkanUtils::vkDestroyAccelerationStructureKHR(handle, nullptr);
 	}
 
-	void build(bool update, const std::vector<RayTracingInstance> &instances) override;
+	void build(bool update, const eastl::vector<RayTracingInstance> &instances) override;
 
 	VkAccelerationStructureKHR handle = 0;
 	uint64_t deviceAddress = 0;

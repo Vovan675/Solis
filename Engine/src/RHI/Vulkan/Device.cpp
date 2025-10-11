@@ -4,7 +4,7 @@
 #include "Core/Variables.h"
 #include "RHI/RHIDefinitions.h"
 
-static std::vector<const char*> s_ValidationLayers = {
+static eastl::vector<const char*> s_ValidationLayers = {
 		"VK_LAYER_KHRONOS_validation"
 };
 
@@ -29,7 +29,7 @@ void Device::CreatePhysicalDevice()
 {
 	uint32_t count;
 	vkEnumeratePhysicalDevices(m_InstanceHandle, &count, nullptr);
-	std::vector<VkPhysicalDevice> physicalDevices(count);
+	eastl::vector<VkPhysicalDevice> physicalDevices(count);
 	vkEnumeratePhysicalDevices(m_InstanceHandle, &count, physicalDevices.data());
 	CORE_INFO("GPUs Count: {}", count);
 
@@ -38,7 +38,7 @@ void Device::CreatePhysicalDevice()
 
 	uint32_t propertiesCount;
 	vkGetPhysicalDeviceQueueFamilyProperties(physicalHandle, &propertiesCount, nullptr);
-	std::vector<VkQueueFamilyProperties> queueFamilies(propertiesCount);
+	eastl::vector<VkQueueFamilyProperties> queueFamilies(propertiesCount);
 	vkGetPhysicalDeviceQueueFamilyProperties(physicalHandle, &propertiesCount, queueFamilies.data());
 
 	CORE_INFO("Queue families Count: {}", propertiesCount);
@@ -75,9 +75,9 @@ void Device::CreatePhysicalDevice()
 void Device::CreateLogicalDevice()
 {
 	// Queues will be created with the logical device
-	std::vector<VkDeviceQueueCreateInfo> queueInfos;
+	eastl::vector<VkDeviceQueueCreateInfo> queueInfos;
 	// Set because there cant be equal values, only unique
-	std::unordered_set<uint32_t> queues = { queueFamily.graphicsFamily.value(), queueFamily.presentFamily.value() };
+	eastl::unordered_set<uint32_t> queues = { queueFamily.graphicsFamily.value(), queueFamily.presentFamily.value() };
 	float priority = 1.0;
 	for (auto queue : queues)
 	{
@@ -96,7 +96,7 @@ void Device::CreateLogicalDevice()
 	info.enabledLayerCount = s_ValidationLayers.size();
 	info.ppEnabledLayerNames = s_ValidationLayers.data();
 
-	std::vector<const char*> extensions = {
+	eastl::vector<const char*> extensions = {
 		VK_KHR_SWAPCHAIN_EXTENSION_NAME,
 	};
 

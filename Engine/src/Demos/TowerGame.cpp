@@ -27,7 +27,7 @@ Block createBlock(Scene* scene, const glm::vec3& size, const glm::vec3& pos, con
     return block;
 }
 
-Layer::Layer(Scene* s, const std::string& ax, float width, float depth, const glm::vec3& pos, bool bonus) 
+Layer::Layer(Scene* s, const eastl::string& ax, float width, float depth, const glm::vec3& pos, bool bonus) 
     : scene(s), axis(ax), isBonusBlock(bonus) {
     glm::vec3 initPos = pos;
     if (axis == "x") initPos.x = -MOVING_RANGE;
@@ -131,13 +131,13 @@ void Layer::clear() {
     fallingBlock = nullptr;
 }
 
-Tower::Tower(Scene* s, std::function<void()> onFinish) : scene(s), finishCallback(onFinish) {
+Tower::Tower(Scene* s, eastl::function<void()> onFinish) : scene(s), finishCallback(onFinish) {
     baseBlock = std::make_shared<Block>(createBlock(scene, BASE_BLOCK_SIZE, {0.0f, 0.0f, 0.0f}, COLOR_BASE));
     addLayer();
 }
 
 void Tower::addLayer() {
-    std::string axis = (layers.empty() || layers.back()->axis == "z") ? "x" : "z";
+    eastl::string axis = (layers.empty() || layers.back()->axis == "z") ? "x" : "z";
     glm::vec3 pos = layers.empty() ? glm::vec3(0.0f, BASE_BLOCK_SIZE.y, 0.0f) : layers.back()->placedBlock->position;
     pos.y = (layers.size() + 1) * BASE_BLOCK_SIZE.y;
     float width = layers.empty() ? BASE_BLOCK_SIZE.x : layers.back()->placedBlock->size.x;

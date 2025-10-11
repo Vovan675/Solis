@@ -4,7 +4,7 @@
 
 struct FileEntry
 {
-	std::string name;
+	eastl::string name;
 	bool isDirectory;
 };
 
@@ -13,12 +13,12 @@ class AssetBrowserPanel
 public:
 	void init();
 
-	void setRootPath(std::string path) { root_path = path; }
+	void setRootPath(eastl::string path) { root_path = path.c_str(); }
 	bool renderImGui(EditorContext &context);
 
 private:
 	std::vector<FileEntry> get_directory_entries(const std::filesystem::path &path);
-	void render_directory(const std::string &path);
+	void render_directory(const eastl::string &path);
 
 	RHITextureRef get_file_icon(std::filesystem::path &file);
 	void process_double_click(std::filesystem::path &file);

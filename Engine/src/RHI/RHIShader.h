@@ -30,7 +30,7 @@ enum DescriptorType
 
 struct Descriptor
 {
-	Descriptor(DescriptorType type, unsigned int set, unsigned int binding, size_t size, DescriptorStage stage, std::string name = "")
+	Descriptor(DescriptorType type, unsigned int set, unsigned int binding, size_t size, DescriptorStage stage, eastl::string name = "")
 		: type(type), set(set), binding(binding), size(size), stage(stage), name(name)
 	{
 
@@ -41,7 +41,7 @@ struct Descriptor
 	unsigned int binding;
 	size_t size;
 	DescriptorStage stage;
-	std::string name;
+	eastl::string name;
 
 	unsigned int first_member_offset = 0;
 };
@@ -49,21 +49,21 @@ struct Descriptor
 class RHIShader: public RefCounted
 {
 public:
-	RHIShader(const std::wstring &path, ShaderType type, std::wstring entry_point, std::vector<std::pair<const char *, const char *>> defines);
+	RHIShader(const eastl::wstring &path, ShaderType type, eastl::wstring entry_point, eastl::vector<eastl::pair<const char *, const char *>> defines);
 	virtual ~RHIShader();
 
 	size_t getHash() const { return hash; }
 
 	virtual void recompile() = 0;
 	
-	static std::list<RHIShader *> getAllShadersAtPath(const std::wstring &path);
+	static eastl::list<RHIShader *> getAllShadersAtPath(const eastl::wstring &path);
 
 protected:
 	size_t hash = 0;
 	std::filesystem::path path;
 	ShaderType type;
-	std::wstring entry_point;
-	std::vector<std::pair<const char *, const char *>> defines;
+	eastl::wstring entry_point;
+	eastl::vector<eastl::pair<const char *, const char *>> defines;
 
-	static std::unordered_map<std::filesystem::path, std::list<RHIShader *>> path_to_shaders;
+	static eastl::unordered_map<eastl::wstring, eastl::list<RHIShader *>> path_to_shaders;
 };

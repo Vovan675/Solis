@@ -155,7 +155,7 @@ void DefferedLightingRenderer::renderLights(FrameGraph &fg)
 			}
 		} else
 		{
-			std::vector<std::pair<const char *, const char *>> shader_defines;
+			eastl::vector<eastl::pair<const char *, const char *>> shader_defines;
 
 			auto entities_id = Scene::getCurrentScene()->getEntitiesWith<LightComponent>();
 			for (entt::entity entity_id : entities_id)

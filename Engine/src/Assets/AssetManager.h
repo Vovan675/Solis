@@ -16,18 +16,18 @@ public:
 	static void init();
 	static void shutdown();
 
-	static RHITextureRef getTextureAsset(std::string path);
-	static RHITextureRef getTextureAsset(std::string path, TextureDescription desc);
-	static Ref<Model> getModelAsset(std::string path);
+	static RHITextureRef getTextureAsset(eastl::string path);
+	static RHITextureRef getTextureAsset(eastl::string path, TextureDescription desc);
+	static Ref<Model> getModelAsset(eastl::string path);
 
 	static std::filesystem::path getPathFromGUID(Engine::GUID guid);
 	static Engine::GUID getGUIDFromPath(const std::filesystem::path &path);
 
 	static std::filesystem::path getRuntimeAssetPath(const std::filesystem::path &path);
-	static std::filesystem::path getRuntimeAssetPath(Engine::GUID runtime_guid, std::string extension);
+	static std::filesystem::path getRuntimeAssetPath(Engine::GUID runtime_guid, eastl::string extension);
 
-	static std::string getRuntimeExtension(AssetType asset_type);
-	static AssetType getAssetTypeFromExtension(const std::string &extension);
+	static eastl::string getRuntimeExtension(AssetType asset_type);
+	static AssetType getAssetTypeFromExtension(const eastl::string &extension);
 	static const AssetMetadata &getMetadata(const std::filesystem::path &source_path);
 	static AssetMetadata &getMutableMetadata(const std::filesystem::path &source_path);
 	static void saveMetadata(const AssetMetadata &metadata);
@@ -40,9 +40,9 @@ public:
 private:
 	AssetManager() = delete;
 
-	static Ref<Asset> load_texture_asset(std::string path, TextureDescription desc);
-	static Ref<Asset> load_model_asset(std::string path);
+	static Ref<Asset> load_texture_asset(eastl::string path, TextureDescription desc);
+	static Ref<Asset> load_model_asset(eastl::string path);
 
-	static std::unordered_map<Engine::GUID, AssetMetadata> registered_metadata;
-	static std::unordered_map<std::string, Ref<Asset>> loaded_assets;
+	static eastl::unordered_map<Engine::GUID, AssetMetadata> registered_metadata;
+	static eastl::unordered_map<eastl::string, Ref<Asset>> loaded_assets;
 };

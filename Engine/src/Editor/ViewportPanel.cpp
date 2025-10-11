@@ -11,7 +11,7 @@
 bool ViewportPanel::renderImGui(EditorContext &context, float delta_time)
 {
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
-	ImGui::Begin((std::string(ICON_FA_EXPAND) + " Viewport###Viewport").c_str());
+	ImGui::Begin((eastl::string(ICON_FA_EXPAND) + " Viewport###Viewport").c_str());
 	ImGui::PopStyleVar();
 
 	bool is_viewport_focused = ImGui::IsWindowFocused();
@@ -90,7 +90,7 @@ bool ViewportPanel::renderImGui(EditorContext &context, float delta_time)
 		if (const ImGuiPayload *payload = ImGui::AcceptDragDropPayload("DND_ASSET_PATH", ImGuiDragDropFlags_AcceptPeekOnly))
 		{
 			const char *payload_str = (const char *)payload->Data;
-			std::string extension = std::filesystem::path(payload_str).extension().string();
+			eastl::string extension = std::filesystem::path(payload_str).extension().string().c_str();
 			if (extension == ".fbx" || extension == ".obj")
 			{
 				if (payload = ImGui::AcceptDragDropPayload("DND_ASSET_PATH"))

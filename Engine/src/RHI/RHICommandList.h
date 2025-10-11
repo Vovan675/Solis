@@ -13,9 +13,9 @@ public:
 	virtual void open() = 0;
 	virtual void close() = 0;
 
-	virtual void setRenderTargets(const std::vector<RHITexture *> &color_attachments, RHITexture *depth_attachment, int layer, int mip, bool clear) = 0;
+	virtual void setRenderTargets(const eastl::vector<RHITexture *> &color_attachments, RHITexture *depth_attachment, int layer, int mip, bool clear) = 0;
 	virtual void resetRenderTargets() = 0;
-	virtual std::vector<RHITexture *> &getCurrentRenderTargets() = 0;
+	virtual eastl::vector<RHITexture *> &getCurrentRenderTargets() = 0;
 
 	virtual void setPipeline(RHIPipeline *pipeline) = 0;
 

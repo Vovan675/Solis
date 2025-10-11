@@ -19,6 +19,6 @@ private:
 
 	HWND hWnd;
 	ComPtr<IDXGISwapChain3> swap_chain;
-	std::vector<ComPtr<ID3D12Resource>> render_targets;
-	std::vector<Ref<DX12Texture>> swap_chain_textures;
+	eastl::vector<ComPtr<ID3D12Resource>> render_targets;
+	eastl::vector<Ref<DX12Texture>> swap_chain_textures;
 };

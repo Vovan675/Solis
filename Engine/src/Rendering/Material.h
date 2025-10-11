@@ -52,7 +52,7 @@ public:
 					auto runtime_path = AssetManager::getPathFromGUID(material_texture.asset_handle);
 					if (runtime_path.empty())
 						return;
-					auto tex = AssetManager::getTextureAsset(runtime_path.string()); // TODO: desc
+					auto tex = AssetManager::getTextureAsset(runtime_path.string().c_str()); // TODO: desc
 					if (!tex || !tex->isValid())
 						return;
 					material_texture.bindless_id = gDynamicRHI->getBindlessResources()->addTexture(tex);
@@ -139,7 +139,7 @@ namespace YAML
 		out << YAML::Key << "Specular" << YAML::Value << mat->specular;
 		out << YAML::Key << "Normal" << YAML::Value << mat->specular;
 		
-		std::string no_texture = "no";
+		eastl::string no_texture = "no";
 		if (mat->albedo_tex.bindless_id != -1)
 			out << YAML::Key << "AlbedoTexture" << YAML::Value << gDynamicRHI->getBindlessResources()->getTexture(mat->albedo_tex.bindless_id)->asset_handle;
 
@@ -174,7 +174,7 @@ namespace YAML
 
 			if (node["AlbedoTexture"])
 			{
-				auto tex = AssetManager::getTextureAsset(node["AlbedoTexture"].as<std::string>());
+				auto tex = AssetManager::getTextureAsset(node["AlbedoTexture"].as<eastl::string>());
 				mat->albedo_tex.bindless_id = gDynamicRHI->getBindlessResources()->addTexture(tex);
 			}
 
@@ -184,7 +184,7 @@ namespace YAML
 				tex_description.format = FORMAT_R8G8B8A8_UNORM;
 				tex_description.usage_flags = TEXTURE_USAGE_TRANSFER_SRC;
 
-				auto tex = AssetManager::getTextureAsset(node["MetalnessTexture"].as<std::string>(), tex_description);
+				auto tex = AssetManager::getTextureAsset(node["MetalnessTexture"].as<eastl::string>(), tex_description);
 				mat->metalness_tex.bindless_id = gDynamicRHI->getBindlessResources()->addTexture(tex);
 			}
 
@@ -194,7 +194,7 @@ namespace YAML
 				tex_description.format = FORMAT_R8G8B8A8_UNORM;
 				tex_description.usage_flags = TEXTURE_USAGE_TRANSFER_SRC;
 
-				auto tex = AssetManager::getTextureAsset(node["RoughnessTexture"].as<std::string>(), tex_description);
+				auto tex = AssetManager::getTextureAsset(node["RoughnessTexture"].as<eastl::string>(), tex_description);
 				mat->roughness_tex.bindless_id = gDynamicRHI->getBindlessResources()->addTexture(tex);
 			}
 
@@ -204,7 +204,7 @@ namespace YAML
 				tex_description.format = FORMAT_R8G8B8A8_UNORM;
 				tex_description.usage_flags = TEXTURE_USAGE_TRANSFER_SRC;
 
-				auto tex = AssetManager::getTextureAsset(node["SpecularTexture"].as<std::string>(), tex_description);
+				auto tex = AssetManager::getTextureAsset(node["SpecularTexture"].as<eastl::string>(), tex_description);
 				mat->specular_tex.bindless_id = gDynamicRHI->getBindlessResources()->addTexture(tex);
 			}
 
@@ -214,7 +214,7 @@ namespace YAML
 				tex_description.format = FORMAT_R8G8B8A8_UNORM;
 				tex_description.usage_flags = TEXTURE_USAGE_TRANSFER_SRC;
 
-				auto tex = AssetManager::getTextureAsset(node["NormalTexture"].as<std::string>(), tex_description);
+				auto tex = AssetManager::getTextureAsset(node["NormalTexture"].as<eastl::string>(), tex_description);
 				mat->normal_tex.bindless_id = gDynamicRHI->getBindlessResources()->addTexture(tex);
 			}
 

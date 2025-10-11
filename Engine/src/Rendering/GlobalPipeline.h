@@ -31,8 +31,8 @@ public:
 	void setCullMode(CullMode cull_mode) { current_description.cull_mode = cull_mode; }
 	void setPrimitiveTopology(Topology topology) { current_description.primitive_topology = topology; }
 
-	void setColorFormats(std::vector<Format> color_formats) { current_description.color_formats = color_formats; }
-	void setRenderTargets(std::vector<RHITexture *> attachments)
+	void setColorFormats(eastl::vector<Format> color_formats) { current_description.color_formats = color_formats; }
+	void setRenderTargets(eastl::vector<RHITexture *> attachments)
 	{
 		current_description.color_formats.clear();
 		current_description.depth_format = FORMAT_UNDEFINED;
@@ -64,7 +64,7 @@ public:
 	RHIShaderRef getMissShader() const { return current_description.miss_shader; }
 	RHIShaderRef getClosestHitShader() const { return current_description.closest_hit_shader; }
 
-	std::vector<RHIShaderRef> getCurrentShaders();
+	eastl::vector<RHIShaderRef> getCurrentShaders();
 
 	void bindScreenQuadPipeline(RHICommandList *cmd_list, RHIShaderRef fragment_shader);
 
@@ -75,6 +75,6 @@ public:
 	bool is_binded = false;
 	PipelineDescription current_description;
 	RHIPipelineRef current_pipeline;
-	std::unordered_map<size_t, RHIPipelineRef> cached_pipelines;
+	eastl::unordered_map<size_t, RHIPipelineRef> cached_pipelines;
 };
 

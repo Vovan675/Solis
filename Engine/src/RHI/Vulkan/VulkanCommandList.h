@@ -29,7 +29,7 @@ public:
 		is_open = false;
 	}
 
-	void setRenderTargets(const std::vector<RHITexture *> &color_attachments, RHITexture *depth_attachment, int layer, int mip, bool clear) override;
+	void setRenderTargets(const eastl::vector<RHITexture *> &color_attachments, RHITexture *depth_attachment, int layer, int mip, bool clear) override;
 
 	void resetRenderTargets() override
 	{
@@ -37,7 +37,7 @@ public:
 		current_render_targets.clear();
 	}
 
-	std::vector<RHITexture *> &getCurrentRenderTargets()
+	eastl::vector<RHITexture *> &getCurrentRenderTargets()
 	{
 		return current_render_targets;
 	}
@@ -79,7 +79,7 @@ public:
 	VkCommandPool cmd_pool;
 	VkCommandBuffer cmd_buffer;
 	RHIPipeline *current_pipeline;
-	std::vector<RHITexture *> current_render_targets;
+	eastl::vector<RHITexture *> current_render_targets;
 
-	std::vector<std::unique_ptr<tracy::VkCtxScope>> tracy_debug_label_stack;
+	eastl::vector<std::unique_ptr<tracy::VkCtxScope>> tracy_debug_label_stack;
 };

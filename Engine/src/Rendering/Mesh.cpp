@@ -9,7 +9,7 @@
 
 namespace Engine
 {
-	void Mesh::setData(std::vector<Vertex> vertices, std::vector<uint32_t> indices)
+	void Mesh::setData(eastl::vector<Vertex> vertices, eastl::vector<uint32_t> indices)
 	{
 		this->vertices = vertices;
 		this->indices = indices;

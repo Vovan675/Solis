@@ -36,7 +36,7 @@ ShadowRenderer::ShadowRenderer()
 	}
 }
 
-void ShadowRenderer::addShadowMapPasses(FrameGraph &fg, const std::vector<RenderBatch> &batches)
+void ShadowRenderer::addShadowMapPasses(FrameGraph &fg, const eastl::vector<RenderBatch> &batches)
 {
 	auto light_entities_id = Scene::getCurrentScene()->getEntitiesWith<LightComponent>();
 
@@ -56,7 +56,7 @@ void ShadowRenderer::addShadowMapPasses(FrameGraph &fg, const std::vector<Render
 
 		if (light.getType() == LIGHT_TYPE_POINT)
 		{
-			std::vector<glm::mat4> faces_transforms;
+			eastl::vector<glm::mat4> faces_transforms;
 			faces_transforms.push_back(glm::lookAtLH(position, position + glm::vec3(1, 0, 0), glm::vec3(0, 1, 0)));
 			faces_transforms.push_back(glm::lookAtLH(position, position + glm::vec3(-1, 0, 0), glm::vec3(0, 1, 0)));
 			faces_transforms.push_back(glm::lookAtLH(position, position + glm::vec3(0, 1, 0), glm::vec3(0, 0, 1)));

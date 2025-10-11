@@ -60,12 +60,12 @@ Application::Application(int argc, char *argv[])
 
 	for (int i = 1; i < argc; i++)
 	{
-		std::string arg = argv[i];
+		eastl::string arg = argv[i];
 		if (arg == "-rhi")
 		{
 			if (i + 1 < argc)
 			{
-				std::string api = argv[i + 1];
+				eastl::string api = argv[i + 1];
 				if (api == "vk" || api == "vulkan")
 					gapi = GRAPHICS_API_VULKAN;
 				else if (api == "dx12" || api == "directx12")
@@ -76,8 +76,8 @@ Application::Application(int argc, char *argv[])
 		{
 			if (i + 1 < argc)
 			{
-				std::string enabled = argv[i + 1];
-				engine_rhi_validation = std::stoi(enabled);
+				eastl::string enabled = argv[i + 1];
+				engine_rhi_validation = std::stoi(enabled.c_str());
 				i++;
 			}
 		}

@@ -38,8 +38,8 @@ public:
 	// Inherited via DynamicRHI
 	RHISwapchainRef createSwapchain(GLFWwindow *window) override;
 	void resizeSwapchain(int width, int height) override;
-	RHIShaderRef createShader(std::wstring path, ShaderType type, std::wstring entry_point) override;
-	RHIShaderRef createShader(std::wstring path, ShaderType type, std::vector<std::pair<const char *, const char *>> defines) override;
+	RHIShaderRef createShader(eastl::wstring path, ShaderType type, eastl::wstring entry_point) override;
+	RHIShaderRef createShader(eastl::wstring path, ShaderType type, eastl::vector<eastl::pair<const char *, const char *>> defines) override;
 	RHIPipelineRef createPipeline() override;
 	RHIBufferRef createBuffer(BufferDescription description) override;
 	RHITextureRef createTexture(TextureDescription description) override;
@@ -69,11 +69,11 @@ public:
 
 	struct ShaderDataBuffers
 	{
-		std::vector<ShaderDataBuffer> buffers;
+		eastl::vector<ShaderDataBuffer> buffers;
 		uint32_t current_offset = 0;
 	};
 
-	std::unordered_map<size_t, ShaderDataBuffers> buffers_for_shaders;
+	eastl::unordered_map<size_t, ShaderDataBuffers> buffers_for_shaders;
 
 	void setConstantBufferData(unsigned int binding, void *params_struct, size_t params_size) override
 	{

@@ -24,7 +24,7 @@ namespace YAML
 			if (!node.IsMap() || node.size() != 2)
 				return false;
 
-			std::string model_path = node["ModelPath"].as<std::string>();
+			eastl::string model_path = node["ModelPath"].as<eastl::string>();
 			auto model = AssetManager::getModelAsset(model_path);
 			mesh_id.model = model;
 			size_t model_mesh_id = node["MeshId"].as<size_t>();
@@ -127,12 +127,12 @@ Scene::~Scene()
 {
 }
 
-Entity Scene::createEntity(std::string name)
+Entity Scene::createEntity(eastl::string name)
 {
 	return createEntity(name, entt::null);
 }
 
-Entity Scene::createEntity(std::string name, entt::entity id)
+Entity Scene::createEntity(eastl::string name, entt::entity id)
 {
 	entt::entity entity_id;
 	if (id != entt::null)
@@ -147,7 +147,7 @@ Entity Scene::createEntity(std::string name, entt::entity id)
 	return Entity(entity_id);
 }
 
-Entity Scene::findEntityByName(std::string name)
+Entity Scene::findEntityByName(eastl::string name)
 {
 	auto view = registry.view<TransformComponent>();
 	for (auto [e, t] : view.each())
@@ -202,9 +202,9 @@ Ref<Scene> Scene::copy()
 	return scene;
 }
 
-void Scene::saveFile(const std::string &filename)
+void Scene::saveFile(const eastl::string &filename)
 {
-	std::ofstream file(filename);
+	std::ofstream file(filename.c_str());
 	YAML::Emitter out(file);
 	
 	out << YAML::BeginSeq;
@@ -216,10 +216,10 @@ void Scene::saveFile(const std::string &filename)
 	out << YAML::EndSeq;
 }
 
-void Scene::loadFile(const std::string &filename)
+void Scene::loadFile(const eastl::string &filename)
 {
-	std::ifstream file(filename);
-	YAML::Node node = YAML::LoadFile(filename);
+	std::ifstream file(filename.c_str());
+	YAML::Node node = YAML::LoadFile(filename.c_str());
 	
 	for (auto entity : node)
 	{
@@ -230,21 +230,21 @@ void Scene::loadFile(const std::string &filename)
 		if (comp)
 		{
 			auto &c = engine_entity.addComponent<TransformComponent>();
-			c.name = comp["Name"].as<std::string>();
+			c.name = comp["Name"].as<eastl::string>();
 			c.setPosition(comp["Position"].as<glm::vec3>());
 			c.setLocalRotation(comp["Rotation"].as<glm::quat>());
 			c.setLocalRotationEuler(comp["RotationEuler"].as<glm::vec3>());
 			c.setLocalScale(comp["Scale"].as<glm::vec3>());
 			c.parent = comp["Parent"].as<entt::entity>();
-			c.children = comp["Children"].as<std::vector<entt::entity>>();
+			c.children = comp["Children"].as<eastl::vector<entt::entity>>();
 		}
 
 		comp = entity["MeshRendererComponent"];
 		if (comp)
 		{
 			auto &c = engine_entity.addComponent<MeshRendererComponent>();
-			c.meshes = comp["Meshes"].as<std::vector<MeshRendererComponent::MeshId>>();
-			c.materials = comp["Materials"].as<std::vector<Ref<Material>>>();
+			c.meshes = comp["Meshes"].as<eastl::vector<MeshRendererComponent::MeshId>>();
+			c.materials = comp["Materials"].as<eastl::vector<Ref<Material>>>();
 		}
 
 		comp = entity["LightComponent"];
@@ -278,10 +278,10 @@ void Scene::loadFile(const std::string &filename)
 	}
 }
 
-Ref<Scene> Scene::loadScene(const std::string &filename)
+Ref<Scene> Scene::loadScene(const eastl::string &filename)
 {
 	current_scene = new Scene();
-	current_scene->loadFile(filename);
+	current_scene->loadFile(filename.c_str());
 	return current_scene;
 }
 

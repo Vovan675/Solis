@@ -12,7 +12,7 @@
 struct DebugTime
 {
 	uint32_t index = 0;
-	std::string name;
+	eastl::string name;
 };
 
 struct RendererDebugInfo

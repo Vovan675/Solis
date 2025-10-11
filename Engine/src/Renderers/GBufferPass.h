@@ -8,7 +8,7 @@ class GBufferPass
 public:
 	GBufferPass();
 
-	void AddPass(FrameGraph &fg, const std::vector<RenderBatch> &batches);
+	void AddPass(FrameGraph &fg, const eastl::vector<RenderBatch> &batches);
 
 	EntityRenderer *entity_renderer;
 

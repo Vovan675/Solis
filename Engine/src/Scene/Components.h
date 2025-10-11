@@ -23,11 +23,11 @@ private:
 	glm::mat4 world_transform = glm::mat4(1);
 	glm::mat4 inverse_world_transform = glm::mat4(1);
 public:
-	std::string name = "";
+	eastl::string name = "";
 	entt::entity owner;
 
 	entt::entity parent = entt::null;
-	std::vector<entt::entity> children;
+	eastl::vector<entt::entity> children;
 
 	void setLocalTransform(glm::mat4 transform)
 	{
@@ -101,8 +101,8 @@ struct MeshRendererComponent
 
 		Engine::Mesh *getMesh();
 	};
-	std::vector<MeshId> meshes;
-	std::vector<Ref<Material>> materials;
+	eastl::vector<MeshId> meshes;
+	eastl::vector<Ref<Material>> materials;
 
 	void setFromMeshNode(Ref<Model> model, MeshNode *mesh_node);
 };
@@ -186,7 +186,7 @@ private:
 		glm::mat4 View;
 		float splitDepth;
 	};
-	std::array<CascadeData, SHADOW_MAP_CASCADE_COUNT> cascades;
+	eastl::array<CascadeData, SHADOW_MAP_CASCADE_COUNT> cascades;
 };
 
 

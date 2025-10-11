@@ -8,7 +8,7 @@
 #include <WinPixEventRuntime/pix3.h>
 #include "Utils/Math.h"
 
-void DX12CommandList::setRenderTargets(const std::vector<RHITexture *> &color_attachments, RHITexture *depth_attachment, int layer, int mip, bool clear)
+void DX12CommandList::setRenderTargets(const eastl::vector<RHITexture *> &color_attachments, RHITexture *depth_attachment, int layer, int mip, bool clear)
 {
 	D3D12_VIEWPORT viewport;
 	D3D12_RECT surface_rect;
@@ -36,7 +36,7 @@ void DX12CommandList::setRenderTargets(const std::vector<RHITexture *> &color_at
 
 	const float clearColor[] = {0.0f, 0.0f, 0.0f, 1.0f};
 
-	std::vector<D3D12_CPU_DESCRIPTOR_HANDLE> rtvs;
+	eastl::vector<D3D12_CPU_DESCRIPTOR_HANDLE> rtvs;
 	for (const auto &attachment : color_attachments)
 	{
 		DX12Texture *texture = (DX12Texture *)attachment;

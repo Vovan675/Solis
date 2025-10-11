@@ -9,6 +9,20 @@
 #include <fstream>
 #include <filesystem>
 #include <memory>
+
+#include <EASTL/string.h>
+#include <EASTL/queue.h>
+#include <EASTL/array.h>
+#include <EASTL/algorithm.h>
+#include <EASTL/sort.h>
+#include <EASTL/map.h>
+#include <EASTL/fixed_vector.h>
+#include <EASTL/vector.h>
+#include <EASTL/unordered_map.h>
+#include <EASTL/unordered_set.h>
+#include <EASTL/hash_set.h>
+#include <EASTL/list.h>
+
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 #include <dwmapi.h>
@@ -42,4 +56,5 @@ using Microsoft::WRL::ComPtr;
 #define YAML_CPP_DLL
 #include "yaml-cpp/yaml.h"
 
+#include "Core/Memory.h"
 #include "Core/Log.h"

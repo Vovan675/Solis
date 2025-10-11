@@ -18,11 +18,11 @@ struct MeshNode
 			delete children[i];
 	}
 
-	std::string name = "";
-	std::vector<Engine::Mesh *> meshes;
-	std::vector<Ref<Material>> materials;
+	eastl::string name = "";
+	eastl::vector<Engine::Mesh *> meshes;
+	eastl::vector<Ref<Material>> materials;
 	MeshNode *parent = nullptr;
-	std::vector<MeshNode *> children;
+	eastl::vector<MeshNode *> children;
 	
 	glm::mat4 local_model_matrix = glm::mat4(1);
 	glm::mat4 global_model_matrix = glm::mat4(1);
@@ -67,12 +67,12 @@ public:
 	}
 
 	MeshNode *getRootNode() const { return root_node; }
-	std::vector<MeshNode *> &getLinearNodes() { return linear_nodes; }
+	eastl::vector<MeshNode *> &getLinearNodes() { return linear_nodes; }
 
-	std::string getPath() const { return path; }
+	eastl::string getPath() const { return path; }
 
-	void saveFile(const std::string &filename);
-	void loadFile(const std::string &filename);
+	void saveFile(const eastl::string &filename);
+	void loadFile(const eastl::string &filename);
 
 private:
 	void save_mesh_node(FileStream &stream, MeshNode *node);
@@ -80,9 +80,9 @@ private:
 	static Entity create_entity_node(Model *model, MeshNode *node, Scene *scene);
 
 	MeshNode *root_node = nullptr;
-	std::vector<MeshNode *> linear_nodes = {};
-	std::string path;
+	eastl::vector<MeshNode *> linear_nodes = {};
+	eastl::string path;
 
-	std::unordered_map<size_t, Ref<Engine::Mesh>> meshes_id;
+	eastl::unordered_map<size_t, Ref<Engine::Mesh>> meshes_id;
 };
 

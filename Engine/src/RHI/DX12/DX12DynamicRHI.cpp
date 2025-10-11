@@ -182,7 +182,7 @@ void DX12DynamicRHI::resizeSwapchain(int width, int height)
 	swapchain->resize(width, height);
 }
 
-RHIShaderRef DX12DynamicRHI::createShader(std::wstring path, ShaderType type, std::wstring entry_point)
+RHIShaderRef DX12DynamicRHI::createShader(eastl::wstring path, ShaderType type, eastl::wstring entry_point)
 {
 	if (entry_point.empty())
 	{
@@ -215,9 +215,9 @@ RHIShaderRef DX12DynamicRHI::createShader(std::wstring path, ShaderType type, st
 	return shader;
 }
 
-RHIShaderRef DX12DynamicRHI::createShader(std::wstring path, ShaderType type, std::vector<std::pair<const char *, const char *>> defines)
+RHIShaderRef DX12DynamicRHI::createShader(eastl::wstring path, ShaderType type, eastl::vector<eastl::pair<const char *, const char *>> defines)
 {
-	std::wstring entry_point;
+	eastl::wstring entry_point;
 	if (type == VERTEX_SHADER)
 		entry_point = L"VSMain";
 	else if (type == FRAGMENT_SHADER)
@@ -236,7 +236,7 @@ RHIShaderRef DX12DynamicRHI::createShader(std::wstring path, ShaderType type, st
 	hash_combine(cache_hash, type);
 	hash_combine(cache_hash, entry_point);
 
-	std::string all_defines = "";
+	eastl::string all_defines = "";
 	for (const auto &define : defines)
 	{
 		all_defines += define.first;

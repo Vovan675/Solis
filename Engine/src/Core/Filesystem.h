@@ -4,6 +4,9 @@
 class Filesystem
 {
 public:
-	static std::string saveFileDialog();
-	static std::string openFileDialog();
+	static eastl::string saveFileDialog();
+	static eastl::string openFileDialog();
+
+	static eastl::wstring normalizePath(eastl::wstring path);
+	static eastl::string normalizePath(eastl::string path);
 };

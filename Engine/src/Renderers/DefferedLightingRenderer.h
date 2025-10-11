@@ -12,7 +12,7 @@ public:
 	struct UniformBufferObject
 	{
 		glm::mat4 model;
-		std::array<glm::mat4, 4> light_matrix;
+		eastl::array<glm::mat4, 4> light_matrix;
 		glm::vec4 cascade_splits;
 	} ubo_sphere;
 
@@ -52,7 +52,7 @@ public:
 		float intensity;
 		float radius;
 	};
-	std::vector<LightData> lights;
+	eastl::vector<LightData> lights;
 
 	glm::vec3 position = glm::vec3(0, 0, 0);
 	float radius = 1.0;

@@ -3,7 +3,7 @@
 
 class DX12Shader final: public RHIShader {
 public:
-	DX12Shader(const std::wstring &path, ShaderType type, std::wstring entry_point, std::vector<std::pair<const char *, const char *>> defines, IDxcUtils* dxc_utils);
+	DX12Shader(const eastl::wstring &path, ShaderType type, eastl::wstring entry_point, eastl::vector<eastl::pair<const char *, const char *>> defines, IDxcUtils* dxc_utils);
 	~DX12Shader() { destroy(); }
 
 	void destroy();
@@ -28,13 +28,13 @@ public:
 		TableInfo samplers_table;
 		TableInfo uav_table;
 
-		std::vector<ConstantBufferInfo> constant_buffers;
-		std::vector<ConstantBufferInfo> acceleration_structures;
+		eastl::vector<ConstantBufferInfo> constant_buffers;
+		eastl::vector<ConstantBufferInfo> acceleration_structures;
 
 		int srv_bindless;
 		int samplers_bindless;
 	};
-	static std::vector<CD3DX12_ROOT_PARAMETER1> getRootParameters(std::vector<DX12Shader *> shaders, BindingInfo &binding_info);
+	static eastl::vector<CD3DX12_ROOT_PARAMETER1> getRootParameters(eastl::vector<DX12Shader *> shaders, BindingInfo &binding_info);
 
 	ComPtr<IDxcBlob> blob; // Compiled shader bytecode
 
@@ -42,4 +42,5 @@ public:
 
 	ComPtr<ID3D12ShaderReflection> reflection;
 	ComPtr<ID3D12LibraryReflection> reflection_library;
+	eastl::hash_set<eastl::wstring> included_files;
 };

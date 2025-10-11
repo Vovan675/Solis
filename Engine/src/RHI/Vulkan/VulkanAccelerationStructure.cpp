@@ -2,19 +2,19 @@
 #include "VulkanAccelerationStructure.h"
 #include "RHI/Vulkan/VulkanDynamicRHI.h"
 
-void VulkanBottomLevelAccelerationStructure::build(const std::vector<RayTracingGeometry> &geometries)
+void VulkanBottomLevelAccelerationStructure::build(const eastl::vector<RayTracingGeometry> &geometries)
 {
 	if (geometries.empty()) return;
 
 	auto device = VulkanUtils::getNativeRHI()->device->logicalHandle;
 
-	std::vector<VkAccelerationStructureGeometryKHR> geometries_desc;
+	eastl::vector<VkAccelerationStructureGeometryKHR> geometries_desc;
 	geometries_desc.resize(geometries.size());
 
-	std::vector<uint32_t> max_primitives_counts;
+	eastl::vector<uint32_t> max_primitives_counts;
 	max_primitives_counts.resize(geometries.size());
 
-	std::vector<VkAccelerationStructureBuildRangeInfoKHR> build_range_infos;
+	eastl::vector<VkAccelerationStructureBuildRangeInfoKHR> build_range_infos;
 	build_range_infos.resize(geometries.size());
 
 	for (int i = 0; i < geometries.size(); i++)
@@ -101,7 +101,7 @@ void VulkanBottomLevelAccelerationStructure::build(const std::vector<RayTracingG
 	accelerationBuildGeometryInfo.pGeometries = geometries_desc.data();
 	accelerationBuildGeometryInfo.scratchData.deviceAddress = scratch_buffer->getGPUAddress();
 
-	std::vector<VkAccelerationStructureBuildRangeInfoKHR *> accelerationBuildStructureRangeInfos{};
+	eastl::vector<VkAccelerationStructureBuildRangeInfoKHR *> accelerationBuildStructureRangeInfos{};
 	for (auto &build_range : build_range_infos)
 		accelerationBuildStructureRangeInfos.push_back(&build_range);
 
@@ -131,11 +131,11 @@ void VulkanBottomLevelAccelerationStructure::build(const std::vector<RayTracingG
 }
 
 
-void VulkanTopLevelAccelerationStructure::build(bool update, const std::vector<RayTracingInstance> &instances)
+void VulkanTopLevelAccelerationStructure::build(bool update, const eastl::vector<RayTracingInstance> &instances)
 {
 	if (instances.empty()) return;
 
-	std::vector<VkAccelerationStructureInstanceKHR> instances_desc;
+	eastl::vector<VkAccelerationStructureInstanceKHR> instances_desc;
 	instances_desc.resize(instances.size());
 
 	for (int i = 0; i < instances.size(); i++)
@@ -265,7 +265,7 @@ void VulkanTopLevelAccelerationStructure::build(bool update, const std::vector<R
 	accelerationStructureBuildRangeInfo.primitiveOffset = 0;
 	accelerationStructureBuildRangeInfo.firstVertex = 0;
 	accelerationStructureBuildRangeInfo.transformOffset = 0;
-	std::vector<VkAccelerationStructureBuildRangeInfoKHR *> accelerationBuildStructureRangeInfos = {&accelerationStructureBuildRangeInfo};
+	eastl::vector<VkAccelerationStructureBuildRangeInfoKHR *> accelerationBuildStructureRangeInfos = {&accelerationStructureBuildRangeInfo};
 
 	// Build the acceleration structure on the device via a one-time command buffer submission
 	// Some implementations may support acceleration structure building on the host (VkPhysicalDeviceAccelerationStructureFeaturesKHR->accelerationStructureHostCommands), but we prefer device builds

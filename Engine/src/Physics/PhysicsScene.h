@@ -18,6 +18,6 @@ public:
 private:
 	Scene *scene;
 	physx::PxScene *px_scene = nullptr;
-	std::unordered_map<entt::entity, physx::PxRigidActor *> entity_body;
+	eastl::unordered_map<entt::entity, physx::PxRigidActor *> entity_body;
 };
 

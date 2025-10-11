@@ -119,4 +119,56 @@ namespace YAML
 			return true;
 		}
 	};
+
+	template<>
+	struct convert<eastl::string>
+	{
+		static Node encode(const eastl::string& rhs)
+		{
+			std::string str = rhs.c_str();
+			Node node;
+			node.push_back(str);
+			return node;
+		}
+
+		static bool decode(const Node& node, eastl::string& rhs)
+		{
+			std::string s;
+			bool success = convert<std::string>::decode(node, s);
+			rhs = s.c_str();
+			return success;
+		}
+	};
+
+	static YAML::Emitter &operator <<(YAML::Emitter &out, const eastl::string &value)
+	{
+		std::string str = value.c_str();
+		return out << str;
+	}
+
+	template <typename T, typename A>
+	struct convert<eastl::vector<T, A>> {
+		static Node encode(const eastl::vector<T, A>& rhs) {
+			Node node(NodeType::Sequence);
+			for (const auto& element : rhs)
+				node.push_back(element);
+			return node;
+		}
+
+		static bool decode(const Node& node, eastl::vector<T, A>& rhs) {
+			if (!node.IsSequence())
+				return false;
+
+			rhs.clear();
+			for (const auto& element : node)
+				rhs.push_back(element.as<T>());
+			return true;
+		}
+	};
+
+	template <typename T>
+	static YAML::Emitter &operator <<(YAML::Emitter &out, const eastl::vector<T> &value)
+	{
+		return EmitSeq(out, value);
+	}
 }

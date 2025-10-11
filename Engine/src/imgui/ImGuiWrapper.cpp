@@ -12,7 +12,7 @@
 #define MAX_UNUSED_SET_FRAMES 10
 
 VkDescriptorPool ImGuiWrapper::descriptor_pool;
-std::unordered_map<VkImageView, ImGuiWrapper::DescriptorSetUsage> ImGuiWrapper::image_view_to_descriptor_set;
+eastl::unordered_map<VkImageView, ImGuiWrapper::DescriptorSetUsage> ImGuiWrapper::image_view_to_descriptor_set;
 
 void ImGuiWrapper::init(GLFWwindow *window)
 {
@@ -35,7 +35,7 @@ void ImGuiWrapper::init(GLFWwindow *window)
 		pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 		pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
 		pool_info.maxSets = 1000;
-		pool_info.poolSizeCount = (uint32_t)std::size(pool_sizes);
+		pool_info.poolSizeCount = (uint32_t)eastl::size(pool_sizes);
 		pool_info.pPoolSizes = pool_sizes;
 
 		auto rhi = VulkanUtils::getNativeRHI();
@@ -94,7 +94,7 @@ void ImGuiWrapper::begin()
 {
 	if (gDynamicRHI->isVulkan())
 	{
-		std::vector<VkImageView> deleted_keys;
+		eastl::vector<VkImageView> deleted_keys;
 		for (auto &pair : image_view_to_descriptor_set)
 		{
 			if (gDynamicRHI->getFrame() - pair.second.last_access_frame > MAX_UNUSED_SET_FRAMES)

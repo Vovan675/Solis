@@ -32,8 +32,8 @@ public:
 
 	RHISwapchainRef createSwapchain(GLFWwindow *window) override;
 	void resizeSwapchain(int width, int height) override;
-	RHIShaderRef createShader(std::wstring path, ShaderType type, std::wstring entry_point) override;
-	RHIShaderRef createShader(std::wstring path, ShaderType type, std::vector<std::pair<const char *, const char *>> defines) override;
+	RHIShaderRef createShader(eastl::wstring path, ShaderType type, eastl::wstring entry_point) override;
+	RHIShaderRef createShader(eastl::wstring path, ShaderType type, eastl::vector<eastl::pair<const char *, const char *>> defines) override;
 	RHIPipelineRef createPipeline() override;
 	RHIBufferRef createBuffer(BufferDescription description) override;
 	RHITextureRef createTexture(TextureDescription description) override;
@@ -64,19 +64,19 @@ public:
 
 	struct ShaderDataBuffers
 	{
-		std::vector<ShaderDataBuffer> buffers;
+		eastl::vector<ShaderDataBuffer> buffers;
 		uint32_t current_offset = 0;
 	};
 
-	std::unordered_map<size_t, ShaderDataBuffers> buffers_for_shaders;
+	eastl::unordered_map<size_t, ShaderDataBuffers> buffers_for_shaders;
 
 	struct PerFrameDescriptor
 	{
 		// each draw call can contain multiple sets
-		std::vector<VkDescriptorSet> descriptors;
+		eastl::vector<VkDescriptorSet> descriptors;
 		uint32_t current_offset = 0;
 	};
-	std::unordered_map<size_t, PerFrameDescriptor> descriptors;
+	eastl::unordered_map<size_t, PerFrameDescriptor> descriptors;
 
 	void setConstantBufferData(unsigned int binding, void *params_struct, size_t params_size) override
 	{
@@ -195,9 +195,9 @@ public:
 	GLFWwindow *window;
 	Ref<VulkanSwapchain> swapchain;
 
-	std::vector<VkFence> in_flight_fences;
-	std::vector<VkSemaphore> imageAvailableSemaphores;
-	std::vector<VkSemaphore> renderFinishedSemaphores;
+	eastl::vector<VkFence> in_flight_fences;
+	eastl::vector<VkSemaphore> imageAvailableSemaphores;
+	eastl::vector<VkSemaphore> renderFinishedSemaphores;
 	uint32_t image_index;
 	bool framebuffer_resized = false;
 

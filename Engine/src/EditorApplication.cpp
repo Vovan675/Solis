@@ -53,14 +53,14 @@ void EditorApplication::update(float delta_time)
 	//ImGui::ShowDemoWindow();
 	if (auto_refresh_shaders)
 	{
-		shaders_watcher.checkUpdates([](std::wstring path)
+		shaders_watcher.checkUpdates([](eastl::wstring path)
 		{
 			auto all_shaders = RHIShader::getAllShadersAtPath(path);
 			for (RHIShader *shader : all_shaders)
 			{
 				shader->recompile();
 			}
-			CORE_INFO("Shader recompiled {}", std::filesystem::path(path).string());
+			CORE_INFO("Shader recompiled {}", std::filesystem::path(path.c_str()).string());
 		});
 	}
 
@@ -73,14 +73,14 @@ void EditorApplication::update(float delta_time)
 		{
 			if (ImGui::MenuItem("Save"))
 			{
-				std::string path = Filesystem::saveFileDialog();
+				eastl::string path = Filesystem::saveFileDialog();
 				if (!path.empty())
 					Scene::getCurrentScene()->saveFile(path);
 			}
 
 			if (ImGui::MenuItem("Load"))
 			{
-				std::string path = Filesystem::openFileDialog();
+				eastl::string path = Filesystem::openFileDialog();
 				if (!path.empty())
 				{
 					Scene::setCurrentScene(new Scene());

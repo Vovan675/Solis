@@ -22,7 +22,7 @@ void VulkanPipeline::create(const PipelineDescription &description)
 	this->description = description;
 	hash = description.getHash();
 
-	std::vector<VulkanShader *> shaders;
+	eastl::vector<VulkanShader *> shaders;
 
 	if (description.is_compute_pipeline)
 	{
@@ -42,7 +42,7 @@ void VulkanPipeline::create(const PipelineDescription &description)
 	descriptor_layout = VulkanUtils::getDescriptorLayout(descriptors);
 
 	// Pipeline layout state (aka uniform values)
-	std::vector<VkDescriptorSetLayout> descriptor_set_layouts;
+	eastl::vector<VkDescriptorSetLayout> descriptor_set_layouts;
 	descriptor_set_layouts.push_back(descriptor_layout.layout);
 
 	VulkanDynamicRHI *native_rhi = VulkanUtils::getNativeRHI();
@@ -51,7 +51,7 @@ void VulkanPipeline::create(const PipelineDescription &description)
 	VulkanBindlessResources *native_bindless = (VulkanBindlessResources *)gDynamicRHI->getBindlessResources();
 	descriptor_set_layouts.push_back(native_bindless->getDescriptorLayout());
 
-	std::vector<VkPushConstantRange> push_constant_ranges = VulkanShader::getPushConstantRanges(descriptors);
+	eastl::vector<VkPushConstantRange> push_constant_ranges = VulkanShader::getPushConstantRanges(descriptors);
 
 	VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -76,7 +76,7 @@ void VulkanPipeline::create(const PipelineDescription &description)
 		CHECK_ERROR(vkCreateComputePipelines(native_rhi->device->logicalHandle, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &resource->pipeline));
 	} else if (description.is_ray_tracing_pipeline)
 	{
-		std::vector<VkPipelineShaderStageCreateInfo> shaderStages;
+		eastl::vector<VkPipelineShaderStageCreateInfo> shaderStages;
 
 		// Ray generation group
 		{
@@ -152,7 +152,7 @@ void VulkanPipeline::create(const PipelineDescription &description)
 		const uint32_t groupCount = static_cast<uint32_t>(shaderGroups.size());
 		const uint32_t sbtSize = groupCount * handleSizeAligned;
 
-		std::vector<uint8_t> shaderHandleStorage(sbtSize);
+		eastl::vector<uint8_t> shaderHandleStorage(sbtSize);
 		CHECK_ERROR(VulkanUtils::vkGetRayTracingShaderGroupHandlesKHR(resource->pipeline, 0, groupCount, sbtSize, shaderHandleStorage.data()));
 
 		const VkBufferUsageFlags bufferUsageFlags = VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
@@ -196,7 +196,7 @@ void VulkanPipeline::create(const PipelineDescription &description)
 
 		// Use vertices
 		VkVertexInputBindingDescription vertex_input_binding_description{};
-		std::vector<VkVertexInputAttributeDescription> vertex_input_attribute_descriptions;
+		eastl::vector<VkVertexInputAttributeDescription> vertex_input_attribute_descriptions;
 		if (!description.vertex_inputs_descriptions.inputs.empty())
 		{
 			uint32_t offset = 0;
@@ -280,7 +280,7 @@ void VulkanPipeline::create(const PipelineDescription &description)
 		multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 
 		// Color blend state
-		std::vector<VkPipelineColorBlendAttachmentState> color_blend_attachments(description.color_formats.size());
+		eastl::vector<VkPipelineColorBlendAttachmentState> color_blend_attachments(description.color_formats.size());
 		for (int i = 0; i < description.color_formats.size(); i++)
 		{
 			VkPipelineColorBlendAttachmentState attachment{};
@@ -331,7 +331,7 @@ void VulkanPipeline::create(const PipelineDescription &description)
 		dynamicState.pDynamicStates = dynamicStates;
 
 		// Needed for dynamic rendering
-		std::vector<VkFormat> color_attachments;
+		eastl::vector<VkFormat> color_attachments;
 		for (auto &format : description.color_formats)
 			color_attachments.push_back(VulkanUtils::getNativeFormat(format));
 

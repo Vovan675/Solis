@@ -33,10 +33,10 @@ protected:
 protected:
 	RHITextureRef invalid_texture;
 
-	std::unordered_map<RHITexture *, uint32_t> texture_to_resource_index;
-	std::vector<int> empty_resource_indices;
+	eastl::unordered_map<RHITexture *, uint32_t> texture_to_resource_index;
+	eastl::vector<int> empty_resource_indices;
 	
-	std::unordered_map<RHITexture *, uint32_t> texture_to_sampler_index;
+	eastl::unordered_map<RHITexture *, uint32_t> texture_to_sampler_index;
 };
 
 class VulkanBindlessResources final: public RHIBindlessResources
@@ -64,7 +64,7 @@ private:
 	DescriptorWriter descriptor_writer;
 	bool is_dirty = false;
 
-	std::vector<VkSamplerResource *> samplers;
+	eastl::vector<VkSamplerResource *> samplers;
 };
 
 class DX12BindlessResources final: public RHIBindlessResources

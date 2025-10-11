@@ -5,7 +5,7 @@ std::shared_ptr<spdlog::logger> Log::core_logger;
 
 void Log::init()
 {
-	std::vector<spdlog::sink_ptr> log_sinks;
+	eastl::vector<spdlog::sink_ptr> log_sinks;
 	log_sinks.emplace_back(std::make_shared<spdlog::sinks::stdout_color_sink_mt>());
 	log_sinks.emplace_back(std::make_shared<spdlog::sinks::basic_file_sink_mt>("Logs.log", true));
 

@@ -35,8 +35,8 @@
 //		5) enjoy
 //
 //	Example:
-//		std::vector<unsigned8_t> texturedata; // your texture data in a GPU format
-//		std::vector<unsigned8_t> filedata; // DDS file data container
+//		eastl::vector<unsigned8_t> texturedata; // your texture data in a GPU format
+//		eastl::vector<unsigned8_t> filedata; // DDS file data container
 //		filedata.resize(sizeof(dds::Header) + texturedata.size()); // allocate memory
 //		
 //		dds::write_header(

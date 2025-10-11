@@ -6,7 +6,7 @@
 class Image : public Asset
 {
 public:
-	Image(std::string path);
+	Image(eastl::string path);
 	AssetType getAssetType() const override { return ASSET_TYPE_TEXTURE; };
 
 	uint32_t getWidth(int mip = 0) const { return width >> mip; }
@@ -14,7 +14,7 @@ public:
 	uint32_t getMipLevels() const { return mip_levels; }
 	Format getFormat() const { return format; }
 
-	std::vector<uint8_t> &getRawData() { return data; }
+	eastl::vector<uint8_t> &getRawData() { return data; }
 
 
 	bool isCompressedFormat() const
@@ -61,12 +61,12 @@ public:
 
 	void createMipmaps();
 
-	void load(std::string path);
+	void load(eastl::string path);
 
 	void save(const std::filesystem::path &path);
 private:
-	std::vector<uint8_t> data;
-	std::string path;
+	eastl::vector<uint8_t> data;
+	eastl::string path;
 
 	uint32_t width;
 	uint32_t height;

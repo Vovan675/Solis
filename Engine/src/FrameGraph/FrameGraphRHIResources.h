@@ -29,7 +29,7 @@ public:
 		bool anisotropy = false;
 		bool use_comparison_less = false;
 
-		std::string debug_name;
+		eastl::string debug_name;
 	};
 	RHITexture *texture;
 
@@ -98,10 +98,10 @@ public:
 		return gDynamicRHI->getBindlessResources()->getTextureIndex(texture);
 	}
 
-	std::string toString(const Description &desc) const
+	eastl::string toString(const Description &desc) const
 	{
 		std::ostringstream out;
 		out << desc.width << "x" << desc.height << " (" << getFormatName(desc.format) << ")";
-		return out.str();
+		return out.str().c_str();
 	}
 };

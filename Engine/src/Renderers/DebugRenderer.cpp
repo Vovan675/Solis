@@ -209,7 +209,7 @@ void DebugRenderer::addBoundBox(BoundBox bbox)
 
 void DebugRenderer::addFrustum(glm::mat4 frustum)
 {
-	std::array<glm::vec3, 8> corners
+	eastl::array<glm::vec3, 8> corners
 	{
 		{
 			{ -1.0f, -1.0f, 1.0f }, { 1.0f, -1.0f, 1.0f }, { 1.0f, 1.0f, 1.0f }, { -1.0f, 1.0f, 1.0f },
@@ -239,9 +239,9 @@ void DebugRenderer::addFrustum(glm::mat4 frustum)
 	addLine(corners[3], corners[7]);
 }
 
-std::vector<glm::vec3> DebugRenderer::addCirlce(glm::vec3 center, glm::vec3 normal, float radius, int segments)
+eastl::vector<glm::vec3> DebugRenderer::addCirlce(glm::vec3 center, glm::vec3 normal, float radius, int segments)
 {
-	std::vector<glm::vec3> circle_points;
+	eastl::vector<glm::vec3> circle_points;
 	glm::vec3 tangent1, tangent2;
 
 	// Create tangents based on the normal
@@ -280,7 +280,7 @@ void DebugRenderer::addArrow(glm::vec3 p0, glm::vec3 p1, float arrow_size)
 
 	// Calculate circle at the base of the arrow
 	float circle_radius = arrow_size * 0.5f; // Adjust circle radius as needed
-	std::vector<glm::vec3> circle_points = addCirlce(p1 - direction * arrow_size, direction, circle_radius, 12);
+	eastl::vector<glm::vec3> circle_points = addCirlce(p1 - direction * arrow_size, direction, circle_radius, 12);
 
 	// Add lines from the circle to the arrow tip
 	for (const auto &point : circle_points)

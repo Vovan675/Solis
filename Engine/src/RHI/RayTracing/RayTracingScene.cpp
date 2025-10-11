@@ -80,7 +80,7 @@ void RayTracingScene::build_blas()
 				auto *mesh = mesh_node.getMesh();
 
 				blas_meshes.emplace(mesh->id, blas_meshes.size());
-				std::vector<RayTracingGeometry> geometries;
+				eastl::vector<RayTracingGeometry> geometries;
 				RayTracingGeometry &geometry = geometries.emplace_back();
 
 				geometry.vertex_buffer = mesh->vertexBuffer;
@@ -96,7 +96,7 @@ void RayTracingScene::build_blas()
 
 				auto blas = gDynamicRHI->createBottomLevelAccelerationStructure();
 				blas->build(geometries);
-				blases[mesh] = std::move(blas);
+				blases[mesh] = eastl::move(blas);
 			}
 		}
 	}
@@ -106,7 +106,7 @@ void RayTracingScene::build_tlas()
 {
 	// Create TLAS
 	{
-		std::vector<RayTracingInstance> instances;
+		eastl::vector<RayTracingInstance> instances;
 		obj_descs.clear();
 		auto components = Scene::getCurrentScene()->getEntitiesWith<TransformComponent, MeshRendererComponent>();
 		instances.reserve(components.size_hint());

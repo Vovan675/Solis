@@ -3,14 +3,15 @@
 #include "Math/EngineMath.h"
 #include "RHI/RHIShader.h"
 #include "RHI/BindlessResources.h"
+#include "Core/Filesystem.h"
 
-std::unordered_map<size_t, RHIShaderRef> DynamicRHI::cached_shaders;
+eastl::unordered_map<size_t, RHIShaderRef> DynamicRHI::cached_shaders;
 
-std::wstring string_to_wstring(const std::string& s)
+eastl::wstring string_to_wstring(const eastl::string& s)
 {
 	DWORD size = MultiByteToWideChar(CP_ACP, 0, s.c_str(), -1, NULL, 0);
 
-	std::wstring result;
+	eastl::wstring result;
 	result.resize(size);
 
 	MultiByteToWideChar(CP_ACP, 0, s.c_str(), -1, (LPWSTR)result.c_str(), size);
@@ -18,9 +19,60 @@ std::wstring string_to_wstring(const std::string& s)
 	return result;
 }
 
-ComPtr<IDxcBlob> DynamicRHI::compile_shader(std::wstring path, ShaderType type, std::wstring entry_point, bool is_vulkan, size_t &source_hash, std::vector<std::pair<const char *, const char *>> *defines)
+
+class CustomIncludeHandler : public IDxcIncludeHandler
 {
-	std::vector<LPCWSTR> args =
+public:
+	CustomIncludeHandler(IDxcUtils *dxc_utils, IDxcIncludeHandler *default_include_handler) : dxc_utils(dxc_utils), default_include_handler(default_include_handler) {};
+
+	void clear()
+	{
+		included_files.clear();
+		file_used_error = false;
+	}
+
+	HRESULT STDMETHODCALLTYPE LoadSource(_In_z_ LPCWSTR pFilename, _COM_Outptr_result_maybenull_ IDxcBlob **ppIncludeSource) override
+	{
+		ComPtr<IDxcBlobEncoding> encoding;
+		eastl::wstring path = Filesystem::normalizePath(pFilename);
+		if (included_files.contains(path))
+		{
+			// Return empty string blob if this file has been included before
+			static const char null_str[] = " ";
+			dxc_utils->CreateBlobFromPinned(null_str, ARRAYSIZE(null_str), DXC_CP_ACP, encoding.GetAddressOf());
+			*ppIncludeSource = encoding.Detach();
+			return S_OK;
+		}
+
+		HRESULT hr = dxc_utils->LoadFile(pFilename, nullptr, encoding.GetAddressOf());
+		if (SUCCEEDED(hr))
+		{
+			included_files.insert(path);
+			*ppIncludeSource = encoding.Detach();
+		}
+		file_used_error |= (hr == HRESULT_FROM_WIN32(ERROR_SHARING_VIOLATION));
+		return hr;
+	}
+
+	HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, _COM_Outptr_ void __RPC_FAR* __RPC_FAR* ppvObject) override
+	{
+		return default_include_handler->QueryInterface(riid, ppvObject);
+	}
+
+	ULONG STDMETHODCALLTYPE AddRef(void) override { return 1; }
+	ULONG STDMETHODCALLTYPE Release(void) override { return 1; }
+
+	eastl::hash_set<eastl::wstring> included_files;
+	bool file_used_error = false;
+private:
+	IDxcUtils *dxc_utils;
+	IDxcIncludeHandler *default_include_handler;
+};
+
+
+DynamicRHI::CompileShaderResult DynamicRHI::compile_shader(eastl::wstring path, ShaderType type, eastl::wstring entry_point, bool is_vulkan, eastl::vector<eastl::pair<const char *, const char *>> *defines)
+{
+	eastl::vector<LPCWSTR> args =
 	{
 		path.c_str(),            // Optional shader_blob source file name for error reporting
 		// and for PIX shader_blob source view.  
@@ -54,11 +106,11 @@ ComPtr<IDxcBlob> DynamicRHI::compile_shader(std::wstring path, ShaderType type, 
 
 	args.push_back(DXC_ARG_PACK_MATRIX_COLUMN_MAJOR);
 
-	std::wstring bindless_resource_heap_binding = std::to_wstring(BINDLESS_TEXTURES_BINDING);
-	std::wstring bindless_resource_heap_set = std::to_wstring(BINDLESS_TEXTURES_SET);
+	eastl::wstring bindless_resource_heap_binding = eastl::to_wstring(BINDLESS_TEXTURES_BINDING);
+	eastl::wstring bindless_resource_heap_set = eastl::to_wstring(BINDLESS_TEXTURES_SET);
 
-	std::wstring bindless_samplers_heap_binding = std::to_wstring(BINDLESS_SAMPLERS_BINDING);
-	std::wstring bindless_samplers_heap_set = std::to_wstring(BINDLESS_SAMPLERS_SET);
+	eastl::wstring bindless_samplers_heap_binding = eastl::to_wstring(BINDLESS_SAMPLERS_BINDING);
+	eastl::wstring bindless_samplers_heap_set = eastl::to_wstring(BINDLESS_SAMPLERS_SET);
 	if (is_vulkan)
 	{
 		args.push_back(L"-spirv");
@@ -87,19 +139,22 @@ ComPtr<IDxcBlob> DynamicRHI::compile_shader(std::wstring path, ShaderType type, 
 		args.push_back(L"RAY_TRACING_SHADER");
 	}
 
-	std::vector<std::string> defines_args;
+	eastl::vector<eastl::string> defines_args;
 
-	std::vector<std::wstring> wdefines;
+	eastl::vector<eastl::wstring> wdefines;
 	if (defines)
 	{
 		for (const auto &define : *defines)
 		{
-			std::string key = std::string(define.first);
-			std::string value = std::string(define.second);
+			eastl::string key = eastl::string(define.first);
+			eastl::string value = eastl::string(define.second);
 
-			std::string full_define = key + "=" + value;
+			eastl::string full_define = key + "=" + value;
 
-			wdefines.emplace_back(full_define.begin(), full_define.end());
+			
+			eastl::wstring wstr;
+			wstr.assign_convert(full_define);
+			wdefines.emplace_back(wstr);
 		}
 
 		for (const auto &def : wdefines)
@@ -111,8 +166,11 @@ ComPtr<IDxcBlob> DynamicRHI::compile_shader(std::wstring path, ShaderType type, 
 
 	ComPtr<IDxcResult> dxc_results;
 
+	CustomIncludeHandler include_handler(dxc_utils, dxc_include_handler);
 	auto try_compile_shader = [&]()
 	{
+		include_handler.clear();
+
 		ComPtr<IDxcBlobEncoding> pSource = nullptr;
 		HRESULT res = dxc_utils->LoadFile(path.c_str(), nullptr, &pSource);
 		if (FAILED(res))
@@ -127,16 +185,19 @@ ComPtr<IDxcBlob> DynamicRHI::compile_shader(std::wstring path, ShaderType type, 
 			&Source,
 			args.data(),
 			args.size(),
-			dxc_include_handler,
+			&include_handler,
 			IID_PPV_ARGS(&dxc_results)
 		);
+
+		if (include_handler.file_used_error)
+			return false;
 
 		ComPtr<IDxcBlobUtf8> pErrors = nullptr;
 		dxc_results->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(&pErrors), nullptr);
 		if (pErrors != nullptr && pErrors->GetStringLength() != 0)
 		{
 			CORE_WARN("Warnings and Errors:\n{}\n", pErrors->GetStringPointer());
-			std::string message = "Fix shader error: \n";
+			eastl::string message = "Fix shader error: \n";
 			message += pErrors->GetStringPointer();
 			MessageBoxA(NULL, message.c_str(), NULL, MB_OK);
 			return false;
@@ -148,7 +209,7 @@ ComPtr<IDxcBlob> DynamicRHI::compile_shader(std::wstring path, ShaderType type, 
 		if (FAILED(result_status))
 		{
 			CORE_ERROR("Compilation Failed\n");
-			std::string message = "Fix shader errors";
+			eastl::string message = "Fix shader errors";
 			MessageBoxA(NULL, message.c_str(), NULL, MB_OK);
 			return false;
 		}
@@ -157,11 +218,11 @@ ComPtr<IDxcBlob> DynamicRHI::compile_shader(std::wstring path, ShaderType type, 
 
 	while (try_compile_shader() == false);
 
-	ComPtr<IDxcBlob> shader_blob;
-	dxc_results->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&shader_blob), nullptr);
-
-	source_hash = Engine::Math::fnv1aHash((const uint32_t *)shader_blob->GetBufferPointer(), shader_blob->GetBufferSize());
-	return shader_blob;
+	CompileShaderResult result;
+	dxc_results->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&result.data), nullptr);
+	result.source_hash = Engine::Math::fnv1aHash((const uint32_t *)result.data->GetBufferPointer(), result.data->GetBufferSize());
+	result.included_files = include_handler.included_files;
+	return result;
 }
 
 void DynamicRHI::release_gpu_resources(uint64_t frame)

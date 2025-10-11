@@ -6,8 +6,8 @@
 
 class FileStream : public Stream {
 public:
-    FileStream(const std::string& filename, std::ios_base::openmode mode) {
-        file.open(filename, mode | std::ios_base::binary);
+    FileStream(const eastl::string& filename, std::ios_base::openmode mode) {
+        file.open(filename.c_str(), mode | std::ios_base::binary);
 
         if (!file.is_open()) {
             CORE_ERROR("Unable to open file.");
@@ -20,13 +20,13 @@ public:
         }
     }
 
-    void readBytes(char* buffer, std::size_t size) override {
+    void readBytes(char* buffer, size_t size) override {
         if (!file.read(buffer, size)) {
             CORE_ERROR("Failed to read from file.");
         }
     }
 
-    void writeBytes(const char* buffer, std::size_t size) override {
+    void writeBytes(const char* buffer, size_t size) override {
         if (!file.write(buffer, size)) {
             CORE_ERROR("Failed to write to file.");
         }

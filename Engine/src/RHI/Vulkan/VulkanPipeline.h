@@ -16,10 +16,10 @@ public:
 	std::unique_ptr<VkPipelineResource> resource;
 	DescriptorLayout descriptor_layout;
 
-	std::vector<Descriptor> descriptors;
+	eastl::vector<Descriptor> descriptors;
 
 	// TODO: refactor
-	std::vector<VkRayTracingShaderGroupCreateInfoKHR> shaderGroups{};
+	eastl::vector<VkRayTracingShaderGroupCreateInfoKHR> shaderGroups{};
 
 	RHIBufferRef raygenShaderBindingTable;
 	RHIBufferRef missShaderBindingTable;

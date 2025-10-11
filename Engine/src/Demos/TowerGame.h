@@ -22,10 +22,10 @@ public:
     float overlap = 0.0f;
     bool isCuttingBehind = false;
     bool isBonusBlock = false;
-    std::string axis;
+    eastl::string axis;
     Scene* scene;
 
-    Layer(Scene* s, const std::string& ax, float width, float depth, const glm::vec3& pos, bool bonus = false);
+    Layer(Scene* s, const eastl::string& ax, float width, float depth, const glm::vec3& pos, bool bonus = false);
     bool cut(const Block& prevPlacedBlock);
     void clear();
     void tick(float dt, float colorTime);
@@ -39,19 +39,19 @@ private:
 
 class Tower {
 public:
-    std::vector<std::shared_ptr<Layer>> layers;
+    eastl::vector<std::shared_ptr<Layer>> layers;
     std::shared_ptr<Block> baseBlock;
     int direction = 1;
     float speedFactor = 10.0f;
 
-    Tower(Scene* s, std::function<void()> onFinish);
+    Tower(Scene* s, eastl::function<void()> onFinish);
     void tick(float dt, float colorTime);
     void place();
     void reset();
 
 private:
     Scene* scene;
-    std::function<void()> finishCallback;
+    eastl::function<void()> finishCallback;
     void addLayer();
     void reverseDirection();
 };

@@ -31,7 +31,7 @@ struct VertexInputsDescription
 		Format format;
 	};
 
-	std::vector<VertexInput> inputs;
+	eastl::vector<VertexInput> inputs;
 
 	size_t getHash() const
 	{
@@ -52,8 +52,8 @@ struct PipelineDescription
 	RHIShaderRef fragment_shader;
 
 	VertexInputsDescription vertex_inputs_descriptions;
-	std::vector<Format> color_formats {}; // MAX 8, TODO: replace with array
-	std::vector<VkPushConstantRange> push_constant_ranges {};
+	eastl::vector<Format> color_formats {}; // MAX 8, TODO: replace with array
+	eastl::vector<VkPushConstantRange> push_constant_ranges {};
 	Format depth_format = FORMAT_UNDEFINED;
 	bool use_depth_test = true;
 	bool use_blending = true;

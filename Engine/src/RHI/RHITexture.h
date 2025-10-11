@@ -37,7 +37,7 @@ public:
 	virtual void setDebugName(const char *name) = 0;
 	virtual const char *getDebugName() = 0;
 
-	std::string getPath() const { return path; }
+	eastl::string getPath() const { return path; }
 	const TextureDescription &getDescription() const { return description; }
 	glm::ivec2 getSize(int mip = 0) const { return glm::ivec2(description.width >> mip, description.height >> mip); }
 	uint32_t getWidth(int mip = 0) const { return description.width >> mip; }
@@ -80,7 +80,7 @@ protected:
 protected:
 	TextureDescription description;
 
-	std::vector<TextureLayoutType> current_layouts; // Image layouts for each mip map
-	std::string path = "";
-	std::string debug_name = "";
+	eastl::vector<TextureLayoutType> current_layouts; // Image layouts for each mip map
+	eastl::string path = "";
+	eastl::string debug_name = "";
 };

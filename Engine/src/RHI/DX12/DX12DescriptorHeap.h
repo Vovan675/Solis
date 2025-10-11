@@ -72,7 +72,7 @@ private:
 	uint32_t current_offset = 0;
 	uint32_t descriptors_count;
 
-	std::vector<DX12Descriptor> free_descriptors;
+	eastl::vector<DX12Descriptor> free_descriptors;
 };
 
 // Descriptor heap that is used per frame resources and shader visible. Allocates per frame data in one big heap
@@ -169,7 +169,7 @@ private:
 		uint32_t size;
 	};
 
-	std::queue<FinishedFrame> finished_frames;
+	eastl::queue<FinishedFrame> finished_frames;
 	ComPtr<ID3D12DescriptorHeap> heap;
 
 	uint32_t stride;

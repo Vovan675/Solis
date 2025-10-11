@@ -58,9 +58,9 @@ void GlobalPipeline::setBlendMode(VkBlendFactor srcColorBlendFactor, VkBlendFact
 	current_description.alphaBlendOp = alphaBlendOp;
 }
 
-std::vector<RHIShaderRef> GlobalPipeline::getCurrentShaders()
+eastl::vector<RHIShaderRef> GlobalPipeline::getCurrentShaders()
 {
-	std::vector<RHIShaderRef> shaders;
+	eastl::vector<RHIShaderRef> shaders;
 	if (current_description.vertex_shader)
 		shaders.push_back(current_description.vertex_shader);
 	if (current_description.fragment_shader)

@@ -21,7 +21,7 @@ static CMP_FORMAT to_cmp_format(Format format)
 }
 
 
-Image::Image(std::string path)
+Image::Image(eastl::string path)
 {
 	load(path);
 }
@@ -63,7 +63,7 @@ void Image::createMipmaps()
 	CMP_FreeMipSet(&mipSetIn);
 }
 
-void Image::load(std::string path)
+void Image::load(eastl::string path)
 {
 	// Load from path / or from guid
 	// 1. check if registered as asset
@@ -71,15 +71,15 @@ void Image::load(std::string path)
 	// 3. if not registered (not imported), then create runtime and open runtime
 	// If path is already path to runtime, then just load it
 
-	auto runtime_path = std::filesystem::path(path);
+	auto runtime_path = std::filesystem::path(path.c_str());
 
-	if (AssetManager::isRuntimeExists(path))
+	if (AssetManager::isRuntimeExists(path.c_str()))
 	{
-		runtime_path = AssetManager::getRuntimeAssetPath(path).string();
+		runtime_path = AssetManager::getRuntimeAssetPath(path.c_str()).string();
 	}
 	
 	std::filesystem::path tex_path(runtime_path);
-	std::string ext = tex_path.extension().string();
+	eastl::string ext = tex_path.extension().string().c_str();
 	void *pixels;
 	if (ext == ".runtime")
 	{
@@ -156,7 +156,7 @@ void Image::load(std::string path)
 
 		stbi_image_free(pixels);
 	}
-	this->path = runtime_path.string();
+	this->path = runtime_path.string().c_str();
 }
 
 void Image::save(const std::filesystem::path &path)
@@ -166,7 +166,7 @@ void Image::save(const std::filesystem::path &path)
 	if (extension == ".runtime")
 	{
 		// Save to native format
-		FileStream stream(path.string(), std::ofstream::out | std::ofstream::binary);
+		FileStream stream(path.string().c_str(), std::ofstream::out | std::ofstream::binary);
 		stream.write(width);
 		stream.write(height);
 		stream.write(mip_levels);
@@ -227,12 +227,12 @@ void Image::save(const std::filesystem::path &path)
 				break;
 		}
 
-		std::vector<uint8_t> dds_data;
+		eastl::vector<uint8_t> dds_data;
 		dds_data.resize(sizeof(dds::Header) + data.size());
 		dds::write_header(dds_data.data(), dds_format, width, height, mip_levels, 1, false, 0);
 		memcpy(dds_data.data() + sizeof(dds::Header), data.data(), data.size());
 
-		FileStream stream(path.string(), std::ofstream::out | std::ofstream::binary);
+		FileStream stream(path.string().c_str(), std::ofstream::out | std::ofstream::binary);
 		stream.writeBytes((const char *)dds_data.data(), dds_data.size());
 	} else
 	{

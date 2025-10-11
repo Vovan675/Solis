@@ -3,10 +3,10 @@
 #include "DX12DynamicRHI.h"
 #include "DX12Utils.h"
 
-void DX12BottomLevelAccelerationStructure::build(const std::vector<RayTracingGeometry> &geometries)
+void DX12BottomLevelAccelerationStructure::build(const eastl::vector<RayTracingGeometry> &geometries)
 {
 	if (geometries.empty()) return;
-	std::vector<D3D12_RAYTRACING_GEOMETRY_DESC> geometries_desc;
+	eastl::vector<D3D12_RAYTRACING_GEOMETRY_DESC> geometries_desc;
 
 	geometries_desc.reserve(geometries.size());
 
@@ -73,10 +73,10 @@ void DX12BottomLevelAccelerationStructure::build(const std::vector<RayTracingGeo
 	//native_cmd_list->cmd_list->ResourceBarrier(1, &barrier);
 }
 
-void DX12TopLevelAccelerationStructure::build(bool update, const std::vector<RayTracingInstance> &instances)
+void DX12TopLevelAccelerationStructure::build(bool update, const eastl::vector<RayTracingInstance> &instances)
 {
 	if (instances.empty()) return;
-	std::vector<D3D12_RAYTRACING_INSTANCE_DESC> instances_desc;
+	eastl::vector<D3D12_RAYTRACING_INSTANCE_DESC> instances_desc;
 
 	instances_desc.resize(instances.size());
 

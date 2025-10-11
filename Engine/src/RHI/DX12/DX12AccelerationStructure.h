@@ -9,7 +9,7 @@ public:
 	{
 	}
 
-	void build(const std::vector<RayTracingGeometry> &geometries) override;
+	void build(const eastl::vector<RayTracingGeometry> &geometries) override;
 
 	RHIBufferRef buffer;
 	RHIBufferRef scratch_buffer;
@@ -24,7 +24,7 @@ public:
 	{
 	}
 
-	void build(bool update, const std::vector<RayTracingInstance> &instances) override;
+	void build(bool update, const eastl::vector<RayTracingInstance> &instances) override;
 
 	RHIBufferRef instances_buffer;
 	RHIBufferRef buffer;

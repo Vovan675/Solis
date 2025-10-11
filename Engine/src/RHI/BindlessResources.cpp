@@ -109,7 +109,7 @@ void RHIBindlessResources::removeTexture(RHITexture *texture)
 static VkDescriptorPool createBindlessDescriptorPool()
 {
 	VkDescriptorPool descriptor_pool;
-	std::vector<VkDescriptorPoolSize> poolSizes{};
+	eastl::vector<VkDescriptorPoolSize> poolSizes{};
 
 	poolSizes.push_back({VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, MAX_BINDLESS_TEXTURES});
 	poolSizes.push_back({VK_DESCRIPTOR_TYPE_SAMPLER, MAX_BINDLESS_SAMPLERS * 10});
@@ -131,7 +131,7 @@ void VulkanBindlessResources::init()
 	extended_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
 	extended_info.bindingCount = 2;
 	// We dont fully fill array, so we need partial bound. Also update after binding can be used
-	std::array<VkDescriptorBindingFlags, 2> binding_flags =
+	eastl::array<VkDescriptorBindingFlags, 2> binding_flags =
 	{
 		VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT | VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT,
 		VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT | VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT,

@@ -7,7 +7,7 @@
 
 void DebugPanel::renderImGui(EditorContext &context)
 {
-	ImGui::Begin((std::string(ICON_FA_CUBES) + " Debug Window###Debug Window").c_str());
+	ImGui::Begin((eastl::string(ICON_FA_CUBES) + " Debug Window###Debug Window").c_str());
 
 	ImGui::Text("RHI: %s", + gDynamicRHI->getName());
 

@@ -133,7 +133,7 @@ void DX12Texture::fill(const void *sourceData)
 
 	size_t current_offset = 0;
 	
-	std::vector<D3D12_SUBRESOURCE_DATA> subresources_data(subresources_count);
+	eastl::vector<D3D12_SUBRESOURCE_DATA> subresources_data(subresources_count);
 	for (int i = 0; i < subresources_count; i++)
 	{
 		int cur_face = i / description.mip_levels;

@@ -68,5 +68,5 @@ struct RayTracedShadowPass
 
 struct ShadowPasses
 {
-	std::vector<FrameGraphResource> shadow_maps;
+	eastl::vector<FrameGraphResource> shadow_maps;
 };

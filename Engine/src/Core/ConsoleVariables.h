@@ -37,27 +37,27 @@ struct ConVar
 class ConVarSystem
 {
 public:
-	static std::vector<ConVar<int>> int_cvars;
-	static std::vector<ConVar<float>> float_cvars;
-	static std::vector<ConVar<bool>> bool_cvars;
+	static eastl::vector<ConVar<int>> int_cvars;
+	static eastl::vector<ConVar<float>> float_cvars;
+	static eastl::vector<ConVar<bool>> bool_cvars;
 
 	template<typename T>
-	static std::vector<ConVar<T>> &getCVars();
+	static eastl::vector<ConVar<T>> &getCVars();
 
 	template<>
-	static std::vector<ConVar<int>> &getCVars()
+	static eastl::vector<ConVar<int>> &getCVars()
 	{
 		return int_cvars;
 	}
 
 	template<>
-	static std::vector<ConVar<float>> &getCVars()
+	static eastl::vector<ConVar<float>> &getCVars()
 	{
 		return float_cvars;
 	}
 
 	template<>
-	static std::vector<ConVar<bool>> &getCVars()
+	static eastl::vector<ConVar<bool>> &getCVars()
 	{
 		return bool_cvars;
 	}

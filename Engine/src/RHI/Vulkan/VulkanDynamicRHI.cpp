@@ -150,7 +150,7 @@ void VulkanDynamicRHI::resizeSwapchain(int width, int height)
 	swapchain->resize(width, height);
 }
 
-RHIShaderRef VulkanDynamicRHI::createShader(std::wstring path, ShaderType type, std::wstring entry_point)
+RHIShaderRef VulkanDynamicRHI::createShader(eastl::wstring path, ShaderType type, eastl::wstring entry_point)
 {
 	if (entry_point.empty())
 	{
@@ -183,9 +183,9 @@ RHIShaderRef VulkanDynamicRHI::createShader(std::wstring path, ShaderType type, 
 	return shader;
 }
 
-RHIShaderRef VulkanDynamicRHI::createShader(std::wstring path, ShaderType type, std::vector<std::pair<const char *, const char *>> defines)
+RHIShaderRef VulkanDynamicRHI::createShader(eastl::wstring path, ShaderType type, eastl::vector<eastl::pair<const char *, const char *>> defines)
 {
-	std::wstring entry_point;
+	eastl::wstring entry_point;
 	if (type == VERTEX_SHADER)
 		entry_point = L"VSMain";
 	else if (type == FRAGMENT_SHADER)
@@ -204,7 +204,7 @@ RHIShaderRef VulkanDynamicRHI::createShader(std::wstring path, ShaderType type, 
 	hash_combine(cache_hash, type);
 	hash_combine(cache_hash, entry_point);
 
-	std::string all_defines = "";
+	eastl::string all_defines = "";
 	for (const auto &define : defines)
 	{
 		all_defines += define.first;
@@ -397,7 +397,7 @@ void VulkanDynamicRHI::prepareRenderCall()
 
 void VulkanDynamicRHI::init_instance()
 {
-	std::vector<const char *> extensions;
+	eastl::vector<const char *> extensions;
 	// Needed extensions
 	extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 
@@ -423,7 +423,7 @@ void VulkanDynamicRHI::init_instance()
 	info.ppEnabledExtensionNames = extensions.data();
 
 	#ifdef ENABLE_RHI_VALIDATION
-	std::vector<const char *> s_ValidationLayers = {
+	eastl::vector<const char *> s_ValidationLayers = {
 		"VK_LAYER_KHRONOS_validation"
 	};
 	if (engine_rhi_validation)

@@ -5,11 +5,11 @@
 
 void HierarchyPanel::renderImGui(EditorContext &context)
 {
-	ImGui::Begin((std::string(ICON_FA_LIST_UL) + " Hierarchy###Hierarchy").c_str());
+	ImGui::Begin((eastl::string(ICON_FA_LIST_UL) + " Hierarchy###Hierarchy").c_str());
 	auto view = Scene::getCurrentScene()->getEntitiesWith<TransformComponent>();
 	
-	std::vector<entt::entity> entities_to_delete;
-	std::function<void(TransformComponent &transform)> add_entity_tree = [&context, &add_entity_tree, &entities_to_delete, &view, this] (TransformComponent &transform) {
+	eastl::vector<entt::entity> entities_to_delete;
+	eastl::function<void(TransformComponent &transform)> add_entity_tree = [&context, &add_entity_tree, &entities_to_delete, &view, this] (TransformComponent &transform) {
 
 		ImGui::PushID((int)transform.owner);;
 		ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_SpanFullWidth | ImGuiTreeNodeFlags_SpanAvailWidth;
@@ -20,7 +20,7 @@ void HierarchyPanel::renderImGui(EditorContext &context)
 		// Highlighted or not 
 		flags |= context.selected_entity == transform.owner ? ImGuiTreeNodeFlags_Selected : 0;
 
-		std::string name = transform.name;
+		eastl::string name = transform.name;
 		if (name.empty())
 			name = "(Empty)";
 

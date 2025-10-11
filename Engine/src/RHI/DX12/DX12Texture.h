@@ -120,10 +120,10 @@ public:
 		int layer = 0;
 		DX12Descriptor handle;
 	};
-	std::vector<DescriptorView> shader_resource_views;
-	std::vector<DescriptorView> unordered_access_views;
-	std::vector<DescriptorView> render_target_views;
-	std::vector<DescriptorView> depth_stencil_views;
+	eastl::vector<DescriptorView> shader_resource_views;
+	eastl::vector<DescriptorView> unordered_access_views;
+	eastl::vector<DescriptorView> render_target_views;
+	eastl::vector<DescriptorView> depth_stencil_views;
 
 	const char *debug_name = "";
 };

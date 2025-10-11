@@ -7,9 +7,9 @@
 #include <filesystem>
 #include "GuiUtils.h"
 
-static std::string get_file_entension(const std::string &filename)
+static eastl::string get_file_entension(const eastl::string &filename)
 {
-	return std::filesystem::path(filename).extension().string();
+	return std::filesystem::path(filename.c_str()).extension().string().c_str();
 }
 
 void AssetBrowserPanel::init()
@@ -24,7 +24,7 @@ bool AssetBrowserPanel::renderImGui(EditorContext &context)
 	auto &folder_tex = AssetManager::getTextureAsset("assets/editor/icons/folder.png");
 
 	// Asset browser
-	ImGui::Begin((std::string(ICON_FA_FOLDER) + " Asset Browser###Asset Browser").c_str());
+	ImGui::Begin((eastl::string(ICON_FA_FOLDER) + " Asset Browser###Asset Browser").c_str());
 	bool is_used = ImGui::IsWindowFocused();
 
 	ImGui::BeginChild("hierarchy view", ImVec2(150, 0), ImGuiChildFlags_Border | ImGuiChildFlags_ResizeX);
@@ -80,13 +80,13 @@ bool AssetBrowserPanel::renderImGui(EditorContext &context)
 	for (const auto &entry : entries)
 	{
 		ImGui::PushID(entry.name.c_str());
-		std::filesystem::path child_path = current_grid_path / entry.name;
+		std::filesystem::path child_path = current_grid_path / entry.name.c_str();
 
 		if (entry.isDirectory)
 		{
 			if (ImGui::ImageButton(entry.name.c_str(), ImGuiWrapper::getTextureId(folder_tex), tile_size, {0, 0}, {1, 1}))
 			{
-				current_grid_path /= entry.name;
+				current_grid_path /= entry.name.c_str();
 			}
 		} else
 		{
@@ -126,9 +126,13 @@ std::vector<FileEntry> AssetBrowserPanel::get_directory_entries(const std::files
 	{
 		if (entry.path().extension() == ".meta")
 			continue;
-		entries.push_back({entry.path().filename().string(), entry.is_directory()});
+
+		FileEntry file_entry;
+		file_entry.name = entry.path().filename().string().c_str();
+		file_entry.isDirectory = entry.is_directory();
+		entries.push_back(file_entry);
 	}
-	std::sort(entries.begin(), entries.end(), [](FileEntry a, FileEntry b) {
+	eastl::sort(entries.begin(), entries.end(), [](FileEntry a, FileEntry b) {
 		if (a.isDirectory != b.isDirectory)
 			return a.isDirectory ? true : false;
 		return a.name < b.name;
@@ -138,23 +142,23 @@ std::vector<FileEntry> AssetBrowserPanel::get_directory_entries(const std::files
 	return entries;
 }
 
-void AssetBrowserPanel::render_directory(const std::string &path)
+void AssetBrowserPanel::render_directory(const eastl::string &path)
 {
-	auto entries = get_directory_entries(path);
+	auto entries = get_directory_entries(path.c_str());
 	for (const auto &entry : entries)
 	{
 		if (entry.isDirectory)
 		{
 			if (ImGui::TreeNode(entry.name.c_str()))
 			{
-				std::filesystem::path child_path = (std::filesystem::path(path) / entry.name);
-				render_directory(child_path.string());
+				std::filesystem::path child_path = (std::filesystem::path(path.c_str()) / entry.name.c_str());
+				render_directory(child_path.string().c_str());
 				ImGui::TreePop();
 			}
 		} else
 		{
 			ImGui::TreeNodeEx(entry.name.c_str(), ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen);
-			std::filesystem::path child_path = (std::filesystem::path(path) / entry.name);
+			std::filesystem::path child_path = (std::filesystem::path(path.c_str()) / entry.name.c_str());
 			process_drag_drop_source(child_path);
 
 			if (ImGui::IsItemClicked() && ImGui::IsMouseDoubleClicked(0))
@@ -167,7 +171,7 @@ void AssetBrowserPanel::render_directory(const std::string &path)
 
 RHITextureRef AssetBrowserPanel::get_file_icon(std::filesystem::path &file)
 {
-	std::string extension = file.extension().string();
+	eastl::string extension = file.extension().string().c_str();
 	if (extension == ".scene")
 		return scene_texture;
 	else if (extension == ".png" || extension == ".jpg")
@@ -178,10 +182,10 @@ RHITextureRef AssetBrowserPanel::get_file_icon(std::filesystem::path &file)
 
 void AssetBrowserPanel::process_double_click(std::filesystem::path &file)
 {
-	std::string extension = file.extension().string();
+	eastl::string extension = file.extension().string().c_str();
 	if (extension == ".scene")
 	{
-		Scene::loadScene(file.string());
+		Scene::loadScene(file.string().c_str());
 	}
 }
 
@@ -189,7 +193,7 @@ void AssetBrowserPanel::process_drag_drop_source(std::filesystem::path &file)
 {
 	if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None))
 	{
-		std::string path = file.string();
+		eastl::string path = file.string().c_str();
 		ImGui::SetDragDropPayload("DND_ASSET_PATH", path.data(), sizeof(char) * (path.size() + 1));
 		ImGui::Text("Copy");
 		ImGui::EndDragDropSource();

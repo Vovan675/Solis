@@ -10,21 +10,21 @@ struct Node
 	std::string cluster_name;
 	std::string color = "orange";
 	bool is_rounded = true;
-	std::vector<std::string> cluster_keys;
+	eastl::vector<std::string> cluster_keys;
 };
 
 // Connects one to many
 struct Edge
 {
 	std::string start;
-	std::vector<std::string> ends;
+	eastl::vector<std::string> ends;
 	std::string color = "yellowgreen";
 };
 
 struct Graph
 {
-	std::vector<Node> nodes;
-	std::vector<Edge> edges;
+	eastl::vector<Node> nodes;
+	eastl::vector<Edge> edges;
 };
 
 std::ostream &operator <<(std::ostream &os, const Graph &graph)
@@ -92,13 +92,13 @@ void GraphViz::createGraph(std::ostream &os, FrameGraph &fg)
 		const char *color = (pass.getRefCount() > 0 || pass.hasSideEffect()) ? "orange" : "orangered4";
 
 		std::ostringstream title;
-		title << "{" << pass.getName() << "} | {Refs: " << pass.getRefCount() << "<BR/>Index: " << pass.getId() << "}";
+		title << "{" << pass.getName().c_str() << "} | {Refs: " << pass.getRefCount() << "<BR/>Index: " << pass.getId() << "}";
 
 		std::string cluster_name;
 		// if big cluster, then name it
 		if (pass.getCreates().size() > 1)
 		{
-			cluster_name = pass.getName();
+			cluster_name = pass.getName().c_str();
 			cluster_name = std::regex_replace(cluster_name, std::regex("\\Pass"), "");
 		}
 
@@ -129,7 +129,7 @@ void GraphViz::createGraph(std::ostream &os, FrameGraph &fg)
 
 
 		std::ostringstream title;
-		title << "{" << resource.getName() << " (" << resource.getVersion() << ")} | {Refs: " << resource.getRefCount() << "<BR/>Index: " << entry.resource_id << "<BR/>" << entry.toString() << "}";
+		title << "{" << resource.getName().c_str() << " (" << resource.getVersion() << ")} | {Refs: " << resource.getRefCount() << "<BR/>Index: " << entry.resource_id << "<BR/>" << entry.toString().c_str() << "}";
 
 		graph.nodes.emplace_back(Node{key, title.str(), "", color, false});
 

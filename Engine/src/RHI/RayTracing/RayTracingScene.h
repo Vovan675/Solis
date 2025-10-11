@@ -26,7 +26,7 @@ public:
 		uint32_t indexBufferOffset;
 	};
 
-	std::vector<ObjDesc> &getObjDescs() { return obj_descs; }
+	eastl::vector<ObjDesc> &getObjDescs() { return obj_descs; }
 private:
 	void build_blas();
 	void build_tlas();
@@ -38,12 +38,12 @@ private:
 		int vertexBufferOffset;
 		int indexBufferOffset;
 	};
-	std::unordered_map<size_t, MeshOffset> mesh_offsets = {};
+	eastl::unordered_map<size_t, MeshOffset> mesh_offsets = {};
 
-	std::unordered_map<Engine::Mesh *, RHIBottomLevelAccelerationStructureRef> blases;
+	eastl::unordered_map<Engine::Mesh *, RHIBottomLevelAccelerationStructureRef> blases;
 	RHITopLevelAccelerationStructureRef topLevelAS;
 
-	std::unordered_map<size_t, size_t> blas_meshes = {};
+	eastl::unordered_map<size_t, size_t> blas_meshes = {};
 
 
 	RHIBufferRef transform_buffer;
@@ -53,5 +53,5 @@ private:
 	uint64_t big_vertex_buffer_last_offset = 0;
 	uint64_t big_index_buffer_last_offset = 0;
 
-	std::vector<ObjDesc> obj_descs = {};
+	eastl::vector<ObjDesc> obj_descs = {};
 };

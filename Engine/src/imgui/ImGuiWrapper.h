@@ -19,5 +19,5 @@ private:
 		VkDescriptorSet set;
 		uint64_t last_access_frame;
 	};
-	static std::unordered_map<VkImageView, DescriptorSetUsage> image_view_to_descriptor_set;
+	static eastl::unordered_map<VkImageView, DescriptorSetUsage> image_view_to_descriptor_set;
 };

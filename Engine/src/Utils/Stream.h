@@ -7,8 +7,8 @@ class Stream
 public:
     virtual ~Stream() = default;
 
-    virtual void readBytes(char *buffer, std::size_t size) = 0;
-    virtual void writeBytes(const char *buffer, std::size_t size) = 0;
+    virtual void readBytes(char *buffer, size_t size) = 0;
+    virtual void writeBytes(const char *buffer, size_t size) = 0;
 
     template<typename T>
     inline void read(T &value)
@@ -23,9 +23,9 @@ public:
     }
 
     template<typename T>
-    inline void read(std::vector<T> &vec, bool bulk_memory = false)
+    inline void read(eastl::vector<T> &vec, bool bulk_memory = false)
     {
-        std::size_t size;
+        size_t size;
         read(size);
 
         vec.resize(size);
@@ -38,15 +38,15 @@ public:
             readBytes(reinterpret_cast<char *>(vec.data()), size * sizeof(T));
         } else
         {
-            for (std::size_t i = 0; i < size; ++i)
+            for (size_t i = 0; i < size; ++i)
                 read(vec[i]);
         }
     }
 
     template<typename T>
-    void write(const std::vector<T> &vec, bool bulk_memory = false)
+    void write(const eastl::vector<T> &vec, bool bulk_memory = false)
     {
-        std::size_t size = vec.size();
+        size_t size = vec.size();
         write(size);
 
         if (bulk_memory)
@@ -59,9 +59,9 @@ public:
         }
     }
 
-    void read(std::string &str)
+    void read(eastl::string &str)
     {
-        std::size_t size;
+        size_t size;
         read(size);
 
         if (size == 0)
@@ -74,7 +74,7 @@ public:
         readBytes(&str[0], size);
     }
 
-    void write(const std::string &str)
+    void write(const eastl::string &str)
     {
         write(str.size());
         if (str.size() > 0)

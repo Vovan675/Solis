@@ -43,7 +43,7 @@ protected:
 
 	void copy_buffer_to_image(VkCommandBuffer command_buffer, VkBuffer buffer)
 	{
-		std::vector<VkBufferImageCopy> regions;
+		eastl::vector<VkBufferImageCopy> regions;
 		regions.reserve(description.mip_levels);
 
 		int offset = 0;
@@ -136,7 +136,7 @@ protected:
 		return image_size;
 	}
 
-	std::vector<TextureLayoutType> current_layouts; // Image layouts for each mip map
+	eastl::vector<TextureLayoutType> current_layouts; // Image layouts for each mip map
 
 	VkFormat native_format = VK_FORMAT_UNDEFINED;
 
@@ -153,7 +153,7 @@ protected:
 		// ImageView needs to gain some information about how to render into this image
 		std::unique_ptr<VkImageViewResource> image_view = nullptr;
 	};
-	std::vector<ImageView> image_views;
+	eastl::vector<ImageView> image_views;
 
 	const char *debug_name = "";
 };

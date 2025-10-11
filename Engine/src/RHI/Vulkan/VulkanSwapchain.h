@@ -20,7 +20,7 @@ private:
 	VkSurfaceKHR surface;
 	VkSwapchainKHR swapchain = nullptr;
 	VkExtent2D swap_extent;
-	std::vector<VkImage> swapchain_images;
-	std::vector<Ref<RHITexture>> swapchain_textures;
+	eastl::vector<VkImage> swapchain_images;
+	eastl::vector<Ref<RHITexture>> swapchain_textures;
 };
 

@@ -16,7 +16,7 @@ public:
 	template <typename T, typename... Args>
 	T &add(Args &&...args)
 	{
-		return objects[typeid(T)].emplace<T>(std::forward<Args>(args)...);
+		return objects[typeid(T)].emplace<T>(eastl::forward<Args>(args)...);
 	}
 
 	template <typename T>

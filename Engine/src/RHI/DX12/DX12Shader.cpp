@@ -3,7 +3,7 @@
 #include "RHI/DynamicRHI.h"
 
 
-DX12Shader::DX12Shader(const std::wstring &path, ShaderType type, std::wstring entry_point, std::vector<std::pair<const char *, const char *>> defines, IDxcUtils* dxc_utils)
+DX12Shader::DX12Shader(const eastl::wstring &path, ShaderType type, eastl::wstring entry_point, eastl::vector<eastl::pair<const char *, const char *>> defines, IDxcUtils* dxc_utils)
 	: RHIShader(path, type, entry_point, defines), dxc_utils(dxc_utils)
 {
 	recompile();
@@ -14,13 +14,22 @@ void DX12Shader::destroy()
 	blob.Reset();
 	reflection.Reset();
 	reflection_library.Reset();
+
+	for (auto path : included_files)
+		path_to_shaders[path].remove(this);
 }
 
 void DX12Shader::recompile()
 {
 	destroy();
 
-	blob = gDynamicRHI->compile_shader(path, type, entry_point, false, hash, &defines);
+	DynamicRHI::CompileShaderResult result = gDynamicRHI->compile_shader(path.wstring().c_str(), type, entry_point, false, &defines);
+	blob = result.data;
+	hash = result.source_hash;
+	included_files = result.included_files;
+
+	for (auto path : included_files)
+		path_to_shaders[path].push_back(this);
 
 	DxcBuffer reflectionBuffer = {};
 	reflectionBuffer.Ptr = blob->GetBufferPointer();
@@ -33,9 +42,9 @@ void DX12Shader::recompile()
 		dxc_utils->CreateReflection(&reflectionBuffer, IID_PPV_ARGS(&reflection));
 }
 
-std::vector<CD3DX12_ROOT_PARAMETER1> DX12Shader::getRootParameters(std::vector<DX12Shader *> shaders, BindingInfo &binding_info)
+eastl::vector<CD3DX12_ROOT_PARAMETER1> DX12Shader::getRootParameters(eastl::vector<DX12Shader *> shaders, BindingInfo &binding_info)
 {
-	std::vector<CD3DX12_ROOT_PARAMETER1> params;
+	eastl::vector<CD3DX12_ROOT_PARAMETER1> params;
 
 	// Idea is to:
 	// 1. Collect all info from shaders and skip identical
@@ -45,7 +54,7 @@ std::vector<CD3DX12_ROOT_PARAMETER1> DX12Shader::getRootParameters(std::vector<D
 	// 1. Collect data from all shaders
 	struct Bindings
 	{
-		std::map<int, D3D12_SHADER_INPUT_BIND_DESC> binding_by_bind;
+		eastl::map<int, D3D12_SHADER_INPUT_BIND_DESC> binding_by_bind;
 		bool alreadyDefined(D3D12_SHADER_INPUT_BIND_DESC &desc)
 		{
 			return binding_by_bind.find(desc.BindPoint) != binding_by_bind.end();
@@ -60,11 +69,11 @@ std::vector<CD3DX12_ROOT_PARAMETER1> DX12Shader::getRootParameters(std::vector<D
 
 	binding_info = {};
 
-	std::map<int, std::vector<D3D12_SHADER_INPUT_BIND_DESC>> cbv_by_space;
+	eastl::map<int, eastl::vector<D3D12_SHADER_INPUT_BIND_DESC>> cbv_by_space;
 
-	std::map<int, std::vector<D3D12_SHADER_INPUT_BIND_DESC>> srv_by_space;
-	std::map<int, std::vector<D3D12_SHADER_INPUT_BIND_DESC>> uav_by_space;
-	std::map<int, std::vector<D3D12_SHADER_INPUT_BIND_DESC>> sampler_by_space;
+	eastl::map<int, eastl::vector<D3D12_SHADER_INPUT_BIND_DESC>> srv_by_space;
+	eastl::map<int, eastl::vector<D3D12_SHADER_INPUT_BIND_DESC>> uav_by_space;
+	eastl::map<int, eastl::vector<D3D12_SHADER_INPUT_BIND_DESC>> sampler_by_space;
 
 	for (auto &shader : shaders)
 	{
@@ -82,7 +91,7 @@ std::vector<CD3DX12_ROOT_PARAMETER1> DX12Shader::getRootParameters(std::vector<D
 				break;
 		}
 
-		auto isDefined = [](const std::vector<D3D12_SHADER_INPUT_BIND_DESC> &bindings, int bind_point) -> bool
+		auto isDefined = [](const eastl::vector<D3D12_SHADER_INPUT_BIND_DESC> &bindings, int bind_point) -> bool
 		{
 			for (const auto &binding : bindings)
 			{
@@ -264,19 +273,19 @@ std::vector<CD3DX12_ROOT_PARAMETER1> DX12Shader::getRootParameters(std::vector<D
 	}
 	*/
 
-	static std::vector<CD3DX12_DESCRIPTOR_RANGE1> descriptor_ranges;
+	static eastl::vector<CD3DX12_DESCRIPTOR_RANGE1> descriptor_ranges;
 
 	descriptor_ranges.reserve(1000);
 	descriptor_ranges.clear();
 
 	// Create descriptor ranges for continuous register blocks
-	auto createDescriptorRanges = [](const std::vector<D3D12_SHADER_INPUT_BIND_DESC> &resources, D3D12_DESCRIPTOR_RANGE_TYPE range_type) -> std::pair<int, CD3DX12_DESCRIPTOR_RANGE1 *>
+	auto createDescriptorRanges = [](const eastl::vector<D3D12_SHADER_INPUT_BIND_DESC> &resources, D3D12_DESCRIPTOR_RANGE_TYPE range_type) -> eastl::pair<int, CD3DX12_DESCRIPTOR_RANGE1 *>
 	{
-		if (resources.empty()) return std::make_pair(0, descriptor_ranges.data());
+		if (resources.empty()) return eastl::make_pair(0, descriptor_ranges.data());
 
 		// Sort resources by BindPoint to identify continuous ranges
-		std::vector<D3D12_SHADER_INPUT_BIND_DESC> sorted_resources = resources;
-		std::sort(sorted_resources.begin(), sorted_resources.end(), [](const D3D12_SHADER_INPUT_BIND_DESC& a, const D3D12_SHADER_INPUT_BIND_DESC& b) {
+		eastl::vector<D3D12_SHADER_INPUT_BIND_DESC> sorted_resources = resources;
+		eastl::sort(sorted_resources.begin(), sorted_resources.end(), [](const D3D12_SHADER_INPUT_BIND_DESC& a, const D3D12_SHADER_INPUT_BIND_DESC& b) {
 			return a.BindPoint < b.BindPoint;
 		});
 
@@ -312,12 +321,12 @@ std::vector<CD3DX12_ROOT_PARAMETER1> DX12Shader::getRootParameters(std::vector<D
 
 		CD3DX12_DESCRIPTOR_RANGE1 *start_range_ptr = (&descriptor_ranges.back()) - (count - 1);
 
-		return std::make_pair(ranges_count, start_range_ptr);
+		return eastl::make_pair(ranges_count, start_range_ptr);
 	};
 
 
 	// Add descriptor tables to root parameters
-	auto addDescriptorTables = [&params, createDescriptorRanges](const std::map<int, std::vector<D3D12_SHADER_INPUT_BIND_DESC>> &bindings_map, D3D12_DESCRIPTOR_RANGE_TYPE range_type, TableInfo &table_info)
+	auto addDescriptorTables = [&params, createDescriptorRanges](const eastl::map<int, eastl::vector<D3D12_SHADER_INPUT_BIND_DESC>> &bindings_map, D3D12_DESCRIPTOR_RANGE_TYPE range_type, TableInfo &table_info)
 	{
 		for (const auto& [space, bindings] : bindings_map)
 		{

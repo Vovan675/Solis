@@ -24,7 +24,7 @@ void FrameGraph::compile()
 	}
 
 	// Cull
-	std::vector<ResourceNode *> unreferenced_resources;
+	eastl::vector<ResourceNode *> unreferenced_resources;
 	#ifndef DEBUG
 	for (auto &resource_node : resource_nodes)
 	{

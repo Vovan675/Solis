@@ -34,7 +34,7 @@ public:
 	Ref<Scene> scene;
 	Ref<RayTracingScene> rt_scene;
 
-	std::vector<RenderBatch> render_batches;
+	eastl::vector<RenderBatch> render_batches;
 
 	EntityRenderer entity_renderer;
 

@@ -19,5 +19,5 @@ public:
 		bool is_used;
 	};
 
-	static std::unordered_map<size_t, std::vector<ResourceEntry>> textures;
+	static eastl::unordered_map<size_t, eastl::vector<ResourceEntry>> textures;
 };

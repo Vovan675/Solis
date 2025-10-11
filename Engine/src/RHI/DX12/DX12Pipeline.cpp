@@ -38,7 +38,7 @@ void DX12Pipeline::create(const PipelineDescription &description)
 
 	// Root signature should come from shader reflection
 
-	std::vector<DX12Shader *> shaders;
+	eastl::vector<DX12Shader *> shaders;
 
 	if (description.is_compute_pipeline)
 	{
@@ -102,7 +102,7 @@ void DX12Pipeline::create(const PipelineDescription &description)
 
 		CD3DX12_STATE_OBJECT_DESC raytracingPipeline{ D3D12_STATE_OBJECT_TYPE_RAYTRACING_PIPELINE };
 
-		auto addLibrary = [](CD3DX12_STATE_OBJECT_DESC& raytracingPipeline, IDxcBlob *s, const std::vector<const wchar_t*>& export_)
+		auto addLibrary = [](CD3DX12_STATE_OBJECT_DESC& raytracingPipeline, IDxcBlob *s, const eastl::vector<const wchar_t*>& export_)
 		{
 			auto raygen_lib = raytracingPipeline.CreateSubobject<CD3DX12_DXIL_LIBRARY_SUBOBJECT>();
 			D3D12_SHADER_BYTECODE shaderBytecode;
@@ -164,7 +164,7 @@ void DX12Pipeline::create(const PipelineDescription &description)
 		DX12Shader *ps = static_cast<DX12Shader *>(description.fragment_shader.getReference());
 
 
-		std::vector<D3D12_INPUT_ELEMENT_DESC> input_layout;
+		eastl::vector<D3D12_INPUT_ELEMENT_DESC> input_layout;
 
 		uint32_t offset = 0;
 		for (auto &input : description.vertex_inputs_descriptions.inputs)

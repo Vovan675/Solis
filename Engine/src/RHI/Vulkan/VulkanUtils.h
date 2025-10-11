@@ -26,7 +26,7 @@ public:
 									  int level_count = 1, int layer_count = 1,
 									  int base_level = 0, int base_layer = 0);
 
-	static DescriptorLayout getDescriptorLayout(std::vector<Descriptor> descriptors)
+	static DescriptorLayout getDescriptorLayout(eastl::vector<Descriptor> descriptors)
 	{
 		DescriptorLayout result;
 		DescriptorLayoutBuilder layout_builder;
