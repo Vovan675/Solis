@@ -358,7 +358,7 @@ void ShadowRenderer::update_cascades(LightComponent &light, glm::vec3 light_dir)
 		glm::vec3 minExtents = -maxExtents;
 
 		glm::mat4 lightViewMatrix = glm::lookAtLH(frustumCenter - light_dir * -minExtents.z, frustumCenter, glm::vec3(0.0f, 1.0f, 0.0f));
-		glm::mat4 lightOrthoMatrix = glm::orthoLH(minExtents.x, maxExtents.x, minExtents.y, maxExtents.y, 0.0f - 50.0f, maxExtents.z - minExtents.z + 50.0f);
+		glm::mat4 lightOrthoMatrix = glm::orthoLH(minExtents.x, maxExtents.x, minExtents.y, maxExtents.y, 0.0f - 150.0f, maxExtents.z - minExtents.z + 150.0f);
 
 		// Fix shimmering
 		float shadow_map_size = 4096;

@@ -297,7 +297,8 @@ void VulkanDynamicRHI::prepareRenderCall()
 	{
 		const auto &descriptors_info = native_pso->descriptors;
 		// Update set
-		DescriptorWriter writer;
+		static DescriptorWriter writer;
+		writer.clear();
 		if (is_textures_dirty)
 		{
 			for (auto &desc : descriptors_info)

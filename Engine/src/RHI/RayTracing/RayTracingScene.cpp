@@ -22,11 +22,9 @@ void RayTracingScene::build_blas()
 	big_desc.usage = INDEX_BUFFER | UAV_BUFFER;
 	big_index_buffer = gDynamicRHI->createBuffer(big_desc);
 
-	auto entities = Scene::getCurrentScene()->getEntitiesWith<MeshRendererComponent>();
-	for (auto &entity_id : entities)
+	auto components = Scene::getCurrentScene()->getEntitiesWith<TransformComponent, MeshRendererComponent>();
+	for (auto &&[entity, transform_buffer, mesh_renderer]: components.each())
 	{
-		Entity entity(entity_id);
-		auto &mesh_renderer = entity.getComponent<MeshRendererComponent>();
 		for (auto &mesh_node : mesh_renderer.meshes)
 		{
 			auto mesh = mesh_node.getMesh();
@@ -110,13 +108,11 @@ void RayTracingScene::build_tlas()
 	{
 		std::vector<RayTracingInstance> instances;
 		obj_descs.clear();
-		auto entities = Scene::getCurrentScene()->getEntitiesWith<MeshRendererComponent>();
-		instances.reserve(entities.size());
+		auto components = Scene::getCurrentScene()->getEntitiesWith<TransformComponent, MeshRendererComponent>();
+		instances.reserve(components.size_hint());
 		int object_id = 0;
-		for (auto &entity_id : entities)
+		for (auto &&[entity, transform, mesh_renderer]: components.each())
 		{
-			Entity entity(entity_id);
-			auto &mesh_renderer = entity.getComponent<MeshRendererComponent>();
 			int material_id = 0;
 			for (auto &mesh_node : mesh_renderer.meshes)
 			{
@@ -129,7 +125,7 @@ void RayTracingScene::build_tlas()
 				
 				RayTracingInstance &instance = instances.emplace_back();
 				instance.blas = blases[mesh];
-				instance.transform = entity.getWorldTransformMatrix();
+				instance.transform = transform.getWorldTransform();
 				instance.instance_id = object_id;
 				instance.instance_mask = 0xFF;
 				instance.instance_contribution_to_hit_group_index = 0;

@@ -97,4 +97,11 @@ public:
 	{
 		return gDynamicRHI->getBindlessResources()->getTextureIndex(texture);
 	}
+
+	std::string toString(const Description &desc) const
+	{
+		std::ostringstream out;
+		out << desc.width << "x" << desc.height << " (" << getFormatName(desc.format) << ")";
+		return out.str();
+	}
 };

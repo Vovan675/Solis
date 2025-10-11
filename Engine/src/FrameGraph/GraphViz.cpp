@@ -125,11 +125,11 @@ void GraphViz::createGraph(std::ostream &os, FrameGraph &fg)
 		auto key = get_key(resource);
 		const char *color = "skyblue";
 
-		auto &entry = fg.getResourceEntry(resource.getResource());
+		auto &entry = fg.getResourceEntry(resource);
 
 
 		std::ostringstream title;
-		title << "{" << resource.getName() << " (" << resource.getVersion() << ")} | {Refs: " << resource.getRefCount() << "<BR/>Index: " << entry.resource_id << "}";
+		title << "{" << resource.getName() << " (" << resource.getVersion() << ")} | {Refs: " << resource.getRefCount() << "<BR/>Index: " << entry.resource_id << "<BR/>" << entry.toString() << "}";
 
 		graph.nodes.emplace_back(Node{key, title.str(), "", color, false});
 

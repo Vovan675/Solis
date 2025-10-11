@@ -14,6 +14,8 @@ public:
 		float use_vignette = 1;
 		float vignette_radius = 0.7;
 		float vignette_smoothness = 0.2;
+		float exposure = 2.0;
+		int tonemapper_mode = 0;
 	} film_ubo;
 
 

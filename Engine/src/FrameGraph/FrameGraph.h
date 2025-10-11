@@ -2,6 +2,7 @@
 #include "FrameGraphBlackboard.h"
 #include "RHI/DynamicRHI.h"
 #include <algorithm>
+#include <string>
 
 #include "FrameGraphRHIResources.h"
 class FrameGraphTexture;
@@ -171,6 +172,11 @@ public:
 		return getModel<T>()->desc;
 	}
 
+	std::string toString() const
+	{
+		return concept->toString();
+	}
+
 	bool isTransient() const { return is_transient; }
 
 	void create()
@@ -203,6 +209,7 @@ private:
 		virtual void destroy() = 0;
 		virtual void preRead(RHICommandList *cmd_list, uint32_t flags) = 0;
 		virtual void preWrite(RHICommandList *cmd_list, uint32_t flags) = 0;
+		virtual std::string toString() const = 0;
 	};
 
 	template <typename T>
@@ -228,6 +235,11 @@ private:
 		void preWrite(RHICommandList *cmd_list, uint32_t flags) override
 		{
 			resource.preWrite(desc, cmd_list, flags);
+		}
+
+		std::string toString() const override
+		{
+			return resource.toString(desc);
 		}
 
 		const typename T::Description desc;
@@ -311,17 +323,17 @@ private:
 
 	ResourceNode &createResourceNode(const std::string name, FrameGraphResource resource, int version)
 	{
-		int32_t node_id = resource_nodes.size();
+		uint32_t node_id = resource_nodes.size();
 		resource_nodes.emplace_back(ResourceNode(name, node_id, resource, version));
 		return resource_nodes.back();
 	}
 
 	FrameGraphResource cloneResource(FrameGraphResource resource)
 	{
-		auto &entry = getResourceEntry(resource);
+		auto &node = resource_nodes[resource];
+		auto &entry = getResourceEntry(node);
 		entry.version++;
 
-		auto &node = resource_nodes[resource];
 		auto &cloned_node = createResourceNode(node.name, node.resource, entry.version);
 		return cloned_node.id;
 	}

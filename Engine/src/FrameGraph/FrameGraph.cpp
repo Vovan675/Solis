@@ -79,6 +79,9 @@ void FrameGraph::execute(RHICommandList *cmd_list)
 		if (pass.getRefCount() == 0 && !pass.has_side_effect)
 			continue;
 
+		PROFILE_CPU_SCOPE_VAR(pass.getName().c_str());
+		PROFILE_GPU_SCOPE_VAR(cmd_list, pass.getName().c_str());
+
 		for (const auto &node_id : pass.creates)
 			getResourceEntry(node_id).create();
 
@@ -93,10 +96,7 @@ void FrameGraph::execute(RHICommandList *cmd_list)
 				getResourceEntry(access.resource).preWrite(cmd_list, access.flags);
 		}
 
-		{
-			PROFILE_CPU_SCOPE_VAR(pass.getName().c_str());
-			PROFILE_GPU_SCOPE_VAR(cmd_list, pass.getName().c_str());
-			
+		{	
 			RenderPassResources resources(*this, pass);
 			std::invoke(*pass.pass, resources, cmd_list);
 		}

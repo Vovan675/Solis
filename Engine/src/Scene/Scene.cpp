@@ -208,8 +208,7 @@ void Scene::saveFile(const std::string &filename)
 	YAML::Emitter out(file);
 	
 	out << YAML::BeginSeq;
-	auto entities_id = registry.group<entt::entity>();
-	for (entt::entity entity_id : entities_id)
+	for (entt::entity entity_id : registry.view<entt::entity>())
 	{
 		Entity entity(entity_id);
 		out << entity;

@@ -23,16 +23,25 @@ void PostProcessingRenderer::addPasses(FrameGraph &fg)
 
 void PostProcessingRenderer::renderImgui()
 {
-	bool use_vignette_bool = film_ubo.use_vignette > 0.5f;
-	if (ImGui::Checkbox("Vignette", &use_vignette_bool))
+	if (ImGui::TreeNode("Post Processing"))
 	{
-		film_ubo.use_vignette = use_vignette_bool ? 1.0f : 0.0f;
-	}
+		bool use_vignette_bool = film_ubo.use_vignette > 0.5f;
+		if (ImGui::Checkbox("Vignette", &use_vignette_bool))
+		{
+			film_ubo.use_vignette = use_vignette_bool ? 1.0f : 0.0f;
+		}
 
-	if (film_ubo.use_vignette)
-	{
-		ImGui::SliderFloat("Vignette Radius", &film_ubo.vignette_radius, 0.1f, 1.0f);
-		ImGui::SliderFloat("Vignette Smoothness", &film_ubo.vignette_smoothness, 0.1f, 1.0f);
+		if (film_ubo.use_vignette)
+		{
+			ImGui::SliderFloat("Vignette Radius", &film_ubo.vignette_radius, 0.1f, 1.0f);
+			ImGui::SliderFloat("Vignette Smoothness", &film_ubo.vignette_smoothness, 0.1f, 1.0f);
+		}
+
+		ImGui::SliderFloat("Exposure", &film_ubo.exposure, 0.1f, 4.0f);
+
+		const char *tonemappers[] = {"Disabled", "Uncharted2", "ACES"};
+		ImGui::Combo("Tonemapper", &film_ubo.tonemapper_mode, tonemappers, _countof(tonemappers));
+		ImGui::TreePop();
 	}
 }
 

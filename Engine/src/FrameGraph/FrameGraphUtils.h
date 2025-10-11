@@ -9,5 +9,6 @@ static FrameGraphResource importTexture(FrameGraph &fg, RHITexture *t)
 	FrameGraphTexture::Description desc;
 	const TextureDescription &src_desc = t->getDescription();
 	memcpy(&desc, &src_desc, sizeof(TextureDescription));
+	desc.debug_name = t->getDebugName();
 	return fg.importResource<FrameGraphTexture>(t->getDebugName(), desc, FrameGraphTexture {t});
 }

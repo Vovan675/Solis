@@ -137,6 +137,32 @@ inline uint32_t getFormatSize(Format format)
 	return 0;
 }
 
+inline const char *getFormatName(Format format)
+{
+	switch (format)
+	{
+		case FORMAT_R8_UNORM: return "R8_UNORM";
+		case FORMAT_R8G8_UNORM: return "R8G8_UNORM";
+		case FORMAT_R8G8B8A8_UNORM: return "R8G8B8A8_UNORM";
+		case FORMAT_R8G8B8A8_SRGB: return "R8G8B8A8_SRGB";
+		case FORMAT_R16_UNORM: return "R16_UNORM";
+		case FORMAT_R16G16_UNORM: return "R16G16_UNORM";
+		case FORMAT_R16G16B16A16_UNORM: return "R16G16B16A16_UNORM";
+		case FORMAT_R32_UINT: return "R32_UINT";
+		case FORMAT_R32_SFLOAT: return "R32_SFLOAT";
+		case FORMAT_R32G32_SFLOAT: return "R32G32_SFLOAT";
+		case FORMAT_R32G32B32_SFLOAT: return "R32G32B32_SFLOAT";
+ 		case FORMAT_R32G32B32A32_SFLOAT: return "R32G32B32A32_SFLOAT";
+		case FORMAT_D32S8: return "D32S8";
+		case FORMAT_R11G11B10_UFLOAT: return "R11G11B10_UFLOAT";
+		case FORMAT_BC1: return "BC1";
+		case FORMAT_BC3: return "BC3";
+		case FORMAT_BC5: return "BC5";
+		case FORMAT_BC7: return "BC7";
+	}
+	return "UNDEFINED";
+}
+
 enum TextureUsageFlags : uint32_t
 {
 	TEXTURE_USAGE_TRANSFER_SRC = 1 << 1,
