@@ -190,9 +190,22 @@ void DX12Pipeline::create(const PipelineDescription &description)
 			case CULL_MODE_FRONT: cull_mode = D3D12_CULL_MODE_FRONT; break;
 		}
 
+		D3D12_COMPARISON_FUNC depth_comparison_func = D3D12_COMPARISON_FUNC_LESS;
+		switch (description.depth_compare_func)
+		{
+			case COMPARE_FUNC_NEVER: depth_comparison_func = D3D12_COMPARISON_FUNC_NEVER; break;
+			case COMPARE_FUNC_LESS: depth_comparison_func = D3D12_COMPARISON_FUNC_LESS; break;
+			case COMPARE_FUNC_EQUAL: depth_comparison_func = D3D12_COMPARISON_FUNC_EQUAL; break;
+			case COMPARE_FUNC_LESS_EQUAL: depth_comparison_func = D3D12_COMPARISON_FUNC_LESS_EQUAL; break;
+			case COMPARE_FUNC_GREATER: depth_comparison_func = D3D12_COMPARISON_FUNC_GREATER; break;
+			case COMPARE_FUNC_NOT_EQUAL: depth_comparison_func = D3D12_COMPARISON_FUNC_NOT_EQUAL; break;
+			case COMPARE_FUNC_GREATER_EQUAL: depth_comparison_func = D3D12_COMPARISON_FUNC_GREATER_EQUAL; break;
+			case COMPARE_FUNC_ALWAYS: depth_comparison_func = D3D12_COMPARISON_FUNC_ALWAYS; break;
+		}
+
 		D3D12_DEPTH_STENCIL_DESC depth_stencil_desc = {};
 		depth_stencil_desc.DepthEnable = description.use_depth_test;
-		depth_stencil_desc.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
+		depth_stencil_desc.DepthWriteMask = description.use_depth_write ? D3D12_DEPTH_WRITE_MASK_ALL : D3D12_DEPTH_WRITE_MASK_ZERO;
 		depth_stencil_desc.DepthFunc = D3D12_COMPARISON_FUNC_LESS;
 		depth_stencil_desc.StencilEnable = false;
 		depth_stencil_desc.StencilReadMask = D3D12_DEFAULT_STENCIL_READ_MASK;
@@ -201,15 +214,77 @@ void DX12Pipeline::create(const PipelineDescription &description)
 		depth_stencil_desc.FrontFace = defaultStencilOp;
 		depth_stencil_desc.BackFace = defaultStencilOp;
 
+
+		auto getBlend = [](Blend blend)
+		{
+			switch (blend)
+			{
+				case BLEND_ZERO: return D3D12_BLEND_ZERO;
+				case BLEND_ONE: return D3D12_BLEND_ONE;
+				case BLEND_SRC_COLOR: return D3D12_BLEND_SRC_COLOR;
+				case BLEND_ONE_MINUS_SRC_COLOR: return D3D12_BLEND_INV_SRC_COLOR;
+				case BLEND_DST_COLOR: return D3D12_BLEND_DEST_COLOR;
+				case BLEND_ONE_MINUS_DST_COLOR: return D3D12_BLEND_INV_DEST_COLOR;
+				case BLEND_SRC_ALPHA: return D3D12_BLEND_SRC_ALPHA;
+				case BLEND_ONE_MINUS_SRC_ALPHA: return D3D12_BLEND_INV_SRC_ALPHA;
+				case BLEND_DST_ALPHA: return D3D12_BLEND_DEST_ALPHA;
+				case BLEND_ONE_MINUS_DST_ALPHA: return D3D12_BLEND_INV_DEST_ALPHA;
+				case BLEND_SRC_ALPHA_SATURATE: return D3D12_BLEND_SRC_ALPHA_SAT;
+				case BLEND_SRC1_COLOR: return D3D12_BLEND_SRC1_COLOR;
+				case BLEND_ONE_MINUS_SRC1_COLOR: return D3D12_BLEND_INV_SRC1_COLOR;
+				case BLEND_SRC1_ALPHA: return D3D12_BLEND_SRC1_ALPHA;
+				case BLEND_ONE_MINUS_SRC1_ALPHA: return D3D12_BLEND_INV_SRC1_ALPHA;
+			}
+			return D3D12_BLEND_ZERO;
+		};
+
+		auto getBlendOp = [](BlendOp op)
+		{
+			switch (op)
+			{
+				case BLEND_OP_ADD: return D3D12_BLEND_OP_ADD;
+				case BLEND_OP_SUBTRACT: return D3D12_BLEND_OP_SUBTRACT;
+				case BLEND_OP_REV_SUBTRACT: return D3D12_BLEND_OP_REV_SUBTRACT;
+				case BLEND_OP_MIN: return D3D12_BLEND_OP_MIN;
+				case BLEND_OP_MAX: return D3D12_BLEND_OP_MAX;
+			}
+			return D3D12_BLEND_OP_ADD;
+		};
+
+		D3D12_BLEND_DESC blend_state;
+		blend_state.AlphaToCoverageEnable = false;
+		blend_state.IndependentBlendEnable = false;
+		const D3D12_RENDER_TARGET_BLEND_DESC defaultRenderTargetBlendDesc =
+		{
+			FALSE,FALSE,
+			D3D12_BLEND_ONE, D3D12_BLEND_ZERO, D3D12_BLEND_OP_ADD,
+			D3D12_BLEND_ONE, D3D12_BLEND_ZERO, D3D12_BLEND_OP_ADD,
+			D3D12_LOGIC_OP_NOOP,
+			D3D12_COLOR_WRITE_ENABLE_ALL,
+		};
+
+		for (UINT i = 0; i < D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT; ++i)
+		{
+			D3D12_RENDER_TARGET_BLEND_DESC &rt = blend_state.RenderTarget[i];
+			rt.BlendEnable = description.use_blending;
+			rt.LogicOpEnable = false;
+			rt.SrcBlend = getBlend(description.src_alpha_blend);
+			rt.DestBlend = getBlend(description.dst_color_blend);
+			rt.BlendOp = getBlendOp(description.color_blend_op);
+			rt.SrcBlendAlpha = getBlend(description.src_alpha_blend);
+			rt.DestBlendAlpha = getBlend(description.dst_alpha_blend);
+			rt.BlendOpAlpha = getBlendOp(description.alpha_blend_op);
+			rt.RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
+		}
+
 		D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
 		psoDesc.InputLayout = {input_layout.data(), (uint32_t)input_layout.size()};
 		psoDesc.pRootSignature = pipeline->root_signature;
 		psoDesc.VS = {vs->blob->GetBufferPointer(), vs->blob->GetBufferSize()};
 		psoDesc.PS = {ps->blob->GetBufferPointer(), ps->blob->GetBufferSize()};
 		psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
-		//psoDesc.RasterizerState.FrontCounterClockwise = true;
 		psoDesc.RasterizerState.CullMode = cull_mode;
-		psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
+		psoDesc.BlendState = blend_state;
 		psoDesc.DepthStencilState = depth_stencil_desc;
 		psoDesc.SampleMask = UINT_MAX;
 		psoDesc.PrimitiveTopologyType = topology;

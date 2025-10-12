@@ -89,7 +89,6 @@ PixelOutput PSMain(PixelInput IN)
     if (normal_tex_id >= 0) {
         float3 normal = SampleTexture(normal_tex_id, IN.uv).rgb;
         normal = normalize(normal * 2.0 - 1.0);
-        //normal.g *= -1;
         OUT.normal.rgb = normalize(mul(normal, IN.TBN));
     }
     // Encode into [0, 1] range

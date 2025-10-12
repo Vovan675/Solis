@@ -31,11 +31,7 @@ public:
 
 	glm::vec3 getLocalDirection(glm::vec3 direction)
 	{
-		glm::vec3 scale, position, skew;
-		glm::vec4 persp;
-		glm::quat rotation;
-		glm::decompose(getWorldTransformMatrix(), scale, rotation, position, skew, persp);
-		return normalize(rotation * direction);
+		return getTransform().getLocalDirection(direction);
 	}
 
 	Entity getParent() const { return Entity(getTransform().parent); }

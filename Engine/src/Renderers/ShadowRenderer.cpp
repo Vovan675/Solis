@@ -4,6 +4,7 @@
 #include "Scene/Scene.h"
 #include "Scene/Entity.h"
 #include "Scene/Components.h"
+#include "Rendering/SceneRenderer.h"
 #include "FrameGraph/FrameGraph.h"
 #include "FrameGraph/FrameGraphData.h"
 #include "FrameGraph/FrameGraphUtils.h"
@@ -52,7 +53,6 @@ void ShadowRenderer::addShadowMapPasses(FrameGraph &fg, const eastl::vector<Rend
 		glm::vec4 persp;
 		glm::quat rotation;
 		glm::decompose(light_entity.getWorldTransformMatrix(), scale, rotation, position, skew, persp);
-
 
 		if (light.getType() == LIGHT_TYPE_POINT)
 		{
@@ -137,10 +137,6 @@ void ShadowRenderer::addShadowMapPasses(FrameGraph &fg, const eastl::vector<Rend
 		{
 			FrameGraphResource shadow_map_resource = importTexture(fg, light.shadow_map);
 
-			glm::vec3 light_dir = light_entity.getLocalDirection(glm::vec3(0, 0, 1));
-			debug_renderer->addArrow(position, position + light_dir, 0.1);
-			update_cascades(light, light_dir);
-
 			cs_pass = fg.addCallbackPass<CascadeShadowPass>("Cascaded Shadows Pass",
 			[&](RenderPassBuilder &builder, CascadeShadowPass &data)
 			{
@@ -207,9 +203,9 @@ void ShadowRenderer::addShadowMapPasses(FrameGraph &fg, const eastl::vector<Rend
 	}
 }
 
-void ShadowRenderer::addRayTracedShadowPasses(FrameGraph & fg)
+void ShadowRenderer::addRayTracedShadowPasses(FrameGraph & fg, Ref<RayTracingScene> rt_scene)
 {
-	if (!ray_tracing_scene || !ray_tracing_scene->getTopLevelAS())
+	if (!rt_scene || !rt_scene->getTopLevelAS())
 		return;
 
 	RayTracedShadowPass &shadow_pass = fg.getBlackboard().add<RayTracedShadowPass>();
@@ -273,7 +269,7 @@ void ShadowRenderer::addRayTracedShadowPasses(FrameGraph & fg)
 		gDynamicRHI->setConstantBufferData(1, &ubo_light, sizeof(LightUBO));
 
 		gDynamicRHI->setUAVTexture(0, ray_traced_lighting);
-		gDynamicRHI->setAccelerationStructure(2, ray_tracing_scene->getTopLevelAS());
+		gDynamicRHI->setAccelerationStructure(2, rt_scene->getTopLevelAS());
 
 		cmd_list->dispatchRays(Renderer::getViewportSize().x, Renderer::getViewportSize().y, 1);
 
@@ -281,7 +277,27 @@ void ShadowRenderer::addRayTracedShadowPasses(FrameGraph & fg)
 	});
 }
 
-void ShadowRenderer::update_cascades(LightComponent &light, glm::vec3 light_dir)
+void ShadowRenderer::updateShadows(Camera *camera)
+{
+	auto components = Scene::getCurrentScene()->getEntitiesWith<TransformComponent, LightComponent>();
+
+	for (auto &&[entity, transform, light] : components.each())
+	{
+		if (light.getType() == LIGHT_TYPE_DIRECTIONAL)
+		{
+			glm::vec3 scale, position, skew;
+			glm::vec4 persp;
+			glm::quat rotation;
+			glm::decompose(transform.getWorldTransform(), scale, rotation, position, skew, persp);
+
+			glm::vec3 light_dir = transform.getLocalDirection(glm::vec3(0, 0, 1));
+			debug_renderer->addArrow(position, position + light_dir, 0.1);
+			update_cascades(light, light_dir, camera);
+		}
+	}
+}
+
+void ShadowRenderer::update_cascades(LightComponent &light, glm::vec3 light_dir, Camera *camera)
 {
 	float cascadeSplits[SHADOW_MAP_CASCADE_COUNT];
 

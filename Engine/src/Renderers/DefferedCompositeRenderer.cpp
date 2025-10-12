@@ -121,7 +121,15 @@ void DefferedCompositeRenderer::addPasses(FrameGraph &fg)
 	{
 		// Setup
 		data = default_data;
-		data.final_no_post = builder.write(default_data.final_no_post);
+
+		FrameGraphTexture::Description desc;
+		desc.width = Renderer::getViewportSize().x;
+		desc.height = Renderer::getViewportSize().y;
+		desc.format = FORMAT_R32G32B32A32_SFLOAT;
+		desc.usage_flags = TEXTURE_USAGE_ATTACHMENT;
+
+		data.final_no_post = builder.createTexture("No Post Final Image", desc);
+		data.final_no_post = builder.write(data.final_no_post);
 
 		builder.read(composite_data.composite_indirect_ambient);
 		builder.read(composite_data.composite_indirect_specular);
@@ -135,7 +143,7 @@ void DefferedCompositeRenderer::addPasses(FrameGraph &fg)
 		// Render
 		auto &composite = resources.getResource<FrameGraphTexture>(data.final_no_post);
 
-		cmd_list->setRenderTargets({composite.texture}, nullptr, -1, 0, false);
+		cmd_list->setRenderTargets({composite.texture}, nullptr, -1, 0, true);
 
 		struct UBO
 		{

@@ -10,8 +10,8 @@ PrefilterRenderer::PrefilterRenderer(): RendererBase()
 	compute_shader = gDynamicRHI->createShader(L"shaders/ibl/prefilter.hlsl", COMPUTE_SHADER);
 
 	TextureDescription desc;
-	desc.width = 1024;
-	desc.height = 1024;
+	desc.width = 512;
+	desc.height = 512;
 	desc.is_cube = true;
 	desc.mip_levels = 5;
 	desc.format = FORMAT_R32G32B32A32_SFLOAT;
@@ -23,7 +23,7 @@ PrefilterRenderer::PrefilterRenderer(): RendererBase()
 	gDynamicRHI->getBindlessResources()->addTexture(prefilter_texture);
 }
 
-void PrefilterRenderer::addPass(FrameGraph &fg)
+void PrefilterRenderer::addPass(FrameGraph &fg, uint32_t samples_count)
 {
 	SkyData &sky_data = fg.getBlackboard().get<SkyData>();
 	IBLData &ibl_data = fg.getBlackboard().get<IBLData>();
@@ -45,6 +45,7 @@ void PrefilterRenderer::addPass(FrameGraph &fg)
 
 		constants_frag.input_tex_id = sky.getBindlessId();
 		constants_frag.mip_count = MIP_COUNT;
+		constants_frag.samples_count = samples_count;
 
 		for (int mip = 0; mip < MIP_COUNT; mip++)
 		{

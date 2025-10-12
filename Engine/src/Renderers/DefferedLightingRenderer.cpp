@@ -95,8 +95,8 @@ void DefferedLightingRenderer::renderLights(FrameGraph &fg)
 
 		p->setRenderTargets(cmd_list->getCurrentRenderTargets());
 		p->setUseBlending(true);
-		p->setBlendMode(VK_BLEND_FACTOR_ONE, VK_BLEND_FACTOR_ONE, VK_BLEND_OP_ADD,
-						VK_BLEND_FACTOR_ONE, VK_BLEND_FACTOR_ONE, VK_BLEND_OP_ADD);
+		p->setBlendMode(BLEND_ONE, BLEND_ONE, BLEND_OP_ADD,
+						BLEND_ONE, BLEND_ONE, BLEND_OP_ADD);
 		p->setDepthTest(false);
 		p->setCullMode(CULL_MODE_FRONT);
 

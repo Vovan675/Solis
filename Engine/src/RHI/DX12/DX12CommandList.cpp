@@ -43,7 +43,7 @@ void DX12CommandList::setRenderTargets(const eastl::vector<RHITexture *> &color_
 		rtvs.push_back(texture->getRenderTargetView(mip, layer).getCpuHandle());
 	
 		if (clear)
-			cmd_list->ClearRenderTargetView(texture->render_target_view.getCpuHandle(), clearColor, 0, nullptr);
+			cmd_list->ClearRenderTargetView(rtvs.back(), clearColor, 0, nullptr);
 	}
 
 	D3D12_CPU_DESCRIPTOR_HANDLE depth_stencil;

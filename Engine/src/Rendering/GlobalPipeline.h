@@ -24,9 +24,11 @@ public:
 	void setVertexInputsDescription(VertexInputsDescription desc) { current_description.vertex_inputs_descriptions = desc; }
 
 	void setUseBlending(bool use_blending) { current_description.use_blending = use_blending; }
-	void setBlendMode(VkBlendFactor srcColorBlendFactor, VkBlendFactor dstColorBlendFactor, VkBlendOp colorBlendOp,
-					  VkBlendFactor srcAlphaBlendFactor, VkBlendFactor dstAlphaBlendFactor, VkBlendOp alphaBlendOp);
+	void setBlendMode(Blend src_color_blend, Blend dst_color_blend, BlendOp color_blend_op,
+					  Blend src_alpha_blend, Blend dst_alpha_blend, BlendOp alpha_blend_op);
 	void setDepthTest(bool depth_test) { current_description.use_depth_test = depth_test; }
+	void setDepthWrite(bool depth_write) { current_description.use_depth_write = depth_write; }
+	void setDepthFunc(CompareFunc func) { current_description.depth_compare_func = func; }
 
 	void setCullMode(CullMode cull_mode) { current_description.cull_mode = cull_mode; }
 	void setPrimitiveTopology(Topology topology) { current_description.primitive_topology = topology; }

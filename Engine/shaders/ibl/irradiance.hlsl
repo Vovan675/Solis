@@ -4,6 +4,7 @@
 cbuffer Constants : register(b0)
 {
     uint input_tex_id;
+    uint samples_count;
 }
 
 RWTexture2DArray<float4> output_texture : register(u1);
@@ -37,7 +38,6 @@ void CSMain(uint3 dispatchID : SV_DispatchThreadID) {
     ComputeBasis(N, up, right);
 
     float3 irradiance = float3(0.0, 0.0, 0.0);
-    int samples_count = 4096;
 
     for (int i = 0; i < samples_count; i++) {
         float2 Xi = Hammersley(i, samples_count);

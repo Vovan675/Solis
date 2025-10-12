@@ -16,6 +16,9 @@ SkyRenderer::SkyRenderer(): RendererBase()
 
 	vertex_shader = gDynamicRHI->createShader(L"shaders/cube.hlsl", VERTEX_SHADER);
 	fragment_shader = gDynamicRHI->createShader(L"shaders/cube.hlsl", FRAGMENT_SHADER);
+
+	vertex_procedural_shader = gDynamicRHI->createShader(L"shaders/procedural_sky.hlsl", VERTEX_SHADER);
+	fragment_procedural_shader = gDynamicRHI->createShader(L"shaders/procedural_sky.hlsl", FRAGMENT_SHADER);
 }
 
 void SkyRenderer::addProceduralPasses(FrameGraph &fg)
@@ -41,47 +44,38 @@ void SkyRenderer::addProceduralPasses(FrameGraph &fg)
 	},
 	[=](const SkyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		/*
-		auto &sky_texture = resources.getResource<FrameGraphTexture>(data.sky);
+		FrameGraphTexture &sky = resources.getResource<FrameGraphTexture>(data.sky);
+
+		auto &p = gGlobalPipeline;
 
 		for (int face = 0; face < 6; face++)
 		{
-			VkWrapper::cmdBeginRendering(command_buffer, {sky_texture.texture}, nullptr, face, 0, true);
-			auto &p = VkWrapper::global_pipeline;
+			cmd_list->setRenderTargets({sky.texture}, nullptr, face, 0, true);
+
 			p->reset();
+			p->setVertexShader(vertex_procedural_shader);
+			p->setFragmentShader(fragment_procedural_shader);
+			p->setUseBlending(false);
+			p->setCullMode(CULL_MODE_FRONT);
+			p->setVertexInputsDescription(Engine::Vertex::GetVertexInputsDescription());
 
-			p->setVertexShader(gDynamicRHI->createShader(L"shaders/ibl/cubemap_filter.vert", VERTEX_SHADER));
-			p->setFragmentShader(gDynamicRHI->createShader(L"shaders/procedural_sky.frag", FRAGMENT_SHADER));
-
-			p->setRenderTargets(VkWrapper::current_render_targets);
-			p->setCullMode(VK_CULL_MODE_BACK_BIT);
 			p->setDepthTest(false);
 
+			p->setRenderTargets(cmd_list->getCurrentRenderTargets());
 			p->flush();
-			p->bind(command_buffer);
+			p->bind(cmd_list);
 
-			// Uniforms
-			Renderer::setShadersUniformBuffer(p->getCurrentShaders(), 0, &procedural_uniforms, sizeof(Uniforms));
-			Renderer::bindShadersDescriptorSets(p->getCurrentShaders(), command_buffer, p->getPipelineLayout());
+			procedural_uniforms.mvp = glm::perspectiveLH(glm::radians(90.0f), 1.0f, 0.01f, 512.0f) * Math::getCubeFaceTransform(face);
+			gDynamicRHI->setConstantBufferData(0, &procedural_uniforms, sizeof(procedural_uniforms));
 
-			struct PushConstant
-			{
-				glm::mat4 mvp = glm::mat4(1.0f);
-			} constants;
-			constants.mvp = glm::perspectiveLH(glm::radians(90.0f), 1.0f, 0.01f, 512.0f) * Math::getCubeFaceTransform(face);
-			vkCmdPushConstants(command_buffer.get_buffer(), p->getPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PushConstant), &constants);
+			cmd_list->setVertexBuffer(mesh->vertexBuffer);
+			cmd_list->setIndexBuffer(mesh->indexBuffer);
+			cmd_list->drawIndexedInstanced(mesh->indices.size(), 1, 0, 0, 0);
 
-			// Render mesh
-			// TODO: fix
-			/*
-			VkBuffer vertexBuffers[] = {mesh->vertexBuffer->buffer_handle};
-			VkDeviceSize offsets[] = {0};
-			vkCmdBindVertexBuffers(command_buffer.get_buffer(), 0, 1, vertexBuffers, offsets);
-			vkCmdBindIndexBuffer(command_buffer.get_buffer(), mesh->indexBuffer->buffer_handle, 0, VK_INDEX_TYPE_UINT32);
-			vkCmdDrawIndexed(command_buffer.get_buffer(), mesh->indices.size(), 1, 0, 0, 0);
-			*/
-			//p->unbind(command_buffer);
-		//}
+			p->unbind(cmd_list);
+			cmd_list->resetRenderTargets();
+		}
+
 	});
 
 }
@@ -94,6 +88,7 @@ void SkyRenderer::addCompositePasses(FrameGraph &fg)
 
 	auto &sky_data = fg.getBlackboard().get<SkyData>();
 	auto &default_data = fg.getBlackboard().get<DefaultResourcesData>();
+	auto &gbuffer_data = fg.getBlackboard().get<GBufferData>();
 
 	is_force_dirty = false;
 	default_data = fg.addCallbackPass<DefaultResourcesData>("Sky Pass",
@@ -103,23 +98,18 @@ void SkyRenderer::addCompositePasses(FrameGraph &fg)
 		// Setup
 		data = default_data;
 
-		FrameGraphTexture::Description desc;
-		desc.width = Renderer::getViewportSize().x;
-		desc.height = Renderer::getViewportSize().y;
-		desc.format = FORMAT_R32G32B32A32_SFLOAT;
-		desc.usage_flags = TEXTURE_USAGE_ATTACHMENT;
-
-		data.final_no_post = builder.createTexture("No Post Final Image", desc);
 		data.final_no_post = builder.write(data.final_no_post);
 		builder.read(sky_data.sky);
+		builder.write(gbuffer_data.depth);
 	},
 	[=](const DefaultResourcesData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
 		// Render
 		auto &composite = resources.getResource<FrameGraphTexture>(data.final_no_post);
 		auto &sky = resources.getResource<FrameGraphTexture>(sky_data.sky);
+		auto &depth = resources.getResource<FrameGraphTexture>(gbuffer_data.depth);
 
-		cmd_list->setRenderTargets({composite.texture}, {}, 0, 0, true);
+		cmd_list->setRenderTargets({composite.texture}, depth.texture, 0, 0, false);
 
 		// PSO
 		gGlobalPipeline->reset();
@@ -128,6 +118,9 @@ void SkyRenderer::addCompositePasses(FrameGraph &fg)
 		gGlobalPipeline->setUseBlending(false);
 		gGlobalPipeline->setCullMode(CULL_MODE_FRONT);
 		gGlobalPipeline->setVertexInputsDescription(Engine::Vertex::GetVertexInputsDescription());
+
+		gGlobalPipeline->setDepthWrite(false);
+		gGlobalPipeline->setDepthFunc(COMPARE_FUNC_LESS_EQUAL);
 
 		gGlobalPipeline->setRenderTargets(cmd_list->getCurrentRenderTargets());
 		gGlobalPipeline->flush();
@@ -178,6 +171,7 @@ bool SkyRenderer::isDirty()
 {
 	if (mode != SKY_MODE_PROCEDURAL)
 		return false;
+	return true;
 	bool dirty = is_force_dirty;
 	if (prev_uniform.sun_direction != procedural_uniforms.sun_direction)
 		dirty = true;

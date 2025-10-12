@@ -28,8 +28,12 @@ public:
 	void setScene(Ref<Scene> scene);
 	void render(Camera *camera, RHITextureRef result_texture);
 
+	Ref<RayTracingScene> getCurrentRayTracingScene() const { return rt_scene; }
+
 public:
 	friend class EditorApplication;
+
+	void update(Camera *camera);
 
 	Ref<Scene> scene;
 	Ref<RayTracingScene> rt_scene;

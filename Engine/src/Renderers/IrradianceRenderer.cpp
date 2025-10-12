@@ -23,7 +23,7 @@ IrradianceRenderer::IrradianceRenderer(): RendererBase()
 	gDynamicRHI->getBindlessResources()->addTexture(irradiance_texture);
 }
 
-void IrradianceRenderer::addPass(FrameGraph &fg)
+void IrradianceRenderer::addPass(FrameGraph &fg, uint32_t samples_count)
 {
 	SkyData &sky_data = fg.getBlackboard().get<SkyData>();
 	IBLData &ibl_data = fg.getBlackboard().get<IBLData>();
@@ -54,8 +54,10 @@ void IrradianceRenderer::addPass(FrameGraph &fg)
 		struct Constants
 		{
 			uint32_t input_tex_id;
+			uint32_t samples_count;
 		} constants;
 		constants.input_tex_id = sky.getBindlessId();
+		constants.samples_count = samples_count;
 
 		gDynamicRHI->setUAVTexture(1, irradiance.texture);
 		gDynamicRHI->setConstantBufferData(0, &constants, sizeof(constants));

@@ -22,6 +22,46 @@ enum Topology
 	TOPOLOGY_TRIANGLE_STRIP
 };
 
+enum CompareFunc
+{
+	COMPARE_FUNC_NEVER,
+	COMPARE_FUNC_LESS,
+	COMPARE_FUNC_EQUAL,
+	COMPARE_FUNC_LESS_EQUAL,
+	COMPARE_FUNC_GREATER,
+	COMPARE_FUNC_NOT_EQUAL,
+	COMPARE_FUNC_GREATER_EQUAL,
+	COMPARE_FUNC_ALWAYS
+};
+
+enum Blend
+{
+	BLEND_ZERO,
+	BLEND_ONE,
+	BLEND_SRC_COLOR,
+	BLEND_ONE_MINUS_SRC_COLOR,
+	BLEND_DST_COLOR,
+	BLEND_ONE_MINUS_DST_COLOR,
+	BLEND_SRC_ALPHA,
+	BLEND_ONE_MINUS_SRC_ALPHA,
+	BLEND_DST_ALPHA,
+	BLEND_ONE_MINUS_DST_ALPHA,
+	BLEND_SRC_ALPHA_SATURATE,
+	BLEND_SRC1_COLOR,
+	BLEND_ONE_MINUS_SRC1_COLOR,
+	BLEND_SRC1_ALPHA,
+	BLEND_ONE_MINUS_SRC1_ALPHA
+};
+
+enum BlendOp
+{
+	BLEND_OP_ADD,
+	BLEND_OP_SUBTRACT,
+	BLEND_OP_REV_SUBTRACT,
+	BLEND_OP_MIN,
+	BLEND_OP_MAX
+};
+
 struct VertexInputsDescription
 {
 	struct VertexInput
@@ -56,13 +96,15 @@ struct PipelineDescription
 	eastl::vector<VkPushConstantRange> push_constant_ranges {};
 	Format depth_format = FORMAT_UNDEFINED;
 	bool use_depth_test = true;
+	bool use_depth_write = true;
+	CompareFunc depth_compare_func = COMPARE_FUNC_LESS;
 	bool use_blending = true;
-	VkBlendFactor srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-	VkBlendFactor dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-	VkBlendOp colorBlendOp = VK_BLEND_OP_ADD;
-	VkBlendFactor srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-	VkBlendFactor dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-	VkBlendOp alphaBlendOp = VK_BLEND_OP_ADD;
+	Blend src_color_blend = BLEND_SRC_ALPHA;
+	Blend dst_color_blend = BLEND_ONE_MINUS_SRC_ALPHA;
+	BlendOp color_blend_op = BLEND_OP_ADD;
+	Blend src_alpha_blend = BLEND_ONE_MINUS_SRC_ALPHA;
+	Blend dst_alpha_blend = BLEND_ONE_MINUS_SRC_ALPHA;
+	BlendOp alpha_blend_op = BLEND_OP_ADD;
 	CullMode cull_mode = CULL_MODE_BACK;
 	Topology primitive_topology = TOPOLOGY_TRIANGLE_LIST;
 
@@ -105,6 +147,8 @@ struct PipelineDescription
 
 		hash_combine(hash, depth_format);
 		hash_combine(hash, use_depth_test);
+		hash_combine(hash, use_depth_write);
+		hash_combine(hash, depth_compare_func);
 		hash_combine(hash, use_blending);
 		hash_combine(hash, cull_mode);
 		hash_combine(hash, primitive_topology);

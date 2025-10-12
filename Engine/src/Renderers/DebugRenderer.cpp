@@ -2,6 +2,7 @@
 #include "DebugRenderer.h"
 #include "RHI/BindlessResources.h"
 #include "Rendering/Renderer.h"
+#include "Core/Variables.h"
 
 DebugRenderer::DebugRenderer()
 {
@@ -42,115 +43,9 @@ DebugRenderer::~DebugRenderer()
 
 void DebugRenderer::addPasses(FrameGraph &fg)
 {
-	auto &gbuffer_data = fg.getBlackboard().get<GBufferData>();
-	auto &lighting_data = fg.getBlackboard().get<DeferredLightingData>();
-	auto *ssao_data = fg.getBlackboard().tryGet<SSAOData>();
-	auto &composite_data = fg.getBlackboard().get<CompositeData>();
-	auto &lut_data = fg.getBlackboard().get<LutData>();
-	auto *ray_tracing_shadows_data = fg.getBlackboard().tryGet<RayTracedShadowPass>();
-
-	auto &default_data = fg.getBlackboard().get<DefaultResourcesData>();
-
-	default_data = fg.addCallbackPass<DefaultResourcesData>("Debug Pass",
-	[&](RenderPassBuilder &builder, DefaultResourcesData &data)
-	{
-		// Setup
-		data = default_data;
-		data.final = builder.write(default_data.final);
-
-		builder.read(gbuffer_data.albedo);
-		builder.read(gbuffer_data.normal);
-		builder.read(gbuffer_data.depth);
-		builder.read(gbuffer_data.shading);
-		builder.read(lighting_data.diffuse_light);
-		builder.read(lighting_data.specular_light);
-		builder.read(lut_data.brdf_lut);
-		builder.read(ssao_data->ssao_blurred);
-		builder.read(default_data.final_no_post);
-		if (ray_tracing_shadows_data)
-			builder.read(ray_tracing_shadows_data->visibility);
-	},
-	[=](const DefaultResourcesData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
-	{
-		// Render
-		auto &final = resources.getResource<FrameGraphTexture>(data.final);
-
-		cmd_list->setRenderTargets({final.texture}, nullptr, -1, 0, true);
-
-		ubo.albedo_tex_id = resources.getResource<FrameGraphTexture>(gbuffer_data.albedo).getBindlessId();
-		ubo.shading_tex_id = resources.getResource<FrameGraphTexture>(gbuffer_data.shading).getBindlessId();
-		ubo.normal_tex_id = resources.getResource<FrameGraphTexture>(gbuffer_data.normal).getBindlessId();
-		ubo.depth_tex_id = resources.getResource<FrameGraphTexture>(gbuffer_data.depth).getBindlessId();
-		ubo.light_diffuse_id = resources.getResource<FrameGraphTexture>(lighting_data.diffuse_light).getBindlessId();
-		ubo.light_specular_id = resources.getResource<FrameGraphTexture>(lighting_data.specular_light).getBindlessId();
-		ubo.brdf_lut_id = resources.getResource<FrameGraphTexture>(lut_data.brdf_lut).getBindlessId();
-		ubo.ssao_id = resources.getResource<FrameGraphTexture>(ssao_data->ssao_blurred).getBindlessId();
-		ubo.composite_final_tex_id = resources.getResource<FrameGraphTexture>(data.final_no_post).getBindlessId();
-
-		if (ray_tracing_shadows_data)
-			ubo.light_diffuse_id = resources.getResource<FrameGraphTexture>(ray_tracing_shadows_data->visibility).getBindlessId();
-
-		auto &p = gGlobalPipeline;
-		p->bindScreenQuadPipeline(cmd_list, gDynamicRHI->createShader(L"shaders/debug_quad.hlsl", FRAGMENT_SHADER));
-
-		// Uniforms
-		gDynamicRHI->setConstantBufferData(0, &ubo, sizeof(PresentUBO));
-
-		// Render quad
-		cmd_list->drawInstanced(6, 1, 0, 0);
-
-		p->unbind(cmd_list);
-		cmd_list->resetRenderTargets();
-	});
-}
-
-void DebugRenderer::renderLines(FrameGraph &fg)
-{
-	auto &default_data = fg.getBlackboard().get<DefaultResourcesData>();
-	default_data = fg.addCallbackPass<DefaultResourcesData>("Debug Visualizer Pass",
-	[&](RenderPassBuilder &builder, DefaultResourcesData &data)
-	{
-		// Setup
-		data = default_data;
-		data.final = builder.write(default_data.final);
-		builder.setSideEffect(true);
-	},
-	[=](const DefaultResourcesData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
-	{
-		// Render
-		auto &final = resources.getResource<FrameGraphTexture>(data.final);
-
-		cmd_list->setRenderTargets({final.texture}, nullptr, -1, 0, false);
-
-		auto &p = gGlobalPipeline;
-		p->reset();
-
-		p->setVertexShader(vertex_shader_lines);
-		p->setFragmentShader(fragment_shader_lines);
-
-		p->setRenderTargets(cmd_list->getCurrentRenderTargets());
-
-		VertexInputsDescription input_desc;
-		input_desc.inputs.push_back({"POSITION", 0, FORMAT_R32G32B32A32_SFLOAT});
-		input_desc.inputs.push_back({"COLOR", 0, FORMAT_R32G32B32_SFLOAT});
-		p->setVertexInputsDescription(input_desc);
-
-		p->setUseBlending(false);
-		p->setPrimitiveTopology(TOPOLOGY_LINE_LIST);
-		p->setDepthTest(false);
-		p->setCullMode(CULL_MODE_NONE);
-
-		p->flush();
-		p->bind(cmd_list);
-
-		cmd_list->setVertexBuffer(lines_vertex_buffer);
-		cmd_list->setIndexBuffer(lines_index_buffer);
-		cmd_list->drawIndexedInstanced(lines_index_count, 1, 0, 0, 0);
-		p->unbind(cmd_list);
-		cmd_list->resetRenderTargets();
-
-		lines_index_count = 0;
-	});
+	addVisualizerPass(fg);
+	if (render_debug_rendering)
+		addTextureDebugPass(fg);
 }
 
 void DebugRenderer::addBox(glm::vec3 half_extents, glm::mat4 transform)
@@ -302,4 +197,117 @@ void DebugRenderer::addArrow(glm::vec3 p0, glm::vec3 p1, float arrow_size)
 	addLine(p1, arrowhead_point2);
 	addLine(p1, arrowhead_point3);
 	addLine(p1, arrowhead_point4);
+}
+
+void DebugRenderer::addTextureDebugPass(FrameGraph &fg)
+{
+	auto &gbuffer_data = fg.getBlackboard().get<GBufferData>();
+	auto &lighting_data = fg.getBlackboard().get<DeferredLightingData>();
+	auto *ssao_data = fg.getBlackboard().tryGet<SSAOData>();
+	auto &composite_data = fg.getBlackboard().get<CompositeData>();
+	auto &lut_data = fg.getBlackboard().get<LutData>();
+	auto *ray_tracing_shadows_data = fg.getBlackboard().tryGet<RayTracedShadowPass>();
+
+	auto &default_data = fg.getBlackboard().get<DefaultResourcesData>();
+
+	default_data = fg.addCallbackPass<DefaultResourcesData>("Debug Pass",
+	[&](RenderPassBuilder &builder, DefaultResourcesData &data)
+	{
+		// Setup
+		data = default_data;
+		data.final = builder.write(default_data.final);
+
+		builder.read(gbuffer_data.albedo);
+		builder.read(gbuffer_data.normal);
+		builder.read(gbuffer_data.depth);
+		builder.read(gbuffer_data.shading);
+		builder.read(lighting_data.diffuse_light);
+		builder.read(lighting_data.specular_light);
+		builder.read(lut_data.brdf_lut);
+		builder.read(ssao_data->ssao_blurred);
+		builder.read(default_data.final_no_post);
+		if (ray_tracing_shadows_data)
+			builder.read(ray_tracing_shadows_data->visibility);
+	},
+	[=](const DefaultResourcesData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
+	{
+		// Render
+		auto &final = resources.getResource<FrameGraphTexture>(data.final);
+
+		cmd_list->setRenderTargets({final.texture}, nullptr, -1, 0, true);
+
+		ubo.albedo_tex_id = resources.getResource<FrameGraphTexture>(gbuffer_data.albedo).getBindlessId();
+		ubo.shading_tex_id = resources.getResource<FrameGraphTexture>(gbuffer_data.shading).getBindlessId();
+		ubo.normal_tex_id = resources.getResource<FrameGraphTexture>(gbuffer_data.normal).getBindlessId();
+		ubo.depth_tex_id = resources.getResource<FrameGraphTexture>(gbuffer_data.depth).getBindlessId();
+		ubo.light_diffuse_id = resources.getResource<FrameGraphTexture>(lighting_data.diffuse_light).getBindlessId();
+		ubo.light_specular_id = resources.getResource<FrameGraphTexture>(lighting_data.specular_light).getBindlessId();
+		ubo.brdf_lut_id = resources.getResource<FrameGraphTexture>(lut_data.brdf_lut).getBindlessId();
+		ubo.ssao_id = resources.getResource<FrameGraphTexture>(ssao_data->ssao_blurred).getBindlessId();
+		ubo.composite_final_tex_id = resources.getResource<FrameGraphTexture>(data.final_no_post).getBindlessId();
+
+		if (ray_tracing_shadows_data)
+			ubo.light_diffuse_id = resources.getResource<FrameGraphTexture>(ray_tracing_shadows_data->visibility).getBindlessId();
+
+		auto &p = gGlobalPipeline;
+		p->bindScreenQuadPipeline(cmd_list, gDynamicRHI->createShader(L"shaders/debug_quad.hlsl", FRAGMENT_SHADER));
+
+		// Uniforms
+		gDynamicRHI->setConstantBufferData(0, &ubo, sizeof(PresentUBO));
+
+		// Render quad
+		cmd_list->drawInstanced(6, 1, 0, 0);
+
+		p->unbind(cmd_list);
+		cmd_list->resetRenderTargets();
+	});
+}
+
+void DebugRenderer::addVisualizerPass(FrameGraph & fg)
+{
+	auto &default_data = fg.getBlackboard().get<DefaultResourcesData>();
+	default_data = fg.addCallbackPass<DefaultResourcesData>("Debug Visualizer Pass",
+	[&](RenderPassBuilder &builder, DefaultResourcesData &data)
+	{
+		// Setup
+		data = default_data;
+		data.final = builder.write(default_data.final);
+		builder.setSideEffect(true);
+	},
+	[=](const DefaultResourcesData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
+	{
+		// Render
+		auto &final = resources.getResource<FrameGraphTexture>(data.final);
+
+		cmd_list->setRenderTargets({final.texture}, nullptr, -1, 0, false);
+
+		auto &p = gGlobalPipeline;
+		p->reset();
+
+		p->setVertexShader(vertex_shader_lines);
+		p->setFragmentShader(fragment_shader_lines);
+
+		p->setRenderTargets(cmd_list->getCurrentRenderTargets());
+
+		VertexInputsDescription input_desc;
+		input_desc.inputs.push_back({"POSITION", 0, FORMAT_R32G32B32A32_SFLOAT});
+		input_desc.inputs.push_back({"COLOR", 0, FORMAT_R32G32B32_SFLOAT});
+		p->setVertexInputsDescription(input_desc);
+
+		p->setUseBlending(false);
+		p->setPrimitiveTopology(TOPOLOGY_LINE_LIST);
+		p->setDepthTest(false);
+		p->setCullMode(CULL_MODE_NONE);
+
+		p->flush();
+		p->bind(cmd_list);
+
+		cmd_list->setVertexBuffer(lines_vertex_buffer);
+		cmd_list->setIndexBuffer(lines_index_buffer);
+		cmd_list->drawIndexedInstanced(lines_index_count, 1, 0, 0, 0);
+		p->unbind(cmd_list);
+		cmd_list->resetRenderTargets();
+
+		lines_index_count = 0;
+	});
 }

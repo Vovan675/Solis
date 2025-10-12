@@ -12,16 +12,15 @@ public:
 	ShadowRenderer();
 
 	void addShadowMapPasses(FrameGraph &fg, const eastl::vector<RenderBatch> &batches);
-	void addRayTracedShadowPasses(FrameGraph &fg);
+	void addRayTracedShadowPasses(FrameGraph &fg, Ref<RayTracingScene> rt_scene);
 
 	// TODO: remove from it, do itsomehow else
 	DebugRenderer *debug_renderer;
-	EntityRenderer *entity_renderer;
-	Camera *camera;
 	Ref<RayTracingScene> ray_tracing_scene;
 
+	void updateShadows(Camera *camera);
 private:
-	void update_cascades(LightComponent &light, glm::vec3 light_dir);
+	void update_cascades(LightComponent &light, glm::vec3 light_dir, Camera *camera);
 
 private:
 	RHIShaderRef shadows_vertex_shader;

@@ -5,6 +5,7 @@ cbuffer Constants : register(b0)
     uint input_tex_id;
     float roughness;
     uint mip_count;
+    uint samples_count;
 }
 
 RWTexture2DArray<float4> output_texture : register(u1);
@@ -52,13 +53,12 @@ float3 prefilterEnvMap(float3 R, float roughness)
 {
     const float3 N = normalize(R);
     float3 V = R;
-    const uint SAMPLES_COUNT = 4096u;
     float total_weight = 0.0;
     float3 prefiltered_color = float3(0, 0, 0);
     
-    for (uint i = 0u; i < SAMPLES_COUNT; i++)
+    for (uint i = 0u; i < samples_count; i++)
     {
-        float2 Xi = Hammersley(i, SAMPLES_COUNT);
+        float2 Xi = Hammersley(i, samples_count);
         float3 H = ImportanceSampleGGX(Xi, N, roughness);
         float3 L = normalize(2.0 * dot(V, H) * H - V);
         
@@ -73,7 +73,7 @@ float3 prefilterEnvMap(float3 R, float roughness)
             input_texture.GetDimensions(width, height);
 
             float saTexel  = 4.0 * PI / (6.0 * width * width);
-            float saSample = 1.0 / (float(SAMPLES_COUNT) * pdf + 0.0001);
+            float saSample = 1.0 / (float(samples_count) * pdf + 0.0001);
             float mip_level = roughness == 0.0 ? 0.0 : 0.5 * log2(saSample / saTexel); 
             
             prefiltered_color += input_texture.SampleLevel(linear_wrap_sampler, L, mip_level).rgb * NdotL;

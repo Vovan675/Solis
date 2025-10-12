@@ -30,6 +30,7 @@ public:
 	struct Uniforms
 	{
 		glm::vec3 sun_direction = glm::vec3(1, 0.7, 0);
+		glm::mat4 mvp;
 	} procedural_uniforms;
 
 	RHITextureRef cube_texture;
@@ -38,6 +39,8 @@ private:
 
 	RHIShaderRef vertex_shader;
 	RHIShaderRef fragment_shader;
+	RHIShaderRef vertex_procedural_shader;
+	RHIShaderRef fragment_procedural_shader;
 
 	Engine::Mesh *mesh;
 	SKY_MODE mode;

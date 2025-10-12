@@ -28,7 +28,6 @@ public:
 	virtual ~DebugRenderer();
 
 	void addPasses(FrameGraph &fg);
-	void renderLines(FrameGraph &fg);
 
 	void addLine(glm::vec3 p0, glm::vec3 p1)
 	{
@@ -44,6 +43,9 @@ public:
 	eastl::vector<glm::vec3> addCirlce(glm::vec3 center, glm::vec3 normal, float radius, int segments);
 	void addArrow(glm::vec3 p0, glm::vec3 p1, float arrow_size);
 private:
+	void addTextureDebugPass(FrameGraph &fg);
+	void addVisualizerPass(FrameGraph &fg);
+
 	RHIShaderRef vertex_shader_lines;
 	RHIShaderRef fragment_shader_lines;
 

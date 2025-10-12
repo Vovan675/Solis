@@ -68,6 +68,15 @@ public:
 		Scene::propagate_local_transforms_update(owner);
 	}
 
+	glm::vec3 getLocalDirection(glm::vec3 direction)
+	{
+		glm::vec3 scale, position, skew;
+		glm::vec4 persp;
+		glm::quat rotation;
+		glm::decompose(world_transform, scale, rotation, position, skew, persp);
+		return normalize(rotation * direction);
+	}
+
 	glm::mat4 getLocalTransform() const
 	{
 		return glm::translate(glm::mat4(1.0f), local_position) * glm::toMat4(local_rotation) * glm::scale(glm::mat4(1.0f), local_scale);

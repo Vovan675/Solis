@@ -48,14 +48,15 @@ void GlobalPipeline::flush()
 	current_pipeline = new_pipeline;
 }
 
-void GlobalPipeline::setBlendMode(VkBlendFactor srcColorBlendFactor, VkBlendFactor dstColorBlendFactor, VkBlendOp colorBlendOp, VkBlendFactor srcAlphaBlendFactor, VkBlendFactor dstAlphaBlendFactor, VkBlendOp alphaBlendOp)
+void GlobalPipeline::setBlendMode(Blend src_color_blend, Blend dst_color_blend, BlendOp color_blend_op,
+								  Blend src_alpha_blend, Blend dst_alpha_blend, BlendOp alpha_blend_op)
 {
-	current_description.srcColorBlendFactor = srcColorBlendFactor;
-	current_description.dstColorBlendFactor = dstColorBlendFactor;
-	current_description.colorBlendOp = colorBlendOp;
-	current_description.srcAlphaBlendFactor = srcAlphaBlendFactor;
-	current_description.dstAlphaBlendFactor = dstAlphaBlendFactor;
-	current_description.alphaBlendOp = alphaBlendOp;
+	current_description.src_color_blend = src_alpha_blend;
+	current_description.dst_color_blend = dst_alpha_blend;
+	current_description.color_blend_op = color_blend_op;
+	current_description.src_alpha_blend = src_alpha_blend;
+	current_description.dst_alpha_blend = dst_alpha_blend;
+	current_description.alpha_blend_op = alpha_blend_op;
 }
 
 eastl::vector<RHIShaderRef> GlobalPipeline::getCurrentShaders()

@@ -280,21 +280,56 @@ void VulkanPipeline::create(const PipelineDescription &description)
 		multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 
 		// Color blend state
+		auto getBlend = [](Blend blend)
+		{
+			switch (blend)
+			{
+				case BLEND_ZERO: return VK_BLEND_FACTOR_ZERO;
+				case BLEND_ONE: return VK_BLEND_FACTOR_ONE;
+				case BLEND_SRC_COLOR: return VK_BLEND_FACTOR_SRC_COLOR;
+				case BLEND_ONE_MINUS_SRC_COLOR: return VK_BLEND_FACTOR_ONE_MINUS_SRC_COLOR;
+				case BLEND_DST_COLOR: return VK_BLEND_FACTOR_DST_COLOR;
+				case BLEND_ONE_MINUS_DST_COLOR: return VK_BLEND_FACTOR_ONE_MINUS_DST_COLOR;
+				case BLEND_SRC_ALPHA: return VK_BLEND_FACTOR_SRC_ALPHA;
+				case BLEND_ONE_MINUS_SRC_ALPHA: return VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+				case BLEND_DST_ALPHA: return VK_BLEND_FACTOR_DST_ALPHA;
+				case BLEND_ONE_MINUS_DST_ALPHA: return VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA;
+				case BLEND_SRC_ALPHA_SATURATE: return VK_BLEND_FACTOR_SRC_ALPHA_SATURATE;
+				case BLEND_SRC1_COLOR: return VK_BLEND_FACTOR_SRC1_COLOR;
+				case BLEND_ONE_MINUS_SRC1_COLOR: return VK_BLEND_FACTOR_ONE_MINUS_SRC1_COLOR;
+				case BLEND_SRC1_ALPHA: return VK_BLEND_FACTOR_SRC1_ALPHA;
+				case BLEND_ONE_MINUS_SRC1_ALPHA: return VK_BLEND_FACTOR_ONE_MINUS_SRC1_ALPHA;
+			}
+			return VK_BLEND_FACTOR_ZERO;
+		};
+
+		auto getBlendOp = [](BlendOp op)
+		{
+			switch (op)
+			{
+				case BLEND_OP_ADD: return VK_BLEND_OP_ADD;
+				case BLEND_OP_SUBTRACT: return VK_BLEND_OP_SUBTRACT;
+				case BLEND_OP_REV_SUBTRACT: return VK_BLEND_OP_REVERSE_SUBTRACT;
+				case BLEND_OP_MIN: return VK_BLEND_OP_MIN;
+				case BLEND_OP_MAX: return VK_BLEND_OP_MAX;
+			}
+			return VK_BLEND_OP_ADD;
+		};
+
 		eastl::vector<VkPipelineColorBlendAttachmentState> color_blend_attachments(description.color_formats.size());
 		for (int i = 0; i < description.color_formats.size(); i++)
 		{
 			VkPipelineColorBlendAttachmentState attachment{};
-			attachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
 			attachment.blendEnable = description.use_blending;
-			attachment.srcColorBlendFactor = description.srcColorBlendFactor;
-			attachment.dstColorBlendFactor = description.dstColorBlendFactor;
-			attachment.colorBlendOp = description.colorBlendOp;
-			attachment.srcAlphaBlendFactor = description.srcAlphaBlendFactor;
-			attachment.dstAlphaBlendFactor = description.dstAlphaBlendFactor;
-			attachment.alphaBlendOp = description.alphaBlendOp;
+			attachment.srcColorBlendFactor = getBlend(description.src_color_blend);
+			attachment.dstColorBlendFactor = getBlend(description.dst_color_blend);
+			attachment.colorBlendOp = getBlendOp(description.color_blend_op);
+			attachment.srcAlphaBlendFactor = getBlend(description.src_alpha_blend);
+			attachment.dstAlphaBlendFactor = getBlend(description.dst_alpha_blend);
+			attachment.alphaBlendOp = getBlendOp(description.alpha_blend_op);
+			attachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
 			color_blend_attachments[i] = attachment;
 		}
-
 
 		VkPipelineColorBlendStateCreateInfo colorBlending{};
 		colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
@@ -308,11 +343,24 @@ void VulkanPipeline::create(const PipelineDescription &description)
 		colorBlending.blendConstants[3] = 0;
 
 		// Depth Stencil state
+		VkCompareOp depth_compare_op = VK_COMPARE_OP_LESS;
+		switch (description.depth_compare_func)
+		{
+			case COMPARE_FUNC_NEVER: depth_compare_op = VK_COMPARE_OP_NEVER; break;
+			case COMPARE_FUNC_LESS: depth_compare_op = VK_COMPARE_OP_LESS; break;
+			case COMPARE_FUNC_EQUAL: depth_compare_op = VK_COMPARE_OP_EQUAL; break;
+			case COMPARE_FUNC_LESS_EQUAL: depth_compare_op = VK_COMPARE_OP_LESS_OR_EQUAL; break;
+			case COMPARE_FUNC_GREATER: depth_compare_op = VK_COMPARE_OP_GREATER; break;
+			case COMPARE_FUNC_NOT_EQUAL: depth_compare_op = VK_COMPARE_OP_NOT_EQUAL; break;
+			case COMPARE_FUNC_GREATER_EQUAL: depth_compare_op = VK_COMPARE_OP_GREATER_OR_EQUAL; break;
+			case COMPARE_FUNC_ALWAYS: depth_compare_op = VK_COMPARE_OP_ALWAYS; break;
+		}
+
 		VkPipelineDepthStencilStateCreateInfo depthStencil{};
 		depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
 		depthStencil.depthTestEnable = description.use_depth_test;
-		depthStencil.depthWriteEnable = VK_TRUE;
-		depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
+		depthStencil.depthWriteEnable = description.use_depth_write;
+		depthStencil.depthCompareOp = depth_compare_op;
 		depthStencil.depthBoundsTestEnable = VK_FALSE;
 		depthStencil.minDepthBounds = 0.0f;
 		depthStencil.maxDepthBounds = 1.0f;

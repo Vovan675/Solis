@@ -6,7 +6,6 @@
 SceneRenderer::SceneRenderer()
 {
 	shadow_renderer.debug_renderer = &debug_renderer;
-	shadow_renderer.entity_renderer = &entity_renderer;
 
 	gbuffer_pass.entity_renderer = &entity_renderer;
 }
@@ -20,7 +19,9 @@ void SceneRenderer::setScene(Ref<Scene> scene)
 	if (engine_ray_tracing)
 	{
 		rt_scene = new RayTracingScene(scene);
-		shadow_renderer.ray_tracing_scene = rt_scene;
+	} else
+	{
+		rt_scene = nullptr;
 	}
 }
 
@@ -31,6 +32,96 @@ void SceneRenderer::render(Camera *camera, RHITextureRef result_texture)
 
 	Renderer::setViewportSize(result_texture->getSize());
 	Renderer::setCamera(camera);
+
+	update(camera);
+
+	FrameGraph frame_graph;
+
+	DefaultResourcesData &default_data = frame_graph.getBlackboard().add<DefaultResourcesData>();
+	default_data.final = importTexture(frame_graph, result_texture);
+
+	LutData &lut_data = frame_graph.getBlackboard().add<LutData>();
+	lut_data.brdf_lut = importTexture(frame_graph, lut_renderer.brdf_lut_texture);
+
+	if (render_first_frame)
+	{
+		// Render BRDF Lut
+		lut_renderer.addPasses(frame_graph);
+	}
+
+	bool is_sky_dirty = sky_renderer.isDirty();
+	sky_renderer.addProceduralPasses(frame_graph);
+
+	IBLData &ibl_data = frame_graph.getBlackboard().add<IBLData>();
+	ibl_data.irradiance = importTexture(frame_graph, irradiance_renderer.irradiance_texture);
+	ibl_data.prefilter = importTexture(frame_graph, prefilter_renderer.prefilter_texture);
+
+	if (render_first_frame || is_sky_dirty)
+	{
+		uint32_t irradiance_samples = sky_renderer.getMode() == SKY_MODE_PROCEDURAL ? 64 : 4096;
+		uint32_t prefilter_samples = sky_renderer.getMode() == SKY_MODE_PROCEDURAL ? 64 : 4096;
+		irradiance_renderer.addPass(frame_graph, irradiance_samples);
+		prefilter_renderer.addPass(frame_graph, prefilter_samples);
+	}
+
+	render_first_frame = false;
+
+	gbuffer_pass.AddPass(frame_graph, render_batches);
+	ssao_renderer.addPasses(frame_graph);
+
+	{
+		PROFILE_GPU_SCOPE_VAR(gDynamicRHI->getCmdList(), "Shadows")
+		if (render_shadows)
+			shadow_renderer.addShadowMapPasses(frame_graph, render_batches);
+
+		if (render_ray_traced_shadows)
+			shadow_renderer.addRayTracedShadowPasses(frame_graph, rt_scene);
+	}
+
+	{
+		PROFILE_GPU_SCOPE_VAR(gDynamicRHI->getCmdList(), "Lighting")
+		defferred_lighting_renderer.renderLights(frame_graph);
+
+		auto &composite_data = frame_graph.getBlackboard().add<CompositeData>();
+		deffered_composite_renderer.addPasses(frame_graph);
+	}
+
+	{
+		PROFILE_GPU_SCOPE_VAR(gDynamicRHI->getCmdList(), "Forward")
+		sky_renderer.addCompositePasses(frame_graph);
+	}
+
+	// Render post process
+	{
+		PROFILE_GPU_SCOPE_VAR(gDynamicRHI->getCmdList(), "Postprocessing")
+		if (render_ssr)
+			ssr_renderer.addPasses(frame_graph);
+
+		post_renderer.addPasses(frame_graph);
+	}
+
+	debug_renderer.addPasses(frame_graph);
+
+	frame_graph.compile();
+	frame_graph.execute(gDynamicRHI->getCmdList());
+
+	if (gInput.isKeyDown(GLFW_KEY_G))
+	{
+		GraphViz viz;
+		viz.show("graph.dot", frame_graph);
+	}
+}
+
+void SceneRenderer::update(Camera *camera)
+{
+	auto uniforms = Renderer::getDefaultUniforms();
+	gDynamicRHI->setConstantBufferDataPerFrame(32, &uniforms, sizeof(uniforms));
+
+	if (engine_ray_tracing)
+		rt_scene->update();
+
+	if (render_shadows)
+		shadow_renderer.updateShadows(camera);
 
 	{
 		PROFILE_CPU_SCOPE("SceneRenderer create render batches");
@@ -60,86 +151,5 @@ void SceneRenderer::render(Camera *camera, RHITextureRef result_texture)
 				batch.camera_visible = batch.world_bound_box.isInside(camera_bound_frustum);
 			}
 		}
-	}
-
-	auto uniforms = Renderer::getDefaultUniforms();
-	gDynamicRHI->setConstantBufferDataPerFrame(32, &uniforms, sizeof(uniforms));
-
-	FrameGraph frame_graph;
-
-	DefaultResourcesData &default_data = frame_graph.getBlackboard().add<DefaultResourcesData>();
-	default_data.final = importTexture(frame_graph, result_texture);
-
-	if (engine_ray_tracing)
-		rt_scene->update();
-
-	bool is_sky_dirty = sky_renderer.isDirty();
-	sky_renderer.addProceduralPasses(frame_graph);
-	LutData &lut_data = frame_graph.getBlackboard().add<LutData>();
-	lut_data.brdf_lut = importTexture(frame_graph, lut_renderer.brdf_lut_texture);
-
-	if (render_first_frame)
-	{
-		// Render BRDF Lut
-		lut_renderer.addPasses(frame_graph);
-	}
-
-	IBLData &ibl_data = frame_graph.getBlackboard().add<IBLData>();
-	ibl_data.irradiance = importTexture(frame_graph, irradiance_renderer.irradiance_texture);
-	ibl_data.prefilter = importTexture(frame_graph, prefilter_renderer.prefilter_texture);
-
-	if (render_first_frame || is_sky_dirty)
-	{
-		// Render IBL irradiance
-		irradiance_renderer.addPass(frame_graph);
-
-		// Render IBL prefilter
-		prefilter_renderer.addPass(frame_graph);
-	}
-
-	render_first_frame = false;
-
-	gbuffer_pass.AddPass(frame_graph, render_batches);
-
-	// Shadows
-	{
-		shadow_renderer.camera = camera;
-		if (render_shadows)
-			shadow_renderer.addShadowMapPasses(frame_graph, render_batches);
-
-		if (render_ray_traced_shadows)
-			shadow_renderer.addRayTracedShadowPasses(frame_graph);
-	}
-
-	defferred_lighting_renderer.renderLights(frame_graph);
-	ssao_renderer.addPasses(frame_graph);
-	if (render_ssr)
-		ssr_renderer.addPasses(frame_graph);
-	auto &composite_data = frame_graph.getBlackboard().add<CompositeData>();
-	// Draw Sky on background
-	sky_renderer.addCompositePasses(frame_graph);
-
-	// Draw composite (discard sky pixels by depth)
-	deffered_composite_renderer.addPasses(frame_graph);
-
-	// Render post process
-	post_renderer.addPasses(frame_graph);
-
-	// Render debug textures
-	if (render_debug_rendering)
-	{
-		debug_renderer.addPasses(frame_graph);
-	}
-	debug_renderer.renderLines(frame_graph);
-
-	frame_graph.compile();
-
-	auto current_cmd_list = gDynamicRHI->getCmdList();
-	frame_graph.execute(current_cmd_list);
-
-	if (gInput.isKeyDown(GLFW_KEY_T))
-	{
-		GraphViz viz;
-		viz.show("graph.dot", frame_graph);
 	}
 }

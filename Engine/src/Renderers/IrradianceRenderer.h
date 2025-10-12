@@ -11,7 +11,7 @@ class IrradianceRenderer: public RendererBase
 public:
 	IrradianceRenderer();
 
-	void addPass(FrameGraph &fg);
+	void addPass(FrameGraph &fg, uint32_t samples_count);
 	
 	RHITextureRef irradiance_texture;
 
