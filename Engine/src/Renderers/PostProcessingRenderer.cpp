@@ -50,8 +50,11 @@ void PostProcessingRenderer::addFilmPass(FrameGraph &fg)
 	auto &default_data = fg.getBlackboard().get<DefaultResourcesData>();
 	auto &final_desc = fg.getDescription<FrameGraphTexture>(default_data.final);
 
+	auto *ssr_data = fg.getBlackboard().tryGet<SSRData>();
+
 	struct PassData
 	{
+		FrameGraphResource input_color;
 		FrameGraphResource output;
 	} pass_data;
 
@@ -69,7 +72,11 @@ void PostProcessingRenderer::addFilmPass(FrameGraph &fg)
 			data.output = builder.write(default_data.final);
 		}
 
-		builder.read(default_data.final_no_post);
+		data.input_color = default_data.final_no_post;
+		if (ssr_data)
+			data.input_color = ssr_data->ssr;
+
+		data.input_color = builder.read(data.input_color);
 	},
 	[=](const PassData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
@@ -82,7 +89,7 @@ void PostProcessingRenderer::addFilmPass(FrameGraph &fg)
 		gGlobalPipeline->reset();
 		gGlobalPipeline->bindScreenQuadPipeline(cmd_list, gDynamicRHI->createShader(L"shaders/film.hlsl", FRAGMENT_SHADER));
 
-		film_ubo.composite_final_tex_id = resources.getResource<FrameGraphTexture>(default_data.final_no_post).getBindlessId();
+		film_ubo.composite_final_tex_id = resources.getResource<FrameGraphTexture>(data.input_color).getBindlessId();
 
 		gDynamicRHI->setConstantBufferData(0, &film_ubo, sizeof(FilmUBO));
 

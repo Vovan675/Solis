@@ -46,6 +46,8 @@ void Renderer::updateDefaultUniforms(float delta_time)
 	default_uniforms.iprojection = glm::inverse(camera->getProj());
 	default_uniforms.camera_position = glm::vec4(camera->getPosition(), 1.0);
 	default_uniforms.swapchain_size = glm::vec4(Renderer::getViewportSize(), 1.0f / glm::vec2(Renderer::getViewportSize()));
+	default_uniforms.z_near = camera->getNear();
+	default_uniforms.z_far = camera->getFar();
 	default_uniforms.time += delta_time;
 	default_uniforms.frame = (uint32_t)gDynamicRHI->getFrame();
 }

@@ -21,7 +21,7 @@ public:
 		float metalness = 0.0f;
 
 		MaterialTexture roughness_tex;
-		float roughness = 1.0f;
+		float roughness = 0.6f;
 
 		MaterialTexture specular_tex;
 		float specular = 0.5f;

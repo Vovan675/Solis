@@ -20,7 +20,7 @@ cbuffer UBO : register(b1)
 {
     matrix light_space_matrix;
     float4 light_pos;
-    float z_far;
+    float shadow_z_far;
 };
 
 VS_OUTPUT VSMain(VS_INPUT input)
@@ -35,7 +35,7 @@ VS_OUTPUT VSMain(VS_INPUT input)
     float PSMain(VS_OUTPUT input) : SV_Depth
     {
         float lightDistance = length(input.worldPos.xyz - light_pos.xyz);
-        return lightDistance / z_far;
+        return lightDistance / shadow_z_far;
     }
 #elif LIGHT_TYPE == 1
     void PSMain(VS_OUTPUT input)

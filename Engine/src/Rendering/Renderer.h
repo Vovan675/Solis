@@ -72,6 +72,8 @@ private:
 		glm::mat4 iprojection;
 		glm::vec4 camera_position;
 		glm::vec4 swapchain_size;
+		float z_near = 0;
+		float z_far = 0;
 		float time = 0;
 		int frame = 0;
 	};

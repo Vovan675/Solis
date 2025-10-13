@@ -47,7 +47,7 @@ cbuffer PushConstants : register(b2)
 	float4 light_color;
 	float light_intensity;
 	float light_range_square;
-	float z_far;
+	float shadow_z_far;
 	uint shadow_map_tex_id;
 };
 
@@ -99,7 +99,7 @@ float2( -0.8595296839803187f, -0.3859107698213548f ),
 		float get_shadow_point(float3 frag_pos, float bias)
 		{
 			float3 fragToLight = frag_pos - light_pos.xyz;
-			float current_depth = length(fragToLight) / z_far;
+			float current_depth = length(fragToLight) / shadow_z_far;
 
 			float shadow = 0.0;
 			

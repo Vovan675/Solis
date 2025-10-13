@@ -26,6 +26,8 @@ cbuffer CameraConstants : register(b32) {
     float4x4 iprojection;
     float4 camera_position;
     float4 swapchain_size; // (width, height, 1/width, 1/height)
+    float z_near;
+    float z_far;
     float time;
     int frame;
 };
