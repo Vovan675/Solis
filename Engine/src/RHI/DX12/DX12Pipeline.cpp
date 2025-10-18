@@ -283,6 +283,7 @@ void DX12Pipeline::create(const PipelineDescription &description)
 		psoDesc.VS = {vs->blob->GetBufferPointer(), vs->blob->GetBufferSize()};
 		psoDesc.PS = {ps->blob->GetBufferPointer(), ps->blob->GetBufferSize()};
 		psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+		psoDesc.RasterizerState.FrontCounterClockwise = true;
 		psoDesc.RasterizerState.CullMode = cull_mode;
 		psoDesc.BlendState = blend_state;
 		psoDesc.DepthStencilState = depth_stencil_desc;

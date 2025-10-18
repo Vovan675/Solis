@@ -117,17 +117,23 @@ float2( -0.8595296839803187f, -0.3859107698213548f ),
 			return clamp(shadow, 0.0, 1.0);
 		}
 	#elif LIGHT_TYPE == 1
-		#define ROTATE_POISSON
-		float get_shadow_dir(float3 frag_pos, float bias, float noise)
+		int getCascadeIndex(float depth)
 		{
-			// Select layer based on depth
-			float depth = mul(view, float4(frag_pos, 1.0)).z;
 			int layer = 0;
 			for (int i = 0; i < SHADOW_MAP_CASCADE_COUNT - 1; i++)
 			{
 				if (depth > cascade_splits[i])
 					layer = i + 1;
 			}
+			return layer;
+		}
+
+		#define ROTATE_POISSON
+		float get_shadow_dir(float3 frag_pos, float bias, float noise)
+		{
+			// Select layer based on depth
+			float depth = -mul(view, float4(frag_pos, 1.0)).z;
+			int layer = getCascadeIndex(depth);
 
 			float4 frag_pos_light_space = mul(light_matrix[layer], float4(frag_pos, 1.0));
 			float3 proj_coords = frag_pos_light_space.xyz / frag_pos_light_space.w;
@@ -135,7 +141,6 @@ float2( -0.8595296839803187f, -0.3859107698213548f ),
 			float current_depth = proj_coords.z;
 			if (current_depth > 1.0)
 				return 1.0;
-
 			const float biasModifier = 0.5f;
 			if (layer == SHADOW_MAP_CASCADE_COUNT - 1)
 			{
@@ -280,5 +285,22 @@ PSOutput PSMain(VSOutput input)
 	PSOutput output;
 	output.outDiffuse = shadow * NdotL * (float3(1.0f, 1.0f, 1.0f) - F) * diffuse * light_attenuation * light_intensity * light_color.rgb;
 	output.outSpecular = shadow * NdotL * F_specular * light_attenuation * light_intensity * light_color.rgb;
+
+	//#define SHOW_CASCADES
+	#if LIGHT_TYPE == 1
+		#ifdef SHOW_CASCADES
+			float view_depth = -mul(view, float4(P, 1.0)).z;
+			int cascade_index = getCascadeIndex(view_depth);
+			switch (cascade_index)
+			{
+				case 0: output.outDiffuse = float3(1, 0, 0); break;
+				case 1: output.outDiffuse = float3(0, 1, 0); break;
+				case 2: output.outDiffuse = float3(0, 0, 1); break;
+				case 3: output.outDiffuse = float3(1, 1, 0); break;
+				default: output.outDiffuse = float3(1, 1, 1); break;
+			}
+			output.outSpecular = 0;
+		#endif
+	#endif
 	return output;
 }

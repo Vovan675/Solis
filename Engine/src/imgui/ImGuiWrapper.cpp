@@ -135,12 +135,12 @@ void ImGuiWrapper::render(RHICommandList *cmd_list)
 }
 
 
-ImTextureID ImGuiWrapper::getTextureId(RHITextureRef tex, int mip)
+ImTextureID ImGuiWrapper::getTextureId(RHITextureRef tex, int mip, int layer)
 {
 	if (gDynamicRHI->isVulkan())
 	{
 		VulkanTexture *native_texture = (VulkanTexture *)tex.getReference();
-		VkImageView view = native_texture->getImageView(mip);
+		VkImageView view = native_texture->getImageView(mip, layer);
 		if (image_view_to_descriptor_set.find(view) != image_view_to_descriptor_set.end())
 		{
 			auto &set_usage = image_view_to_descriptor_set[view];
@@ -162,7 +162,7 @@ ImTextureID ImGuiWrapper::getTextureId(RHITextureRef tex, int mip)
 		DX12Texture *native_texture = (DX12Texture *)tex.getReference();
 
 		// Copy from staging heap, to current frame's shader visible heap
-		D3D12_CPU_DESCRIPTOR_HANDLE cpu_handle_staging_heap = native_texture->getShaderResourceView(mip).getCpuHandle();
+		D3D12_CPU_DESCRIPTOR_HANDLE cpu_handle_staging_heap = native_texture->getShaderResourceView(mip, layer).getCpuHandle();
 
 		DX12Descriptor descriptor = rhi->cbv_srv_uav_additional_heap->allocate();
 		rhi->device->CopyDescriptorsSimple(1, descriptor.getCpuHandle(), cpu_handle_staging_heap, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);

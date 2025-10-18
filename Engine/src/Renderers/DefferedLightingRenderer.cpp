@@ -174,6 +174,7 @@ void DefferedLightingRenderer::renderLights(FrameGraph &fg)
 				p->setVertexShader(gDynamicRHI->createShader(L"shaders/lighting/deferred_lighting.hlsl", VERTEX_SHADER, shader_defines));
 				p->setFragmentShader(gDynamicRHI->createShader(L"shaders/lighting/deferred_lighting.hlsl", FRAGMENT_SHADER, shader_defines));
 				p->setVertexInputsDescription(Engine::Vertex::GetVertexInputsDescription());
+				p->setCullMode(CULL_MODE_FRONT);
 
 				p->setRenderTargets(cmd_list->getCurrentRenderTargets());
 				p->flush();

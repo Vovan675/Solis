@@ -56,7 +56,7 @@ void SkyRenderer::addProceduralPasses(FrameGraph &fg)
 			p->setVertexShader(vertex_procedural_shader);
 			p->setFragmentShader(fragment_procedural_shader);
 			p->setUseBlending(false);
-			p->setCullMode(CULL_MODE_FRONT);
+			p->setCullMode(CULL_MODE_NONE);
 			p->setVertexInputsDescription(Engine::Vertex::GetVertexInputsDescription());
 
 			p->setDepthTest(false);
@@ -65,7 +65,7 @@ void SkyRenderer::addProceduralPasses(FrameGraph &fg)
 			p->flush();
 			p->bind(cmd_list);
 
-			procedural_uniforms.mvp = glm::perspectiveLH(glm::radians(90.0f), 1.0f, 0.01f, 512.0f) * Math::getCubeFaceTransform(face);
+			procedural_uniforms.mvp = glm::perspectiveLH(glm::radians(90.0f), 1.0f, 0.01f, 512.0f) * Math::getCubeFaceTransform(face) * glm::eulerAngleXYZ(0.0f, glm::radians(180.0f), 0.0f);
 			gDynamicRHI->setConstantBufferData(0, &procedural_uniforms, sizeof(procedural_uniforms));
 
 			cmd_list->setVertexBuffer(mesh->vertexBuffer);

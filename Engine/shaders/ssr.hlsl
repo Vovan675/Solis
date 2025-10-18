@@ -50,11 +50,11 @@ float4 CastSingleRay(float3 view_pos, float3 view_reflection, float roughness)
 		tc = ViewPosToUV(sample_pos);
 
 		float depth = GetVSPosition(tc.xy, depth_tex.Sample(point_clamp_sampler, tc.xy).x).z;
-		bool under = sample_pos.z > depth;
+		bool under = sample_pos.z < depth;
 		if(!was_under && under)
 		{
 			float t_ref = t - step;
-			float local_best = sample_pos.z - depth;
+			float local_best = depth - sample_pos.z;
 			for(int i = 0; i < BINARY_SEARCH_STEPS; ++i)
 			{
 				t_ref += refine_step;

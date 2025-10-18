@@ -25,14 +25,14 @@ public:
 		{
 			glm::vec2 delta_pos = mouse_pos - prev_mouse_pos;
 			delta_pos *= 0.003f;
-			pitch += delta_pos.y;
-			yaw += delta_pos.x;
+			pitch -= delta_pos.y;
+			yaw -= delta_pos.x;
 			updateMatrices();
 		}
 		prev_mouse_pos = mouse_pos;
 
 		// Get rows for directions
-		glm::vec3 forward = glm::rotate(orientation, glm::vec3(0, 0, 1));
+		glm::vec3 forward = glm::rotate(orientation, glm::vec3(0, 0, -1));
 		glm::vec3 right = glm::rotate(orientation, glm::vec3(1, 0, 0));
 		glm::vec3 up = glm::rotate(orientation, glm::vec3(0, 1, 0));
 
@@ -63,7 +63,7 @@ public:
 		PROFILE_CPU_FUNCTION();
 		orientation = glm::quat(glm::vec3(pitch, yaw, 0));
 		view = glm::inverse(glm::translate(glm::mat4(1.0f), position) * glm::toMat4(orientation));
-		proj = glm::perspectiveLH(glm::radians(fov), aspect, near_plane, far_plane);
+		proj = glm::perspective(glm::radians(fov), aspect, near_plane, far_plane);
 	}
 
 	float getSpeed() const { return speed; }

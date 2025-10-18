@@ -1,11 +1,11 @@
 static const float3 QUAD[6] =
 {
 	float3(-1.0, -1.0, 0.0),
-    float3(-1.0, 1.0, 0.0),
     float3(1.0, -1.0, 0.0),
     float3(-1.0, 1.0, 0.0),
-    float3(1.0, 1.0, 0.0),
-    float3(1.0, -1.0, 0.0)
+    float3(-1.0, 1.0, 0.0),
+    float3(1.0, -1.0, 0.0),
+    float3(1.0, 1.0, 0.0)
 };
 
 struct VSOutput

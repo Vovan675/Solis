@@ -128,7 +128,7 @@ void ShadowRenderer::addShadowMapPasses(FrameGraph &fg, const eastl::vector<Rend
 						cmd_list->drawIndexedInstanced(batch.mesh->indices.size(), 1, 0, 0, 0);
 						Renderer::addDrawCalls(1);
 					}
-					
+
 					p->unbind(cmd_list);
 					cmd_list->resetRenderTargets();
 				}
@@ -329,12 +329,13 @@ void ShadowRenderer::update_cascades(LightComponent &light, glm::vec3 light_dir,
 		float splitDist = cascadeSplits[i];
 
 		glm::vec3 frustumCorners[8] = {
-			glm::vec3(-1.0f,  1.0f, 0.0f),
-			glm::vec3(1.0f,  1.0f, 0.0f),
+			glm::vec3(-1.0f, 1.0f, 0.0f),
+			glm::vec3(1.0f, 1.0f, 0.0f),
 			glm::vec3(1.0f, -1.0f, 0.0f),
 			glm::vec3(-1.0f, -1.0f, 0.0f),
-			glm::vec3(-1.0f,  1.0f,  1.0f),
-			glm::vec3(1.0f,  1.0f,  1.0f),
+
+			glm::vec3(-1.0f, 1.0f,  1.0f),
+			glm::vec3(1.0f, 1.0f,  1.0f),
 			glm::vec3(1.0f, -1.0f,  1.0f),
 			glm::vec3(-1.0f, -1.0f,  1.0f),
 		};
@@ -373,8 +374,8 @@ void ShadowRenderer::update_cascades(LightComponent &light, glm::vec3 light_dir,
 		glm::vec3 maxExtents = glm::vec3(radius);
 		glm::vec3 minExtents = -maxExtents;
 
-		glm::mat4 lightViewMatrix = glm::lookAtLH(frustumCenter - light_dir * -minExtents.z, frustumCenter, glm::vec3(0.0f, 1.0f, 0.0f));
-		glm::mat4 lightOrthoMatrix = glm::orthoLH(minExtents.x, maxExtents.x, minExtents.y, maxExtents.y, 0.0f - 150.0f, maxExtents.z - minExtents.z + 150.0f);
+		glm::mat4 lightViewMatrix = glm::lookAtRH(frustumCenter - light_dir * -minExtents.z, frustumCenter, glm::vec3(0.0f, 1.0f, 0.0f));
+		glm::mat4 lightOrthoMatrix = glm::orthoRH(minExtents.x, maxExtents.x, minExtents.y, maxExtents.y, 0.0f - 150.0f, maxExtents.z - minExtents.z + 150.0f);
 
 		// Fix shimmering
 		float shadow_map_size = 4096;

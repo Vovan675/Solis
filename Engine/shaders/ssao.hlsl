@@ -64,7 +64,7 @@ PSOutput PSMain(VSInput input)
         float3 sample_view_pos = GetVSPosition(offset.xy, sample_depth);
 
         float range_check = smoothstep(0.0f, 1.0f, sample_radius / abs(view_pos.z - sample_view_pos.z));
-        occlusion += (sample_view_pos.z <= sample_pos.z + 0.025f ? 1.0f : 0.0f) * range_check;
+        occlusion += (sample_view_pos.z >= sample_pos.z + 0.025f ? 1.0f : 0.0f) * range_check;
     }
 
     occlusion = 1.0f - (occlusion / samples);

@@ -206,6 +206,21 @@ bool ParametersPanel::renderImGui(EditorContext context, DebugRenderer &debug_re
 			ImGui::ColorEdit3("Light Color", light.color.data.data);
 			ImGui::SliderFloat("Light Radius", &light.radius, 0.001f, 40.0);
 			ImGui::SliderFloat("Light Intensity", &light.intensity, 0.01f, 25);
+
+			RHITextureRef texture = light.shadow_map;
+			if (texture)
+			{
+				static int layer_index = 0;
+				ImGui::SliderInt("Layer/Face", &layer_index, 0, light_type == LIGHT_TYPE_POINT ? 5 : 3);
+
+				float aspect = (float)texture->getWidth() / (float)texture->getHeight();
+				ImVec2 viewport_size = ImGui::GetContentRegionAvail();
+				float min_size = std::min(viewport_size.x, viewport_size.y);
+				viewport_size.x = min_size;
+				viewport_size.y = min_size / aspect;
+
+				ImGui::Image(ImGuiWrapper::getTextureId(texture, 0, layer_index), viewport_size, {0, 0}, {1, 1});
+			}
 		});
 
 
