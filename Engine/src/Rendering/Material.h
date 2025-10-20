@@ -11,7 +11,7 @@ public:
 		struct MaterialTexture
 		{
 			Engine::GUID asset_handle = 0;
-			int bindless_id = -1;
+			int bindless_id = 0;
 		};
 
 		MaterialTexture albedo_tex;
@@ -27,21 +27,6 @@ public:
 		float specular = 0.5f;
 
 		MaterialTexture normal_tex;
-
-		struct PushConstant 
-		{
-			glm::mat4 model;
-			glm::mat4 imodel;
-
-			glm::vec4 albedo = glm::vec4(0, 0, 0, 1);
-			int albedo_tex_id = -1;
-			int metalness_tex_id = -1;
-			int roughness_tex_id = -1;
-			int specular_tex_id = -1;
-			// metalness, roughness, specular
-			glm::vec4 shading = glm::vec4(0, 0, 0.5, 1);
-			int normal_tex_id = -1;
-		};
 
 		void update()
 		{
@@ -64,21 +49,6 @@ public:
 			update_texture(roughness_tex);
 			update_texture(specular_tex);
 			update_texture(normal_tex);
-		}
-
-		PushConstant getPushConstant(glm::mat4 model, glm::mat4 imodel) const
-		{
-			PushConstant push_constant;
-			push_constant.model = model;
-			push_constant.imodel = imodel;
-			push_constant.albedo = albedo;
-			push_constant.albedo_tex_id = albedo_tex.bindless_id;
-			push_constant.metalness_tex_id = metalness_tex.bindless_id;
-			push_constant.roughness_tex_id = roughness_tex.bindless_id;
-			push_constant.specular_tex_id = specular_tex.bindless_id;
-			push_constant.shading = glm::vec4(metalness, roughness, specular, 1.0f);
-			push_constant.normal_tex_id = normal_tex.bindless_id;
-			return push_constant;
 		}
 
 		void serialize(Stream &stream)

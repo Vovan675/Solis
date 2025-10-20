@@ -18,8 +18,8 @@ float2x2 get2DRotationMatrix(float aSin, float aCos)
     );
 }
 
-// Camera and Frame Constants
-cbuffer CameraConstants : register(b32) {
+// Frame Constants
+cbuffer FrameConstants : register(b32) {
     float4x4 view;
     float4x4 iview;
     float4x4 projection;
@@ -29,8 +29,42 @@ cbuffer CameraConstants : register(b32) {
     float z_near;
     float z_far;
     float time;
-    int frame;
+    uint frame;
+    uint materials_buffer_id;
+    uint instances_buffer_id;
 };
+
+struct Material
+{
+	float4 albedo;
+    uint albedo_tex_id;
+	uint metalness_tex_id;
+	uint roughness_tex_id;
+	uint specular_tex_id;
+	float4 shading;
+	uint normal_tex_id;
+    uint pad[3];
+};
+
+struct Instance
+{
+	matrix world_transform;
+	matrix iworld_transform;
+    uint material_id;
+    uint pad[3];
+};
+
+Material GetMaterial(uint index)
+{
+    StructuredBuffer<Material> materials = ResourceDescriptorHeap[materials_buffer_id];
+    return materials[index];
+}
+
+Instance GetInstance(uint index)
+{
+    StructuredBuffer<Instance> instances = ResourceDescriptorHeap[instances_buffer_id];
+    return instances[index];
+}
 
 #ifndef RAY_TRACING_SHADER
 // Must match in code

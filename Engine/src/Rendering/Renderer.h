@@ -27,6 +27,7 @@ struct RenderBatch
 {
 	Engine::Mesh *mesh;
 	Ref<Material> material;
+	uint32_t instance_id;
 	glm::mat4 world_transform;
 	glm::mat4 iworld_transform;
 	BoundBox world_bound_box;
@@ -77,7 +78,9 @@ private:
 		float z_near = 0;
 		float z_far = 0;
 		float time = 0;
-		int frame = 0;
+		uint32_t frame = 0;
+		uint32_t materials_buffer_id;
+		uint32_t instances_buffer_id;
 	};
 	static DefaultUniforms default_uniforms;
 	static Camera *camera;

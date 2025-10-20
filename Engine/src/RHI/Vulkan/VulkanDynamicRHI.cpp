@@ -387,7 +387,7 @@ void VulkanDynamicRHI::prepareRenderCall()
 	// Bind bindless
 	VulkanBindlessResources *native_bindless = (VulkanBindlessResources *)gDynamicRHI->getBindlessResources();
 	VkDescriptorSet bindless_set = native_bindless->getDescriptorSet();
-	vkCmdBindDescriptorSets(native_cmd_list->cmd_buffer, bind_point, native_pso->resource->pipeline_layout, BINDLESS_TEXTURES_SET, 1, &bindless_set, 0, nullptr);
+	vkCmdBindDescriptorSets(native_cmd_list->cmd_buffer, bind_point, native_pso->resource->pipeline_layout, BINDLESS_RESOURCES_SET, 1, &bindless_set, 0, nullptr);
 
 	is_textures_dirty = false;
 	is_uav_textures_dirty = false;

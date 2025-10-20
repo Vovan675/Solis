@@ -29,7 +29,6 @@ public:
 	void render(Camera *camera, RHITextureRef result_texture);
 
 	Ref<RayTracingScene> getCurrentRayTracingScene() const { return rt_scene; }
-
 public:
 	friend class EditorApplication;
 
@@ -39,6 +38,8 @@ public:
 	Ref<RayTracingScene> rt_scene;
 
 	eastl::vector<RenderBatch> render_batches;
+	RHIBufferRef materials_buffer;
+	RHIBufferRef instances_buffer;
 
 	EntityRenderer entity_renderer;
 

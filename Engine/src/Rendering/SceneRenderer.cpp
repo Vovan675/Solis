@@ -110,11 +110,27 @@ void SceneRenderer::render(Camera *camera, RHITextureRef result_texture)
 	}
 }
 
+struct MaterialGPU
+{
+	glm::vec4 albedo = glm::vec4(0, 0, 0, 1);
+	uint32_t albedo_tex_id = 0;
+	uint32_t metalness_tex_id = 0;
+	uint32_t roughness_tex_id = 0;
+	uint32_t specular_tex_id = 0;
+	// metalness, roughness, specular
+	glm::vec4 shading = glm::vec4(0, 0, 0.5, 1);
+	uint32_t normal_tex_id = 0;
+};
+
+struct InstanceGPU
+{
+	glm::mat4 world_transform;
+	glm::mat4 iworld_transform;
+	uint32_t material_id = 0;
+};
+
 void SceneRenderer::update(Camera *camera)
 {
-	auto uniforms = Renderer::getDefaultUniforms();
-	gDynamicRHI->setConstantBufferDataPerFrame(32, &uniforms, sizeof(uniforms));
-
 	if (engine_ray_tracing)
 		rt_scene->update();
 
@@ -125,6 +141,9 @@ void SceneRenderer::update(Camera *camera)
 		PROFILE_CPU_SCOPE("SceneRenderer create render batches");
 		render_batches.clear();
 
+		eastl::vector<MaterialGPU> materials_gpu;
+		eastl::vector<InstanceGPU> instances_gpu;
+		
 		BoundFrustum camera_bound_frustum(camera->getProj(), camera->getView());
 		auto entities_view = Scene::getCurrentScene()->getEntitiesWith<TransformComponent, MeshRendererComponent>();
 		for (entt::entity entity_id : entities_view)
@@ -143,11 +162,49 @@ void SceneRenderer::update(Camera *camera)
 				RenderBatch &batch = render_batches.emplace_back();
 				batch.mesh = mesh;
 				batch.material = material;
+				batch.instance_id = instances_gpu.size();
 				batch.world_transform = transform.getWorldTransform();
 				batch.iworld_transform = transform.getInverseWorldTransform();
 				batch.world_bound_box = mesh->bound_box * batch.world_transform;
 				batch.camera_visible = batch.world_bound_box.isInside(camera_bound_frustum);
+
+				InstanceGPU &instance = instances_gpu.emplace_back();
+				instance.world_transform = transform.getWorldTransform();
+				instance.iworld_transform = transform.getInverseWorldTransform();
+				instance.material_id = materials_gpu.size();
+
+				MaterialGPU &material_gpu = materials_gpu.emplace_back();
+				material_gpu.albedo = material->albedo;
+				material_gpu.albedo_tex_id = material->albedo_tex.bindless_id;
+				material_gpu.metalness_tex_id = material->metalness_tex.bindless_id;
+				material_gpu.roughness_tex_id = material->roughness_tex.bindless_id;
+				material_gpu.specular_tex_id = material->specular_tex.bindless_id;
+				material_gpu.shading = glm::vec4(material->metalness, material->roughness, material->specular, 1.0f);
+				material_gpu.normal_tex_id = material->normal_tex.bindless_id;
 			}
 		}
+
+		auto fill_buffer = [](RHIBufferRef &buffer, void *data, size_t count, size_t stride)
+		{
+			uint32_t buffer_size = count * stride;
+			if (!buffer || buffer->getSize() < buffer_size)
+			{
+				BufferDescription desc;
+				desc.size = buffer_size;
+				desc.usage = STORAGE_BUFFER;
+				desc.useStagingBuffer = false;
+				desc.stride = sizeof(MaterialGPU);
+				buffer = gDynamicRHI->createBuffer(desc);
+			}
+			buffer->fill(data);
+		};
+
+		fill_buffer(materials_buffer, materials_gpu.data(), materials_gpu.size(), sizeof(MaterialGPU));
+		fill_buffer(instances_buffer, instances_gpu.data(), instances_gpu.size(), sizeof(InstanceGPU));
 	}
+
+	auto uniforms = Renderer::getDefaultUniforms();
+	uniforms.materials_buffer_id = gDynamicRHI->getBindlessResources()->addBuffer(materials_buffer);
+	uniforms.instances_buffer_id = gDynamicRHI->getBindlessResources()->addBuffer(instances_buffer);
+	gDynamicRHI->setConstantBufferDataPerFrame(32, &uniforms, sizeof(uniforms));
 }

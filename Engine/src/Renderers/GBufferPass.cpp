@@ -69,8 +69,14 @@ void GBufferPass::AddPass(FrameGraph &fg, const eastl::vector<RenderBatch> &batc
 				continue;
 
 			// Render mesh
-			auto pc = batch.material->getPushConstant(batch.world_transform, batch.iworld_transform);
-			gDynamicRHI->setConstantBufferData(1, &pc, sizeof(Material::PushConstant));
+			struct PushConstant 
+			{
+				uint32_t instance_id;
+			} pc;
+
+			pc.instance_id = batch.instance_id;
+
+			gDynamicRHI->setConstantBufferData(1, &pc, sizeof(PushConstant));
 
 			cmd_list->setVertexBuffer(batch.mesh->vertexBuffer);
 			cmd_list->setIndexBuffer(batch.mesh->indexBuffer);

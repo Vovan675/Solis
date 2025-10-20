@@ -54,7 +54,7 @@ namespace Engine
 		vertexDesc.usage = BufferUsage::VERTEX_BUFFER | additional_usage;
 
 		vertexDesc.alignment = 16;
-		vertexDesc.vertex_buffer_stride = sizeof(vertices[0]);
+		vertexDesc.stride = sizeof(vertices[0]);
 
 		vertexBuffer = gDynamicRHI->createBuffer(vertexDesc);
 		vertexBuffer->fill(vertices.data());

@@ -2,6 +2,7 @@
 #include "RHI/DynamicRHI.h"
 #include "RHI/RHIBuffer.h"
 #include "DX12Resources.h"
+#include "DX12DescriptorHeap.h"
 #include "D3D12MemoryAllocator/D3D12MemAlloc.h"
 
 enum ResourceState
@@ -56,7 +57,7 @@ public:
 		D3D12_VERTEX_BUFFER_VIEW view;
 		view.BufferLocation = resource->resource->GetGPUVirtualAddress();
 		view.SizeInBytes = description.size;
-		view.StrideInBytes = description.vertex_buffer_stride;
+		view.StrideInBytes = description.stride;
 		return view;
 	}
 
@@ -69,11 +70,16 @@ public:
 		return view;
 	}
 
+	DX12Descriptor getShaderResourceView() const { return shader_resource_view; }
+
+
 	void setState(ResourceState new_state);
 
 	std::unique_ptr<DX12AllocationResource> allocation;
 	std::unique_ptr<DX12Resource> resource;
 	bool is_mapped = false;
+private:
 
 	ResourceState current_state;
+	DX12Descriptor shader_resource_view;
 };

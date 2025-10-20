@@ -13,7 +13,7 @@ struct VS_OUTPUT
 
 cbuffer PushConstants : register(b2)
 {
-    matrix model;
+	uint instance_id;
 };
 
 cbuffer UBO : register(b1)
@@ -25,9 +25,10 @@ cbuffer UBO : register(b1)
 
 VS_OUTPUT VSMain(VS_INPUT input)
 {
+    Instance instance = GetInstance(instance_id);
     VS_OUTPUT output;
-    output.outPos = mul(light_space_matrix, mul(model, input.inPos));
-    output.worldPos = mul(model, input.inPos);
+    output.outPos = mul(light_space_matrix, mul(instance.world_transform, input.inPos));
+    output.worldPos = mul(instance.world_transform, input.inPos);
     return output;
 }
 

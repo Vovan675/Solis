@@ -49,7 +49,7 @@ void CubesDemo::initResources()
 	desc.size = sizeof(cube_vertices[0]) * _countof(cube_vertices);
 	desc.usage = VERTEX_BUFFER;
 	desc.useStagingBuffer = true;
-	desc.vertex_buffer_stride = sizeof(cube_vertices[0]);
+	desc.stride = sizeof(cube_vertices[0]);
 	vertex_buffer = gDynamicRHI->createBuffer(desc);
 
 	desc.size = sizeof(cube_indices[0]) * _countof(cube_indices);

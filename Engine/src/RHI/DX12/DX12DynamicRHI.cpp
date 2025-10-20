@@ -80,7 +80,7 @@ void DX12DynamicRHI::init()
 	dxc_utils->CreateDefaultIncludeHandler(&dxc_include_handler);
 
 	// For resources (one for all srv types, because docs says that it will be better)
-	cbv_srv_uav_heap = new DX12FrameDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 100'000, MAX_BINDLESS_TEXTURES);
+	cbv_srv_uav_heap = new DX12FrameDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 100'000, MAX_BINDLESS_RESOURCES);
 	cbv_srv_uav_staging_heap = new DX12DescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 100'000, false);
 
 	// For imgui, reserve first 16 for internal resources like fonts etc

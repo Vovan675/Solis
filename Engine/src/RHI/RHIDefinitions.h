@@ -25,19 +25,20 @@ enum BufferUsage
 	INDEX_BUFFER = 1 << 1,
 	UNIFORM_BUFFER = 1 << 2,
 	UAV_BUFFER = 1 << 3,
-	ACCELERATION_STRUCTURE_BUILD_INPUT_BUFFER = 1 << 4,
-	ACCELERATION_STRUCTURE_STORAGE_BUFFER = 1 << 5,
-	SHADER_BINGING_TABLE_BUFFER = 1 << 6,
+	STORAGE_BUFFER = 1 << 4,
+	ACCELERATION_STRUCTURE_BUILD_INPUT_BUFFER = 1 << 5,
+	ACCELERATION_STRUCTURE_STORAGE_BUFFER = 1 << 6,
+	SHADER_BINGING_TABLE_BUFFER = 1 << 7,
 };
 
 struct BufferDescription
 {
-	uint64_t size;
+	uint64_t size = 0;
 	bool useStagingBuffer;
 	uint32_t usage = 0;
 	uint32_t alignment = 0;
 
-	uint32_t vertex_buffer_stride = 0;
+	uint32_t stride = 0;
 };
 
 enum Filter

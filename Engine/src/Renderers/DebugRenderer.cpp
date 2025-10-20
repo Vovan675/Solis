@@ -28,7 +28,7 @@ DebugRenderer::DebugRenderer()
 	vertices = new LineVertex[2048];
 	
 	desc.size = sizeof(LineVertex) * 2048;
-	desc.vertex_buffer_stride = sizeof(LineVertex);
+	desc.stride = sizeof(LineVertex);
 	desc.useStagingBuffer = false;
 	desc.usage = VERTEX_BUFFER;
 

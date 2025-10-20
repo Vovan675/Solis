@@ -104,7 +104,8 @@ void Device::CreateLogicalDevice()
 	if (engine_rhi_validation)
 		extensions.push_back(VK_EXT_CALIBRATED_TIMESTAMPS_EXTENSION_NAME);
 	#endif
-
+	
+	extensions.push_back(VK_EXT_MUTABLE_DESCRIPTOR_TYPE_EXTENSION_NAME);
 
 	if (engine_ray_tracing)
 	{
@@ -134,6 +135,12 @@ void Device::CreateLogicalDevice()
 	acceleration_structure_features.accelerationStructure = true;
 	acceleration_structure_features.pNext = &ray_tracing_pipeline_features;
 
+	VkPhysicalDeviceMutableDescriptorTypeFeaturesEXT mutable_descriptor_type_features{};
+	mutable_descriptor_type_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MUTABLE_DESCRIPTOR_TYPE_FEATURES_EXT;
+	mutable_descriptor_type_features.mutableDescriptorType = true;
+	if (engine_ray_tracing)
+		mutable_descriptor_type_features.pNext = &acceleration_structure_features;
+	
 	VkPhysicalDeviceVulkan12Features features12{};
 	features12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
 	features12.bufferDeviceAddress = true;
@@ -141,11 +148,11 @@ void Device::CreateLogicalDevice()
 	features12.descriptorBindingPartiallyBound = true;
 	features12.descriptorBindingVariableDescriptorCount = true;
 	features12.descriptorBindingSampledImageUpdateAfterBind = true;
+	features12.descriptorBindingStorageBufferUpdateAfterBind = true;
 	features12.runtimeDescriptorArray = true; // for GL_EXT_nonuniform_qualifier extension
 	features12.shaderSampledImageArrayNonUniformIndexing = true;
 	features12.hostQueryReset = true;
-	if (engine_ray_tracing)
-		features12.pNext = &acceleration_structure_features;
+	features12.pNext = &mutable_descriptor_type_features;
 
 	// Enable dynamic rendering
 	VkPhysicalDeviceVulkan13Features features13{};

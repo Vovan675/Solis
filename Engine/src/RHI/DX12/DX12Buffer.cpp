@@ -38,6 +38,25 @@ DX12Buffer::DX12Buffer(BufferDescription description) : RHIBuffer(description)
 		IID_PPV_ARGS(&resource->resource));
 	assert(res == S_OK);
 	//setState(RESOURCE_STATE_VERTEX_BUFFER);
+
+	if (description.usage & STORAGE_BUFFER)
+	{
+		DX12DynamicRHI *rhi = (DX12DynamicRHI *)gDynamicRHI;
+
+		// Allocate in staging heap
+		shader_resource_view = rhi->cbv_srv_uav_staging_heap->allocate();
+
+		D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
+		srv_desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+		srv_desc.Format = DXGI_FORMAT_UNKNOWN;
+		srv_desc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+		srv_desc.Buffer.FirstElement = 0;
+		srv_desc.Buffer.NumElements = description.size / description.stride;
+		srv_desc.Buffer.StructureByteStride = description.stride;
+		srv_desc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
+
+		rhi->device->CreateShaderResourceView(resource->resource, &srv_desc, shader_resource_view.getCpuHandle());
+	}
 }
 
 DX12Buffer::~DX12Buffer()

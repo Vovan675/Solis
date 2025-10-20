@@ -3,15 +3,7 @@
 
 cbuffer Constants : register(b1)
 {
-	matrix model;
-	matrix imodel;
-	float4 albedo;
-	int albedo_tex_id;
-	int metalness_tex_id;
-	int roughness_tex_id;
-	int specular_tex_id;
-	float4 shading;
-	int normal_tex_id;
+	uint instance_id;
 };
 
 struct VertexInput
@@ -37,16 +29,18 @@ PixelInput VSMain(VertexInput IN)
 {
     PixelInput OUT;
 
+    Instance instance = GetInstance(instance_id);
+
     // Transform position to clip space
-    float4 worldPosition = mul(model, float4(IN.position, 1.0));
+    float4 worldPosition = mul(instance.world_transform, float4(IN.position, 1.0));
     OUT.position = mul(projection, mul(view, worldPosition));
     
     // Pass through world position
     OUT.worldPos = worldPosition.xyz;
 
     // Transform normal to world space
-    //float3x3 normalMatrix = (float3x3)transpose(imodel);
-    float3x3 normalMatrix = (float3x3)model;
+    //float3x3 normalMatrix = (float3x3)transpose(instance.iworld_transform);
+    float3x3 normalMatrix = (float3x3)instance.world_transform;
     float3 normal = normalize(mul(normalMatrix, IN.normal));
     OUT.worldNormal = normal;
 
@@ -71,12 +65,15 @@ struct PixelOutput {
 PixelOutput PSMain(PixelInput IN)
 {
     PixelOutput OUT;
+    
+    Instance instance = GetInstance(instance_id);
+    Material material = GetMaterial(instance.material_id);
 
     // Albedo color
-    if (albedo_tex_id >= 0) {
-        OUT.color = SampleTexture(albedo_tex_id, IN.uv);
+    if (material.albedo_tex_id > 0) {
+        OUT.color = SampleTexture(material.albedo_tex_id, IN.uv);
     } else {
-        OUT.color = albedo;
+        OUT.color = material.albedo;
     }
 
     // Alpha discard
@@ -86,8 +83,8 @@ PixelOutput PSMain(PixelInput IN)
 
     // Normal mapping
     OUT.normal = float4(normalize(IN.worldNormal), 1.0);
-    if (normal_tex_id >= 0) {
-        float3 normal = SampleTexture(normal_tex_id, IN.uv).rgb;
+    if (material.normal_tex_id > 0) {
+        float3 normal = SampleTexture(material.normal_tex_id, IN.uv).rgb;
         normal = normalize(normal * 2.0 - 1.0);
         OUT.normal.rgb = normalize(mul(normal, IN.TBN));
     }
@@ -96,27 +93,27 @@ PixelOutput PSMain(PixelInput IN)
 
     // Material properties
     #if 1
-        OUT.shading.r = (metalness_tex_id >= 0) ? 
-            SampleTexture(metalness_tex_id, IN.uv).r : 
-            shading.r;
+        OUT.shading.r = (material.metalness_tex_id > 0) ? 
+            SampleTexture(material.metalness_tex_id, IN.uv).r : 
+            material.shading.r;
 
-        OUT.shading.g = (roughness_tex_id >= 0) ? 
-            SampleTexture(roughness_tex_id, IN.uv).r : 
-            shading.g;
+        OUT.shading.g = (material.roughness_tex_id > 0) ? 
+            SampleTexture(material.roughness_tex_id, IN.uv).r : 
+            material.shading.g;
 
-        OUT.shading.b = (specular_tex_id >= 0) ? 
-            SampleTexture(specular_tex_id, IN.uv).r : 
-            shading.b;
+        OUT.shading.b = (material.specular_tex_id > 0) ? 
+            SampleTexture(material.specular_tex_id, IN.uv).r : 
+            material.shading.b;
     #else // Bistro specular map format
-        OUT.shading.r = (specular_tex_id >= 0) ? 
-            SampleTexture(specular_tex_id, IN.uv).b : 
-            shading.r;
+        OUT.shading.r = (material.specular_tex_id > 0) ? 
+            SampleTexture(material.specular_tex_id, IN.uv).b : 
+            material.shading.r;
 
-        OUT.shading.g = (specular_tex_id >= 0) ? 
-            SampleTexture(specular_tex_id, IN.uv).g : 
-            shading.g;
+        OUT.shading.g = (material.specular_tex_id > 0) ? 
+            SampleTexture(material.specular_tex_id, IN.uv).g : 
+            material.shading.g;
 
-        OUT.shading.b = shading.b;
+        OUT.shading.b = material.shading.b;
     #endif
 
     OUT.shading.a = 1.0;

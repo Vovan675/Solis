@@ -9,8 +9,8 @@
 
 void RHIBindlessResources::init()
 {
-	// By default all indices are empty
-	for (int i = MAX_BINDLESS_TEXTURES - 2; i >= 0; i--)
+	// By default all indices are empty (zero bindless index is invalid)
+	for (int i = MAX_BINDLESS_RESOURCES - 2; i > 0; i--)
 		empty_resource_indices.push_back(i);
 
 	// Init default samplers
@@ -40,7 +40,7 @@ void RHIBindlessResources::init()
 	addSampler(shadowClampSampler);
 
 	invalid_texture = AssetManager::getTextureAsset("assets/invalid_texture.png");
-	for (int i = MAX_BINDLESS_TEXTURES - 2; i >= 0; i--)
+	for (int i = MAX_BINDLESS_RESOURCES - 2; i >= 0; i--)
 		set_invalid_texture(i);
 }
 
@@ -102,6 +102,24 @@ void RHIBindlessResources::removeTexture(RHITexture *texture)
 	});
 }
 
+uint32_t RHIBindlessResources::addBuffer(RHIBuffer *buffer)
+{
+	if (empty_resource_indices.size() == 0)
+		CORE_CRITICAL("Bindless: not enough indices");
+
+	// If already exists, return index
+	auto it = buffer_to_resource_index.find(buffer);
+	if (it != buffer_to_resource_index.end())
+		return it->second;
+	uint32_t index = empty_resource_indices.back();
+	empty_resource_indices.pop_back();
+	setBuffer(index, buffer);
+	return index;
+}
+
+void RHIBindlessResources::setBuffer(uint32_t index, RHIBuffer *buffer)
+{
+}
 
 
 // VULKAN
@@ -111,7 +129,9 @@ static VkDescriptorPool createBindlessDescriptorPool()
 	VkDescriptorPool descriptor_pool;
 	eastl::vector<VkDescriptorPoolSize> poolSizes{};
 
-	poolSizes.push_back({VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, MAX_BINDLESS_TEXTURES});
+	poolSizes.push_back({VK_DESCRIPTOR_TYPE_MUTABLE_EXT, MAX_BINDLESS_RESOURCES});
+	poolSizes.push_back({VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, MAX_BINDLESS_RESOURCES});
+	poolSizes.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, MAX_BINDLESS_RESOURCES});
 	poolSizes.push_back({VK_DESCRIPTOR_TYPE_SAMPLER, MAX_BINDLESS_SAMPLERS * 10});
 
 	VkDescriptorPoolCreateInfo poolInfo{};
@@ -137,9 +157,25 @@ void VulkanBindlessResources::init()
 		VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT | VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT,
 	};
 	extended_info.pBindingFlags = binding_flags.data();
+	
+	eastl::array<VkDescriptorType, 2> mutable_descriptor_types
+	{
+		VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+		VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
+	};
+
+	VkMutableDescriptorTypeListEXT mutable_descriptor_type_list{};
+	mutable_descriptor_type_list.descriptorTypeCount = mutable_descriptor_types.size();
+	mutable_descriptor_type_list.pDescriptorTypes = mutable_descriptor_types.data();
+
+	VkMutableDescriptorTypeCreateInfoEXT mutable_desc_info{};
+	mutable_desc_info.sType = VK_STRUCTURE_TYPE_MUTABLE_DESCRIPTOR_TYPE_CREATE_INFO_EXT;
+	mutable_desc_info.mutableDescriptorTypeListCount = 1;
+	mutable_desc_info.pMutableDescriptorTypeLists = &mutable_descriptor_type_list;
+	extended_info.pNext = &mutable_desc_info;
 
 	DescriptorLayoutBuilder layout_builder;
-	layout_builder.add_binding(BINDLESS_TEXTURES_BINDING, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, MAX_BINDLESS_TEXTURES); // All textures
+	layout_builder.add_binding(BINDLESS_RESOURCES_BINDING, VK_DESCRIPTOR_TYPE_MUTABLE_EXT, MAX_BINDLESS_RESOURCES); // All resources (textures + storage buffers)
 	layout_builder.add_binding(BINDLESS_SAMPLERS_BINDING, VK_DESCRIPTOR_TYPE_SAMPLER, MAX_BINDLESS_SAMPLERS * 10); // All samplers
 
 	auto flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT; // For updating textures after binding
@@ -158,7 +194,7 @@ void VulkanBindlessResources::init()
 	VkDescriptorSetVariableDescriptorCountAllocateInfo count_info{};
 	count_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO_EXT;
 	count_info.descriptorSetCount = 1;
-	uint32_t max_binding = MAX_BINDLESS_TEXTURES - 1;
+	uint32_t max_binding = MAX_BINDLESS_RESOURCES - 1;
 	count_info.pDescriptorCounts = &max_binding;
 
 	bindless_alloc_info.pNext = &count_info;
@@ -185,7 +221,22 @@ void VulkanBindlessResources::setTexture(uint32_t index, RHITexture *texture)
 	CORE_INFO("Set texture {} at index {} w {} h {}", texture->getDebugName(), index, texture->getWidth(), texture->getHeight());
 
 	VulkanTexture *native_texture = (VulkanTexture *)texture;
-	descriptor_writer.writeImage(BINDLESS_TEXTURES_BINDING, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, native_texture->getImageView(), nullptr, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	descriptor_writer.writeImage(BINDLESS_RESOURCES_BINDING, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, native_texture->getImageView(), nullptr, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	descriptor_writer.writes.back().dstArrayElement = index;
+	is_dirty = true;
+	updateSets();
+}
+
+void VulkanBindlessResources::setBuffer(uint32_t index, RHIBuffer *buffer)
+{
+	RHIBindlessResources::setBuffer(index, buffer);
+	if (buffer == nullptr || (buffer->description.usage & STORAGE_BUFFER) == 0)
+		return;
+	buffer_to_resource_index[buffer] = index;
+	CORE_INFO("Set buffer at index {} size {}", index, buffer->getSize());
+
+	VulkanBuffer *native_buffer = (VulkanBuffer *)buffer;
+	descriptor_writer.writeBuffer(BINDLESS_RESOURCES_BINDING, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, native_buffer->buffer->resource, native_buffer->getSize());
 	descriptor_writer.writes.back().dstArrayElement = index;
 	is_dirty = true;
 	updateSets();
@@ -270,7 +321,7 @@ void VulkanBindlessResources::set_invalid_texture(uint32_t index)
 		return;
 
 	VulkanTexture *native_texture = (VulkanTexture *)invalid_texture.getReference();
-	descriptor_writer.writeImage(BINDLESS_TEXTURES_BINDING, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, native_texture->getImageView(), nullptr, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	descriptor_writer.writeImage(BINDLESS_RESOURCES_BINDING, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, native_texture->getImageView(), nullptr, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	descriptor_writer.writes.back().dstArrayElement = index;
 	is_dirty = true;
 	updateSets();
@@ -302,6 +353,24 @@ void DX12BindlessResources::setTexture(uint32_t index, RHITexture *texture)
 
 	// Copy from staging heap, to current frame's shader visible heap
 	rhi->device->CopyDescriptorsSimple(1, cpu_handle_srv_heap, native_texture->shader_resource_view.getCpuHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+}
+
+void DX12BindlessResources::setBuffer(uint32_t index, RHIBuffer *buffer)
+{
+	RHIBindlessResources::setBuffer(index, buffer);
+	if (buffer == nullptr)
+		return;
+	buffer_to_resource_index[buffer] = index;
+	CORE_INFO("Set buffer at index {} size {}", index, buffer->getSize());
+
+	DX12DynamicRHI *rhi = (DX12DynamicRHI *)gDynamicRHI;
+
+	DX12Buffer *native_buffer = (DX12Buffer *)buffer;
+
+	D3D12_CPU_DESCRIPTOR_HANDLE cpu_handle_srv_heap(rhi->cbv_srv_uav_heap->getHandle(index).getCpuHandle());
+
+	// Copy from staging heap, to current frame's shader visible heap
+	rhi->device->CopyDescriptorsSimple(1, cpu_handle_srv_heap, native_buffer->getShaderResourceView().getCpuHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 }
 
 void DX12BindlessResources::update()

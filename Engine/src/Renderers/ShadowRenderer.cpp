@@ -121,10 +121,10 @@ void ShadowRenderer::addShadowMapPasses(FrameGraph &fg, const eastl::vector<Rend
 
 						struct ShadowPushConstact
 						{
-							glm::mat4 model;
+							uint32_t instance_id;
 						} push_constant;
 
-						push_constant.model = batch.world_transform;
+						push_constant.instance_id = batch.instance_id;
 						gDynamicRHI->setConstantBufferData(2, &push_constant, sizeof(ShadowPushConstact));
 
 						// Render mesh
@@ -188,10 +188,10 @@ void ShadowRenderer::addShadowMapPasses(FrameGraph &fg, const eastl::vector<Rend
 
 						struct ShadowPushConstact
 						{
-							glm::mat4 model;
+							uint32_t instance_id;
 						} push_constant;
 
-						push_constant.model = batch.world_transform;
+						push_constant.instance_id = batch.instance_id;
 						gDynamicRHI->setConstantBufferData(2, &push_constant, sizeof(ShadowPushConstact));
 
 

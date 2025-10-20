@@ -16,7 +16,7 @@ VulkanBuffer::VulkanBuffer(BufferDescription description) : RHIBuffer(descriptio
 		usage_flags |= VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
 	if (description.usage & UNIFORM_BUFFER)
 		usage_flags |= VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-	if (description.usage & UAV_BUFFER)
+	if (description.usage & (UAV_BUFFER | STORAGE_BUFFER))
 		usage_flags |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
 	if (description.usage & ACCELERATION_STRUCTURE_BUILD_INPUT_BUFFER)
 		usage_flags |= VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;

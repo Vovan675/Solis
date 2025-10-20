@@ -106,8 +106,8 @@ DynamicRHI::CompileShaderResult DynamicRHI::compile_shader(eastl::wstring path, 
 
 	args.push_back(DXC_ARG_PACK_MATRIX_COLUMN_MAJOR);
 
-	eastl::wstring bindless_resource_heap_binding = eastl::to_wstring(BINDLESS_TEXTURES_BINDING);
-	eastl::wstring bindless_resource_heap_set = eastl::to_wstring(BINDLESS_TEXTURES_SET);
+	eastl::wstring bindless_resource_heap_binding = eastl::to_wstring(BINDLESS_RESOURCES_BINDING);
+	eastl::wstring bindless_resource_heap_set = eastl::to_wstring(BINDLESS_RESOURCES_SET);
 
 	eastl::wstring bindless_samplers_heap_binding = eastl::to_wstring(BINDLESS_SAMPLERS_BINDING);
 	eastl::wstring bindless_samplers_heap_set = eastl::to_wstring(BINDLESS_SAMPLERS_SET);
