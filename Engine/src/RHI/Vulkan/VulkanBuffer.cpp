@@ -26,14 +26,18 @@ VulkanBuffer::VulkanBuffer(BufferDescription description) : RHIBuffer(descriptio
 		usage_flags |= VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR;
 
 	VmaMemoryUsage memory_usage = VMA_MEMORY_USAGE_AUTO;
+	VmaAllocationCreateFlags flags = 0;
 	if (description.useStagingBuffer)
+	{
 		memory_usage = VMA_MEMORY_USAGE_GPU_ONLY;
-	else
-		memory_usage = VMA_MEMORY_USAGE_CPU_ONLY;
-
+	} else
+	{
+		memory_usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
+		flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+	}
 	buffer = std::make_unique<VkBufferResource>();
 	allocation = std::make_unique<VkAllocationResource>();
-	VulkanUtils::createBuffer(bufferSize, usage_flags, memory_usage, buffer->resource, allocation->resource, description.alignment);
+	VulkanUtils::createBuffer(bufferSize, usage_flags, memory_usage, flags, buffer->resource, allocation->resource, description.alignment);
 }
 
 VulkanBuffer::~VulkanBuffer()

@@ -30,7 +30,7 @@ void VulkanUtils::init()
 
 VulkanDynamicRHI *VulkanUtils::getNativeRHI() { return (VulkanDynamicRHI *)gDynamicRHI; }
 
-void VulkanUtils::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VmaMemoryUsage memory_usage, VkBuffer &buffer, VmaAllocation &allocation, VkDeviceSize alignment)
+void VulkanUtils::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VmaMemoryUsage memory_usage, VmaAllocationCreateFlags flags, VkBuffer &buffer, VmaAllocation &allocation, VkDeviceSize alignment)
 {
 	// Create buffer
 	VkBufferCreateInfo info{};
@@ -41,6 +41,7 @@ void VulkanUtils::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VmaM
 
 	VmaAllocationCreateInfo alloc_info{};
 	alloc_info.usage = memory_usage;
+	alloc_info.flags = flags;
 
 	if (alignment != 0)
 		vmaCreateBufferWithAlignment(getNativeRHI()->allocator, &info, &alloc_info, alignment, &buffer, &allocation, nullptr);

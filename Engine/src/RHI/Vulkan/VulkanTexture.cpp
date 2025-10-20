@@ -82,7 +82,7 @@ void VulkanTexture::fill(const void *sourceData)
 	VkDeviceSize image_size = get_image_size();
 	VkBuffer stagingBuffer;
 	VmaAllocation stagingAllocation;
-	VulkanUtils::createBuffer(image_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VmaMemoryUsage::VMA_MEMORY_USAGE_CPU_ONLY, stagingBuffer, stagingAllocation);
+	VulkanUtils::createBuffer(image_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VmaMemoryUsage::VMA_MEMORY_USAGE_CPU_ONLY, 0, stagingBuffer, stagingAllocation);
 
 	// Copy data to staging
 	void *data;

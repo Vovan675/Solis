@@ -15,7 +15,7 @@ public:
 
 	static VulkanDynamicRHI *getNativeRHI();
 
-	static void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VmaMemoryUsage memory_usage, VkBuffer &buffer, VmaAllocation &allocation, VkDeviceSize alignment = 0);
+	static void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VmaMemoryUsage memory_usage, VmaAllocationCreateFlags flags, VkBuffer &buffer, VmaAllocation &allocation, VkDeviceSize alignment = 0);
 
 
 	static void cmdImageMemoryBarrier(VkCommandBuffer cmd_buffer,
