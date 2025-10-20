@@ -1,72 +1,43 @@
 #pragma once
 #include "FrameGraph.h"
 
-struct DefaultResourcesData
-{
-	FrameGraphResource final_no_post;
-	FrameGraphResource final;
-	FrameGraphResource backbuffer;
-};
+#define FinalNoPostTexture
+#define FinalTexture
+#define BackbufferTexture
 
-struct GBufferData
-{
-	FrameGraphResource albedo;
-	FrameGraphResource normal;
-	FrameGraphResource depth;
-	FrameGraphResource shading;
-};
+struct EmptyData {};
 
-struct DeferredLightingData
-{
-	FrameGraphResource diffuse_light;
-	FrameGraphResource specular_light;
-};
+#define GBufferAlbedo
+#define GBufferNormal
+#define GBufferDepth
+#define GBufferShading
 
-struct SSAOData
-{
-	FrameGraphResource ssao_raw;
-	FrameGraphResource ssao_blurred;
-	FrameGraphResource ssao_noise;
-};
+#define SSAONoiseTexture
+#define SSAORaw
+#define SSAOBlurred
 
-struct SSRData
-{
-	FrameGraphResource ssr;
-};
+#define DiffuseLight
+#define SpecularLight
 
-struct CompositeData
-{
-	FrameGraphResource composite_indirect_ambient;
-	FrameGraphResource composite_indirect_specular;
-};
+#define SSR
 
-struct SkyData
-{
-	FrameGraphResource sky;
-};
+#define CompositeIndirectAmbient
+#define CompositeIndirectSpecular
 
-struct LutData
-{
-	FrameGraphResource brdf_lut;
-};
+#define Sky
 
-struct IBLData
-{
-	FrameGraphResource irradiance;
-	FrameGraphResource prefilter;
-};
+#define LutBRDF
 
-struct CascadeShadowPass
-{
-	FrameGraphResource shadow_map = -1;
-};
+#define IBLIrradiance
+#define IBLPrefilter
+
 
 struct RayTracedShadowPass
 {
-	FrameGraphResource visibility;
+	FrameGraphTextureId visibility;
 };
 
 struct ShadowPasses
 {
-	eastl::vector<FrameGraphResource> shadow_maps;
+	eastl::vector<FrameGraphTextureId> shadow_maps;
 };

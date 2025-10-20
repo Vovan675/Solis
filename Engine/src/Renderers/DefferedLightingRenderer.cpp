@@ -22,43 +22,28 @@ void DefferedLightingRenderer::renderLights(FrameGraph &fg)
 {
 	struct LightingPassData
 	{
-		FrameGraphResource albedo;
-		FrameGraphResource normal;
-		FrameGraphResource depth;
-		FrameGraphResource shading;
+		FrameGraphTextureId albedo;
+		FrameGraphTextureId normal;
+		FrameGraphTextureId depth;
+		FrameGraphTextureId shading;
 	};
 
-	auto &gbuffer_data = fg.getBlackboard().get<GBufferData>();
-
-	auto &lighting_data = fg.getBlackboard().add<DeferredLightingData>();
-
-	auto *cascade_shadow_data = fg.getBlackboard().tryGet<CascadeShadowPass>();
 	auto *ray_traced_shadow_data = fg.getBlackboard().tryGet<RayTracedShadowPass>();
 	auto *shadow_passes_data = fg.getBlackboard().tryGet<ShadowPasses>();
 
-	lighting_data = fg.addCallbackPass<DeferredLightingData>("Deffered Lighting Pass",
-	[&](RenderPassBuilder &builder, DeferredLightingData &data)
+	fg.addCallbackPass<EmptyData>("Deffered Lighting Pass",
+	[&](RenderPassBuilder &builder, EmptyData &data)
 	{
-		// Setup
-		FrameGraphTexture::Description desc;
-		desc.width = Renderer::getViewportSize().x;
-		desc.height = Renderer::getViewportSize().y;
-		desc.format = FORMAT_R11G11B10_UFLOAT;
-		desc.usage_flags = TEXTURE_USAGE_ATTACHMENT;
+		builder.createTexture(GFXRID(DiffuseLight), Renderer::getViewportWidth(), Renderer::getViewportHeight(), FORMAT_R11G11B10_UFLOAT);
+		builder.writeTexture(GFXRID(DiffuseLight));
 
-		data.diffuse_light = builder.createTexture("Lighting Diffuse Image", desc);
-		data.diffuse_light = builder.write(data.diffuse_light);
+		builder.createTexture(GFXRID(SpecularLight), Renderer::getViewportWidth(), Renderer::getViewportHeight(), FORMAT_R11G11B10_UFLOAT);
+		builder.writeTexture(GFXRID(SpecularLight));
 
-		data.specular_light = builder.createTexture("Lighting Specular Image", desc);
-		data.specular_light = builder.write(data.specular_light);
-
-		builder.read(gbuffer_data.albedo);
-		builder.read(gbuffer_data.normal);
-		builder.read(gbuffer_data.depth);
-		builder.read(gbuffer_data.shading);
-
-		if (cascade_shadow_data && cascade_shadow_data->shadow_map != -1)
-			builder.read(cascade_shadow_data->shadow_map);
+		builder.readTexture(GFXRID(GBufferAlbedo));
+		builder.readTexture(GFXRID(GBufferNormal));
+		builder.readTexture(GFXRID(GBufferDepth));
+		builder.readTexture(GFXRID(GBufferShading));
 
 		if (shadow_passes_data)
 		{
@@ -71,16 +56,15 @@ void DefferedLightingRenderer::renderLights(FrameGraph &fg)
 			builder.read(ray_traced_shadow_data->visibility);
 		}
 	},
-	[=](const DeferredLightingData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
+	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		// Render
-		auto &albedo = resources.getResource<FrameGraphTexture>(gbuffer_data.albedo);
-		auto &normal = resources.getResource<FrameGraphTexture>(gbuffer_data.normal);
-		auto &depth = resources.getResource<FrameGraphTexture>(gbuffer_data.depth);
-		auto &shading = resources.getResource<FrameGraphTexture>(gbuffer_data.shading);
+		auto &albedo = resources.getResource<FrameGraphTexture>(GFXRID(GBufferAlbedo));
+		auto &normal = resources.getResource<FrameGraphTexture>(GFXRID(GBufferNormal));
+		auto &depth = resources.getResource<FrameGraphTexture>(GFXRID(GBufferDepth));
+		auto &shading = resources.getResource<FrameGraphTexture>(GFXRID(GBufferShading));
 
-		auto &diffuse = resources.getResource<FrameGraphTexture>(data.diffuse_light);
-		auto &specular = resources.getResource<FrameGraphTexture>(data.specular_light);
+		auto &diffuse = resources.getResource<FrameGraphTexture>(GFXRID(DiffuseLight));
+		auto &specular = resources.getResource<FrameGraphTexture>(GFXRID(SpecularLight));
 
 		cmd_list->setRenderTargets({diffuse.texture, specular.texture}, nullptr, -1, 0, true);
 

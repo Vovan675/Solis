@@ -208,22 +208,20 @@ void EditorApplication::recordCommands(RHICommandList *cmd_list)
 	FrameGraph frameGraph;
 
 	// Render ImGui to backbuffer
-	DefaultResourcesData &default_data = frameGraph.getBlackboard().add<DefaultResourcesData>();
-	default_data.final = importTexture(frameGraph, viewport_panel.viewport_texture);
-	default_data.backbuffer = importTexture(frameGraph, gDynamicRHI->getCurrentSwapchainTexture());
+	frameGraph.importTexture(GFXRID(FinalTexture), viewport_panel.viewport_texture);
+	frameGraph.importTexture(GFXRID(BackbufferTexture), gDynamicRHI->getCurrentSwapchainTexture());
 
-	default_data = frameGraph.addCallbackPass<DefaultResourcesData>("ImGui Pass",
-	[&](RenderPassBuilder &builder, DefaultResourcesData &data)
+	frameGraph.addCallbackPass<EmptyData>("ImGui Pass",
+	[&](RenderPassBuilder &builder, EmptyData &data)
 	{
-		data = default_data;
-		data.final = builder.read(default_data.final);
-		data.backbuffer = builder.write(default_data.backbuffer, RenderPassNode::RESOURCE_ACCESS_IGNORE_FLAG);
+		builder.readTexture(GFXRID(FinalTexture));
+		builder.writeTexture(GFXRID(BackbufferTexture), RenderPassNode::RESOURCE_ACCESS_IGNORE_FLAG);
 		builder.setSideEffect(true);
 	},
-	[=](const DefaultResourcesData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
+	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		auto &final = resources.getResource<FrameGraphTexture>(data.final);
-		auto &backbuffer = resources.getResource<FrameGraphTexture>(data.backbuffer);
+		auto &final = resources.getResource<FrameGraphTexture>(GFXRID(FinalTexture));
+		auto &backbuffer = resources.getResource<FrameGraphTexture>(GFXRID(BackbufferTexture));
 
 		cmd_list->setRenderTargets({backbuffer.texture}, {}, 0, 0, true);
 		ImGuiWrapper::render(cmd_list);

@@ -232,6 +232,11 @@ void VulkanTexture::transitLayout(RHICommandList *cmd_list, TextureLayoutType ne
 				src_access_mask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
 			}
 			break;
+		case TEXTURE_LAYOUT_DEPTH_READ:
+			assert(isDepthTexture());
+			src_stage_mask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+			src_access_mask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+			break;
 		case TEXTURE_LAYOUT_SHADER_READ:
 			src_stage_mask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
 			src_access_mask = VK_ACCESS_2_SHADER_READ_BIT;
@@ -266,6 +271,11 @@ void VulkanTexture::transitLayout(RHICommandList *cmd_list, TextureLayoutType ne
 				dst_stage_mask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
 				dst_access_mask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
 			}
+			break;
+		case TEXTURE_LAYOUT_DEPTH_READ:
+			assert(isDepthTexture());
+			dst_stage_mask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+			dst_access_mask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
 			break;
 		case TEXTURE_LAYOUT_SHADER_READ:
 			dst_stage_mask = VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;

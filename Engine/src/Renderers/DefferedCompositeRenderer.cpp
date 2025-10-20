@@ -14,56 +14,36 @@ DefferedCompositeRenderer::~DefferedCompositeRenderer()
 
 void DefferedCompositeRenderer::addPasses(FrameGraph &fg)
 {
-	auto &gbuffer_data = fg.getBlackboard().get<GBufferData>();
-	auto &lighting_data = fg.getBlackboard().get<DeferredLightingData>();
-	auto *ssao_data = fg.getBlackboard().tryGet<SSAOData>();
-	auto *ssr_data = fg.getBlackboard().tryGet<SSRData>();
-	auto &ibl_data = fg.getBlackboard().get<IBLData>();
-	auto &lut_data = fg.getBlackboard().get<LutData>();
-
-	auto &composite_data = fg.getBlackboard().get<CompositeData>();
-	auto &default_data = fg.getBlackboard().get<DefaultResourcesData>();
-
-	composite_data = fg.addCallbackPass<CompositeData>("Composite Indirect Pass",
-	[&](RenderPassBuilder &builder, CompositeData &data)
+	fg.addCallbackPass<EmptyData>("Composite Indirect Pass",
+	[&](RenderPassBuilder &builder, EmptyData &data)
 	{
-		// Setup
-		FrameGraphTexture::Description desc;
-		desc.width = Renderer::getViewportSize().x;
-		desc.height = Renderer::getViewportSize().y;
-		desc.format = FORMAT_R32G32B32A32_SFLOAT;
-		desc.usage_flags = TEXTURE_USAGE_ATTACHMENT;
-		desc.sampler_mode = SAMPLER_MODE_CLAMP_TO_EDGE;
-		data = composite_data;
+		builder.createTexture(GFXRID(CompositeIndirectAmbient), Renderer::getViewportWidth(), Renderer::getViewportHeight(), FORMAT_R32G32B32A32_SFLOAT);
+		builder.writeTexture(GFXRID(CompositeIndirectAmbient));
 
-		data.composite_indirect_ambient = builder.createTexture("Indirect Ambient Image", desc);
-		data.composite_indirect_ambient = builder.write(data.composite_indirect_ambient);
+		builder.createTexture(GFXRID(CompositeIndirectSpecular), Renderer::getViewportWidth(), Renderer::getViewportHeight(), FORMAT_R32G32B32A32_SFLOAT);
+		builder.writeTexture(GFXRID(CompositeIndirectSpecular));
 
-		data.composite_indirect_specular = builder.createTexture("Indirect Specular Image", desc);
-		data.composite_indirect_specular = builder.write(data.composite_indirect_specular);
+		builder.readTexture(GFXRID(DiffuseLight));
+		builder.readTexture(GFXRID(SpecularLight));
+		builder.readTexture(GFXRID(GBufferAlbedo));
+		builder.readTexture(GFXRID(GBufferNormal));
+		builder.readTexture(GFXRID(GBufferDepth));
+		builder.readTexture(GFXRID(GBufferShading));
+		builder.readTexture(GFXRID(LutBRDF));
+		builder.readTexture(GFXRID(IBLIrradiance));
+		builder.readTexture(GFXRID(IBLPrefilter));
+		if (builder.isTextureCreated(GFXRID(SSAOBlurred)))
+			builder.readTexture(GFXRID(SSAOBlurred));
 
-		builder.read(lighting_data.diffuse_light);
-		builder.read(lighting_data.specular_light);
-		builder.read(gbuffer_data.albedo);
-		builder.read(gbuffer_data.normal);
-		builder.read(gbuffer_data.depth);
-		builder.read(gbuffer_data.shading);
-		builder.read(lut_data.brdf_lut);
-		builder.read(ibl_data.irradiance);
-		builder.read(ibl_data.prefilter);
-		if (ssao_data)
-			builder.read(ssao_data->ssao_blurred);
-
-		if (ssr_data)
-			builder.read(ssr_data->ssr);
+		if (builder.isTextureCreated(GFXRID(SSR)))
+			builder.readTexture(GFXRID(SSR));
 	},
-	[=](const CompositeData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
+	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		// Render
-		auto &indirect_ambient = resources.getResource<FrameGraphTexture>(data.composite_indirect_ambient);
-		auto &indirect_specular = resources.getResource<FrameGraphTexture>(data.composite_indirect_specular);
-		auto &ibl_irradiance = resources.getResource<FrameGraphTexture>(ibl_data.irradiance);
-		auto &ibl_prefilter = resources.getResource<FrameGraphTexture>(ibl_data.prefilter);
+		auto &indirect_ambient = resources.getResource<FrameGraphTexture>(GFXRID(CompositeIndirectAmbient));
+		auto &indirect_specular = resources.getResource<FrameGraphTexture>(GFXRID(CompositeIndirectSpecular));
+		auto &ibl_irradiance = resources.getResource<FrameGraphTexture>(GFXRID(IBLIrradiance));
+		auto &ibl_prefilter = resources.getResource<FrameGraphTexture>(GFXRID(IBLPrefilter));
 
 		cmd_list->setRenderTargets({indirect_ambient.texture, indirect_specular.texture}, nullptr, -1, 0, true);
 
@@ -84,24 +64,23 @@ void DefferedCompositeRenderer::addPasses(FrameGraph &fg)
 
 		ubo.irradiance_tex_id = ibl_irradiance.getBindlessId();
 		ubo.prefilter_tex_id = ibl_prefilter.getBindlessId();
-		ubo.lighting_diffuse_tex_id = resources.getResource<FrameGraphTexture>(lighting_data.diffuse_light).getBindlessId();
-		ubo.lighting_diffuse_tex_id = resources.getResource<FrameGraphTexture>(lighting_data.diffuse_light).getBindlessId();
-		ubo.lighting_specular_tex_id = resources.getResource<FrameGraphTexture>(lighting_data.specular_light).getBindlessId();
-		ubo.albedo_tex_id = resources.getResource<FrameGraphTexture>(gbuffer_data.albedo).getBindlessId();
-		ubo.normal_tex_id = resources.getResource<FrameGraphTexture>(gbuffer_data.normal).getBindlessId();
-		ubo.depth_tex_id = resources.getResource<FrameGraphTexture>(gbuffer_data.depth).getBindlessId();
-		ubo.shading_tex_id = resources.getResource<FrameGraphTexture>(gbuffer_data.shading).getBindlessId();
-		ubo.brdf_lut_tex_id = resources.getResource<FrameGraphTexture>(lut_data.brdf_lut).getBindlessId();
+		ubo.lighting_diffuse_tex_id = resources.getResource<FrameGraphTexture>(GFXRID(DiffuseLight)).getBindlessId();
+		ubo.lighting_specular_tex_id = resources.getResource<FrameGraphTexture>(GFXRID(SpecularLight)).getBindlessId();
+		ubo.albedo_tex_id = resources.getResource<FrameGraphTexture>(GFXRID(GBufferAlbedo)).getBindlessId();
+		ubo.normal_tex_id = resources.getResource<FrameGraphTexture>(GFXRID(GBufferNormal)).getBindlessId();
+		ubo.depth_tex_id = resources.getResource<FrameGraphTexture>(GFXRID(GBufferDepth)).getBindlessId();
+		ubo.shading_tex_id = resources.getResource<FrameGraphTexture>(GFXRID(GBufferShading)).getBindlessId();
+		ubo.brdf_lut_tex_id = resources.getResource<FrameGraphTexture>(GFXRID(LutBRDF)).getBindlessId();
 
-		if (ssao_data)
-			ubo.ssao_tex_id = resources.getResource<FrameGraphTexture>(ssao_data->ssao_blurred).getBindlessId();
+		if (resources.has(GFXRID(SSAOBlurred)))
+			ubo.ssao_tex_id = resources.getResource<FrameGraphTexture>(GFXRID(SSAOBlurred)).getBindlessId();
 
-		if (ssr_data)
-			ubo.ssr_tex_id = resources.getResource<FrameGraphTexture>(ssr_data->ssr).getBindlessId();
+		if (resources.has(GFXRID(SSR)))
+			ubo.ssr_tex_id = resources.getResource<FrameGraphTexture>(GFXRID(SSR)).getBindlessId();
 
 		auto shader = gDynamicRHI->createShader(L"shaders/composite_indirect.hlsl", FRAGMENT_SHADER, {
-			{"SSR", ssr_data ? "1" : "0"},
-			{"SSAO", ssao_data ? "1" : "0"},
+			{"SSR", ubo.ssr_tex_id ? "1" : "0"},
+			{"SSAO", ubo.ssao_tex_id ? "1" : "0"},
 		});
 		
 		auto &p = gGlobalPipeline;
@@ -116,32 +95,22 @@ void DefferedCompositeRenderer::addPasses(FrameGraph &fg)
 		cmd_list->resetRenderTargets();
 	});
 
-	default_data = fg.addCallbackPass<DefaultResourcesData>("Deffered Composite Pass",
-	[&](RenderPassBuilder &builder, DefaultResourcesData &data)
+	fg.addCallbackPass<EmptyData>("Deffered Composite Pass",
+	[&](RenderPassBuilder &builder, EmptyData &data)
 	{
-		// Setup
-		data = default_data;
+		builder.createTexture(GFXRID(FinalNoPostTexture), Renderer::getViewportWidth(),  Renderer::getViewportHeight(), FORMAT_R32G32B32A32_SFLOAT);
+		builder.writeTexture(GFXRID(FinalNoPostTexture));
 
-		FrameGraphTexture::Description desc;
-		desc.width = Renderer::getViewportSize().x;
-		desc.height = Renderer::getViewportSize().y;
-		desc.format = FORMAT_R32G32B32A32_SFLOAT;
-		desc.usage_flags = TEXTURE_USAGE_ATTACHMENT;
-
-		data.final_no_post = builder.createTexture("No Post Final Image", desc);
-		data.final_no_post = builder.write(data.final_no_post);
-
-		builder.read(composite_data.composite_indirect_ambient);
-		builder.read(composite_data.composite_indirect_specular);
-		builder.read(lighting_data.diffuse_light);
-		builder.read(lighting_data.specular_light);
-		builder.read(gbuffer_data.albedo);
-		builder.read(gbuffer_data.depth);
+		builder.readTexture(GFXRID(CompositeIndirectAmbient));
+		builder.readTexture(GFXRID(CompositeIndirectSpecular));
+		builder.readTexture(GFXRID(DiffuseLight));
+		builder.readTexture(GFXRID(SpecularLight));
+		builder.readTexture(GFXRID(GBufferAlbedo));
+		builder.readTexture(GFXRID(GBufferDepth));
 	},
-	[=](const DefaultResourcesData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
+	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		// Render
-		auto &composite = resources.getResource<FrameGraphTexture>(data.final_no_post);
+		auto &composite = resources.getResource<FrameGraphTexture>(GFXRID(FinalNoPostTexture));
 
 		cmd_list->setRenderTargets({composite.texture}, nullptr, -1, 0, true);
 
@@ -155,12 +124,12 @@ void DefferedCompositeRenderer::addPasses(FrameGraph &fg)
 			uint32_t depth_tex_id = 0;
 		} ubo;
 
-		ubo.lighting_diffuse_tex_id = resources.getResource<FrameGraphTexture>(lighting_data.diffuse_light).getBindlessId();
-		ubo.lighting_specular_tex_id = resources.getResource<FrameGraphTexture>(lighting_data.specular_light).getBindlessId();
-		ubo.indirect_ambient_tex_id = resources.getResource<FrameGraphTexture>(composite_data.composite_indirect_ambient).getBindlessId();
-		ubo.indirect_specular_tex_id = resources.getResource<FrameGraphTexture>(composite_data.composite_indirect_specular).getBindlessId();
-		ubo.albedo_tex_id = resources.getResource<FrameGraphTexture>(gbuffer_data.albedo).getBindlessId();
-		ubo.depth_tex_id = resources.getResource<FrameGraphTexture>(gbuffer_data.depth).getBindlessId();
+		ubo.lighting_diffuse_tex_id = resources.getResource<FrameGraphTexture>(GFXRID(DiffuseLight)).getBindlessId();
+		ubo.lighting_specular_tex_id = resources.getResource<FrameGraphTexture>(GFXRID(SpecularLight)).getBindlessId();
+		ubo.indirect_ambient_tex_id = resources.getResource<FrameGraphTexture>(GFXRID(CompositeIndirectAmbient)).getBindlessId();
+		ubo.indirect_specular_tex_id = resources.getResource<FrameGraphTexture>(GFXRID(CompositeIndirectSpecular)).getBindlessId();
+		ubo.albedo_tex_id = resources.getResource<FrameGraphTexture>(GFXRID(GBufferAlbedo)).getBindlessId();
+		ubo.depth_tex_id = resources.getResource<FrameGraphTexture>(GFXRID(GBufferDepth)).getBindlessId();
 
 		auto &p = gGlobalPipeline;
 		p->bindScreenQuadPipeline(cmd_list, gDynamicRHI->createShader(L"shaders/deffered_composite.hlsl", FRAGMENT_SHADER));

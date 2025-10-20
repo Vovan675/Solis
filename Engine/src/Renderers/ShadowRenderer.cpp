@@ -42,7 +42,11 @@ void ShadowRenderer::addShadowMapPasses(FrameGraph &fg, const eastl::vector<Rend
 	auto light_entities_id = Scene::getCurrentScene()->getEntitiesWith<LightComponent>();
 
 	ShadowPasses &shadow_passes = fg.getBlackboard().add<ShadowPasses>();
-	CascadeShadowPass &cs_pass = fg.getBlackboard().add<CascadeShadowPass>();
+
+	struct ShadowPassData
+	{
+		FrameGraphTextureId shadow_map;
+	};
 
 	for (entt::entity light_entity_id : light_entities_id)
 	{
@@ -65,17 +69,18 @@ void ShadowRenderer::addShadowMapPasses(FrameGraph &fg, const eastl::vector<Rend
 			faces_transforms.push_back(glm::lookAtLH(position, position + glm::vec3(0, 0, -1), glm::vec3(0, 1, 0)));
 
 
-			FrameGraphResource shadow_map_resource = importTexture(fg, light.shadow_map);
+			FrameGraphTextureId shadow_map_resource = fg.importTexture(GraphicsResourceName((eastl::string("Shadow Map ") + eastl::to_string((uint32_t)light_entity_id)).c_str()), light.shadow_map);
 
-			fg.addCallbackPass<ShadowPasses>("Cube Shadow Map Pass",
-			[&](RenderPassBuilder &builder, ShadowPasses &data)
+			fg.addCallbackPass<ShadowPassData>("Cube Shadow Map Pass",
+			[&](RenderPassBuilder &builder, ShadowPassData &data)
 			{
-				shadow_passes.shadow_maps.push_back(builder.write(shadow_map_resource));
+				data.shadow_map = builder.writeTexture(shadow_map_resource);
+				shadow_passes.shadow_maps.push_back(data.shadow_map);
 			},
-			[=, &shadow_passes, &batches](const ShadowPasses &data, const RenderPassResources &resources, RHICommandList *cmd_list)
+			[=, &batches](const ShadowPassData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 			{
 				// Render
-				auto &shadow_map = resources.getResource<FrameGraphTexture>(shadow_passes.shadow_maps.back());
+				auto &shadow_map = resources.getResource<FrameGraphTexture>(data.shadow_map);
 
 				for (int face = 0; face < 6; face++)
 				{
@@ -135,14 +140,15 @@ void ShadowRenderer::addShadowMapPasses(FrameGraph &fg, const eastl::vector<Rend
 			});
 		} else
 		{
-			FrameGraphResource shadow_map_resource = importTexture(fg, light.shadow_map);
+			FrameGraphTextureId shadow_map_resource = fg.importTexture(GraphicsResourceName((eastl::string("Shadow Map ") + eastl::to_string((uint32_t)light_entity_id)).c_str()), light.shadow_map);
 
-			cs_pass = fg.addCallbackPass<CascadeShadowPass>("Cascaded Shadows Pass",
-			[&](RenderPassBuilder &builder, CascadeShadowPass &data)
+			fg.addCallbackPass<ShadowPassData>("Cascaded Shadows Pass",
+			[&](RenderPassBuilder &builder, ShadowPassData &data)
 			{
-				data.shadow_map = builder.write(shadow_map_resource);
+				data.shadow_map = builder.writeTexture(shadow_map_resource);
+				shadow_passes.shadow_maps.push_back(data.shadow_map);
 			},
-			[=, &batches, &light](const CascadeShadowPass &data, const RenderPassResources &resources, RHICommandList *cmd_list)
+			[=, &batches, &light](const ShadowPassData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 			{
 				// Render
 				auto &shadow_map = resources.getResource<FrameGraphTexture>(data.shadow_map);
@@ -209,21 +215,14 @@ void ShadowRenderer::addRayTracedShadowPasses(FrameGraph & fg, Ref<RayTracingSce
 		return;
 
 	RayTracedShadowPass &shadow_pass = fg.getBlackboard().add<RayTracedShadowPass>();
-	auto &gbuffer_data = fg.getBlackboard().get<GBufferData>();
 
 	shadow_pass = fg.addCallbackPass<RayTracedShadowPass>("Ray Traced Shadows Pass",
 	[&](RenderPassBuilder &builder, RayTracedShadowPass &data)
 	{
-		FrameGraphTexture::Description desc;
-		desc.width = Renderer::getViewportSize().x;
-		desc.height = Renderer::getViewportSize().y;
-		desc.format = gDynamicRHI->getSwapchainTexture(0)->getDescription().format;
-		desc.usage_flags = TEXTURE_USAGE_STORAGE;
+		data.visibility = builder.createTexture("Ray Traced Lighting Image", Renderer::getViewportWidth(), Renderer::getViewportHeight(), gDynamicRHI->getSwapchainTexture(0)->getDescription().format);
+		data.visibility = builder.writeUAVTexture(data.visibility, TEXTURE_RESOURCE_ACCESS_GENERAL); // was transfer
 
-		data.visibility = builder.createTexture("Ray Traced Lighting Image", desc);
-		data.visibility = builder.write(data.visibility, TEXTURE_RESOURCE_ACCESS_GENERAL); // was transfer
-
-		builder.read(gbuffer_data.depth);
+		builder.readTexture(GFXRID(GBufferDepth));
 	},
 	[=](const RayTracedShadowPass &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
@@ -262,7 +261,7 @@ void ShadowRenderer::addRayTracedShadowPasses(FrameGraph & fg, Ref<RayTracingSce
 			}
 		}
 
-		ubo_light.depth_texture_id = resources.getResource<FrameGraphTexture>(gbuffer_data.depth).getBindlessId();
+		ubo_light.depth_texture_id = resources.getResource<FrameGraphTexture>(GFXRID(GBufferDepth)).getBindlessId();
 
 		auto &ray_traced_lighting = visiblity.texture;
 

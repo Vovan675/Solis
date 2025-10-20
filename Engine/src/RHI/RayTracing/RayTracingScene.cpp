@@ -10,7 +10,7 @@ void RayTracingScene::update()
 
 void RayTracingScene::build_blas()
 {
-	size_t blas_size = 15000000;
+	size_t blas_size = 150000;
 	BufferDescription big_desc;
 	big_desc.size = sizeof(Engine::Vertex) * blas_size;
 	big_desc.usage = VERTEX_BUFFER | UAV_BUFFER;

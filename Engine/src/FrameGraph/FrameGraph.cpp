@@ -12,24 +12,24 @@ void FrameGraph::compile()
 		// All resources that are read, has +1 references to them
 		for (auto &read_access : pass.reads)
 		{
-			auto &read_resource_node = resource_nodes[read_access.resource];
-			read_resource_node.ref_count++;
+			FrameGraphTexture *read_resource = getFrameGraphTexture(read_access.resource);
+			read_resource->ref_count++;
 		}
 
 		for (auto &write_access : pass.writes)
 		{
-			auto &write_resource_node = resource_nodes[write_access.resource];
-			write_resource_node.producer = &pass;
+			FrameGraphTexture *write_resource = getFrameGraphTexture(write_access.resource);
+			write_resource->producer = &pass;
 		}
 	}
 
 	// Cull
-	eastl::vector<ResourceNode *> unreferenced_resources;
+	eastl::vector<FrameGraphTexture *> unreferenced_resources;
 	#ifndef DEBUG
-	for (auto &resource_node : resource_nodes)
+	for (auto &resource : all_textures)
 	{
-		if (resource_node.ref_count == 0)
-			unreferenced_resources.push_back(&resource_node);
+		if (resource.ref_count == 0)
+			unreferenced_resources.push_back(&resource);
 	}
 	#endif
 
@@ -46,11 +46,11 @@ void FrameGraph::compile()
 		{
 			for (auto &read_access : producer->reads)
 			{
-				auto &read_resource_node = resource_nodes[read_access.resource];
-				read_resource_node.ref_count--;
+				FrameGraphTexture *read_resource = getFrameGraphTexture(read_access.resource);
+				read_resource->ref_count--;
 
-				if (read_resource_node.ref_count == 0)
-					unreferenced_resources.push_back(&read_resource_node);
+				if (read_resource->ref_count == 0)
+					unreferenced_resources.push_back(read_resource);
 			}
 		}
 	}
@@ -61,14 +61,14 @@ void FrameGraph::compile()
 		if (pass.ref_count == 0 && !pass.has_side_effect)
 			continue;
 
-		for (auto &node_id : pass.creates)
-			getResourceEntry(node_id).producer = &pass;
+		for (auto &id : pass.creates)
+			getFrameGraphTexture(id)->producer = &pass;
 
-		for (auto &node_id : pass.reads)
-			getResourceEntry(node_id.resource).last_consumer = &pass;
+		for (auto &access : pass.reads)
+			getFrameGraphTexture(access.resource)->last_consumer = &pass;
 
-		for (auto &node_id : pass.writes)
-			getResourceEntry(node_id.resource).last_consumer = &pass;
+		for (auto &access : pass.writes)
+			getFrameGraphTexture(access.resource)->last_consumer = &pass;
 	}
 }
 
@@ -82,18 +82,18 @@ void FrameGraph::execute(RHICommandList *cmd_list)
 		PROFILE_CPU_SCOPE_VAR(pass.getName().c_str());
 		PROFILE_GPU_SCOPE_VAR(cmd_list, pass.getName().c_str());
 
-		for (const auto &node_id : pass.creates)
-			getResourceEntry(node_id).create();
+		for (const auto &id : pass.creates)
+			getFrameGraphTexture(id)->create();
 
 		for (const auto &access : pass.reads)
 		{
 			if ((access.flags & RenderPassNode::RESOURCE_ACCESS_IGNORE_FLAG) == 0)
-				getResourceEntry(access.resource).preRead(cmd_list, access.flags);
+				getFrameGraphTexture(access.resource)->preRead(cmd_list, access.flags);
 		}
 		for (const auto &access : pass.writes)
 		{
 			if ((access.flags & RenderPassNode::RESOURCE_ACCESS_IGNORE_FLAG) == 0)
-				getResourceEntry(access.resource).preWrite(cmd_list, access.flags);
+				getFrameGraphTexture(access.resource)->preWrite(cmd_list, access.flags);
 		}
 
 		{	
@@ -101,9 +101,9 @@ void FrameGraph::execute(RHICommandList *cmd_list)
 			std::invoke(*pass.pass, resources, cmd_list);
 		}
 
-		for (auto &entry: resource_registry)
+		for (auto &entry: all_textures)
 		{
-			if (entry.last_consumer == &pass && entry.isTransient())
+			if (entry.last_consumer == &pass && entry.is_transient)
 				entry.destroy();
 		}
 	}

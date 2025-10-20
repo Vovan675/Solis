@@ -201,53 +201,48 @@ void DebugRenderer::addArrow(glm::vec3 p0, glm::vec3 p1, float arrow_size)
 
 void DebugRenderer::addTextureDebugPass(FrameGraph &fg)
 {
-	auto &gbuffer_data = fg.getBlackboard().get<GBufferData>();
-	auto &lighting_data = fg.getBlackboard().get<DeferredLightingData>();
-	auto *ssao_data = fg.getBlackboard().tryGet<SSAOData>();
-	auto &composite_data = fg.getBlackboard().get<CompositeData>();
-	auto &lut_data = fg.getBlackboard().get<LutData>();
 	auto *ray_tracing_shadows_data = fg.getBlackboard().tryGet<RayTracedShadowPass>();
-
-	auto &default_data = fg.getBlackboard().get<DefaultResourcesData>();
-
-	default_data = fg.addCallbackPass<DefaultResourcesData>("Debug Pass",
-	[&](RenderPassBuilder &builder, DefaultResourcesData &data)
+	fg.addCallbackPass<EmptyData>("Debug Pass",
+	[&](RenderPassBuilder &builder, EmptyData &data)
 	{
-		// Setup
-		data = default_data;
-		data.final = builder.write(default_data.final);
+		builder.writeTexture(GFXRID(FinalTexture));
 
-		builder.read(gbuffer_data.albedo);
-		builder.read(gbuffer_data.normal);
-		builder.read(gbuffer_data.depth);
-		builder.read(gbuffer_data.shading);
-		builder.read(lighting_data.diffuse_light);
-		builder.read(lighting_data.specular_light);
-		builder.read(lut_data.brdf_lut);
-		builder.read(ssao_data->ssao_blurred);
-		builder.read(default_data.final_no_post);
+		builder.readTexture(GFXRID(GBufferAlbedo));
+		builder.readTexture(GFXRID(GBufferNormal));
+		builder.readTexture(GFXRID(GBufferDepth));
+		builder.readTexture(GFXRID(GBufferShading));
+		builder.readTexture(GFXRID(DiffuseLight));
+		builder.readTexture(GFXRID(SpecularLight));
+		builder.readTexture(GFXRID(LutBRDF));
+		if (builder.isTextureCreated(GFXRID(SSAOBlurred)))
+			builder.readTexture(GFXRID(SSAOBlurred));
+		builder.readTexture(GFXRID(FinalNoPostTexture));
 		if (ray_tracing_shadows_data)
 			builder.read(ray_tracing_shadows_data->visibility);
 	},
-	[=](const DefaultResourcesData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
+	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		// Render
-		auto &final = resources.getResource<FrameGraphTexture>(data.final);
+		auto &final = resources.getResource<FrameGraphTexture>(GFXRID(FinalTexture));
 
 		cmd_list->setRenderTargets({final.texture}, nullptr, -1, 0, true);
 
-		ubo.albedo_tex_id = resources.getResource<FrameGraphTexture>(gbuffer_data.albedo).getBindlessId();
-		ubo.shading_tex_id = resources.getResource<FrameGraphTexture>(gbuffer_data.shading).getBindlessId();
-		ubo.normal_tex_id = resources.getResource<FrameGraphTexture>(gbuffer_data.normal).getBindlessId();
-		ubo.depth_tex_id = resources.getResource<FrameGraphTexture>(gbuffer_data.depth).getBindlessId();
-		ubo.light_diffuse_id = resources.getResource<FrameGraphTexture>(lighting_data.diffuse_light).getBindlessId();
-		ubo.light_specular_id = resources.getResource<FrameGraphTexture>(lighting_data.specular_light).getBindlessId();
-		ubo.brdf_lut_id = resources.getResource<FrameGraphTexture>(lut_data.brdf_lut).getBindlessId();
-		ubo.ssao_id = resources.getResource<FrameGraphTexture>(ssao_data->ssao_blurred).getBindlessId();
-		ubo.composite_final_tex_id = resources.getResource<FrameGraphTexture>(data.final_no_post).getBindlessId();
+		ubo.albedo_tex_id = resources.getResource<FrameGraphTexture>(GFXRID(GBufferAlbedo)).getBindlessId();
+		ubo.shading_tex_id = resources.getResource<FrameGraphTexture>(GFXRID(GBufferShading)).getBindlessId();
+		ubo.normal_tex_id = resources.getResource<FrameGraphTexture>(GFXRID(GBufferNormal)).getBindlessId();
+		ubo.depth_tex_id = resources.getResource<FrameGraphTexture>(GFXRID(GBufferDepth)).getBindlessId();
+		ubo.light_diffuse_id = resources.getResource<FrameGraphTexture>(GFXRID(DiffuseLight)).getBindlessId();
+		ubo.light_specular_id = resources.getResource<FrameGraphTexture>(GFXRID(SpecularLight)).getBindlessId();
+		ubo.brdf_lut_id = resources.getResource<FrameGraphTexture>(GFXRID(LutBRDF)).getBindlessId();
+		if (resources.has(GFXRID(SSAOBlurred)))
+			ubo.ssao_id = resources.getResource<FrameGraphTexture>(GFXRID(SSAOBlurred)).getBindlessId();
+		else
+			ubo.ssao_id = 0;
+		ubo.composite_final_tex_id = resources.getResource<FrameGraphTexture>(GFXRID(FinalNoPostTexture)).getBindlessId();
 
 		if (ray_tracing_shadows_data)
 			ubo.light_diffuse_id = resources.getResource<FrameGraphTexture>(ray_tracing_shadows_data->visibility).getBindlessId();
+		else
+			ubo.light_diffuse_id = 0;
 
 		auto &p = gGlobalPipeline;
 		p->bindScreenQuadPipeline(cmd_list, gDynamicRHI->createShader(L"shaders/debug_quad.hlsl", FRAGMENT_SHADER));
@@ -265,19 +260,15 @@ void DebugRenderer::addTextureDebugPass(FrameGraph &fg)
 
 void DebugRenderer::addVisualizerPass(FrameGraph & fg)
 {
-	auto &default_data = fg.getBlackboard().get<DefaultResourcesData>();
-	default_data = fg.addCallbackPass<DefaultResourcesData>("Debug Visualizer Pass",
-	[&](RenderPassBuilder &builder, DefaultResourcesData &data)
+	fg.addCallbackPass<EmptyData>("Debug Visualizer Pass",
+	[&](RenderPassBuilder &builder, EmptyData &data)
 	{
-		// Setup
-		data = default_data;
-		data.final = builder.write(default_data.final);
+		builder.writeTexture(GFXRID(FinalTexture));
 		builder.setSideEffect(true);
 	},
-	[=](const DefaultResourcesData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
+	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		// Render
-		auto &final = resources.getResource<FrameGraphTexture>(data.final);
+		auto &final = resources.getResource<FrameGraphTexture>(GFXRID(FinalTexture));
 
 		cmd_list->setRenderTargets({final.texture}, nullptr, -1, 0, false);
 

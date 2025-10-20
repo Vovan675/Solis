@@ -30,6 +30,6 @@ private:
 	void addFilmPass(FrameGraph &fg);
 	void addFxaaPass(FrameGraph &fg);
 
-	FrameGraphResource current_output;
+	GraphicsResourceName last_output;
 };
 

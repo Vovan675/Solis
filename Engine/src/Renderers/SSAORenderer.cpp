@@ -7,6 +7,7 @@
 #include <random>
 #include "FrameGraph/FrameGraphUtils.h"
 
+
 SSAORenderer::SSAORenderer() : RendererBase()
 {
 	TextureDescription desc;
@@ -58,38 +59,26 @@ SSAORenderer::SSAORenderer() : RendererBase()
 
 void SSAORenderer::addPasses(FrameGraph &fg)
 {
-	auto &ssao_data = fg.getBlackboard().add<SSAOData>();
-
-	auto &gbuffer_data = fg.getBlackboard().get<GBufferData>();
-
-	ssao_data.ssao_noise = importTexture(fg, ssao_noise);
+	fg.importTexture(GFXRID(SSAONoiseTexture), ssao_noise);
 
 	// Raw Pass
-	ssao_data = fg.addCallbackPass<SSAOData>("SSAO Raw Pass",
-	[&](RenderPassBuilder &builder, SSAOData &data)
+	fg.addCallbackPass<EmptyData>("SSAO Raw Pass",
+	[&](RenderPassBuilder &builder, EmptyData &data)
 	{
-		// Setup
-		FrameGraphTexture::Description desc;
-		desc.width = Renderer::getViewportSize().x;
-		desc.height = Renderer::getViewportSize().y;
-		desc.format = FORMAT_R8_UNORM;
-		desc.usage_flags = TEXTURE_USAGE_ATTACHMENT;
+		builder.createTexture(GFXRID(SSAORaw), Renderer::getViewportWidth(), Renderer::getViewportHeight(), FORMAT_R8_UNORM);
+		builder.writeTexture(GFXRID(SSAORaw));
 
-		data = ssao_data;
-		data.ssao_raw = builder.createTexture("SSAO Raw Image", desc);
-		data.ssao_raw = builder.write(data.ssao_raw);
-		builder.read(data.ssao_noise);
+		builder.readTexture(GFXRID(SSAONoiseTexture));
 
-		builder.read(gbuffer_data.normal);
-		builder.read(gbuffer_data.depth);
+		builder.readTexture(GFXRID(GBufferNormal));
+		builder.readTexture(GFXRID(GBufferDepth));
 	},
-	[=](const SSAOData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
+	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		// Render
-		auto &normal = resources.getResource<FrameGraphTexture>(gbuffer_data.normal);
-		auto &depth = resources.getResource<FrameGraphTexture>(gbuffer_data.depth);
-		auto &ssao_raw = resources.getResource<FrameGraphTexture>(data.ssao_raw);
-		auto &ssao_noise = resources.getResource<FrameGraphTexture>(data.ssao_noise);
+		auto &normal = resources.getResource<FrameGraphTexture>(GFXRID(GBufferNormal));
+		auto &depth = resources.getResource<FrameGraphTexture>(GFXRID(GBufferDepth));
+		auto &ssao_raw = resources.getResource<FrameGraphTexture>(GFXRID(SSAORaw));
+		auto &ssao_noise = resources.getResource<FrameGraphTexture>(GFXRID(SSAONoiseTexture));
 
 		ubo_raw_pass.normal_tex_id = normal.getBindlessId();
 		ubo_raw_pass.depth_tex_id = depth.getBindlessId();
@@ -112,27 +101,18 @@ void SSAORenderer::addPasses(FrameGraph &fg)
 
 	
 	// Blur Pass
-	ssao_data = fg.addCallbackPass<SSAOData>("SSAO Blur Pass",
-	[&](RenderPassBuilder &builder, SSAOData &data)
+	fg.addCallbackPass<EmptyData>("SSAO Blur Pass",
+	[&](RenderPassBuilder &builder, EmptyData &data)
 	{
-		// Setup
-		FrameGraphTexture::Description desc;
-		desc.width = Renderer::getViewportSize().x;
-		desc.height = Renderer::getViewportSize().y;
-		desc.format = FORMAT_R8_UNORM;
-		desc.usage_flags = TEXTURE_USAGE_ATTACHMENT;
+		builder.createTexture(GFXRID(SSAOBlurred), Renderer::getViewportWidth(), Renderer::getViewportHeight(), FORMAT_R8_UNORM);
+		builder.writeTexture(GFXRID(SSAOBlurred));
 
-		data = ssao_data;
-		data.ssao_blurred = builder.createTexture("SSAO Blurred Image", desc);
-		data.ssao_blurred = builder.write(data.ssao_blurred);
-
-		builder.read(ssao_data.ssao_raw);
+		builder.readTexture(GFXRID(SSAORaw));
 	},
-	[=](const SSAOData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
+	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		// Render
-		auto &ssao_blurred = resources.getResource<FrameGraphTexture>(data.ssao_blurred);
-		auto &ssao_raw = resources.getResource<FrameGraphTexture>(data.ssao_raw);
+		auto &ssao_blurred = resources.getResource<FrameGraphTexture>(GFXRID(SSAOBlurred));
+		auto &ssao_raw = resources.getResource<FrameGraphTexture>(GFXRID(SSAORaw));
 
 		cmd_list->setRenderTargets({ssao_blurred.texture}, nullptr, -1, 0, true);
 

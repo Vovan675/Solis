@@ -34,6 +34,7 @@ std::ostream &operator <<(std::ostream &os, const Graph &graph)
 	os << "node [style=filled shape=record]\n";
 
 	// Nodes
+	os << "// Nodes\n";
 	for (const Node &node : graph.nodes)
 	{
 		os << node.key << "[label=<" << node.label << ">" << " fillcolor=" << node.color << 
@@ -56,6 +57,7 @@ std::ostream &operator <<(std::ostream &os, const Graph &graph)
 	}
 
 	// Edges
+	os << "// Edges\n";
 	for (const Edge &edge : graph.edges)
 	{
 		os << edge.start << "->{ ";
@@ -70,9 +72,9 @@ std::ostream &operator <<(std::ostream &os, const Graph &graph)
 	return os;
 }
 
-static std::string get_key(const ResourceNode &node)
+static std::string get_key(const FrameGraphTexture *texture)
 {
-	auto key = "Resource" + std::to_string(node.getResource()) + "_" + std::to_string(node.getVersion());
+	auto key = "Resource" + std::to_string(texture->resource_id) + "_" + std::to_string(texture->version);
 	return key;
 }
 
@@ -86,10 +88,25 @@ void GraphViz::createGraph(std::ostream &os, FrameGraph &fg)
 {
 	Graph graph;
 
+	std::string declarations;
+	std::string dependencies;
+
+	auto addTextureNode = [&graph](FrameGraphTexture *texture)
+	{
+		auto node_key = get_key(texture);
+		const char *color = "skyblue";
+
+		std::ostringstream title;
+		title << "{" << texture->name.c_str() << " (" << texture->version << ")} | {Refs: " << texture->ref_count << "<BR/>Index: " << texture->resource_id << "<BR/>" << texture->toString().c_str() << "}";
+
+		graph.nodes.emplace_back(Node{node_key, title.str(), "", color, false});
+	};
+
 	for (const auto &pass : fg.renderpass_nodes)
 	{
-		auto key = get_key(pass);
-		const char *color = (pass.getRefCount() > 0 || pass.hasSideEffect()) ? "orange" : "orangered4";
+		auto pass_key = get_key(pass);
+		const char *node_color = (pass.getRefCount() > 0 || pass.hasSideEffect()) ? "orange" : "orangered4";
+		const char *edge_color = (pass.getRefCount() > 0 || pass.hasSideEffect()) ? "red" : "red4";
 
 		std::ostringstream title;
 		title << "{" << pass.getName().c_str() << "} | {Refs: " << pass.getRefCount() << "<BR/>Index: " << pass.getId() << "}";
@@ -102,47 +119,59 @@ void GraphViz::createGraph(std::ostream &os, FrameGraph &fg)
 			cluster_name = std::regex_replace(cluster_name, std::regex("\\Pass"), "");
 		}
 
-		auto &new_node = graph.nodes.emplace_back(Node{key, title.str(), cluster_name, color});
+		// Add edges
+		for (const auto &read : pass.getReads())
+		{
+			FrameGraphTexture *resource = fg.getFrameGraphTexture(read.resource);
+			addTextureNode(resource);
+			auto &edge = graph.edges.emplace_back(Edge{get_key(resource), {pass_key}});
+		}
 
-		// Add edge where this pass writes
-		auto &edge = graph.edges.emplace_back(Edge{key, {}, color});
+		auto &edge = graph.edges.emplace_back(Edge{pass_key, {}, edge_color});
 		for (const auto &write : pass.getWrites())
 		{
-			ResourceNode &resource_node = fg.resource_nodes[write.resource];
-			edge.ends.emplace_back(get_key(resource_node));
+			FrameGraphTexture *resource = fg.getFrameGraphTexture(write.resource);
+			// If someone other than creator writes to resource, then resource version is up
+			if (!pass.isCreating(write.resource)) resource->version++;
+			addTextureNode(resource);
+			edge.ends.emplace_back(get_key(resource));
 		}
+
+		auto &new_node = graph.nodes.emplace_back(Node{pass_key, title.str(), cluster_name, node_color});
 
 		// Cluster producer with its resources (for example GBuffer with all its outputs)
 		for (const auto &create : pass.getCreates())
 		{
-			ResourceNode &resource_node = fg.resource_nodes[create];
+			FrameGraphTexture *resource_node = fg.getFrameGraphTexture(create);
 			new_node.cluster_keys.emplace_back(get_key(resource_node));
 		}
 	}
 
-	for (const auto &resource : fg.resource_nodes)
+	/*
+	for (const auto &resource : fg.all_textures)
 	{
-		auto key = get_key(resource);
+		auto resource_key = get_key(&resource);
 		const char *color = "skyblue";
 
-		auto &entry = fg.getResourceEntry(resource);
+		//auto &entry = fg.getResourceEntry(resource);
 
 
 		std::ostringstream title;
-		title << "{" << resource.getName().c_str() << " (" << resource.getVersion() << ")} | {Refs: " << resource.getRefCount() << "<BR/>Index: " << entry.resource_id << "<BR/>" << entry.toString().c_str() << "}";
+		title << "{" << resource.name.c_str() << " (" << resource.version << ")} | {Refs: " << resource.ref_count << "<BR/>Index: " << resource.resource_id << "<BR/>" << resource.toString().c_str() << "}";
 
-		graph.nodes.emplace_back(Node{key, title.str(), "", color, false});
+		graph.nodes.emplace_back(Node{resource_key, title.str(), "", color, false});
 
 		// Add edge where this resource will be read
-		auto &edge = graph.edges.emplace_back(Edge{key, {}});
+		auto &edge = graph.edges.emplace_back(Edge{resource_key, {}});
 		for (const auto &pass : fg.renderpass_nodes)
 		{
-			if (pass.isReading(resource.getId()))
+			if (pass.isReading(resource.resource_id))
 			{
 				edge.ends.emplace_back(get_key(pass));
 			}
 		}
 	}
+	*/
 
 	os << graph;
 }

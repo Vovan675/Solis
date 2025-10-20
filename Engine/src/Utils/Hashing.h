@@ -39,7 +39,7 @@ namespace crc
         return ~result;
     }
 
-    uint32_t crc32(const uint8_t *data, size_t length)
+    static uint32_t crc32(const uint8_t *data, size_t length)
     {
         return crc32_impl(data, length);
     }

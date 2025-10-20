@@ -25,21 +25,16 @@ IrradianceRenderer::IrradianceRenderer(): RendererBase()
 
 void IrradianceRenderer::addPass(FrameGraph &fg, uint32_t samples_count)
 {
-	SkyData &sky_data = fg.getBlackboard().get<SkyData>();
-	IBLData &ibl_data = fg.getBlackboard().get<IBLData>();
-
-	ibl_data = fg.addCallbackPass<IBLData>("IBL Irradiance Pass",
-	[&](RenderPassBuilder &builder, IBLData &data)
+	fg.addCallbackPass<EmptyData>("IBL Irradiance Pass",
+	[&](RenderPassBuilder &builder, EmptyData &data)
 	{
-		data.prefilter = ibl_data.prefilter;
-		data.irradiance = builder.write(ibl_data.irradiance, TEXTURE_RESOURCE_ACCESS_GENERAL);
-
-		builder.read(sky_data.sky);
+		builder.writeTexture(GFXRID(IBLIrradiance), TEXTURE_RESOURCE_ACCESS_GENERAL);
+		builder.readTexture(GFXRID(Sky));
 	},
-	[=](const IBLData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
+	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		FrameGraphTexture &irradiance = resources.getResource<FrameGraphTexture>(data.irradiance);
-		FrameGraphTexture &sky = resources.getResource<FrameGraphTexture>(sky_data.sky);
+		FrameGraphTexture &irradiance = resources.getResource<FrameGraphTexture>(GFXRID(IBLIrradiance));
+		FrameGraphTexture &sky = resources.getResource<FrameGraphTexture>(GFXRID(Sky));
 
 		// Very heavy computation
 		auto &p = gGlobalPipeline;

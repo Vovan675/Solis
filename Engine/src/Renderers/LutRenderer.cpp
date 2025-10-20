@@ -22,16 +22,14 @@ LutRenderer::LutRenderer()
 
 void LutRenderer::addPasses(FrameGraph &fg)
 {
-	LutData &lut_data = fg.getBlackboard().get<LutData>();
-
-	lut_data = fg.addCallbackPass<LutData>("BRDF LUT Pass",
-	[&](RenderPassBuilder &builder, LutData &data)
+	fg.addCallbackPass<EmptyData>("BRDF LUT Pass",
+	[&](RenderPassBuilder &builder, EmptyData &data)
 	{
-		data.brdf_lut = builder.write(lut_data.brdf_lut);
+		builder.writeTexture(GFXRID(LutBRDF));
 	},
-	[=](const LutData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
+	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		FrameGraphTexture &brdf_lut = resources.getResource<FrameGraphTexture>(data.brdf_lut);
+		FrameGraphTexture &brdf_lut = resources.getResource<FrameGraphTexture>(GFXRID(LutBRDF));
 
 		cmd_list->setRenderTargets({brdf_lut.texture}, nullptr, -1, 0, true);
 

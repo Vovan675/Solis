@@ -19,3 +19,13 @@ public:
 #define CORE_ERROR(...) Log::getCoreLogger()->error(__VA_ARGS__);
 #define CORE_CRITICAL(...) Log::getCoreLogger()->critical(__VA_ARGS__);
 #define CHECK_ERROR(f) if(##f != VK_SUCCESS) {__debugbreak(); }
+
+
+template<>
+struct fmt::formatter<eastl::string> : fmt::formatter<std::string>
+{
+    auto format(eastl::string value, format_context &ctx) const -> decltype(ctx.out())
+    {
+        return fmt::format_to(ctx.out(), "{}", value.c_str());
+    }
+};

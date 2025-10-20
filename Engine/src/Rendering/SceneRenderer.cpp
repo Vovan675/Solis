@@ -37,11 +37,9 @@ void SceneRenderer::render(Camera *camera, RHITextureRef result_texture)
 
 	FrameGraph frame_graph;
 
-	DefaultResourcesData &default_data = frame_graph.getBlackboard().add<DefaultResourcesData>();
-	default_data.final = importTexture(frame_graph, result_texture);
+	frame_graph.importTexture(GFXRID(FinalTexture), result_texture);
 
-	LutData &lut_data = frame_graph.getBlackboard().add<LutData>();
-	lut_data.brdf_lut = importTexture(frame_graph, lut_renderer.brdf_lut_texture);
+	frame_graph.importTexture(GFXRID(LutBRDF), lut_renderer.brdf_lut_texture);
 
 	if (render_first_frame)
 	{
@@ -52,9 +50,8 @@ void SceneRenderer::render(Camera *camera, RHITextureRef result_texture)
 	bool is_sky_dirty = sky_renderer.isDirty();
 	sky_renderer.addProceduralPasses(frame_graph);
 
-	IBLData &ibl_data = frame_graph.getBlackboard().add<IBLData>();
-	ibl_data.irradiance = importTexture(frame_graph, irradiance_renderer.irradiance_texture);
-	ibl_data.prefilter = importTexture(frame_graph, prefilter_renderer.prefilter_texture);
+	frame_graph.importTexture(GFXRID(IBLIrradiance), irradiance_renderer.irradiance_texture);
+	frame_graph.importTexture(GFXRID(IBLPrefilter), prefilter_renderer.prefilter_texture);
 
 	if (render_first_frame || is_sky_dirty)
 	{
@@ -67,10 +64,12 @@ void SceneRenderer::render(Camera *camera, RHITextureRef result_texture)
 	render_first_frame = false;
 
 	gbuffer_pass.AddPass(frame_graph, render_batches);
-	ssao_renderer.addPasses(frame_graph);
+	
+	if (render_ssao)
+		ssao_renderer.addPasses(frame_graph);
 
 	{
-		PROFILE_GPU_SCOPE_VAR(gDynamicRHI->getCmdList(), "Shadows")
+		// Shadows
 		if (render_shadows)
 			shadow_renderer.addShadowMapPasses(frame_graph, render_batches);
 
@@ -79,21 +78,20 @@ void SceneRenderer::render(Camera *camera, RHITextureRef result_texture)
 	}
 
 	{
-		PROFILE_GPU_SCOPE_VAR(gDynamicRHI->getCmdList(), "Lighting")
+		// Lighting
 		defferred_lighting_renderer.renderLights(frame_graph);
 
-		auto &composite_data = frame_graph.getBlackboard().add<CompositeData>();
 		deffered_composite_renderer.addPasses(frame_graph);
 	}
 
 	{
-		PROFILE_GPU_SCOPE_VAR(gDynamicRHI->getCmdList(), "Forward")
+		// Forward
 		sky_renderer.addCompositePasses(frame_graph);
 	}
 
 	// Render post process
 	{
-		PROFILE_GPU_SCOPE_VAR(gDynamicRHI->getCmdList(), "Postprocessing")
+		// Postprocessing
 		if (render_ssr)
 			ssr_renderer.addPasses(frame_graph);
 

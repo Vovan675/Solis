@@ -6,33 +6,20 @@
 
 void SSRRenderer::addPasses(FrameGraph &fg)
 {
-	auto &ssr_data = fg.getBlackboard().add<SSRData>();
-	auto &gbuffer_data = fg.getBlackboard().get<GBufferData>();
-	auto &lighting_data = fg.getBlackboard().get<DeferredLightingData>();
-	auto &default_data = fg.getBlackboard().get<DefaultResourcesData>();
-
-	ssr_data = fg.addCallbackPass<SSRData>("SSR Pass",
-	[&](RenderPassBuilder &builder, SSRData &data)
+	fg.addCallbackPass<EmptyData>("SSR Pass",
+	[&](RenderPassBuilder &builder, EmptyData &data)
 	{
-		// Setup
-		FrameGraphTexture::Description desc;
-		desc.width = Renderer::getViewportSize().x;
-		desc.height = Renderer::getViewportSize().y;
-		desc.format = FORMAT_R16G16B16A16_UNORM; // TODO: SFLOAT?
-		desc.usage_flags = TEXTURE_USAGE_ATTACHMENT;
+		builder.createTexture(GFXRID(SSR), Renderer::getViewportWidth(), Renderer::getViewportHeight(), FORMAT_R16G16B16A16_UNORM);
+		builder.writeTexture(GFXRID(SSR));
 
-		data.ssr = builder.createTexture("SSR Image", desc);
-		data.ssr = builder.write(data.ssr);
-
-		builder.read(default_data.final_no_post);
-		builder.read(gbuffer_data.normal);
-		builder.read(gbuffer_data.shading);
-		builder.read(gbuffer_data.depth);
+		builder.readTexture(GFXRID(FinalNoPostTexture));
+		builder.readTexture(GFXRID(GBufferNormal));
+		builder.readTexture(GFXRID(GBufferShading));
+		builder.readTexture(GFXRID(GBufferDepth));
 	},
-	[=](const SSRData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
+	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		// Render
-		auto &ssr = resources.getResource<FrameGraphTexture>(data.ssr);
+		auto &ssr = resources.getResource<FrameGraphTexture>(GFXRID(SSR));
 
 		struct UBO
 		{
@@ -41,10 +28,10 @@ void SSRRenderer::addPasses(FrameGraph &fg)
 			uint32_t shading_tex_id = 0;
 			uint32_t depth_tex_id = 0;
 		} ubo;
-		ubo.color_tex_id = resources.getResource<FrameGraphTexture>(default_data.final_no_post).getBindlessId();
-		ubo.normal_tex_id = resources.getResource<FrameGraphTexture>(gbuffer_data.normal).getBindlessId();
-		ubo.shading_tex_id = resources.getResource<FrameGraphTexture>(gbuffer_data.shading).getBindlessId();
-		ubo.depth_tex_id = resources.getResource<FrameGraphTexture>(gbuffer_data.depth).getBindlessId();
+		ubo.color_tex_id = resources.getResource<FrameGraphTexture>(GFXRID(FinalNoPostTexture)).getBindlessId();
+		ubo.normal_tex_id = resources.getResource<FrameGraphTexture>(GFXRID(GBufferNormal)).getBindlessId();
+		ubo.shading_tex_id = resources.getResource<FrameGraphTexture>(GFXRID(GBufferShading)).getBindlessId();
+		ubo.depth_tex_id = resources.getResource<FrameGraphTexture>(GFXRID(GBufferDepth)).getBindlessId();
 
 		cmd_list->setRenderTargets({ssr.texture}, nullptr, -1, 0, true);
 

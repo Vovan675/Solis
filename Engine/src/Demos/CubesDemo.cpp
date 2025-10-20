@@ -383,8 +383,8 @@ void RenderTargetsDemo::render(RHICommandList *cmd_list)
 
 struct RenderData
 {
-	FrameGraphResource result;
-	FrameGraphResource depth;
+	FrameGraphTextureId result;
+	FrameGraphTextureId depth;
 };
 
 // Use framegraph for rendering
@@ -419,26 +419,16 @@ void RenderTargetsDemo::renderFrameGraph(RHICommandList *cmd_list)
 	{
 		builder.setSideEffect(true); // Don't cull
 
-		// Setup
-		FrameGraphTexture::Description desc;
-		desc.width = swapchain_texture->getWidth();
-		desc.height = swapchain_texture->getHeight();
-		desc.format = FORMAT_R8G8B8A8_UNORM;
-		desc.usage_flags = TEXTURE_USAGE_ATTACHMENT;
-		desc.sampler_mode = SAMPLER_MODE_CLAMP_TO_EDGE;
-
 		// Result
-		data.result = builder.createTexture("Result Image", desc);
-		data.result = builder.write(data.result);
+		data.result = builder.createTexture("Result Image", swapchain_texture->getWidth(), swapchain_texture->getHeight(), FORMAT_R8G8B8A8_UNORM);
+		data.result = builder.writeTexture(data.result);
 
 		// Depth-Stencil
-		desc.format = FORMAT_D32S8;
-		data.depth = builder.createTexture("Depth Image", desc);
-		data.depth = builder.write(data.depth);
+		data.depth = builder.createTexture("Depth Image", swapchain_texture->getWidth(), swapchain_texture->getHeight(), FORMAT_D32S8);
+		data.depth = builder.writeTexture(data.depth);
 	},
 	[=](const RenderData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		// Render
 		auto &result = resources.getResource<FrameGraphTexture>(data.result);
 		auto &depth = resources.getResource<FrameGraphTexture>(data.depth);
 

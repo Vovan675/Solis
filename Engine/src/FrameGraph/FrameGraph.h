@@ -8,7 +8,22 @@
 class FrameGraphTexture;
 
 // Just a handle to any resource
-using FrameGraphResource = int32_t;
+struct FrameGraphTextureId 
+{
+	inline const static uint32_t invalid_id = uint32_t(-1);
+
+	FrameGraphTextureId(): id(invalid_id) {}
+	FrameGraphTextureId(uint32_t id): id(id) {}
+
+	bool isValid() const { return id != invalid_id; }
+
+	bool operator==(const FrameGraphTextureId &other) const
+	{
+		return other.id == id;
+	}
+
+	uint32_t id;
+};
 
 class RenderPassResources;
 struct RenderPassAbstract
@@ -24,27 +39,30 @@ public:
 	FrameGraphNode(const FrameGraphNode &) = delete;
 	FrameGraphNode(FrameGraphNode &&) noexcept = default;
 	virtual ~FrameGraphNode() = default;
+	
 
 	FrameGraphNode &operator=(const FrameGraphNode &) = delete;
 	FrameGraphNode &operator=(FrameGraphNode &&) = delete;
 
 	uint32_t getId() const { return id; }
-	eastl::string getName() const { return name; }
+	GraphicsResourceName getName() const { return name; }
 	uint32_t getRefCount() const { return ref_count; }
 protected:
-	FrameGraphNode(const eastl::string name, uint32_t id): name(name), id(id) {}
-
-private:
-	friend class FrameGraph;
+	FrameGraphNode(const GraphicsResourceName name, uint32_t id): name(name), id(id) {}
 
 	const uint32_t id;
-	eastl::string name;
+	GraphicsResourceName name;
 	uint32_t ref_count = 0;
 };
 
-class RenderPassNode final : public FrameGraphNode 
+class RenderPassNode final
 {
 public:
+	RenderPassNode() = delete;
+	RenderPassNode(const RenderPassNode &) = delete;
+	RenderPassNode(RenderPassNode &&) noexcept = default;
+	virtual ~RenderPassNode() = default;
+
 	enum ResourceAccess: uint32_t
 	{
 		RESOURCE_ACCESS_NO_FLAG = 0,
@@ -53,29 +71,26 @@ public:
 
 	struct ResourceAccessDescription
 	{
-		FrameGraphResource resource = 0;
+		FrameGraphTextureId resource = 0;
 		uint32_t flags = 0;
 	};
-
-	RenderPassNode(const RenderPassNode &) = delete;
-	RenderPassNode(RenderPassNode &&) noexcept = default;
 
 	RenderPassNode &operator=(const RenderPassNode &) = delete;
 	RenderPassNode &operator=(RenderPassNode &&) = delete;
 
-	bool isReading(FrameGraphResource resource) const
+	bool isReading(FrameGraphTextureId resource) const
 	{
 		const auto match = [resource](const auto &e) { return e.resource == resource; };
 		return eastl::find_if(reads.cbegin(), reads.cend(), match) != reads.cend();
 	}
 
-	bool isWriting(FrameGraphResource resource) const
+	bool isWriting(FrameGraphTextureId resource) const
 	{
 		const auto match = [resource](const auto &e) { return e.resource == resource; };
 		return eastl::find_if(writes.cbegin(), writes.cend(), match) != writes.cend();
 	}
 
-	bool isCreating(FrameGraphResource resource) const
+	bool isCreating(FrameGraphTextureId resource) const
 	{
 		return eastl::find(creates.cbegin(), creates.cend(), resource) != creates.cend();
 	}
@@ -86,12 +101,21 @@ public:
 
 	bool hasSideEffect() const { return has_side_effect; }
 
+
+	uint32_t getId() const { return id; }
+	eastl::string getName() const { return name; }
+	uint32_t getRefCount() const { return ref_count; }
+
 private:
 	friend class FrameGraph;
 	friend class RenderPassBuilder;
 
+	const uint32_t id;
+	eastl::string name;
+	uint32_t ref_count = 0;
+
 	RenderPassNode(eastl::string name, uint32_t id, std::unique_ptr<RenderPassAbstract> &&pass)
-		: FrameGraphNode(name, id), pass(eastl::move(pass))
+		: name(name), id(id), pass(eastl::move(pass))
 	{
 		creates.reserve(8);
 		reads.reserve(16);
@@ -101,7 +125,7 @@ private:
 	std::unique_ptr<RenderPassAbstract> pass; // TODO: this is error (leak memory)
 
 	// Resources that were created by this pass
-	eastl::vector<FrameGraphResource> creates;
+	eastl::vector<FrameGraphTextureId> creates;
 	// Resources that needed read access to execute this pass
 	eastl::vector<ResourceAccessDescription> reads;
 	// Resources that needed write access to execute this pass
@@ -119,140 +143,20 @@ public:
 	ResourceNode &operator=(const ResourceNode &) = delete;
 	ResourceNode &operator=(ResourceNode &&) = delete;
 
-	FrameGraphResource getResource() const { return resource; }
+	FrameGraphTextureId getResource() const { return resource; }
 	uint32_t getVersion() const { return version; }
 
 private:
 	friend class FrameGraph;
 
-	ResourceNode(eastl::string name, uint32_t id, const FrameGraphResource &resource, uint32_t version)
+	ResourceNode(GraphicsResourceName name, uint32_t id, const FrameGraphTextureId &resource, uint32_t version)
 		: FrameGraphNode(name, id), resource(resource), version(version)
 	{}
 
-	FrameGraphResource resource;
+	FrameGraphTextureId resource;
 	uint32_t version;
 
 	RenderPassNode *producer = nullptr;
-};
-
-// Holds any virtual resource
-class ResourceEntry
-{
-	friend class FrameGraph;
-public:
-	ResourceEntry() = delete;
-	ResourceEntry(const ResourceEntry &) = delete;
-	ResourceEntry(ResourceEntry &&) noexcept = default;
-
-	ResourceEntry &operator=(const ResourceEntry &) = delete;
-	ResourceEntry &operator=(ResourceEntry &&) noexcept = delete;
-
-	const int32_t resource_id;
-	int version = 0;
-
-	RenderPassNode *producer = nullptr;
-	RenderPassNode *last_consumer = nullptr;
-
-	template <typename T>
-	auto *getModel() const
-	{
-		return static_cast<Model<T> *>(concept.get());
-	}
-
-
-	template <typename T>
-	typename T &getResource() const
-	{
-		return getModel<T>()->resource;
-	}
-
-	template <typename T>
-	const typename T::Description &getDescription() const
-	{
-		return getModel<T>()->desc;
-	}
-
-	eastl::string toString() const
-	{
-		return concept->toString();
-	}
-
-	bool isTransient() const { return is_transient; }
-
-	void create()
-	{
-		assert(is_transient);
-		concept->create();
-	}
-
-	void destroy()
-	{
-		assert(is_transient);
-		concept->destroy();
-	}
-
-	void preRead(RHICommandList *cmd_list, uint32_t flags)
-	{
-		concept->preRead(cmd_list, flags);
-	}
-
-	void preWrite(RHICommandList *cmd_list, uint32_t flags)
-	{
-		concept->preWrite(cmd_list, flags);
-	}
-private:
-	struct Concept
-	{
-		virtual ~Concept() = default;
-
-		virtual void create() = 0;
-		virtual void destroy() = 0;
-		virtual void preRead(RHICommandList *cmd_list, uint32_t flags) = 0;
-		virtual void preWrite(RHICommandList *cmd_list, uint32_t flags) = 0;
-		virtual eastl::string toString() const = 0;
-	};
-
-	template <typename T>
-	struct Model : Concept
-	{
-		Model(const typename T::Description &desc, T &&resource): desc(desc), resource(eastl::move(resource)) {}
-
-		void create() override
-		{
-			resource.create(desc);
-		}
-
-		void destroy() override
-		{
-			resource.destroy(desc);
-		}
-
-		void preRead(RHICommandList *cmd_list, uint32_t flags) override
-		{
-			resource.preRead(desc, cmd_list, flags);
-		}
-
-		void preWrite(RHICommandList *cmd_list, uint32_t flags) override
-		{
-			resource.preWrite(desc, cmd_list, flags);
-		}
-
-		eastl::string toString() const override
-		{
-			return resource.toString(desc);
-		}
-
-		const typename T::Description desc;
-		T resource;
-	};
-
-	template <typename T>
-	ResourceEntry(uint32_t id, const typename T::Description &desc, T &&resource, bool transient) : resource_id(id), concept(std::make_unique<Model<T>>(desc, std::forward<T>(resource))), is_transient(transient)
-	{}
-
-	std::unique_ptr<Concept> concept;
-
-	bool is_transient = false;
 };
 
 class FrameGraph
@@ -260,21 +164,35 @@ class FrameGraph
 public:
 	FrameGraph()
 	{
-		resource_registry.reserve(128);
+		all_textures.reserve(128);
 		renderpass_nodes.reserve(128);
-		resource_nodes.reserve(128);
 	}
 
 private:
-	template <typename T>
-	FrameGraphResource createResource(const eastl::string name, const typename T::Description &desc, T &&resource, bool transient)
+
+	FrameGraphTextureId createTextureResource(GraphicsResourceName name, const TextureDescription &desc, bool transient)
 	{
-		uint32_t resource_id = resource_registry.size();
-		resource_registry.emplace_back(ResourceEntry(resource_id, desc, eastl::forward<T>(resource), transient));
+		uint32_t resource_id = all_textures.size();
+		all_textures.emplace_back(FrameGraphTexture(resource_id, desc, name.name));
+		texture_name_to_id[name] = resource_id;
 
-		auto &resource_node = createResourceNode(name, resource_id, 0);
+		return resource_id;
+	}
 
-		return resource_node.getId();
+	TextureDescription getTextureDescription(GraphicsResourceName name)
+	{
+		FrameGraphTextureId resource_id = texture_name_to_id[name];
+		return all_textures[resource_id.id].desc;
+	}
+
+	TextureDescription getTextureDescription(FrameGraphTextureId id)
+	{
+		return all_textures[id.id].desc;
+	}
+
+	FrameGraphTexture *getFrameGraphTexture(FrameGraphTextureId id)
+	{
+		return &all_textures[id.id];
 	}
 
 public:
@@ -294,16 +212,12 @@ public:
 	}
 
 	// Used for importing persistent resources
-	template <typename T>
-	FrameGraphResource importResource(const eastl::string name, const typename T::Description &desc, T &&resource)
+	FrameGraphTextureId importTexture(GraphicsResourceName name, RHITexture *texture)
 	{
-		return createResource<T>(name, desc, eastl::forward<T>(resource), false);
-	}
-
-	template <typename T>
-	const typename T::Description &getDescription(FrameGraphResource resource_id)
-	{
-		return getResourceEntry(resource_id).getDescription<T>();
+		uint32_t resource_id = all_textures.size();
+		all_textures.emplace_back(FrameGraphTexture(resource_id, texture, name.name));
+		texture_name_to_id[name] = resource_id;
+		return resource_id;
 	}
 
 	const FrameGraphBlackboard &getBlackboard() const { return blackboard; }
@@ -320,39 +234,11 @@ private:
 	friend class RenderPassResources;
 
 
+	eastl::vector<FrameGraphTexture> all_textures;
 
-	ResourceNode &createResourceNode(const eastl::string name, FrameGraphResource resource, int version)
-	{
-		uint32_t node_id = resource_nodes.size();
-		resource_nodes.emplace_back(ResourceNode(name, node_id, resource, version));
-		return resource_nodes.back();
-	}
-
-	FrameGraphResource cloneResource(FrameGraphResource resource)
-	{
-		auto &node = resource_nodes[resource];
-		auto &entry = getResourceEntry(node);
-		entry.version++;
-
-		auto &cloned_node = createResourceNode(node.name, node.resource, entry.version);
-		return cloned_node.id;
-	}
-
-	ResourceEntry &getResourceEntry(const ResourceNode &resource_node)
-	{
-		return resource_registry[resource_node.getResource()];
-	}
-
-	ResourceEntry &getResourceEntry(FrameGraphResource resource_id)
-	{
-		return resource_registry[resource_nodes[resource_id].getResource()];
-	}
-
-
-	eastl::vector<ResourceEntry> resource_registry;
+	eastl::unordered_map<GraphicsResourceName, FrameGraphTextureId> texture_name_to_id;
 
 	eastl::vector<RenderPassNode> renderpass_nodes;
-	eastl::vector<ResourceNode> resource_nodes;
 
 	FrameGraphBlackboard blackboard;
 };
@@ -362,9 +248,21 @@ class RenderPassResources
 {
 public:
 	template <typename T>
-	T &getResource(FrameGraphResource resource) const
+	FrameGraphTexture &getResource(FrameGraphTextureId resource) const
 	{
-		return frameGraph.getResourceEntry(resource).getResource<T>();
+		return frameGraph.all_textures[resource.id];
+	}
+
+	template <typename T>
+	FrameGraphTexture &getResource(GraphicsResourceName name) const
+	{
+		FrameGraphTextureId resource_id = frameGraph.texture_name_to_id[name];
+		return frameGraph.all_textures[resource_id.id];
+	}
+
+	bool has(GraphicsResourceName name) const
+	{
+		return frameGraph.texture_name_to_id.contains(name);
 	}
 private:
 	friend class FrameGraph;
@@ -395,39 +293,102 @@ struct RenderPass : RenderPassAbstract
 class RenderPassBuilder
 {
 public:
-	FrameGraphResource read(FrameGraphResource resource, uint32_t flags = 0)
+	FrameGraphTextureId read(FrameGraphTextureId resource, uint32_t flags = 0)
 	{
 		return renderpass_node.reads.emplace_back(RenderPassNode::ResourceAccessDescription{resource, RenderPassNode::RESOURCE_ACCESS_NO_FLAG | flags}).resource;
 	}
-
-	FrameGraphResource write(FrameGraphResource resource, uint32_t flags = 0)
+	FrameGraphTextureId readTexture(FrameGraphTextureId texture, uint32_t flags = 0)
 	{
-		//frameGraph.getResourceEntry(resource)
+		FrameGraphTextureId resource = renderpass_node.reads.emplace_back(RenderPassNode::ResourceAccessDescription{texture, RenderPassNode::RESOURCE_ACCESS_NO_FLAG | flags}).resource;
+		return resource;
+	}
 
-		if (renderpass_node.isCreating(resource))
+	FrameGraphTextureId readTexture(GraphicsResourceName texture, uint32_t flags = 0)
+	{
+		return readTexture(frameGraph.texture_name_to_id[texture], flags);
+	}
+
+	FrameGraphTextureId readDepthTexture(GraphicsResourceName texture, uint32_t flags = 0)
+	{
+		return readTexture(frameGraph.texture_name_to_id[texture], flags | TEXTURE_RESOURCE_ACCESS_READ_ONLY_DEPTH);
+	}
+
+	FrameGraphTextureId writeTexture(FrameGraphTextureId texture, uint32_t flags = 0)
+	{
+		frameGraph.all_textures[texture.id].desc.usage_flags |= TEXTURE_USAGE_ATTACHMENT;
+
+		FrameGraphTextureId resource;
+		if (renderpass_node.isCreating(texture))
 		{
-			return renderpass_node.writes.emplace_back(RenderPassNode::ResourceAccessDescription{resource, RenderPassNode::RESOURCE_ACCESS_NO_FLAG | flags}).resource;
+			resource = renderpass_node.writes.emplace_back(RenderPassNode::ResourceAccessDescription{texture, RenderPassNode::RESOURCE_ACCESS_NO_FLAG | flags}).resource;
 		} else
 		{
 			// When writing to already created resource, we need to clone it and rename for better error handling
-			renderpass_node.reads.emplace_back(RenderPassNode::ResourceAccessDescription{resource, RenderPassNode::RESOURCE_ACCESS_IGNORE_FLAG | flags}).resource;
-			return renderpass_node.writes.emplace_back(RenderPassNode::ResourceAccessDescription{frameGraph.cloneResource(resource), RenderPassNode::RESOURCE_ACCESS_NO_FLAG | flags}).resource;
+			renderpass_node.reads.emplace_back(RenderPassNode::ResourceAccessDescription{texture, RenderPassNode::RESOURCE_ACCESS_IGNORE_FLAG | flags}).resource;
+			resource = renderpass_node.writes.emplace_back(RenderPassNode::ResourceAccessDescription{texture, RenderPassNode::RESOURCE_ACCESS_NO_FLAG | flags}).resource;
 		}
+		return resource;
 	}
 
-	template <typename T>
-	FrameGraphResource createResource(eastl::string name, const typename T::Description &desc)
+	FrameGraphTextureId writeTexture(GraphicsResourceName name, uint32_t flags = 0)
 	{
-		PROFILE_CPU_FUNCTION();
-		FrameGraphResource resource_id = frameGraph.createResource<T>(name, desc, T{}, true);
+		return writeTexture(frameGraph.texture_name_to_id[name], flags);
+	}
+
+	FrameGraphTextureId writeUAVTexture(FrameGraphTextureId texture, uint32_t flags = 0)
+	{
+		frameGraph.all_textures[texture.id].desc.usage_flags |= TEXTURE_USAGE_STORAGE;
+
+		FrameGraphTextureId resource;
+		if (renderpass_node.isCreating(texture))
+		{
+			resource = renderpass_node.writes.emplace_back(RenderPassNode::ResourceAccessDescription{texture, RenderPassNode::RESOURCE_ACCESS_NO_FLAG | flags}).resource;
+		} else
+		{
+			// When writing to already created resource, we need to clone it and rename for better error handling
+			renderpass_node.reads.emplace_back(RenderPassNode::ResourceAccessDescription{texture, RenderPassNode::RESOURCE_ACCESS_IGNORE_FLAG | flags}).resource;
+			resource = renderpass_node.writes.emplace_back(RenderPassNode::ResourceAccessDescription{texture, RenderPassNode::RESOURCE_ACCESS_NO_FLAG | flags}).resource;
+		}
+		return resource;
+	}
+
+	bool isTextureCreated(GraphicsResourceName name)
+	{
+		return frameGraph.texture_name_to_id.contains(name);
+	}
+
+	FrameGraphTextureId createTexture(eastl::string name, uint32_t width, uint32_t height, Format format)
+	{
+		TextureDescription desc;
+		desc.width = width;
+		desc.height = height;
+		desc.format = format;
+
+		FrameGraphTextureId resource_id = frameGraph.createTextureResource(GraphicsResourceName(name.c_str()), desc, true);
 		renderpass_node.creates.emplace_back(resource_id);
 		return resource_id;
 	}
 
-	FrameGraphResource createTexture(eastl::string name, FrameGraphTexture::Description &desc)
+	FrameGraphTextureId createTexture(GraphicsResourceName name, uint32_t width, uint32_t height, Format format)
 	{
-		desc.debug_name = name;
-		return createResource<FrameGraphTexture>(name, desc);
+		TextureDescription desc;
+		desc.width = width;
+		desc.height = height;
+		desc.format = format;
+
+		FrameGraphTextureId resource_id = frameGraph.createTextureResource(name, desc, true);
+		renderpass_node.creates.emplace_back(resource_id);
+		return resource_id;
+	}
+
+	TextureDescription getTextureDescription(GraphicsResourceName name)
+	{
+		return frameGraph.getTextureDescription(name);
+	}
+
+	TextureDescription getTextureDescription(FrameGraphTextureId id)
+	{
+		return frameGraph.getTextureDescription(id);
 	}
 
 	void setSideEffect(bool side_effect)

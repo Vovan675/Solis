@@ -25,21 +25,16 @@ PrefilterRenderer::PrefilterRenderer(): RendererBase()
 
 void PrefilterRenderer::addPass(FrameGraph &fg, uint32_t samples_count)
 {
-	SkyData &sky_data = fg.getBlackboard().get<SkyData>();
-	IBLData &ibl_data = fg.getBlackboard().get<IBLData>();
-
-	ibl_data = fg.addCallbackPass<IBLData>("IBL Prefilter Pass",
-	[&](RenderPassBuilder &builder, IBLData &data)
+	fg.addCallbackPass<EmptyData>("IBL Prefilter Pass",
+	[&](RenderPassBuilder &builder, EmptyData &data)
 	{
-		data.prefilter = builder.write(ibl_data.prefilter, TEXTURE_RESOURCE_ACCESS_GENERAL);
-		data.irradiance = ibl_data.irradiance;
-
-		builder.read(sky_data.sky);
+		builder.writeTexture(GFXRID(IBLPrefilter), TEXTURE_RESOURCE_ACCESS_GENERAL);
+		builder.readTexture(GFXRID(Sky));
 	},
-	[=](const IBLData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
+	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		FrameGraphTexture &prefilter = resources.getResource<FrameGraphTexture>(data.prefilter);
-		FrameGraphTexture &sky = resources.getResource<FrameGraphTexture>(sky_data.sky);
+		FrameGraphTexture &prefilter = resources.getResource<FrameGraphTexture>(GFXRID(IBLPrefilter));
+		FrameGraphTexture &sky = resources.getResource<FrameGraphTexture>(GFXRID(Sky));
 
 		const int MIP_COUNT = 5;
 

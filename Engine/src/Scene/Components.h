@@ -169,7 +169,6 @@ struct LightComponent
 			description.array_levels = 4;
 			description.filtering = FILTER_LINEAR;
 			description.sampler_mode = SAMPLER_MODE_CLAMP_TO_EDGE;
-			description.use_comparison_less = true;
 			shadow_map = gDynamicRHI->createTexture(description);
 			shadow_map->fill();
 			shadow_map->setDebugName("Cascaded Shadow Map");

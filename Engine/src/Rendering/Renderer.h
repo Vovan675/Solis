@@ -44,6 +44,8 @@ public:
 	static void shutdown();
 	static void setViewportSize(glm::ivec2 size);
 	static glm::ivec2 getViewportSize() { return viewport_size; }
+	static int getViewportWidth() { return viewport_size.x; }
+	static int getViewportHeight() { return viewport_size.y; }
 	static void beginFrame();
 	static void endFrame(unsigned int image_index);
 	

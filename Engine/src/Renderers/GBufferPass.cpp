@@ -14,30 +14,30 @@ GBufferPass::GBufferPass()
 
 void GBufferPass::AddPass(FrameGraph &fg, const eastl::vector<RenderBatch> &batches)
 {
-	auto &gbuffer_data = fg.getBlackboard().add<GBufferData>();
+	struct GBufferData
+	{
+		FrameGraphTextureId albedo;
+		FrameGraphTextureId normal;
+		FrameGraphTextureId depth;
+		FrameGraphTextureId shading;
+	};
 
-	gbuffer_data = fg.addCallbackPass<GBufferData>("GBuffer Pass",
+	fg.addCallbackPass<GBufferData>("GBuffer Pass",
 	[&](RenderPassBuilder &builder, GBufferData &data)
 	{
-		FrameGraphTexture::Description gbuffer_desc;
-		gbuffer_desc.width = Renderer::getViewportSize().x;
-		gbuffer_desc.height = Renderer::getViewportSize().y;
-		gbuffer_desc.format = FORMAT_R8G8B8A8_UNORM;
-		gbuffer_desc.usage_flags = TEXTURE_USAGE_ATTACHMENT;
-		gbuffer_desc.sampler_mode = SAMPLER_MODE_CLAMP_TO_EDGE;
+		glm::ivec2 gbuffer_size = Renderer::getViewportSize();
 
-		data.albedo = builder.createTexture("GBuffer Albedo Image", gbuffer_desc);
-		data.albedo = builder.write(data.albedo);
+		builder.createTexture(GFXRID(GBufferAlbedo), gbuffer_size.x, gbuffer_size.y, FORMAT_R8G8B8A8_UNORM);
+		data.albedo = builder.writeTexture(GFXRID(GBufferAlbedo));
 
-		data.normal = builder.createTexture("GBuffer Normal Image", gbuffer_desc);
-		data.normal = builder.write(data.normal);
+		builder.createTexture(GFXRID(GBufferNormal), gbuffer_size.x, gbuffer_size.y, FORMAT_R8G8B8A8_UNORM);
+		data.normal = builder.writeTexture(GFXRID(GBufferNormal));
 
-		data.shading = builder.createTexture("GBuffer Shading Image", gbuffer_desc);
-		data.shading = builder.write(data.shading);
+		builder.createTexture(GFXRID(GBufferShading), gbuffer_size.x, gbuffer_size.y, FORMAT_R8G8B8A8_UNORM);
+		data.shading = builder.writeTexture(GFXRID(GBufferShading));
 
-		gbuffer_desc.format = FORMAT_D32S8;
-		data.depth = builder.createTexture("GBuffer DepthStencil Image", gbuffer_desc);
-		data.depth = builder.write(data.depth);
+		builder.createTexture(GFXRID(GBufferDepth), gbuffer_size.x, gbuffer_size.y, FORMAT_D32S8);
+		data.depth = builder.writeTexture(GFXRID(GBufferDepth));
 	},
 	[=, &batches](const GBufferData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 	{

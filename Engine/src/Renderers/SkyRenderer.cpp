@@ -26,9 +26,7 @@ void SkyRenderer::addProceduralPasses(FrameGraph &fg)
 	if (!cube_texture || !cube_texture->isValid())
 		create_mode_resources();
 
-	auto &sky_data = fg.getBlackboard().add<SkyData>();
-	FrameGraphResource sky_resource = importTexture(fg, cube_texture);
-	sky_data.sky = sky_resource;
+	fg.importTexture(GFXRID(Sky), cube_texture);
 
 	if (mode != SKY_MODE_PROCEDURAL)
 		return;
@@ -37,14 +35,14 @@ void SkyRenderer::addProceduralPasses(FrameGraph &fg)
 		return;
 	prev_uniform = procedural_uniforms;
 
-	sky_data = fg.addCallbackPass<SkyData>("Sky Procedural Pass",
-	[&](RenderPassBuilder &builder, SkyData &data)
+	fg.addCallbackPass<EmptyData>("Sky Procedural Pass",
+	[&](RenderPassBuilder &builder, EmptyData &data)
 	{
-		data.sky = builder.write(sky_resource);
+		builder.writeTexture(GFXRID(Sky));
 	},
-	[=](const SkyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
+	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		FrameGraphTexture &sky = resources.getResource<FrameGraphTexture>(data.sky);
+		FrameGraphTexture &sky = resources.getResource<FrameGraphTexture>(GFXRID(Sky));
 
 		auto &p = gGlobalPipeline;
 
@@ -86,28 +84,21 @@ void SkyRenderer::addCompositePasses(FrameGraph &fg)
 		create_mode_resources();
 		
 
-	auto &sky_data = fg.getBlackboard().get<SkyData>();
-	auto &default_data = fg.getBlackboard().get<DefaultResourcesData>();
-	auto &gbuffer_data = fg.getBlackboard().get<GBufferData>();
-
 	is_force_dirty = false;
-	default_data = fg.addCallbackPass<DefaultResourcesData>("Sky Pass",
-	[&](RenderPassBuilder &builder, DefaultResourcesData &data)
+	fg.addCallbackPass<EmptyData>("Sky Pass",
+	[&](RenderPassBuilder &builder, EmptyData &data)
 	{
 		builder.setSideEffect(true); // TODO: remove
-		// Setup
-		data = default_data;
-
-		data.final_no_post = builder.write(data.final_no_post);
-		builder.read(sky_data.sky);
-		builder.write(gbuffer_data.depth);
+		builder.writeTexture(GFXRID(FinalNoPostTexture));
+		builder.readTexture(GFXRID(Sky));
+		builder.readDepthTexture(GFXRID(GBufferDepth));
 	},
-	[=](const DefaultResourcesData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
+	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
 		// Render
-		auto &composite = resources.getResource<FrameGraphTexture>(data.final_no_post);
-		auto &sky = resources.getResource<FrameGraphTexture>(sky_data.sky);
-		auto &depth = resources.getResource<FrameGraphTexture>(gbuffer_data.depth);
+		auto &composite = resources.getResource<FrameGraphTexture>(GFXRID(FinalNoPostTexture));
+		auto &sky = resources.getResource<FrameGraphTexture>(GFXRID(Sky));
+		auto &depth = resources.getResource<FrameGraphTexture>(GFXRID(GBufferDepth));
 
 		cmd_list->setRenderTargets({composite.texture}, depth.texture, 0, 0, false);
 
@@ -171,7 +162,6 @@ bool SkyRenderer::isDirty()
 {
 	if (mode != SKY_MODE_PROCEDURAL)
 		return false;
-	return true;
 	bool dirty = is_force_dirty;
 	if (prev_uniform.sun_direction != procedural_uniforms.sun_direction)
 		dirty = true;

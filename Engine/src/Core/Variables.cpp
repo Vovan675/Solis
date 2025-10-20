@@ -12,6 +12,7 @@ AutoConVarInt render_debug_rendering_mode("render.debug_rendering.mode", "Debug 
 AutoConVarBool render_first_frame("render.first_frame", "Is First Frame", true);
 AutoConVarBool render_shadows("render.shadows.enabled", "Shadows Enabled", true);
 AutoConVarBool render_ray_traced_shadows("render.ray_traced_shadows.enabled", "Ray Traced Shadows Enabled", false);
+AutoConVarBool render_ssao("render.ssao.enabled", "Screen Space Ambient Occlusion Enabled", true);
 AutoConVarBool render_ssr("render.ssr.enabled", "Screen Space Reflections Enabled", false);
 AutoConVarBool render_fxaa("render.fxaa.enabled", "FXAA Enabled", true);
 AutoConVarBool render_automatic_sun_position("render.automatic_sun_position.enabled", "Automatic Sun Position", true, ConVarFlag::CON_VAR_FLAG_HIDDEN);
