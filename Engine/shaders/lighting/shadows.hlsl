@@ -2,7 +2,7 @@
 
 struct VS_INPUT
 {
-    float4 inPos : POSITION;
+    uint vertex_id : SV_VertexID;
 };
 
 struct VS_OUTPUT
@@ -26,9 +26,12 @@ cbuffer UBO : register(b1)
 VS_OUTPUT VSMain(VS_INPUT input)
 {
     Instance instance = GetInstance(instance_id);
+    Mesh mesh = GetMesh(instance.mesh_id);
+    float3 vertex_pos = GetMeshVertexData<float3>(mesh.vertex_buffer_id, mesh.positions_offset, input.vertex_id, mesh.vertex_stride);
+
     VS_OUTPUT output;
-    output.outPos = mul(light_space_matrix, mul(instance.world_transform, input.inPos));
-    output.worldPos = mul(instance.world_transform, input.inPos);
+    output.outPos = mul(light_space_matrix, mul(instance.world_transform, float4(vertex_pos, 1.0)));
+    output.worldPos = mul(instance.world_transform, float4(vertex_pos, 1.0));
     return output;
 }
 

@@ -81,6 +81,7 @@ private:
 		uint32_t frame = 0;
 		uint32_t materials_buffer_id;
 		uint32_t instances_buffer_id;
+		uint32_t meshes_buffer_id;
 	};
 	static DefaultUniforms default_uniforms;
 	static Camera *camera;

@@ -78,7 +78,6 @@ void GBufferPass::AddPass(FrameGraph &fg, const eastl::vector<RenderBatch> &batc
 
 			gDynamicRHI->setConstantBufferData(1, &pc, sizeof(PushConstant));
 
-			cmd_list->setVertexBuffer(batch.mesh->vertexBuffer);
 			cmd_list->setIndexBuffer(batch.mesh->indexBuffer);
 			cmd_list->drawIndexedInstanced(batch.mesh->indices.size(), 1, 0, 0, 0);
 

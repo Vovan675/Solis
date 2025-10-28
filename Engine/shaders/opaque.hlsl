@@ -8,11 +8,7 @@ cbuffer Constants : register(b1)
 
 struct VertexInput
 {
-    float3 position : POSITION;
-    float3 normal : NORMAL;
-    float3 tangent : TANGENT;
-    float2 uv : TEXCOORD0;
-    float3 color : COLOR;
+    uint vertex_id : SV_VertexID;
 };
 
 struct PixelInput
@@ -21,7 +17,6 @@ struct PixelInput
     float3 worldPos : TEXCOORD0;
     float3 worldNormal : TEXCOORD1;
     float2 uv : TEXCOORD2;
-    float3 color : TEXCOORD3;
     float3x3 TBN : TEXCOORD4;
 };
 
@@ -30,9 +25,14 @@ PixelInput VSMain(VertexInput IN)
     PixelInput OUT;
 
     Instance instance = GetInstance(instance_id);
+    Mesh mesh = GetMesh(instance.mesh_id);
+    float3 vertex_pos = GetMeshVertexData<float3>(mesh.vertex_buffer_id, mesh.positions_offset, IN.vertex_id, mesh.vertex_stride);
+    float3 vertex_normal = GetMeshVertexData<float3>(mesh.vertex_buffer_id, mesh.normals_offset, IN.vertex_id, mesh.vertex_stride);
+    float3 vertex_tangent = GetMeshVertexData<float3>(mesh.vertex_buffer_id, mesh.tangents_offset, IN.vertex_id, mesh.vertex_stride);
+    float2 vertex_uv = GetMeshVertexData<float2>(mesh.vertex_buffer_id, mesh.uvs_offset, IN.vertex_id, mesh.vertex_stride);
 
     // Transform position to clip space
-    float4 worldPosition = mul(instance.world_transform, float4(IN.position, 1.0));
+    float4 worldPosition = mul(instance.world_transform, float4(vertex_pos, 1.0));
     OUT.position = mul(projection, mul(view, worldPosition));
     
     // Pass through world position
@@ -41,16 +41,15 @@ PixelInput VSMain(VertexInput IN)
     // Transform normal to world space
     //float3x3 normalMatrix = (float3x3)transpose(instance.iworld_transform);
     float3x3 normalMatrix = (float3x3)instance.world_transform;
-    float3 normal = normalize(mul(normalMatrix, IN.normal));
+    float3 normal = normalize(mul(normalMatrix, vertex_normal));
     OUT.worldNormal = normal;
 
     // Pass through UV and color
-    OUT.uv = IN.uv;
-    OUT.color = IN.color;
+    OUT.uv = vertex_uv;
 
     // Calculate TBN matrix
-    float3 tangent = normalize(mul(normalMatrix, IN.tangent));
-    float3 bitangent = normalize(mul(normalMatrix, cross(IN.normal, tangent)));
+    float3 tangent = normalize(mul(normalMatrix, vertex_tangent));
+    float3 bitangent = normalize(mul(normalMatrix, cross(vertex_normal, tangent)));
     OUT.TBN = float3x3(tangent, bitangent, normal);
 
     return OUT;

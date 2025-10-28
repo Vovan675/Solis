@@ -40,6 +40,7 @@ public:
 	eastl::vector<RenderBatch> render_batches;
 	RHIBufferRef materials_buffer;
 	RHIBufferRef instances_buffer;
+	RHIBufferRef meshes_buffer;
 
 	EntityRenderer entity_renderer;
 

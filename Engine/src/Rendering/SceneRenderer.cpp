@@ -126,7 +126,21 @@ struct InstanceGPU
 {
 	glm::mat4 world_transform;
 	glm::mat4 iworld_transform;
+	uint32_t mesh_id;
 	uint32_t material_id = 0;
+};
+
+
+struct MeshGPU
+{
+	uint32_t vertex_buffer_id;
+	uint32_t index_buffer_id;
+	uint32_t vertex_stride;
+	uint32_t positions_offset;
+	uint32_t normals_offset;
+	uint32_t tangents_offset;
+	uint32_t uvs_offset;
+	uint32_t colors_offset;
 };
 
 void SceneRenderer::update(Camera *camera)
@@ -143,6 +157,7 @@ void SceneRenderer::update(Camera *camera)
 
 		eastl::vector<MaterialGPU> materials_gpu;
 		eastl::vector<InstanceGPU> instances_gpu;
+		eastl::vector<MeshGPU> meshes_gpu;
 		
 		BoundFrustum camera_bound_frustum(camera->getProj(), camera->getView());
 		auto entities_view = Scene::getCurrentScene()->getEntitiesWith<TransformComponent, MeshRendererComponent>();
@@ -171,6 +186,7 @@ void SceneRenderer::update(Camera *camera)
 				InstanceGPU &instance = instances_gpu.emplace_back();
 				instance.world_transform = transform.getWorldTransform();
 				instance.iworld_transform = transform.getInverseWorldTransform();
+				instance.mesh_id = meshes_gpu.size();
 				instance.material_id = materials_gpu.size();
 
 				MaterialGPU &material_gpu = materials_gpu.emplace_back();
@@ -181,10 +197,20 @@ void SceneRenderer::update(Camera *camera)
 				material_gpu.specular_tex_id = material->specular_tex.bindless_id;
 				material_gpu.shading = glm::vec4(material->metalness, material->roughness, material->specular, 1.0f);
 				material_gpu.normal_tex_id = material->normal_tex.bindless_id;
+
+				MeshGPU &mesh_gpu = meshes_gpu.emplace_back();
+				mesh_gpu.vertex_buffer_id = gDynamicRHI->getBindlessResources()->addBuffer(mesh->vertexBuffer);
+				mesh_gpu.index_buffer_id = gDynamicRHI->getBindlessResources()->addBuffer(mesh->indexBuffer);
+				mesh_gpu.vertex_stride = sizeof(Engine::Vertex);
+				mesh_gpu.positions_offset = offsetof(Engine::Vertex, pos);
+				mesh_gpu.normals_offset = offsetof(Engine::Vertex, normal);
+				mesh_gpu.tangents_offset = offsetof(Engine::Vertex, tangent);
+				mesh_gpu.uvs_offset = offsetof(Engine::Vertex, uv);
+				mesh_gpu.colors_offset = offsetof(Engine::Vertex, color);
 			}
 		}
 
-		auto fill_buffer = [](RHIBufferRef &buffer, void *data, size_t count, size_t stride)
+		auto fill_buffer = [](RHIBufferRef &buffer, void *data, size_t count, size_t stride, const char *name)
 		{
 			uint32_t buffer_size = count * stride;
 			if (!buffer || buffer->getSize() < buffer_size)
@@ -193,18 +219,21 @@ void SceneRenderer::update(Camera *camera)
 				desc.size = buffer_size;
 				desc.usage = STORAGE_BUFFER;
 				desc.useStagingBuffer = false;
-				desc.stride = sizeof(MaterialGPU);
+				desc.stride = stride;
 				buffer = gDynamicRHI->createBuffer(desc);
+				buffer->setDebugName(name);
 			}
 			buffer->fill(data);
 		};
 
-		fill_buffer(materials_buffer, materials_gpu.data(), materials_gpu.size(), sizeof(MaterialGPU));
-		fill_buffer(instances_buffer, instances_gpu.data(), instances_gpu.size(), sizeof(InstanceGPU));
+		fill_buffer(materials_buffer, materials_gpu.data(), materials_gpu.size(), sizeof(MaterialGPU), "Materials Buffer");
+		fill_buffer(instances_buffer, instances_gpu.data(), instances_gpu.size(), sizeof(InstanceGPU), "Instances Buffer");
+		fill_buffer(meshes_buffer, meshes_gpu.data(), meshes_gpu.size(), sizeof(MeshGPU), "Meshes Buffer");
 	}
 
 	auto uniforms = Renderer::getDefaultUniforms();
 	uniforms.materials_buffer_id = gDynamicRHI->getBindlessResources()->addBuffer(materials_buffer);
 	uniforms.instances_buffer_id = gDynamicRHI->getBindlessResources()->addBuffer(instances_buffer);
+	uniforms.meshes_buffer_id = gDynamicRHI->getBindlessResources()->addBuffer(meshes_buffer);
 	gDynamicRHI->setConstantBufferDataPerFrame(32, &uniforms, sizeof(uniforms));
 }

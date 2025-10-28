@@ -43,7 +43,7 @@ namespace Engine
 
 	void Mesh::create_buffers()
 	{
-		uint32_t additional_usage = 0;
+		uint32_t additional_usage = RAW_STORAGE_BUFFER;
 		if (engine_ray_tracing)
 			additional_usage |= ACCELERATION_STRUCTURE_BUILD_INPUT_BUFFER;
 

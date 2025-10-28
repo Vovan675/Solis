@@ -39,8 +39,10 @@ DX12Buffer::DX12Buffer(BufferDescription description) : RHIBuffer(description)
 	assert(res == S_OK);
 	//setState(RESOURCE_STATE_VERTEX_BUFFER);
 
-	if (description.usage & STORAGE_BUFFER)
+	if (description.usage & (STORAGE_BUFFER | RAW_STORAGE_BUFFER))
 	{
+		bool is_raw = description.usage & RAW_STORAGE_BUFFER;
+
 		DX12DynamicRHI *rhi = (DX12DynamicRHI *)gDynamicRHI;
 
 		// Allocate in staging heap
@@ -48,14 +50,26 @@ DX12Buffer::DX12Buffer(BufferDescription description) : RHIBuffer(description)
 
 		D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
 		srv_desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-		srv_desc.Format = DXGI_FORMAT_UNKNOWN;
 		srv_desc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
-		srv_desc.Buffer.FirstElement = 0;
-		srv_desc.Buffer.NumElements = description.size / description.stride;
-		srv_desc.Buffer.StructureByteStride = description.stride;
-		srv_desc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
+
+		if (is_raw)
+		{
+			srv_desc.Format = DXGI_FORMAT_R32_TYPELESS;
+			srv_desc.Buffer.FirstElement = 0;
+			srv_desc.Buffer.NumElements = description.size / sizeof(uint32_t);
+			srv_desc.Buffer.StructureByteStride = 0;
+			srv_desc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_RAW;
+		} else
+		{
+			srv_desc.Format = DXGI_FORMAT_UNKNOWN;
+			srv_desc.Buffer.FirstElement = 0;
+			srv_desc.Buffer.NumElements = description.size / description.stride;
+			srv_desc.Buffer.StructureByteStride = description.stride;
+			srv_desc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
+		}
 
 		rhi->device->CreateShaderResourceView(resource->resource, &srv_desc, shader_resource_view.getCpuHandle());
+		gDynamicRHI->getBindlessResources()->addBuffer(this);
 	}
 }
 
