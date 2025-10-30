@@ -19,6 +19,7 @@
 #include "renderers/SSAORenderer.h"
 #include "renderers/SSRRenderer.h"
 
+#include "renderers/PathTracingRenderer.h"
 
 class SceneRenderer : public RefCounted
 {
@@ -32,6 +33,8 @@ public:
 public:
 	friend class EditorApplication;
 
+	void render_deferred(Camera *camera, FrameGraph &frame_graph);
+	void render_path_traced(Camera *camera, FrameGraph &frame_graph);
 	void update(Camera *camera);
 
 	Ref<Scene> scene;
@@ -58,4 +61,6 @@ public:
 
 	SSAORenderer ssao_renderer;
 	SSRRenderer ssr_renderer;
+
+	PathTracingRenderer path_tracing_renderer;
 };

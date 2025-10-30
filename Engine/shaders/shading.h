@@ -1,9 +1,24 @@
 #pragma once
 #include "common.h"
 
-float3 F_Schlick(float3 f0, float f90, float u)
+// ============================================================================
+// Microfacet BRDF Functions
+// ============================================================================
+
+float3 FresnelSchlick(float3 f0, float3 f90, float u)
 {
     return f0 + (f90 - f0) * pow(1.0f - u, 5.0f);
+}
+
+float FresnelSchlick(float f0, float f90, float u)
+{
+    return f0 + (f90 - f0) * pow(1.0f - u, 5.0f);
+}
+
+float3 ComputeF0(float3 albedo, float metalness)
+{
+	float3 dielectric_F0 = float3(0.04, 0.04, 0.04);
+	return lerp(dielectric_F0, albedo, metalness);
 }
 
 float D_GGX(float NdotH, float a2)
@@ -26,8 +41,32 @@ float Fr_DisneyDiffuse(float NdotV, float NdotL, float LdotH, float linearRoughn
     float energyBias = lerp(0, 0.5, linearRoughness);
     float energyFactor = lerp(1.0, 1.0 / 1.51, linearRoughness);
     float fd90 = energyBias + 2.0 * LdotH * LdotH * linearRoughness;
-    float3 f0 = 1.0;
-    float lightScatter = F_Schlick(f0, fd90, NdotL).r;
-    float viewScatter = F_Schlick(f0, fd90, NdotV).r;
+    float f0 = 1.0;
+    float lightScatter = FresnelSchlick(f0, fd90, NdotL).r;
+    float viewScatter = FresnelSchlick(f0, fd90, NdotV).r;
     return lightScatter * viewScatter * energyFactor;
+}
+
+// ============================================================================
+// GGX Importance Sampling
+// ============================================================================
+
+float3 SampleGGXTangent(float2 random_sample, float roughness)
+{
+	float a = roughness * roughness;
+	float a2 = a * a;
+	
+	float phi = 2.0 * PI * random_sample.x;
+	float cosTheta = sqrt((1.0 - random_sample.y) / (1.0 + (a2 - 1.0) * random_sample.y));
+	float sinTheta = sqrt(max(0.0, 1.0 - cosTheta * cosTheta));
+	
+	return float3(sinTheta * cos(phi), sinTheta * sin(phi), cosTheta);
+}
+
+float GGX_PDF(float NdotH, float VdotH, float roughness)
+{
+	float a = roughness * roughness;
+	float a2 = a * a;
+	float D = D_GGX(NdotH, a2);
+	return D * NdotH / (4.0 * VdotH);
 }

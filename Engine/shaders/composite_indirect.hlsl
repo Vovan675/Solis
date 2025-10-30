@@ -45,7 +45,7 @@ PSOutput PSMain(VSInput input)
 
 	// IBL
 	float3 f0 = lerp(float3(0.04f, 0.04f, 0.04f), albedo.rgb, metalness);
-	float3 f = F_Schlick(f0, 1.0f, roughness);
+	float3 f = FresnelSchlick(f0, 1.0f, roughness);
 	float3 kd = (1.0f - f);
 
 	float3 irradiance = irradiance_tex.Sample(linear_wrap_sampler, normal).rgb;

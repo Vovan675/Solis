@@ -352,6 +352,11 @@ public:
 		return resource;
 	}
 
+	FrameGraphTextureId writeUAVTexture(GraphicsResourceName name, uint32_t flags = 0)
+	{
+		return writeUAVTexture(frameGraph.texture_name_to_id[name], flags);
+	}
+
 	bool isTextureCreated(GraphicsResourceName name)
 	{
 		return frameGraph.texture_name_to_id.contains(name);

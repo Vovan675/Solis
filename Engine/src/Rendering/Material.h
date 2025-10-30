@@ -32,7 +32,7 @@ public:
 		{
 			auto update_texture = [](MaterialTexture &material_texture)
 			{
-				if (material_texture.bindless_id == -1 && material_texture.asset_handle.isValid())
+				if (material_texture.bindless_id == 0 && material_texture.asset_handle.isValid())
 				{
 					auto runtime_path = AssetManager::getPathFromGUID(material_texture.asset_handle);
 					if (runtime_path.empty())
@@ -83,7 +83,7 @@ public:
 
 			const auto read_tex = [&stream, &non_srgb_description](MaterialTexture &tex, bool non_srgb = false)
 			{
-				tex.bindless_id = -1;
+				tex.bindless_id = 0;
 
 				Engine::GUID tex_guid;
 				stream.read(tex_guid);
@@ -110,19 +110,19 @@ namespace YAML
 		out << YAML::Key << "Normal" << YAML::Value << mat->specular;
 		
 		eastl::string no_texture = "no";
-		if (mat->albedo_tex.bindless_id != -1)
+		if (mat->albedo_tex.bindless_id != 0)
 			out << YAML::Key << "AlbedoTexture" << YAML::Value << gDynamicRHI->getBindlessResources()->getTexture(mat->albedo_tex.bindless_id)->asset_handle;
 
-		if (mat->metalness_tex.bindless_id != -1)
+		if (mat->metalness_tex.bindless_id != 0)
 			out << YAML::Key << "MetalnessTexture" << YAML::Value << gDynamicRHI->getBindlessResources()->getTexture(mat->metalness_tex.bindless_id)->asset_handle;
 
-		if (mat->roughness_tex.bindless_id != -1)
+		if (mat->roughness_tex.bindless_id != 0)
 			out << YAML::Key << "RoughnessTexture" << YAML::Value << gDynamicRHI->getBindlessResources()->getTexture(mat->roughness_tex.bindless_id)->asset_handle;
 
-		if (mat->specular_tex.bindless_id != -1)
+		if (mat->specular_tex.bindless_id != 0)
 			out << YAML::Key << "SpecularTexture" << YAML::Value << gDynamicRHI->getBindlessResources()->getTexture(mat->specular_tex.bindless_id)->asset_handle;
 
-		if (mat->normal_tex.bindless_id != -1)
+		if (mat->normal_tex.bindless_id != 0)
 			out << YAML::Key << "NormalTexture" << YAML::Value << gDynamicRHI->getBindlessResources()->getTexture(mat->normal_tex.bindless_id)->asset_handle;
 		out << YAML::EndMap;
 		return out;

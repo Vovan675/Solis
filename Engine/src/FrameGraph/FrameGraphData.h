@@ -31,6 +31,7 @@ struct EmptyData {};
 #define IBLIrradiance
 #define IBLPrefilter
 
+#define PathTraceAccumulation
 
 struct RayTracedShadowPass
 {

@@ -27,10 +27,13 @@ public:
 	DebugRenderer();
 	virtual ~DebugRenderer();
 
+	bool isEnabled() const;
+
 	void addPasses(FrameGraph &fg);
 
 	void addLine(glm::vec3 p0, glm::vec3 p1)
 	{
+		if (!isEnabled()) return;
 		vertices[lines_index_count].pos = p0;
 		vertices[lines_index_count + 1].pos = p1;
 		lines_index_count += 2;

@@ -16,13 +16,19 @@ PostProcessingRenderer::~PostProcessingRenderer()
 void PostProcessingRenderer::addPasses(FrameGraph &fg)
 {
 	last_output = GFXRID(FinalNoPostTexture);
-	if (render_ssr)
-		last_output = GFXRID(SSR);
+	if (render_path_tracing)
+	{
+		addFilmPass(fg);
+	} else
+	{
+		if (render_ssr)
+			last_output = GFXRID(SSR);
 
-	addFilmPass(fg);
+		addFilmPass(fg);
 
-	if (render_fxaa)
-		addFxaaPass(fg);
+		if (render_fxaa)
+			addFxaaPass(fg);
+	}
 }
 
 void PostProcessingRenderer::renderImgui()
@@ -51,9 +57,16 @@ void PostProcessingRenderer::renderImgui()
 
 void PostProcessingRenderer::addFilmPass(FrameGraph &fg)
 {
-	GraphicsResourceName output = GFXRID(FilmPassOutput);
-	if (!render_fxaa)
+	GraphicsResourceName output;
+	if (render_path_tracing)
+	{
 		output = GFXRID(FinalTexture);
+	} else
+	{
+		output = GFXRID(FilmPassOutput);
+		if (!render_fxaa)
+			output = GFXRID(FinalTexture);
+	}
 
 	struct PassData
 	{

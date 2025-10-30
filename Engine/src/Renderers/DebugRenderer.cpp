@@ -41,6 +41,11 @@ DebugRenderer::~DebugRenderer()
 {
 }
 
+bool DebugRenderer::isEnabled() const
+{
+	return !render_path_tracing;
+}
+
 void DebugRenderer::addPasses(FrameGraph &fg)
 {
 	addVisualizerPass(fg);
@@ -50,6 +55,7 @@ void DebugRenderer::addPasses(FrameGraph &fg)
 
 void DebugRenderer::addBox(glm::vec3 half_extents, glm::mat4 transform)
 {
+	if (!isEnabled()) return;
 	glm::vec3 corners[8] =
 	{
 		glm::vec3(-half_extents.x, -half_extents.y, -half_extents.z),
@@ -84,6 +90,7 @@ void DebugRenderer::addBox(glm::vec3 half_extents, glm::mat4 transform)
 
 void DebugRenderer::addBoundBox(BoundBox bbox)
 {
+	if (!isEnabled()) return;
 	addLine(bbox.min, glm::vec3(bbox.max.x, bbox.min.y, bbox.min.z));
 	addLine(bbox.min, glm::vec3(bbox.min.x, bbox.max.y, bbox.min.z));
 	addLine(bbox.min, glm::vec3(bbox.min.x, bbox.min.y, bbox.max.z));
@@ -104,6 +111,7 @@ void DebugRenderer::addBoundBox(BoundBox bbox)
 
 void DebugRenderer::addFrustum(glm::mat4 frustum)
 {
+	if (!isEnabled()) return;
 	eastl::array<glm::vec3, 8> corners
 	{
 		{
@@ -136,6 +144,7 @@ void DebugRenderer::addFrustum(glm::mat4 frustum)
 
 eastl::vector<glm::vec3> DebugRenderer::addCirlce(glm::vec3 center, glm::vec3 normal, float radius, int segments)
 {
+	if (!isEnabled()) return {};
 	eastl::vector<glm::vec3> circle_points;
 	glm::vec3 tangent1, tangent2;
 
@@ -167,6 +176,7 @@ eastl::vector<glm::vec3> DebugRenderer::addCirlce(glm::vec3 center, glm::vec3 no
 
 void DebugRenderer::addArrow(glm::vec3 p0, glm::vec3 p1, float arrow_size)
 {
+	if (!isEnabled()) return;
 	// Add the main line from p0 to p1
 	addLine(p0, p1);
 
@@ -241,8 +251,6 @@ void DebugRenderer::addTextureDebugPass(FrameGraph &fg)
 
 		if (ray_tracing_shadows_data)
 			ubo.light_diffuse_id = resources.getResource<FrameGraphTexture>(ray_tracing_shadows_data->visibility).getBindlessId();
-		else
-			ubo.light_diffuse_id = 0;
 
 		auto &p = gGlobalPipeline;
 		p->bindScreenQuadPipeline(cmd_list, gDynamicRHI->createShader(L"shaders/debug_quad.hlsl", FRAGMENT_SHADER));

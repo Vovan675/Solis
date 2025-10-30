@@ -133,7 +133,7 @@ void DX12Pipeline::create(const PipelineDescription &description)
 		// Shader config
 		// Defines the maximum sizes in bytes for the ray payload and attribute structure.
 		auto shaderConfig = raytracingPipeline.CreateSubobject<CD3DX12_RAYTRACING_SHADER_CONFIG_SUBOBJECT>();
-		UINT payloadSize = 4 * sizeof(float);   // float4 color
+		UINT payloadSize = 6 * sizeof(float);
 		UINT attributeSize = 2 * sizeof(float); // float2 barycentrics
 		shaderConfig->Config(payloadSize, attributeSize);
 

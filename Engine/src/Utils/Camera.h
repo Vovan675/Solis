@@ -4,6 +4,7 @@
 #include "glm/gtx/euler_angles.hpp"
 #include "glm/gtx/quaternion.hpp"
 #include "Application.h"
+#include "Core/Variables.h"
 
 class Camera
 {
@@ -52,6 +53,9 @@ public:
 		
 		if (gInput.isKeyDown(GLFW_KEY_LEFT_SHIFT))
 			movement *= 2.0f;
+
+		if (movement != glm::vec3(0, 0, 0) || mouse_pressed)
+			render_path_tracing_first_frame = true;
 
 		movement *= dt * speed;
 		position += movement;

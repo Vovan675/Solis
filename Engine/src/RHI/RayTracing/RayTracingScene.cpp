@@ -10,44 +10,6 @@ void RayTracingScene::update()
 
 void RayTracingScene::build_blas()
 {
-	size_t blas_size = 150000;
-	BufferDescription big_desc;
-	big_desc.size = sizeof(Engine::Vertex) * blas_size;
-	big_desc.usage = VERTEX_BUFFER | UAV_BUFFER;
-	big_desc.useStagingBuffer = true;
-	big_vertex_buffer = gDynamicRHI->createBuffer(big_desc);
-
-	big_desc.size = sizeof(uint32_t) * blas_size;
-	big_desc.useStagingBuffer = true;
-	big_desc.usage = INDEX_BUFFER | UAV_BUFFER;
-	big_index_buffer = gDynamicRHI->createBuffer(big_desc);
-
-	auto components = Scene::getCurrentScene()->getEntitiesWith<TransformComponent, MeshRendererComponent>();
-	for (auto &&[entity, transform_buffer, mesh_renderer]: components.each())
-	{
-		for (auto &mesh_node : mesh_renderer.meshes)
-		{
-			auto mesh = mesh_node.getMesh();
-
-			RHICommandList *copy_cmd_list = gDynamicRHI->getCmdListCopy();
-			copy_cmd_list->open();
-			copy_cmd_list->copyBuffer(mesh->vertexBuffer, big_vertex_buffer, 0, big_vertex_buffer_last_offset, mesh->vertexBuffer->getSize());
-			copy_cmd_list->close();
-			gDynamicRHI->getCmdQueueCopy()->execute(copy_cmd_list);
-			// Wait queue
-			auto last_fence = gDynamicRHI->getCmdQueueCopy()->getLastFenceValue();
-			gDynamicRHI->getCmdQueueCopy()->signal(last_fence + 1);
-			gDynamicRHI->getCmdQueueCopy()->wait(last_fence + 1);
-
-			MeshOffset offset;
-			offset.vertexBufferOffset = big_vertex_buffer_last_offset / sizeof(Engine::Vertex);
-			offset.indexBufferOffset = big_index_buffer_last_offset / sizeof(uint32_t);
-			mesh_offsets[mesh->id] = offset;
-			big_vertex_buffer_last_offset += mesh->vertexBuffer->getSize();
-			big_index_buffer_last_offset += mesh->indexBuffer->getSize();
-		}
-	}
-
 	// Create BLAS for every node
 	{
 
@@ -107,7 +69,6 @@ void RayTracingScene::build_tlas()
 	// Create TLAS
 	{
 		eastl::vector<RayTracingInstance> instances;
-		obj_descs.clear();
 		auto components = Scene::getCurrentScene()->getEntitiesWith<TransformComponent, MeshRendererComponent>();
 		instances.reserve(components.size_hint());
 		int object_id = 0;
@@ -117,9 +78,14 @@ void RayTracingScene::build_tlas()
 			for (auto &mesh_node : mesh_renderer.meshes)
 			{
 				auto mesh = mesh_node.getMesh();
+				if (mesh == nullptr)
+					continue;
 
 				if (blas_meshes.find(mesh->id) == blas_meshes.end())
+				{
+					CORE_ERROR("Blas Instance not found for mesh");
 					continue;
+				}
 
 				size_t blas_id = blas_meshes[mesh->id];
 				
@@ -130,15 +96,6 @@ void RayTracingScene::build_tlas()
 				instance.instance_mask = 0xFF;
 				instance.instance_contribution_to_hit_group_index = 0;
 
-				auto &material = mesh_renderer.materials[material_id];
-				ObjDesc obj_desc;
-				obj_desc.color = material->albedo;
-				obj_desc.vertexBufferOffset = mesh_offsets[mesh->id].vertexBufferOffset;
-				obj_desc.indexBufferOffset = mesh_offsets[mesh->id].indexBufferOffset;
-				obj_descs.push_back(obj_desc);
-
-				if (material_id < mesh_renderer.materials.size() - 1)
-					material_id++;
 				object_id++;
 			}
 		}

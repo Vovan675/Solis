@@ -61,10 +61,29 @@ void SceneRenderer::render(Camera *camera, RHITextureRef result_texture)
 		prefilter_renderer.addPass(frame_graph, prefilter_samples);
 	}
 
-	render_first_frame = false;
+	if (render_path_tracing)
+	{
+		render_path_traced(camera, frame_graph);
+	} else
+	{
+		render_deferred(camera, frame_graph);
+	}
 
+	frame_graph.compile();
+	frame_graph.execute(gDynamicRHI->getCmdList());
+
+	if (gInput.isKeyDown(GLFW_KEY_G))
+	{
+		GraphViz viz;
+		viz.show("graph.dot", frame_graph);
+	}
+	render_first_frame = false;
+}
+
+void SceneRenderer::render_deferred(Camera *camera, FrameGraph &frame_graph)
+{
 	gbuffer_pass.AddPass(frame_graph, render_batches);
-	
+
 	if (render_ssao)
 		ssao_renderer.addPasses(frame_graph);
 
@@ -99,15 +118,12 @@ void SceneRenderer::render(Camera *camera, RHITextureRef result_texture)
 	}
 
 	debug_renderer.addPasses(frame_graph);
+}
 
-	frame_graph.compile();
-	frame_graph.execute(gDynamicRHI->getCmdList());
-
-	if (gInput.isKeyDown(GLFW_KEY_G))
-	{
-		GraphViz viz;
-		viz.show("graph.dot", frame_graph);
-	}
+void SceneRenderer::render_path_traced(Camera *camera, FrameGraph &frame_graph)
+{
+	path_tracing_renderer.AddPass(frame_graph, rt_scene);
+	post_renderer.addPasses(frame_graph);
 }
 
 struct MaterialGPU

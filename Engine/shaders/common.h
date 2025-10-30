@@ -93,7 +93,22 @@ T GetMeshVertexData(uint buffer_index, uint buffer_offset, uint vertex_id, uint 
 	return buffer.Load<T>(vertex_stride * vertex_id + buffer_offset);
 }
 
-#ifndef RAY_TRACING_SHADER
+float3 Interpolate(float3 x0, float3 x1, float3 x2, float2 bary)
+{
+	return
+		x0 * (1.0f - bary.x - bary.y) +
+		x1 * bary.x +
+		x2 * bary.y;
+}
+
+float2 Interpolate(float2 x0, float2 x1, float2 x2, float2 bary)
+{
+	return
+		x0 * (1.0f - bary.x - bary.y) +
+		x1 * bary.x +
+		x2 * bary.y;
+}
+
 // Must match in code
 static SamplerState linear_wrap_sampler = SamplerDescriptorHeap[0];
 static SamplerState linear_clamp_sampler = SamplerDescriptorHeap[1];
@@ -101,7 +116,6 @@ static SamplerState point_wrap_sampler = SamplerDescriptorHeap[2];
 static SamplerState point_clamp_sampler = SamplerDescriptorHeap[3];
 static SamplerComparisonState shadow_wrap_sampler = SamplerDescriptorHeap[4];
 static SamplerComparisonState shadow_clamp_sampler = SamplerDescriptorHeap[5];
-#endif
 
 // Convert viewport coordinates to view space position
 float3 GetVSPosition(float2 uv, float hardware_depth) {
@@ -133,6 +147,29 @@ void ComputeBasis(float3 N, out float3 T, out float3 B) {
 	}
 	T = normalize(T);
 	B = normalize(cross(N, T));
+}
+
+void BuildOrthonormalBasis(float3 normal, out float3 tangent, out float3 bitangent)
+{
+	float3 up = abs(normal.z) < 0.999 ? float3(0, 0, 1) : float3(1, 0, 0);
+	tangent = normalize(cross(up, normal));
+	bitangent = normalize(cross(normal, tangent));
+}
+
+float3 TangentToWorld(float3 v_tangent, float3 tangent, float3 bitangent, float3 normal)
+{
+	return tangent * v_tangent.x + bitangent * v_tangent.y + normal * v_tangent.z;
+}
+
+// Perceptual luminance
+float Luminance(float3 color)
+{
+	return dot(color, float3(0.2126, 0.7152, 0.0722));
+}
+
+float Average(float3 color)
+{
+	return (color.r + color.g + color.b) / 3.0;
 }
 
 // Converts cube face coordinates to a direction vector in world space

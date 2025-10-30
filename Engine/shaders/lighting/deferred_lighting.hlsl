@@ -277,7 +277,7 @@ PSOutput PSMain(VSOutput input)
 	float F_diffuse = Fr_DisneyDiffuse(NdotV, NdotL, LdotH, roughness);
 	float3 diffuse = diffuse_color * F_diffuse;
 
-	float3 F = F_Schlick(F0, F90, LdotH);
+	float3 F = FresnelSchlick(F0, F90, LdotH);
 	float D = D_GGX(NdotH, roughness * roughness);
 	float Viz = V_SmithGGXCorrelated(NdotV, NdotL, roughness); 
 	float3 F_specular = D * F * Viz;
