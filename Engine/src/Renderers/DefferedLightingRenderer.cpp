@@ -58,32 +58,18 @@ void DefferedLightingRenderer::renderLights(FrameGraph &fg)
 	},
 	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		auto &albedo = resources.getResource<FrameGraphTexture>(GFXRID(GBufferAlbedo));
-		auto &normal = resources.getResource<FrameGraphTexture>(GFXRID(GBufferNormal));
-		auto &depth = resources.getResource<FrameGraphTexture>(GFXRID(GBufferDepth));
-		auto &shading = resources.getResource<FrameGraphTexture>(GFXRID(GBufferShading));
+		auto diffuse = resources.getTexture(GFXRID(DiffuseLight));
+		auto specular = resources.getTexture(GFXRID(SpecularLight));
 
-		auto &diffuse = resources.getResource<FrameGraphTexture>(GFXRID(DiffuseLight));
-		auto &specular = resources.getResource<FrameGraphTexture>(GFXRID(SpecularLight));
+		cmd_list->setRenderTargets({diffuse, specular}, nullptr, -1, 0, true);
 
-		cmd_list->setRenderTargets({diffuse.texture, specular.texture}, nullptr, -1, 0, true);
-
-		ubo.albedo_tex_id = albedo.getBindlessId();
-		ubo.normal_tex_id = normal.getBindlessId();
-		ubo.depth_tex_id = depth.getBindlessId();
-		ubo.shading_tex_id = shading.getBindlessId();
+		ubo.albedo_tex_id = resources.getBindlessId(GFXRID(GBufferAlbedo));
+		ubo.normal_tex_id = resources.getBindlessId(GFXRID(GBufferNormal));
+		ubo.depth_tex_id = resources.getBindlessId(GFXRID(GBufferDepth));
+		ubo.shading_tex_id = resources.getBindlessId(GFXRID(GBufferShading));
 
 		// Render Lights radiance
 		auto &p = gGlobalPipeline;
-		p->reset();
-
-		p->setRenderTargets(cmd_list->getCurrentRenderTargets());
-		p->setUseBlending(true);
-		p->setBlendMode(BLEND_ONE, BLEND_ONE, BLEND_OP_ADD,
-						BLEND_ONE, BLEND_ONE, BLEND_OP_ADD);
-		p->setDepthTest(false);
-		p->setCullMode(CULL_MODE_FRONT);
-
 
 		if (engine_ray_tracing && render_ray_traced_shadows && render_shadows && ray_traced_shadow_data)
 		{
@@ -105,15 +91,14 @@ void DefferedLightingRenderer::renderLights(FrameGraph &fg)
 
 			if (light_component)
 			{
-				auto &visibility = resources.getResource<FrameGraphTexture>(ray_traced_shadow_data->visibility);
-
-				p->setVertexShader(gDynamicRHI->createShader(L"shaders/lighting/deferred_lighting.hlsl", VERTEX_SHADER)); 
-				p->setFragmentShader(gDynamicRHI->createShader(L"shaders/lighting/deferred_lighting.hlsl", FRAGMENT_SHADER, {{"RAY_TRACED_SHADOWS", "1"}, {"USE_SHADOWS", render_shadows ? "1" : "0"}}));
-				p->setVertexInputsDescription(Engine::Vertex::GetVertexInputsDescription());
-
-				p->setRenderTargets(cmd_list->getCurrentRenderTargets());
-				p->flush();
-				p->bind(cmd_list);
+				p->setupGraphicsPipeline(cmd_list,
+										  gDynamicRHI->createShader(L"shaders/lighting/deferred_lighting.hlsl", VERTEX_SHADER),
+										  gDynamicRHI->createShader(L"shaders/lighting/deferred_lighting.hlsl", FRAGMENT_SHADER, {{"RAY_TRACED_SHADOWS", "1"}, {"USE_SHADOWS", render_shadows ? "1" : "0"}}),
+										  Engine::Vertex::GetVertexInputsDescription(),
+										  true, false, CULL_MODE_FRONT);
+				p->setBlendMode(BLEND_ONE, BLEND_ONE, BLEND_OP_ADD,
+								BLEND_ONE, BLEND_ONE, BLEND_OP_ADD);
+				p->flushAndBind(cmd_list);
 
 				const auto uniforms = Renderer::getDefaultUniforms();
 				ubo_sphere.model = glm::translate(glm::mat4(1), glm::vec3(uniforms.camera_position));
@@ -123,7 +108,7 @@ void DefferedLightingRenderer::renderLights(FrameGraph &fg)
 				constants.light_range_square = pow(light_component->radius, 2);
 				constants.light_intensity = light_component->intensity;
 				constants.z_far = light_component->radius;
-				constants.shadow_map_tex_id = visibility.getBindlessId();
+				constants.shadow_map_tex_id = resources.getBindlessId(ray_traced_shadow_data->visibility);
 
 				gDynamicRHI->setConstantBufferData(0, &ubo_sphere, sizeof(ubo_sphere));
 				gDynamicRHI->setConstantBufferData(1, &ubo, sizeof(ubo));
@@ -135,7 +120,6 @@ void DefferedLightingRenderer::renderLights(FrameGraph &fg)
 				cmd_list->setIndexBuffer(icosphere_mesh->indexBuffer);
 				cmd_list->drawIndexedInstanced(icosphere_mesh->indices.size(), 1, 0, 0, 0);
 
-				p->unbind(cmd_list);
 			}
 		} else
 		{
@@ -155,14 +139,14 @@ void DefferedLightingRenderer::renderLights(FrameGraph &fg)
 				else if (light.getType() == LIGHT_TYPE_DIRECTIONAL)
 					shader_defines.push_back({"LIGHT_TYPE", "1"});
 
-				p->setVertexShader(gDynamicRHI->createShader(L"shaders/lighting/deferred_lighting.hlsl", VERTEX_SHADER, shader_defines));
-				p->setFragmentShader(gDynamicRHI->createShader(L"shaders/lighting/deferred_lighting.hlsl", FRAGMENT_SHADER, shader_defines));
-				p->setVertexInputsDescription(Engine::Vertex::GetVertexInputsDescription());
-				p->setCullMode(CULL_MODE_FRONT);
-
-				p->setRenderTargets(cmd_list->getCurrentRenderTargets());
-				p->flush();
-				p->bind(cmd_list);
+				p->setupGraphicsPipeline(cmd_list,
+										  gDynamicRHI->createShader(L"shaders/lighting/deferred_lighting.hlsl", VERTEX_SHADER, shader_defines),
+										  gDynamicRHI->createShader(L"shaders/lighting/deferred_lighting.hlsl", FRAGMENT_SHADER, shader_defines),
+										  Engine::Vertex::GetVertexInputsDescription(),
+										  true, false, CULL_MODE_FRONT);
+				p->setBlendMode(BLEND_ONE, BLEND_ONE, BLEND_OP_ADD,
+								BLEND_ONE, BLEND_ONE, BLEND_OP_ADD);
+				p->flushAndBind(cmd_list);
 
 				glm::vec3 scale, position, skew;
 				glm::vec4 persp;
@@ -207,7 +191,6 @@ void DefferedLightingRenderer::renderLights(FrameGraph &fg)
 				cmd_list->setIndexBuffer(icosphere_mesh->indexBuffer);
 				cmd_list->drawIndexedInstanced(icosphere_mesh->indices.size(), 1, 0, 0, 0);
 
-				p->unbind(cmd_list);
 			}
 		}
 		cmd_list->resetRenderTargets();

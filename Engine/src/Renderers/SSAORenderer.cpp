@@ -75,16 +75,13 @@ void SSAORenderer::addPasses(FrameGraph &fg)
 	},
 	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		auto &normal = resources.getResource<FrameGraphTexture>(GFXRID(GBufferNormal));
-		auto &depth = resources.getResource<FrameGraphTexture>(GFXRID(GBufferDepth));
-		auto &ssao_raw = resources.getResource<FrameGraphTexture>(GFXRID(SSAORaw));
-		auto &ssao_noise = resources.getResource<FrameGraphTexture>(GFXRID(SSAONoiseTexture));
+		auto ssao_raw = resources.getTexture(GFXRID(SSAORaw));
 
-		ubo_raw_pass.normal_tex_id = normal.getBindlessId();
-		ubo_raw_pass.depth_tex_id = depth.getBindlessId();
-		ubo_raw_pass.noise_tex_id = ssao_noise.getBindlessId();
+		ubo_raw_pass.normal_tex_id = resources.getBindlessId(GFXRID(GBufferNormal));
+		ubo_raw_pass.depth_tex_id = resources.getBindlessId(GFXRID(GBufferDepth));
+		ubo_raw_pass.noise_tex_id = resources.getBindlessId(GFXRID(SSAONoiseTexture));
 
-		cmd_list->setRenderTargets({ssao_raw.texture}, nullptr, -1, 0, true);
+		cmd_list->setRenderTargets({ssao_raw}, nullptr, -1, 0, true);
 
 		auto &p = gGlobalPipeline;
 		p->bindScreenQuadPipeline(cmd_list, fragment_shader_raw);
@@ -95,7 +92,6 @@ void SSAORenderer::addPasses(FrameGraph &fg)
 		// Render quad
 		cmd_list->drawInstanced(6, 1, 0, 0);
 
-		p->unbind(cmd_list);
 		cmd_list->resetRenderTargets();
 	});
 
@@ -111,23 +107,21 @@ void SSAORenderer::addPasses(FrameGraph &fg)
 	},
 	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		auto &ssao_blurred = resources.getResource<FrameGraphTexture>(GFXRID(SSAOBlurred));
-		auto &ssao_raw = resources.getResource<FrameGraphTexture>(GFXRID(SSAORaw));
+		auto ssao_blurred = resources.getTexture(GFXRID(SSAOBlurred));
 
-		cmd_list->setRenderTargets({ssao_blurred.texture}, nullptr, -1, 0, true);
+		cmd_list->setRenderTargets({ssao_blurred}, nullptr, -1, 0, true);
 
 		auto &p = gGlobalPipeline;
 		p->bindScreenQuadPipeline(cmd_list, fragment_shader_blur);
 
 		// Uniforms
-		ubo_blur_pass.raw_tex_id = ssao_raw.getBindlessId();
+		ubo_blur_pass.raw_tex_id = resources.getBindlessId(GFXRID(SSAORaw));
 
 		gDynamicRHI->setConstantBufferData(0, &ubo_blur_pass, sizeof(UBO_BLUR));
 
 		// Render quad
 		cmd_list->drawInstanced(6, 1, 0, 0);
 
-		p->unbind(cmd_list);
 		cmd_list->resetRenderTargets();
 	});
 }

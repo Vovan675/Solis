@@ -62,6 +62,13 @@ enum BlendOp
 	BLEND_OP_MAX
 };
 
+enum class PipelineType
+{
+	Graphics,
+	Compute,
+	RayTracing
+};
+
 struct VertexInputsDescription
 {
 	struct VertexInput
@@ -98,7 +105,7 @@ struct PipelineDescription
 	bool use_depth_test = true;
 	bool use_depth_write = true;
 	CompareFunc depth_compare_func = COMPARE_FUNC_LESS;
-	bool use_blending = true;
+	bool use_blending = false;
 	Blend src_color_blend = BLEND_SRC_ALPHA;
 	Blend dst_color_blend = BLEND_ONE_MINUS_SRC_ALPHA;
 	BlendOp color_blend_op = BLEND_OP_ADD;
@@ -108,12 +115,12 @@ struct PipelineDescription
 	CullMode cull_mode = CULL_MODE_BACK;
 	Topology primitive_topology = TOPOLOGY_TRIANGLE_LIST;
 
+	PipelineType pipeline_type = PipelineType::Graphics;
+
 	// Compute Pipeline
-	bool is_compute_pipeline = false;
 	RHIShaderRef compute_shader;
 	
 	// Ray Tracing Pipeline
-	bool is_ray_tracing_pipeline = false;
 	RHIShaderRef ray_generation_shader;
 	RHIShaderRef miss_shader;
 	RHIShaderRef closest_hit_shader;
@@ -152,6 +159,7 @@ struct PipelineDescription
 		hash_combine(hash, use_blending);
 		hash_combine(hash, cull_mode);
 		hash_combine(hash, primitive_topology);
+		hash_combine(hash, (int)pipeline_type);
 		return hash;
 	}
 };

@@ -87,21 +87,19 @@ void PostProcessingRenderer::addFilmPass(FrameGraph &fg)
 	},
 	[=](const PassData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		auto &output = resources.getResource<FrameGraphTexture>(data.output);
+		auto output = resources.getTexture(data.output);
 
-		cmd_list->setRenderTargets({output.texture}, {}, 0, 0, true);
+		cmd_list->setRenderTargets({output}, {}, 0, 0, true);
 
 		// PSO
-		gGlobalPipeline->reset();
 		gGlobalPipeline->bindScreenQuadPipeline(cmd_list, gDynamicRHI->createShader(L"shaders/film.hlsl", FRAGMENT_SHADER));
 
-		film_ubo.composite_final_tex_id = resources.getResource<FrameGraphTexture>(data.input).getBindlessId();
+		film_ubo.composite_final_tex_id = resources.getBindlessId(data.input);
 
 		gDynamicRHI->setConstantBufferData(0, &film_ubo, sizeof(FilmUBO));
 
 		cmd_list->drawInstanced(6, 1, 0, 0);
 
-		gGlobalPipeline->unbind(cmd_list);
 		cmd_list->resetRenderTargets();
 	});
 
@@ -120,25 +118,23 @@ void PostProcessingRenderer::addFxaaPass(FrameGraph &fg)
 	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
 		// Render
-		auto &final = resources.getResource<FrameGraphTexture>(GFXRID(FinalTexture));
+		auto final = resources.getTexture(GFXRID(FinalTexture));
 
-		cmd_list->setRenderTargets({final.texture}, {}, 0, 0, true);
+		cmd_list->setRenderTargets({final}, {}, 0, 0, true);
 
 		// PSO
-		gGlobalPipeline->reset();
 		gGlobalPipeline->bindScreenQuadPipeline(cmd_list, gDynamicRHI->createShader(L"shaders/fxaa.hlsl", FRAGMENT_SHADER));
 
 		struct UBO
 		{
 			uint32_t composite_final_tex_id = 0;
 		} fxaa_ubo;
-		fxaa_ubo.composite_final_tex_id = resources.getResource<FrameGraphTexture>(last_output).getBindlessId();
+		fxaa_ubo.composite_final_tex_id = resources.getBindlessId(last_output);
 
 		gDynamicRHI->setConstantBufferData(0, &fxaa_ubo, sizeof(UBO));
 
 		cmd_list->drawInstanced(6, 1, 0, 0);
 
-		gGlobalPipeline->unbind(cmd_list);
 		cmd_list->resetRenderTargets();
 	});
 }

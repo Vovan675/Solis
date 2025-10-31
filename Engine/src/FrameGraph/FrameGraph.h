@@ -247,17 +247,26 @@ private:
 class RenderPassResources
 {
 public:
-	template <typename T>
-	FrameGraphTexture &getResource(FrameGraphTextureId resource) const
+	RHITexture* getTexture(FrameGraphTextureId resource) const
 	{
-		return frameGraph.all_textures[resource.id];
+		return frameGraph.all_textures[resource.id].texture;
 	}
 
-	template <typename T>
-	FrameGraphTexture &getResource(GraphicsResourceName name) const
+	RHITexture* getTexture(GraphicsResourceName name) const
 	{
 		FrameGraphTextureId resource_id = frameGraph.texture_name_to_id[name];
-		return frameGraph.all_textures[resource_id.id];
+		return frameGraph.all_textures[resource_id.id].texture;
+	}
+
+	uint32_t getBindlessId(FrameGraphTextureId resource) const
+	{
+		return frameGraph.all_textures[resource.id].getBindlessId();
+	}
+
+	uint32_t getBindlessId(GraphicsResourceName name) const
+	{
+		FrameGraphTextureId resource_id = frameGraph.texture_name_to_id[name];
+		return frameGraph.all_textures[resource_id.id].getBindlessId();
 	}
 
 	bool has(GraphicsResourceName name) const

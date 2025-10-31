@@ -70,14 +70,14 @@ void DX12CommandList::setPipeline(RHIPipeline *pipeline)
 {
 	DX12Pipeline *native_pipeline = static_cast<DX12Pipeline *>(pipeline);
 
-	if (native_pipeline->description.is_ray_tracing_pipeline)
+	if (native_pipeline->description.pipeline_type == PipelineType::RayTracing)
 		cmd_list->SetPipelineState1(native_pipeline->pipeline->rt_pso);
 	else
 		cmd_list->SetPipelineState(native_pipeline->pipeline->pipeline_state);
 
-	if (native_pipeline->description.is_ray_tracing_pipeline)
+	if (native_pipeline->description.pipeline_type == PipelineType::RayTracing)
 		cmd_list->SetComputeRootSignature(native_pipeline->pipeline->root_signature);
-	else if (native_pipeline->description.is_compute_pipeline)
+	else if (native_pipeline->description.pipeline_type == PipelineType::Compute)
 		cmd_list->SetComputeRootSignature(native_pipeline->pipeline->root_signature);
 	else
 		cmd_list->SetGraphicsRootSignature(native_pipeline->pipeline->root_signature);

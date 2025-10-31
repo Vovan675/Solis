@@ -83,6 +83,8 @@ void DX12Buffer::destroy()
 	auto *native_rhi = DX12Utils::getNativeRHI();
 	native_rhi->releaseGPUResource(resource.release());
 	native_rhi->releaseGPUResource(allocation.release());
+	if (gDynamicRHI && gDynamicRHI->getBindlessResources())
+		gDynamicRHI->getBindlessResources()->removeBuffer(this);
 }
 
 void DX12Buffer::fill(const void *sourceData)

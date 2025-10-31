@@ -220,10 +220,10 @@ void EditorApplication::recordCommands(RHICommandList *cmd_list)
 	},
 	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		auto &final = resources.getResource<FrameGraphTexture>(GFXRID(FinalTexture));
-		auto &backbuffer = resources.getResource<FrameGraphTexture>(GFXRID(BackbufferTexture));
+		auto final = resources.getTexture(GFXRID(FinalTexture));
+		auto backbuffer = resources.getTexture(GFXRID(BackbufferTexture));
 
-		cmd_list->setRenderTargets({backbuffer.texture}, {}, 0, 0, true);
+		cmd_list->setRenderTargets({backbuffer}, {}, 0, 0, true);
 		ImGuiWrapper::render(cmd_list);
 		cmd_list->resetRenderTargets();
 	});

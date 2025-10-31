@@ -209,13 +209,8 @@ void DX12Texture::loadEquirectangularCubemap(const char *path)
 
 	RHITextureRef texture = nullptr;
 
-	auto &p = gGlobalPipeline;
-
-	p->reset();
-	p->setIsComputePipeline(true);
-	p->setComputeShader(gDynamicRHI->createShader(L"shaders/equirect_to_cubemap.hlsl", COMPUTE_SHADER));
-	p->flush();
-	p->bind(cmd_list);
+	gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/equirect_to_cubemap.hlsl", COMPUTE_SHADER));
+	gGlobalPipeline->flushAndBind(cmd_list);
 	
 	equirect_texture->transitLayout(cmd_list, TEXTURE_LAYOUT_SHADER_READ);
 	gDynamicRHI->setUAVTexture(0, this);
@@ -227,7 +222,6 @@ void DX12Texture::loadEquirectangularCubemap(const char *path)
 	gDynamicRHI->setConstantBufferData(1, &uniforms, sizeof(uniforms));
 
 	cmd_list->dispatch(getWidth() / 32, getHeight() / 32, 6);
-	p->unbind(cmd_list);
 
 	transitLayout(cmd_list, TEXTURE_LAYOUT_SHADER_READ);
 

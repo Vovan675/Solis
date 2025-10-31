@@ -145,18 +145,12 @@ void CubesDemo::render(RHICommandList *cmd_list)
 		cmd_list->setPipeline(pso);
 	} else
 	{
-		gGlobalPipeline->reset();
-		gGlobalPipeline->setVertexShader(vertex_shader);
-		gGlobalPipeline->setFragmentShader(pixel_shader);
-
 		VertexInputsDescription input_desc;
 		input_desc.inputs.push_back({"POSITION", 0, FORMAT_R32G32B32_SFLOAT});
 		input_desc.inputs.push_back({"UV", 0, FORMAT_R32G32_SFLOAT});
-		gGlobalPipeline->setVertexInputsDescription(input_desc);
-
-		gGlobalPipeline->setRenderTargets(cmd_list->getCurrentRenderTargets());
-		gGlobalPipeline->flush();
-		gGlobalPipeline->bind(cmd_list);
+		gGlobalPipeline->setupGraphicsPipeline(cmd_list, vertex_shader, pixel_shader,
+											   input_desc, false, true, CULL_MODE_BACK);
+		gGlobalPipeline->flushAndBind(cmd_list);
 	}
 
 	value += 0.01f;
@@ -189,7 +183,6 @@ void CubesDemo::render(RHICommandList *cmd_list)
 		}
 	}
 
-	gGlobalPipeline->unbind(cmd_list);
 }
 
 void CubesDemo::renderBindless(RHICommandList *cmd_list)
@@ -210,18 +203,12 @@ void CubesDemo::renderBindless(RHICommandList *cmd_list)
 		cmd_list->setPipeline(pso_bindless);
 	} else
 	{
-		gGlobalPipeline->reset();
-		gGlobalPipeline->setVertexShader(vertex_shader);
-		gGlobalPipeline->setFragmentShader(pixel_shader);
-
 		VertexInputsDescription input_desc;
 		input_desc.inputs.push_back({"POSITION", 0, FORMAT_R32G32B32_SFLOAT});
 		input_desc.inputs.push_back({"UV", 0, FORMAT_R32G32_SFLOAT});
-		gGlobalPipeline->setVertexInputsDescription(input_desc);
-
-		gGlobalPipeline->setRenderTargets(cmd_list->getCurrentRenderTargets());
-		gGlobalPipeline->flush();
-		gGlobalPipeline->bind(cmd_list);
+		gGlobalPipeline->setupGraphicsPipeline(cmd_list, vertex_shader, pixel_shader,
+											   input_desc, false, true, CULL_MODE_BACK);
+		gGlobalPipeline->flushAndBind(cmd_list);
 	}
 
 	value += 0.01f;
@@ -265,7 +252,6 @@ void CubesDemo::renderBindless(RHICommandList *cmd_list)
 		}
 	}
 
-	gGlobalPipeline->unbind(cmd_list);
 }
 
 // Render Targets Demo
@@ -312,15 +298,10 @@ void RenderTargetsDemo::render(RHICommandList *cmd_list)
 	cmd_list->setRenderTargets({result_texture.getReference()}, {depth_stencil_texture.getReference()}, 0, 0, true);
 
 	// PSO
-	gGlobalPipeline->reset();
-	gGlobalPipeline->setVertexShader(vertex_shader);
-	gGlobalPipeline->setFragmentShader(pixel_shader);
-
-	gGlobalPipeline->setVertexInputsDescription(Engine::Vertex::GetVertexInputsDescription());
-
-	gGlobalPipeline->setRenderTargets(cmd_list->getCurrentRenderTargets());
-	gGlobalPipeline->flush();
-	gGlobalPipeline->bind(cmd_list);
+	gGlobalPipeline->setupGraphicsPipeline(cmd_list, vertex_shader, pixel_shader,
+										   Engine::Vertex::GetVertexInputsDescription(),
+										   false, true, CULL_MODE_BACK);
+	gGlobalPipeline->flushAndBind(cmd_list);
 
 
 	value += 0.01f;
@@ -357,7 +338,6 @@ void RenderTargetsDemo::render(RHICommandList *cmd_list)
 		}
 	}
 
-	gGlobalPipeline->unbind(cmd_list);
 	cmd_list->resetRenderTargets();
 
 	// Render result texture to swap chain
@@ -366,18 +346,13 @@ void RenderTargetsDemo::render(RHICommandList *cmd_list)
 	swapchain_texture->transitLayout(cmd_list, TEXTURE_LAYOUT_ATTACHMENT);
 	cmd_list->setRenderTargets({swapchain_texture}, {}, 0, 0, true);
 
-	gGlobalPipeline->reset();
-	gGlobalPipeline->setVertexShader(vertex_shader_quad);
-	gGlobalPipeline->setFragmentShader(pixel_shader_quad);
-
-	gGlobalPipeline->setRenderTargets(cmd_list->getCurrentRenderTargets());
-	gGlobalPipeline->flush();
-	gGlobalPipeline->bind(cmd_list);
+	gGlobalPipeline->setupGraphicsPipeline(cmd_list, vertex_shader_quad, pixel_shader_quad,
+										   VertexInputsDescription{}, false, false, CULL_MODE_BACK);
+	gGlobalPipeline->flushAndBind(cmd_list);
 
 	gDynamicRHI->setTexture(1, result_texture);
 
 	cmd_list->drawInstanced(6, 1, 0, 0);
-	gGlobalPipeline->unbind(cmd_list);
 }
 
 
@@ -429,20 +404,16 @@ void RenderTargetsDemo::renderFrameGraph(RHICommandList *cmd_list)
 	},
 	[=](const RenderData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		auto &result = resources.getResource<FrameGraphTexture>(data.result);
-		auto &depth = resources.getResource<FrameGraphTexture>(data.depth);
+		auto result = resources.getTexture(data.result);
+		auto depth = resources.getTexture(data.depth);
 
-		cmd_list->setRenderTargets({result.texture}, {depth.texture}, 0, 0, true);
+		cmd_list->setRenderTargets({result}, {depth}, 0, 0, true);
 
 		// PSO
-		gGlobalPipeline->reset();
-		gGlobalPipeline->setVertexShader(vertex_shader);
-		gGlobalPipeline->setFragmentShader(pixel_shader);
-		gGlobalPipeline->setVertexInputsDescription(Engine::Vertex::GetVertexInputsDescription());
-
-		gGlobalPipeline->setRenderTargets(cmd_list->getCurrentRenderTargets());
-		gGlobalPipeline->flush();
-		gGlobalPipeline->bind(cmd_list);
+		gGlobalPipeline->setupGraphicsPipeline(cmd_list, vertex_shader, pixel_shader,
+											   Engine::Vertex::GetVertexInputsDescription(),
+											   false, true, CULL_MODE_BACK);
+		gGlobalPipeline->flushAndBind(cmd_list);
 
 		model.getRootNode()->local_model_matrix = glm::translate(glm::vec3(0, 0, 0)) * glm::scale(glm::vec3(0.04f));
 		model.getRootNode()->updateTransform();
@@ -472,7 +443,6 @@ void RenderTargetsDemo::renderFrameGraph(RHICommandList *cmd_list)
 			}
 		}
 
-		gGlobalPipeline->unbind(cmd_list);
 		cmd_list->resetRenderTargets();
 	});
 
@@ -488,25 +458,20 @@ void RenderTargetsDemo::renderFrameGraph(RHICommandList *cmd_list)
 	[=](const RenderData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
 		// Render
-		auto &result = resources.getResource<FrameGraphTexture>(render_data.result);
+		auto result = resources.getTexture(render_data.result);
 		
 		// Render result texture to swap chain
 
 		swapchain_texture->transitLayout(cmd_list, TEXTURE_LAYOUT_ATTACHMENT);
 		cmd_list->setRenderTargets({swapchain_texture}, {}, 0, 0, true);
 
-		gGlobalPipeline->reset();
-		gGlobalPipeline->setVertexShader(vertex_shader_quad);
-		gGlobalPipeline->setFragmentShader(pixel_shader_quad);
+		gGlobalPipeline->setupGraphicsPipeline(cmd_list, vertex_shader_quad, pixel_shader_quad,
+											   VertexInputsDescription{}, false, false, CULL_MODE_BACK);
+		gGlobalPipeline->flushAndBind(cmd_list);
 
-		gGlobalPipeline->setRenderTargets(cmd_list->getCurrentRenderTargets());
-		gGlobalPipeline->flush();
-		gGlobalPipeline->bind(cmd_list);
-
-		gDynamicRHI->setTexture(1, result.texture);
+		gDynamicRHI->setTexture(1, result);
 
 		cmd_list->drawInstanced(6, 1, 0, 0);
-		gGlobalPipeline->unbind(cmd_list);
 	});
 	
 

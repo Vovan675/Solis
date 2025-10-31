@@ -41,27 +41,17 @@ void GBufferPass::AddPass(FrameGraph &fg, const eastl::vector<RenderBatch> &batc
 	},
 	[=, &batches](const GBufferData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		auto &albedo = resources.getResource<FrameGraphTexture>(data.albedo);
-		auto &normal = resources.getResource<FrameGraphTexture>(data.normal);
-		auto &depth = resources.getResource<FrameGraphTexture>(data.depth);
-		auto &shading = resources.getResource<FrameGraphTexture>(data.shading);
+		auto albedo = resources.getTexture(data.albedo);
+		auto normal = resources.getTexture(data.normal);
+		auto depth = resources.getTexture(data.depth);
+		auto shading = resources.getTexture(data.shading);
 
-		cmd_list->setRenderTargets({albedo.texture, normal.texture, shading.texture}, {depth.texture}, 0, 0, true);
+		cmd_list->setRenderTargets({albedo, normal, shading}, {depth}, 0, 0, true);
 
 		// Render meshes into gbuffer
-		auto &p = gGlobalPipeline;
-		p->reset();
-
-		// TODO:
-		p->setVertexShader(gbuffer_vertex_shader);
-		p->setFragmentShader(gbuffer_fragment_shader);
-
-		p->setRenderTargets(cmd_list->getCurrentRenderTargets());
-		p->setUseBlending(false);
-		p->setVertexInputsDescription(Engine::Vertex::GetVertexInputsDescription());
-
-		p->flush();
-		p->bind(cmd_list);
+		gGlobalPipeline->setupGraphicsPipeline(cmd_list, gbuffer_vertex_shader, gbuffer_fragment_shader,
+											   VertexInputsDescription{}, false, true, CULL_MODE_BACK);
+		gGlobalPipeline->flushAndBind(cmd_list);
 
 		for (const RenderBatch &batch : batches)
 		{
@@ -84,7 +74,6 @@ void GBufferPass::AddPass(FrameGraph &fg, const eastl::vector<RenderBatch> &batc
 			Renderer::addDrawCalls(1);
 
 		}
-		p->unbind(cmd_list);
 		cmd_list->resetRenderTargets();
 	});
 }

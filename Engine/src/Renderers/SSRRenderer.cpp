@@ -19,7 +19,7 @@ void SSRRenderer::addPasses(FrameGraph &fg)
 	},
 	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		auto &ssr = resources.getResource<FrameGraphTexture>(GFXRID(SSR));
+		auto ssr = resources.getTexture(GFXRID(SSR));
 
 		struct UBO
 		{
@@ -28,12 +28,12 @@ void SSRRenderer::addPasses(FrameGraph &fg)
 			uint32_t shading_tex_id = 0;
 			uint32_t depth_tex_id = 0;
 		} ubo;
-		ubo.color_tex_id = resources.getResource<FrameGraphTexture>(GFXRID(FinalNoPostTexture)).getBindlessId();
-		ubo.normal_tex_id = resources.getResource<FrameGraphTexture>(GFXRID(GBufferNormal)).getBindlessId();
-		ubo.shading_tex_id = resources.getResource<FrameGraphTexture>(GFXRID(GBufferShading)).getBindlessId();
-		ubo.depth_tex_id = resources.getResource<FrameGraphTexture>(GFXRID(GBufferDepth)).getBindlessId();
+		ubo.color_tex_id = resources.getBindlessId(GFXRID(FinalNoPostTexture));
+		ubo.normal_tex_id = resources.getBindlessId(GFXRID(GBufferNormal));
+		ubo.shading_tex_id = resources.getBindlessId(GFXRID(GBufferShading));
+		ubo.depth_tex_id = resources.getBindlessId(GFXRID(GBufferDepth));
 
-		cmd_list->setRenderTargets({ssr.texture}, nullptr, -1, 0, true);
+		cmd_list->setRenderTargets({ssr}, nullptr, -1, 0, true);
 
 		auto &p = gGlobalPipeline;
 		p->bindScreenQuadPipeline(cmd_list, gDynamicRHI->createShader(L"shaders/ssr.hlsl", FRAGMENT_SHADER));
@@ -44,7 +44,6 @@ void SSRRenderer::addPasses(FrameGraph &fg)
 		// Render quad
 		cmd_list->drawInstanced(6, 1, 0, 0);
 
-		p->unbind(cmd_list);
 		cmd_list->resetRenderTargets();
 	});
 }

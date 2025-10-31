@@ -232,25 +232,25 @@ void DebugRenderer::addTextureDebugPass(FrameGraph &fg)
 	},
 	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		auto &final = resources.getResource<FrameGraphTexture>(GFXRID(FinalTexture));
+		auto final = resources.getTexture(GFXRID(FinalTexture));
 
-		cmd_list->setRenderTargets({final.texture}, nullptr, -1, 0, true);
+		cmd_list->setRenderTargets({final}, nullptr, -1, 0, true);
 
-		ubo.albedo_tex_id = resources.getResource<FrameGraphTexture>(GFXRID(GBufferAlbedo)).getBindlessId();
-		ubo.shading_tex_id = resources.getResource<FrameGraphTexture>(GFXRID(GBufferShading)).getBindlessId();
-		ubo.normal_tex_id = resources.getResource<FrameGraphTexture>(GFXRID(GBufferNormal)).getBindlessId();
-		ubo.depth_tex_id = resources.getResource<FrameGraphTexture>(GFXRID(GBufferDepth)).getBindlessId();
-		ubo.light_diffuse_id = resources.getResource<FrameGraphTexture>(GFXRID(DiffuseLight)).getBindlessId();
-		ubo.light_specular_id = resources.getResource<FrameGraphTexture>(GFXRID(SpecularLight)).getBindlessId();
-		ubo.brdf_lut_id = resources.getResource<FrameGraphTexture>(GFXRID(LutBRDF)).getBindlessId();
+		ubo.albedo_tex_id = resources.getBindlessId(GFXRID(GBufferAlbedo));
+		ubo.shading_tex_id = resources.getBindlessId(GFXRID(GBufferShading));
+		ubo.normal_tex_id = resources.getBindlessId(GFXRID(GBufferNormal));
+		ubo.depth_tex_id = resources.getBindlessId(GFXRID(GBufferDepth));
+		ubo.light_diffuse_id = resources.getBindlessId(GFXRID(DiffuseLight));
+		ubo.light_specular_id = resources.getBindlessId(GFXRID(SpecularLight));
+		ubo.brdf_lut_id = resources.getBindlessId(GFXRID(LutBRDF));
 		if (resources.has(GFXRID(SSAOBlurred)))
-			ubo.ssao_id = resources.getResource<FrameGraphTexture>(GFXRID(SSAOBlurred)).getBindlessId();
+			ubo.ssao_id = resources.getBindlessId(GFXRID(SSAOBlurred));
 		else
 			ubo.ssao_id = 0;
-		ubo.composite_final_tex_id = resources.getResource<FrameGraphTexture>(GFXRID(FinalNoPostTexture)).getBindlessId();
+		ubo.composite_final_tex_id = resources.getBindlessId(GFXRID(FinalNoPostTexture));
 
 		if (ray_tracing_shadows_data)
-			ubo.light_diffuse_id = resources.getResource<FrameGraphTexture>(ray_tracing_shadows_data->visibility).getBindlessId();
+			ubo.light_diffuse_id = resources.getBindlessId(ray_tracing_shadows_data->visibility);
 
 		auto &p = gGlobalPipeline;
 		p->bindScreenQuadPipeline(cmd_list, gDynamicRHI->createShader(L"shaders/debug_quad.hlsl", FRAGMENT_SHADER));
@@ -261,7 +261,6 @@ void DebugRenderer::addTextureDebugPass(FrameGraph &fg)
 		// Render quad
 		cmd_list->drawInstanced(6, 1, 0, 0);
 
-		p->unbind(cmd_list);
 		cmd_list->resetRenderTargets();
 	});
 }
@@ -276,35 +275,22 @@ void DebugRenderer::addVisualizerPass(FrameGraph & fg)
 	},
 	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		auto &final = resources.getResource<FrameGraphTexture>(GFXRID(FinalTexture));
+		auto final = resources.getTexture(GFXRID(FinalTexture));
 
-		cmd_list->setRenderTargets({final.texture}, nullptr, -1, 0, false);
+		cmd_list->setRenderTargets({final}, nullptr, -1, 0, false);
 
 		auto &p = gGlobalPipeline;
-		p->reset();
-
-		p->setVertexShader(vertex_shader_lines);
-		p->setFragmentShader(fragment_shader_lines);
-
-		p->setRenderTargets(cmd_list->getCurrentRenderTargets());
-
 		VertexInputsDescription input_desc;
 		input_desc.inputs.push_back({"POSITION", 0, FORMAT_R32G32B32A32_SFLOAT});
 		input_desc.inputs.push_back({"COLOR", 0, FORMAT_R32G32B32_SFLOAT});
-		p->setVertexInputsDescription(input_desc);
-
-		p->setUseBlending(false);
+		p->setupGraphicsPipeline(cmd_list, vertex_shader_lines, fragment_shader_lines,
+								 input_desc, false, false, CULL_MODE_NONE);
 		p->setPrimitiveTopology(TOPOLOGY_LINE_LIST);
-		p->setDepthTest(false);
-		p->setCullMode(CULL_MODE_NONE);
-
-		p->flush();
-		p->bind(cmd_list);
+		p->flushAndBind(cmd_list);
 
 		cmd_list->setVertexBuffer(lines_vertex_buffer);
 		cmd_list->setIndexBuffer(lines_index_buffer);
 		cmd_list->drawIndexedInstanced(lines_index_count, 1, 0, 0, 0);
-		p->unbind(cmd_list);
 		cmd_list->resetRenderTargets();
 
 		lines_index_count = 0;

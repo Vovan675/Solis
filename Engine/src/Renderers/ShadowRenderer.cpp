@@ -77,10 +77,10 @@ void ShadowRenderer::addShadowMapPasses(FrameGraph &fg, const eastl::vector<Rend
 				data.shadow_map = builder.writeTexture(shadow_map_resource);
 				shadow_passes.shadow_maps.push_back(data.shadow_map);
 			},
-			[=, &batches](const ShadowPassData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
-			{
-				// Render
-				auto &shadow_map = resources.getResource<FrameGraphTexture>(data.shadow_map);
+		[=, &batches](const ShadowPassData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
+		{
+			// Render
+			auto shadow_map = resources.getTexture(data.shadow_map);
 
 				for (int face = 0; face < 6; face++)
 				{
@@ -90,21 +90,12 @@ void ShadowRenderer::addShadowMapPasses(FrameGraph &fg, const eastl::vector<Rend
 					glm::mat4 light_projection = glm::perspectiveLH(glm::radians(90.0f), 1.0f, 0.05f, light.radius);
 					glm::mat4 light_matrix = light_projection * faces_transforms[face];
 
-					cmd_list->setRenderTargets({}, shadow_map.texture, face, 0, true);
+					cmd_list->setRenderTargets({}, shadow_map, face, 0, true);
 
 					auto &p = gGlobalPipeline;
-					p->reset();
-
-					p->setVertexShader(shadows_vertex_shader);
-					p->setFragmentShader(shadows_fragment_shader_point);
-
-					p->setVertexInputsDescription(Engine::Vertex::GetVertexInputsDescription());
-					p->setRenderTargets(cmd_list->getCurrentRenderTargets());
-					p->setUseBlending(false);
-					p->setCullMode(CULL_MODE_FRONT);
-
-					p->flush();
-					p->bind(cmd_list);
+					p->setupGraphicsPipeline(cmd_list, shadows_vertex_shader, shadows_fragment_shader_point,
+											 VertexInputsDescription{}, false, true, CULL_MODE_FRONT);
+					p->flushAndBind(cmd_list);
 
 					EntityRenderer::ShadowUBO ubo;
 					ubo.light_space_matrix = light_matrix;
@@ -132,7 +123,6 @@ void ShadowRenderer::addShadowMapPasses(FrameGraph &fg, const eastl::vector<Rend
 						Renderer::addDrawCalls(1);
 					}
 
-					p->unbind(cmd_list);
 					cmd_list->resetRenderTargets();
 				}
 			});
@@ -146,30 +136,21 @@ void ShadowRenderer::addShadowMapPasses(FrameGraph &fg, const eastl::vector<Rend
 				data.shadow_map = builder.writeTexture(shadow_map_resource);
 				shadow_passes.shadow_maps.push_back(data.shadow_map);
 			},
-			[=, &batches, &light](const ShadowPassData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
-			{
-				// Render
-				auto &shadow_map = resources.getResource<FrameGraphTexture>(data.shadow_map);
+		[=, &batches, &light](const ShadowPassData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
+		{
+			// Render
+			auto shadow_map = resources.getTexture(data.shadow_map);
 
 				for (int c = 0; c < SHADOW_MAP_CASCADE_COUNT; c++)
 				{
 					glm::mat4 light_matrix = light.cascades[c].viewProjMatrix;
 
-					cmd_list->setRenderTargets({}, shadow_map.texture, c, 0, true);
+					cmd_list->setRenderTargets({}, shadow_map, c, 0, true);
 
 					auto &p = gGlobalPipeline;
-					p->reset();
-
-					p->setVertexShader(shadows_vertex_shader);
-					p->setFragmentShader(shadows_fragment_shader_directional);
-
-					p->setVertexInputsDescription(Engine::Vertex::GetVertexInputsDescription());
-					p->setRenderTargets(cmd_list->getCurrentRenderTargets());
-					p->setUseBlending(false);
-					p->setCullMode(CULL_MODE_FRONT);
-
-					p->flush();
-					p->bind(cmd_list);
+					p->setupGraphicsPipeline(cmd_list, shadows_vertex_shader, shadows_fragment_shader_directional,
+											 VertexInputsDescription{}, false, true, CULL_MODE_FRONT);
+					p->flushAndBind(cmd_list);
 
 					EntityRenderer::ShadowUBO ubo;
 					ubo.light_space_matrix = light_matrix;
@@ -197,7 +178,6 @@ void ShadowRenderer::addShadowMapPasses(FrameGraph &fg, const eastl::vector<Rend
 						Renderer::addDrawCalls(1);
 					}
 
-					p->unbind(cmd_list);
 					cmd_list->resetRenderTargets();
 				}
 			});
@@ -222,18 +202,10 @@ void ShadowRenderer::addRayTracedShadowPasses(FrameGraph & fg, Ref<RayTracingSce
 	},
 	[=](const RayTracedShadowPass &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		auto &visiblity = resources.getResource<FrameGraphTexture>(data.visibility);
+		auto visiblity = resources.getTexture(data.visibility);
 
-		auto &p = gGlobalPipeline;
-		p->reset();
-
-		p->setIsRayTracingPipeline(true);
-		p->setRayGenerationShader(raygen_shader);
-		p->setMissShader(miss_shader);
-		p->setClosestHitShader(closest_hit_shader);
-
-		p->flush();
-		p->bind(cmd_list);
+		gGlobalPipeline->setupRayTracing(raygen_shader, miss_shader, closest_hit_shader);
+		gGlobalPipeline->flushAndBind(cmd_list);
 
 		struct LightUBO
 		{
@@ -257,9 +229,9 @@ void ShadowRenderer::addRayTracedShadowPasses(FrameGraph & fg, Ref<RayTracingSce
 			}
 		}
 
-		ubo_light.depth_texture_id = resources.getResource<FrameGraphTexture>(GFXRID(GBufferDepth)).getBindlessId();
+		ubo_light.depth_texture_id = resources.getBindlessId(GFXRID(GBufferDepth));
 
-		auto &ray_traced_lighting = visiblity.texture;
+		auto ray_traced_lighting = visiblity;
 
 		gDynamicRHI->setConstantBufferData(1, &ubo_light, sizeof(LightUBO));
 
@@ -268,7 +240,6 @@ void ShadowRenderer::addRayTracedShadowPasses(FrameGraph & fg, Ref<RayTracingSce
 
 		cmd_list->dispatchRays(Renderer::getViewportSize().x, Renderer::getViewportSize().y, 1);
 
-		p->unbind(cmd_list);
 	});
 }
 

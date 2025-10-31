@@ -75,25 +75,13 @@ public:
 		texture = TransientResources::getTemporaryTexture(desc);
 
 		if (!texture->isValid())
-		{
 			texture->fill();
-		}
 		texture->setDebugName(name.c_str());
 		gDynamicRHI->getBindlessResources()->addTexture(texture);
-
-		if (strcmp(texture->getDebugName(), "SSAO Raw Image") == 0)
-		{
-			int i = 0;
-		}
 	}
 
 	void destroy()
 	{
-		if (strcmp(texture->getDebugName(), "SSAO Raw Image") == 0)
-		{
-			int i = 0;
-		}
-
 		TransientResources::releaseTemporaryTexture(texture);
 		texture = nullptr;
 	}

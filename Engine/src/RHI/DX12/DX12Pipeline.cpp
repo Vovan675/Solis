@@ -40,10 +40,10 @@ void DX12Pipeline::create(const PipelineDescription &description)
 
 	eastl::vector<DX12Shader *> shaders;
 
-	if (description.is_compute_pipeline)
+	if (description.pipeline_type == PipelineType::Compute)
 	{
 		shaders.push_back(static_cast<DX12Shader *>(description.compute_shader.getReference()));
-	} else if (description.is_ray_tracing_pipeline)
+	} else if (description.pipeline_type == PipelineType::RayTracing)
 	{
 		shaders.push_back(static_cast<DX12Shader *>(description.ray_generation_shader.getReference()));
 		shaders.push_back(static_cast<DX12Shader *>(description.miss_shader.getReference()));
@@ -84,7 +84,7 @@ void DX12Pipeline::create(const PipelineDescription &description)
 	// Create the root signature.
 	device->CreateRootSignature(0, rootSignatureBlob->GetBufferPointer(), rootSignatureBlob->GetBufferSize(), IID_PPV_ARGS(&pipeline->root_signature));
 
-	if (description.is_compute_pipeline)
+	if (description.pipeline_type == PipelineType::Compute)
 	{
 		DX12Shader *cs = static_cast<DX12Shader *>(description.compute_shader.getReference());
 
@@ -93,7 +93,7 @@ void DX12Pipeline::create(const PipelineDescription &description)
 		psoDesc.CS = {cs->blob->GetBufferPointer(), cs->blob->GetBufferSize()};
 		psoDesc.Flags = D3D12_PIPELINE_STATE_FLAG_NONE;
 		device->CreateComputePipelineState(&psoDesc, IID_PPV_ARGS(&pipeline->pipeline_state));
-	} else if (description.is_ray_tracing_pipeline)
+	} else if (description.pipeline_type == PipelineType::RayTracing)
 	{
 		DX12Shader *ray_gen = static_cast<DX12Shader *>(description.ray_generation_shader.getReference());
 		DX12Shader *miss = static_cast<DX12Shader *>(description.miss_shader.getReference());

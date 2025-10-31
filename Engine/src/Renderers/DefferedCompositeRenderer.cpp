@@ -40,12 +40,10 @@ void DefferedCompositeRenderer::addPasses(FrameGraph &fg)
 	},
 	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		auto &indirect_ambient = resources.getResource<FrameGraphTexture>(GFXRID(CompositeIndirectAmbient));
-		auto &indirect_specular = resources.getResource<FrameGraphTexture>(GFXRID(CompositeIndirectSpecular));
-		auto &ibl_irradiance = resources.getResource<FrameGraphTexture>(GFXRID(IBLIrradiance));
-		auto &ibl_prefilter = resources.getResource<FrameGraphTexture>(GFXRID(IBLPrefilter));
+		auto indirect_ambient = resources.getTexture(GFXRID(CompositeIndirectAmbient));
+		auto indirect_specular = resources.getTexture(GFXRID(CompositeIndirectSpecular));
 
-		cmd_list->setRenderTargets({indirect_ambient.texture, indirect_specular.texture}, nullptr, -1, 0, true);
+		cmd_list->setRenderTargets({indirect_ambient, indirect_specular}, nullptr, -1, 0, true);
 
 		struct UBO
 		{
@@ -62,21 +60,21 @@ void DefferedCompositeRenderer::addPasses(FrameGraph &fg)
 			uint32_t ssr_tex_id = 0;
 		} ubo;
 
-		ubo.irradiance_tex_id = ibl_irradiance.getBindlessId();
-		ubo.prefilter_tex_id = ibl_prefilter.getBindlessId();
-		ubo.lighting_diffuse_tex_id = resources.getResource<FrameGraphTexture>(GFXRID(DiffuseLight)).getBindlessId();
-		ubo.lighting_specular_tex_id = resources.getResource<FrameGraphTexture>(GFXRID(SpecularLight)).getBindlessId();
-		ubo.albedo_tex_id = resources.getResource<FrameGraphTexture>(GFXRID(GBufferAlbedo)).getBindlessId();
-		ubo.normal_tex_id = resources.getResource<FrameGraphTexture>(GFXRID(GBufferNormal)).getBindlessId();
-		ubo.depth_tex_id = resources.getResource<FrameGraphTexture>(GFXRID(GBufferDepth)).getBindlessId();
-		ubo.shading_tex_id = resources.getResource<FrameGraphTexture>(GFXRID(GBufferShading)).getBindlessId();
-		ubo.brdf_lut_tex_id = resources.getResource<FrameGraphTexture>(GFXRID(LutBRDF)).getBindlessId();
+		ubo.irradiance_tex_id = resources.getBindlessId(GFXRID(IBLIrradiance));
+		ubo.prefilter_tex_id = resources.getBindlessId(GFXRID(IBLPrefilter));
+		ubo.lighting_diffuse_tex_id = resources.getBindlessId(GFXRID(DiffuseLight));
+		ubo.lighting_specular_tex_id = resources.getBindlessId(GFXRID(SpecularLight));
+		ubo.albedo_tex_id = resources.getBindlessId(GFXRID(GBufferAlbedo));
+		ubo.normal_tex_id = resources.getBindlessId(GFXRID(GBufferNormal));
+		ubo.depth_tex_id = resources.getBindlessId(GFXRID(GBufferDepth));
+		ubo.shading_tex_id = resources.getBindlessId(GFXRID(GBufferShading));
+		ubo.brdf_lut_tex_id = resources.getBindlessId(GFXRID(LutBRDF));
 
 		if (resources.has(GFXRID(SSAOBlurred)))
-			ubo.ssao_tex_id = resources.getResource<FrameGraphTexture>(GFXRID(SSAOBlurred)).getBindlessId();
+			ubo.ssao_tex_id = resources.getBindlessId(GFXRID(SSAOBlurred));
 
 		if (resources.has(GFXRID(SSR)))
-			ubo.ssr_tex_id = resources.getResource<FrameGraphTexture>(GFXRID(SSR)).getBindlessId();
+			ubo.ssr_tex_id = resources.getBindlessId(GFXRID(SSR));
 
 		auto shader = gDynamicRHI->createShader(L"shaders/composite_indirect.hlsl", FRAGMENT_SHADER, {
 			{"SSR", ubo.ssr_tex_id ? "1" : "0"},
@@ -91,7 +89,6 @@ void DefferedCompositeRenderer::addPasses(FrameGraph &fg)
 		// Render quad
 		cmd_list->drawInstanced(6, 1, 0, 0);
 
-		p->unbind(cmd_list);
 		cmd_list->resetRenderTargets();
 	});
 
@@ -110,9 +107,9 @@ void DefferedCompositeRenderer::addPasses(FrameGraph &fg)
 	},
 	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		auto &composite = resources.getResource<FrameGraphTexture>(GFXRID(FinalNoPostTexture));
+		auto composite = resources.getTexture(GFXRID(FinalNoPostTexture));
 
-		cmd_list->setRenderTargets({composite.texture}, nullptr, -1, 0, true);
+		cmd_list->setRenderTargets({composite}, nullptr, -1, 0, true);
 
 		struct UBO
 		{
@@ -124,12 +121,12 @@ void DefferedCompositeRenderer::addPasses(FrameGraph &fg)
 			uint32_t depth_tex_id = 0;
 		} ubo;
 
-		ubo.lighting_diffuse_tex_id = resources.getResource<FrameGraphTexture>(GFXRID(DiffuseLight)).getBindlessId();
-		ubo.lighting_specular_tex_id = resources.getResource<FrameGraphTexture>(GFXRID(SpecularLight)).getBindlessId();
-		ubo.indirect_ambient_tex_id = resources.getResource<FrameGraphTexture>(GFXRID(CompositeIndirectAmbient)).getBindlessId();
-		ubo.indirect_specular_tex_id = resources.getResource<FrameGraphTexture>(GFXRID(CompositeIndirectSpecular)).getBindlessId();
-		ubo.albedo_tex_id = resources.getResource<FrameGraphTexture>(GFXRID(GBufferAlbedo)).getBindlessId();
-		ubo.depth_tex_id = resources.getResource<FrameGraphTexture>(GFXRID(GBufferDepth)).getBindlessId();
+		ubo.lighting_diffuse_tex_id = resources.getBindlessId(GFXRID(DiffuseLight));
+		ubo.lighting_specular_tex_id = resources.getBindlessId(GFXRID(SpecularLight));
+		ubo.indirect_ambient_tex_id = resources.getBindlessId(GFXRID(CompositeIndirectAmbient));
+		ubo.indirect_specular_tex_id = resources.getBindlessId(GFXRID(CompositeIndirectSpecular));
+		ubo.albedo_tex_id = resources.getBindlessId(GFXRID(GBufferAlbedo));
+		ubo.depth_tex_id = resources.getBindlessId(GFXRID(GBufferDepth));
 
 		auto &p = gGlobalPipeline;
 		p->bindScreenQuadPipeline(cmd_list, gDynamicRHI->createShader(L"shaders/deffered_composite.hlsl", FRAGMENT_SHADER));
@@ -139,7 +136,6 @@ void DefferedCompositeRenderer::addPasses(FrameGraph &fg)
 		// Render quad
 		cmd_list->drawInstanced(6, 1, 0, 0);
 
-		p->unbind(cmd_list);
 		cmd_list->resetRenderTargets();
 	});
 }

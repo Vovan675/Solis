@@ -99,9 +99,9 @@ void VulkanCommandList::setPipeline(RHIPipeline *pipeline)
 {
 	VulkanPipeline *native_pipeline = static_cast<VulkanPipeline *>(pipeline);
 	VkPipelineBindPoint bind_point = VK_PIPELINE_BIND_POINT_GRAPHICS;
-	if (native_pipeline->description.is_ray_tracing_pipeline)
+	if (native_pipeline->description.pipeline_type == PipelineType::RayTracing)
 		bind_point = VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR;
-	else if (native_pipeline->description.is_compute_pipeline)
+	else if (native_pipeline->description.pipeline_type == PipelineType::Compute)
 		bind_point = VK_PIPELINE_BIND_POINT_COMPUTE;
 	vkCmdBindPipeline(cmd_buffer, bind_point, native_pipeline->resource->pipeline);
 	current_pipeline = pipeline;

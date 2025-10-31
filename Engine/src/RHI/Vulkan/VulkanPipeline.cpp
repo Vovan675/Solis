@@ -24,10 +24,10 @@ void VulkanPipeline::create(const PipelineDescription &description)
 
 	eastl::vector<VulkanShader *> shaders;
 
-	if (description.is_compute_pipeline)
+	if (description.pipeline_type == PipelineType::Compute)
 	{
 		shaders.push_back(static_cast<VulkanShader *>(description.compute_shader.getReference()));
-	} else if (description.is_ray_tracing_pipeline)
+	} else if (description.pipeline_type == PipelineType::RayTracing)
 	{
 		shaders.push_back(static_cast<VulkanShader *>(description.ray_generation_shader.getReference()));
 		shaders.push_back(static_cast<VulkanShader *>(description.miss_shader.getReference()));
@@ -61,7 +61,7 @@ void VulkanPipeline::create(const PipelineDescription &description)
 	pipelineLayoutInfo.pPushConstantRanges = push_constant_ranges.data();
 	CHECK_ERROR(vkCreatePipelineLayout(native_rhi->device->logicalHandle, &pipelineLayoutInfo, nullptr, &resource->pipeline_layout));
 
-	if (description.is_compute_pipeline)
+	if (description.pipeline_type == PipelineType::Compute)
 	{
 		VkPipelineShaderStageCreateInfo compShaderStageInfo{};
 		compShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -74,7 +74,7 @@ void VulkanPipeline::create(const PipelineDescription &description)
 		pipelineInfo.layout = resource->pipeline_layout;
 		pipelineInfo.stage = compShaderStageInfo;
 		CHECK_ERROR(vkCreateComputePipelines(native_rhi->device->logicalHandle, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &resource->pipeline));
-	} else if (description.is_ray_tracing_pipeline)
+	} else if (description.pipeline_type == PipelineType::RayTracing)
 	{
 		eastl::vector<VkPipelineShaderStageCreateInfo> shaderStages;
 

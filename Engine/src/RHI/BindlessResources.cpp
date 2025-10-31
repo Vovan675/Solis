@@ -117,6 +117,24 @@ uint32_t RHIBindlessResources::addBuffer(RHIBuffer *buffer)
 	return index;
 }
 
+void RHIBindlessResources::removeBuffer(RHIBuffer *buffer)
+{
+	if (buffer_to_resource_index.empty())
+		return;
+	// If not found, return
+	auto it = buffer_to_resource_index.find(buffer);
+	if (it == buffer_to_resource_index.end())
+		return;
+
+	uint32_t index = buffer_to_resource_index[buffer];
+	buffer_to_resource_index.erase(buffer);
+
+	gDynamicRHI->releaseNextFrame([this, index]()
+	{
+		empty_resource_indices.push_back(index);
+	});
+}
+
 void RHIBindlessResources::setBuffer(uint32_t index, RHIBuffer *buffer)
 {
 }
@@ -230,8 +248,11 @@ void VulkanBindlessResources::setTexture(uint32_t index, RHITexture *texture)
 void VulkanBindlessResources::setBuffer(uint32_t index, RHIBuffer *buffer)
 {
 	RHIBindlessResources::setBuffer(index, buffer);
-	if (buffer == nullptr || (buffer->description.usage & STORAGE_BUFFER) == 0)
+	if (buffer == nullptr || (buffer->description.usage & (STORAGE_BUFFER | RAW_STORAGE_BUFFER)) == 0)
+	{
+		empty_resource_indices.push_back(index);
 		return;
+	}
 	buffer_to_resource_index[buffer] = index;
 	CORE_INFO("Set buffer at index {} size {}", index, buffer->getSize());
 
@@ -359,7 +380,10 @@ void DX12BindlessResources::setBuffer(uint32_t index, RHIBuffer *buffer)
 {
 	RHIBindlessResources::setBuffer(index, buffer);
 	if (buffer == nullptr)
+	{
+		empty_resource_indices.push_back(index);
 		return;
+	}
 	buffer_to_resource_index[buffer] = index;
 	CORE_INFO("Set buffer at index {} size {}", index, buffer->getSize());
 

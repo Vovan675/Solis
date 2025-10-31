@@ -33,33 +33,26 @@ void IrradianceRenderer::addPass(FrameGraph &fg, uint32_t samples_count)
 	},
 	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		FrameGraphTexture &irradiance = resources.getResource<FrameGraphTexture>(GFXRID(IBLIrradiance));
-		FrameGraphTexture &sky = resources.getResource<FrameGraphTexture>(GFXRID(Sky));
+		auto irradiance = resources.getTexture(GFXRID(IBLIrradiance));
+		auto sky = resources.getTexture(GFXRID(Sky));
 
 		// Very heavy computation
-		auto &p = gGlobalPipeline;
-		p->reset();
-
-		p->setIsComputePipeline(true);
-		p->setComputeShader(compute_shader);
-
-		p->flush();
-		p->bind(cmd_list);
+		gGlobalPipeline->setupComputePipeline(compute_shader);
+		gGlobalPipeline->flushAndBind(cmd_list);
 
 		struct Constants
 		{
 			uint32_t input_tex_id;
 			uint32_t samples_count;
 		} constants;
-		constants.input_tex_id = sky.getBindlessId();
+		constants.input_tex_id = resources.getBindlessId(GFXRID(Sky));
 		constants.samples_count = samples_count;
 
-		gDynamicRHI->setUAVTexture(1, irradiance.texture);
+		gDynamicRHI->setUAVTexture(1, irradiance);
 		gDynamicRHI->setConstantBufferData(0, &constants, sizeof(constants));
 
-		cmd_list->dispatch(irradiance.texture->getWidth() / 32, irradiance.texture->getHeight() / 32, 6);
+		cmd_list->dispatch(irradiance->getWidth() / 32, irradiance->getHeight() / 32, 6);
 		
-		p->unbind(cmd_list);
 
 		///irradiance.texture->createMipmaps(command_buffer); // TODO: mipmaps
 	});

@@ -43,22 +43,14 @@ void PathTracingRenderer::AddPass(FrameGraph &fg, Ref<RayTracingScene> rt_scene)
 	},
 	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		auto &output = resources.getResource<FrameGraphTexture>(GFXRID(FinalNoPostTexture));
-		auto &accumulation = resources.getResource<FrameGraphTexture>(GFXRID(PathTraceAccumulation));
+		auto output = resources.getTexture(GFXRID(FinalNoPostTexture));
+		auto accumulation = resources.getTexture(GFXRID(PathTraceAccumulation));
 
-		auto &p = gGlobalPipeline;
-		p->reset();
+		gGlobalPipeline->setupRayTracing(L"shaders/rt/path_tracing.hlsl");
+		gGlobalPipeline->flushAndBind(cmd_list);
 
-		p->setIsRayTracingPipeline(true);
-		p->setRayGenerationShader(gDynamicRHI->createShader(L"shaders/rt/path_tracing.hlsl", RAY_GENERATION_SHADER));
-		p->setMissShader(gDynamicRHI->createShader(L"shaders/rt/path_tracing.hlsl", MISS_SHADER));
-		p->setClosestHitShader(gDynamicRHI->createShader(L"shaders/rt/path_tracing.hlsl", CLOSEST_HIT_SHADER));
-
-		p->flush();
-		p->bind(cmd_list);
-
-		gDynamicRHI->setUAVTexture(0, output.texture);
-		gDynamicRHI->setUAVTexture(1, accumulation.texture);
+		gDynamicRHI->setUAVTexture(0, output);
+		gDynamicRHI->setUAVTexture(1, accumulation);
 		gDynamicRHI->setAccelerationStructure(2, rt_scene->getTopLevelAS());
 
 		struct Light
@@ -69,7 +61,7 @@ void PathTracingRenderer::AddPass(FrameGraph &fg, Ref<RayTracingScene> rt_scene)
 			uint32_t environment_tex_id;
 		} light;
 		light.accumulation_frame = accumulation_frame;
-		light.environment_tex_id = resources.getResource<FrameGraphTexture>(GFXRID(Sky)).getBindlessId();
+		light.environment_tex_id = resources.getBindlessId(GFXRID(Sky));
 
 		auto lights = Scene::getCurrentScene()->getEntitiesWith<LightComponent>().each();
 		for (auto &&[entity, light_component]: lights)
@@ -87,10 +79,9 @@ void PathTracingRenderer::AddPass(FrameGraph &fg, Ref<RayTracingScene> rt_scene)
 				break;
 			}
 		}
-		gDynamicRHI->setConstantBufferData(1, &light, sizeof(light));
+		gDynamicRHI->setConstantBufferData(3, &light, sizeof(light));
 
 		cmd_list->dispatchRays(Renderer::getViewportSize().x, Renderer::getViewportSize().y, 1);
 
-		p->unbind(cmd_list);
 	});
 }

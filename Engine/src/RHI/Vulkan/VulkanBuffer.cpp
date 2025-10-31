@@ -16,7 +16,7 @@ VulkanBuffer::VulkanBuffer(BufferDescription description) : RHIBuffer(descriptio
 		usage_flags |= VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
 	if (description.usage & UNIFORM_BUFFER)
 		usage_flags |= VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-	if (description.usage & (UAV_BUFFER | STORAGE_BUFFER))
+	if (description.usage & (UAV_BUFFER | STORAGE_BUFFER | RAW_STORAGE_BUFFER))
 		usage_flags |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
 	if (description.usage & ACCELERATION_STRUCTURE_BUILD_INPUT_BUFFER)
 		usage_flags |= VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
@@ -38,6 +38,7 @@ VulkanBuffer::VulkanBuffer(BufferDescription description) : RHIBuffer(descriptio
 	buffer = std::make_unique<VkBufferResource>();
 	allocation = std::make_unique<VkAllocationResource>();
 	VulkanUtils::createBuffer(bufferSize, usage_flags, memory_usage, flags, buffer->resource, allocation->resource, description.alignment);
+	gDynamicRHI->getBindlessResources()->addBuffer(this);
 }
 
 VulkanBuffer::~VulkanBuffer()
@@ -53,6 +54,8 @@ void VulkanBuffer::destroy()
 
 	native_rhi->releaseGPUResource(buffer.release());
 	native_rhi->releaseGPUResource(allocation.release());
+	if (gDynamicRHI && gDynamicRHI->getBindlessResources())
+		gDynamicRHI->getBindlessResources()->removeBuffer(this);
 }
 
 void VulkanBuffer::fill(const void *sourceData)

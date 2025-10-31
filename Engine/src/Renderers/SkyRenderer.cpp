@@ -42,26 +42,18 @@ void SkyRenderer::addProceduralPasses(FrameGraph &fg)
 	},
 	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		FrameGraphTexture &sky = resources.getResource<FrameGraphTexture>(GFXRID(Sky));
+		auto sky = resources.getTexture(GFXRID(Sky));
 
 		auto &p = gGlobalPipeline;
 
 		for (int face = 0; face < 6; face++)
 		{
-			cmd_list->setRenderTargets({sky.texture}, nullptr, face, 0, true);
+			cmd_list->setRenderTargets({sky}, nullptr, face, 0, true);
 
-			p->reset();
-			p->setVertexShader(vertex_procedural_shader);
-			p->setFragmentShader(fragment_procedural_shader);
-			p->setUseBlending(false);
-			p->setCullMode(CULL_MODE_NONE);
-			p->setVertexInputsDescription(Engine::Vertex::GetVertexInputsDescription());
-
-			p->setDepthTest(false);
-
-			p->setRenderTargets(cmd_list->getCurrentRenderTargets());
-			p->flush();
-			p->bind(cmd_list);
+			p->setupGraphicsPipeline(cmd_list, vertex_procedural_shader, fragment_procedural_shader,
+									 Engine::Vertex::GetVertexInputsDescription(),
+									 false, false, CULL_MODE_NONE);
+			p->flushAndBind(cmd_list);
 
 			procedural_uniforms.mvp = glm::perspectiveLH(glm::radians(90.0f), 1.0f, 0.01f, 512.0f) * Math::getCubeFaceTransform(face) * glm::eulerAngleXYZ(0.0f, glm::radians(180.0f), 0.0f);
 			gDynamicRHI->setConstantBufferData(0, &procedural_uniforms, sizeof(procedural_uniforms));
@@ -70,7 +62,6 @@ void SkyRenderer::addProceduralPasses(FrameGraph &fg)
 			cmd_list->setIndexBuffer(mesh->indexBuffer);
 			cmd_list->drawIndexedInstanced(mesh->indices.size(), 1, 0, 0, 0);
 
-			p->unbind(cmd_list);
 			cmd_list->resetRenderTargets();
 		}
 
@@ -96,26 +87,19 @@ void SkyRenderer::addCompositePasses(FrameGraph &fg)
 	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
 		// Render
-		auto &composite = resources.getResource<FrameGraphTexture>(GFXRID(FinalNoPostTexture));
-		auto &sky = resources.getResource<FrameGraphTexture>(GFXRID(Sky));
-		auto &depth = resources.getResource<FrameGraphTexture>(GFXRID(GBufferDepth));
+		auto composite = resources.getTexture(GFXRID(FinalNoPostTexture));
+		auto sky = resources.getTexture(GFXRID(Sky));
+		auto depth = resources.getTexture(GFXRID(GBufferDepth));
 
-		cmd_list->setRenderTargets({composite.texture}, depth.texture, 0, 0, false);
+		cmd_list->setRenderTargets({composite}, depth, 0, 0, false);
 
 		// PSO
-		gGlobalPipeline->reset();
-		gGlobalPipeline->setVertexShader(vertex_shader);
-		gGlobalPipeline->setFragmentShader(fragment_shader);
-		gGlobalPipeline->setUseBlending(false);
-		gGlobalPipeline->setCullMode(CULL_MODE_FRONT);
-		gGlobalPipeline->setVertexInputsDescription(Engine::Vertex::GetVertexInputsDescription());
-
+		gGlobalPipeline->setupGraphicsPipeline(cmd_list, vertex_shader, fragment_shader,
+											   Engine::Vertex::GetVertexInputsDescription(),
+											   false, true, CULL_MODE_FRONT);
 		gGlobalPipeline->setDepthWrite(false);
 		gGlobalPipeline->setDepthFunc(COMPARE_FUNC_LESS_EQUAL);
-
-		gGlobalPipeline->setRenderTargets(cmd_list->getCurrentRenderTargets());
-		gGlobalPipeline->flush();
-		gGlobalPipeline->bind(cmd_list);
+		gGlobalPipeline->flushAndBind(cmd_list);
 
 	
 		// Render mesh
@@ -123,14 +107,13 @@ void SkyRenderer::addCompositePasses(FrameGraph &fg)
 		{
 			uint32_t cubemap_tex_id;
 		} constants;
-		constants.cubemap_tex_id = sky.getBindlessId();
+		constants.cubemap_tex_id = resources.getBindlessId(GFXRID(Sky));
 		gDynamicRHI->setConstantBufferData(0, &constants, sizeof(Constants));
 
 		cmd_list->setVertexBuffer(mesh->vertexBuffer);
 		cmd_list->setIndexBuffer(mesh->indexBuffer);
 		cmd_list->drawIndexedInstanced(mesh->indices.size(), 1, 0, 0, 0);
 
-		gGlobalPipeline->unbind(cmd_list);
 		cmd_list->resetRenderTargets();
 	});
 }

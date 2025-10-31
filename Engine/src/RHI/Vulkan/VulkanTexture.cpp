@@ -151,13 +151,8 @@ void VulkanTexture::loadEquirectangularCubemap(const char *path)
 
 	RHITextureRef texture = nullptr;
 
-	auto &p = gGlobalPipeline;
-
-	p->reset();
-	p->setIsComputePipeline(true);
-	p->setComputeShader(gDynamicRHI->createShader(L"shaders/equirect_to_cubemap.hlsl", COMPUTE_SHADER));
-	p->flush();
-	p->bind(cmd_list);
+	gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/equirect_to_cubemap.hlsl", COMPUTE_SHADER));
+	gGlobalPipeline->flushAndBind(cmd_list);
 
 	gDynamicRHI->setUAVTexture(0, this);
 	struct Uniforms
@@ -168,7 +163,6 @@ void VulkanTexture::loadEquirectangularCubemap(const char *path)
 	gDynamicRHI->setConstantBufferData(1, &uniforms, sizeof(uniforms));
 
 	cmd_list->dispatch(getWidth() / 32, getHeight() / 32, 6);
-	p->unbind(cmd_list);
 
 	transitLayout(cmd_list, TEXTURE_LAYOUT_SHADER_READ);
 
@@ -393,7 +387,6 @@ void VulkanTexture::generateMipmaps(RHICommandList *cmd_list)
 	// Render quad
 	cmd_list->drawInstanced(6, 1, 0, 0);
 
-	p->unbind(cmd_list);
 	cmd_list->resetRenderTargets();
 	transitLayout(cmd_list, TEXTURE_LAYOUT_SHADER_READ, 1);
 	*/

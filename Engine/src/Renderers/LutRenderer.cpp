@@ -29,9 +29,9 @@ void LutRenderer::addPasses(FrameGraph &fg)
 	},
 	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		FrameGraphTexture &brdf_lut = resources.getResource<FrameGraphTexture>(GFXRID(LutBRDF));
+		auto brdf_lut = resources.getTexture(GFXRID(LutBRDF));
 
-		cmd_list->setRenderTargets({brdf_lut.texture}, nullptr, -1, 0, true);
+		cmd_list->setRenderTargets({brdf_lut}, nullptr, -1, 0, true);
 
 		auto &p = gGlobalPipeline;
 		p->bindScreenQuadPipeline(cmd_list, gDynamicRHI->createShader(L"shaders/ibl/brdf_lut.hlsl", FRAGMENT_SHADER));
@@ -39,7 +39,6 @@ void LutRenderer::addPasses(FrameGraph &fg)
 		// Render quad
 		cmd_list->drawInstanced(6, 1, 0, 0);
 
-		p->unbind(cmd_list);
 		cmd_list->resetRenderTargets();
 	});
 }

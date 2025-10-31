@@ -12,69 +12,49 @@ public:
 	GlobalPipeline();
 	~GlobalPipeline();
 
-	void reset();
-	void flush();
-
 	void setVertexShader(RHIShaderRef shader) { current_description.vertex_shader = shader; }
 	void setFragmentShader(RHIShaderRef shader) { current_description.fragment_shader = shader; }
-
-	RHIShaderRef getVertexShader() const { return current_description.vertex_shader; }
-	RHIShaderRef getFragmentShader() const { return current_description.fragment_shader; }
-
 	void setVertexInputsDescription(VertexInputsDescription desc) { current_description.vertex_inputs_descriptions = desc; }
-
 	void setUseBlending(bool use_blending) { current_description.use_blending = use_blending; }
 	void setBlendMode(Blend src_color_blend, Blend dst_color_blend, BlendOp color_blend_op,
 					  Blend src_alpha_blend, Blend dst_alpha_blend, BlendOp alpha_blend_op);
 	void setDepthTest(bool depth_test) { current_description.use_depth_test = depth_test; }
 	void setDepthWrite(bool depth_write) { current_description.use_depth_write = depth_write; }
 	void setDepthFunc(CompareFunc func) { current_description.depth_compare_func = func; }
-
 	void setCullMode(CullMode cull_mode) { current_description.cull_mode = cull_mode; }
 	void setPrimitiveTopology(Topology topology) { current_description.primitive_topology = topology; }
-
-	void setColorFormats(eastl::vector<Format> color_formats) { current_description.color_formats = color_formats; }
-	void setRenderTargets(eastl::vector<RHITexture *> attachments)
-	{
-		current_description.color_formats.clear();
-		current_description.depth_format = FORMAT_UNDEFINED;
-		current_description.use_depth_test = false;
-		for (const auto &attachment : attachments)
-		{
-			Format format = attachment->getDescription().format;
-			if (attachment->isDepthTexture())
-			{
-				current_description.depth_format = format;
-				current_description.use_depth_test = true;
-			} else
-			{
-				current_description.color_formats.push_back(format);
-			}
-		}
-	}
-
-	void setIsComputePipeline(bool is_compute) { current_description.is_compute_pipeline = is_compute; }
 	void setComputeShader(RHIShaderRef shader) { current_description.compute_shader = shader; }
-
-	void setIsRayTracingPipeline(bool is_ray_tracing) { current_description.is_ray_tracing_pipeline = is_ray_tracing; }
-
 	void setRayGenerationShader(RHIShaderRef shader) { current_description.ray_generation_shader = shader; }
 	void setMissShader(RHIShaderRef shader) { current_description.miss_shader = shader; }
 	void setClosestHitShader(RHIShaderRef shader) { current_description.closest_hit_shader = shader; }
+	void setRenderTargets(eastl::vector<RHITexture *> attachments);
+	void setRenderTargets(RHICommandList* cmd_list);
 
-	RHIShaderRef getRayGenerationShader() const { return current_description.ray_generation_shader; }
-	RHIShaderRef getMissShader() const { return current_description.miss_shader; }
-	RHIShaderRef getClosestHitShader() const { return current_description.closest_hit_shader; }
+	void setupRayTracing(const wchar_t* shader_path);
+	void setupRayTracing(RHIShaderRef ray_gen, RHIShaderRef miss, RHIShaderRef closest_hit);
+	void setupComputePipeline(RHIShaderRef compute_shader);
+	void setupGraphicsPipeline(RHIShaderRef vertex_shader, RHIShaderRef fragment_shader,
+							   const eastl::vector<RHITexture*>& render_targets,
+							   VertexInputsDescription vertex_inputs = VertexInputsDescription{},
+							   bool use_blending = false,
+							   bool depth_test = true,
+							   CullMode cull_mode = CULL_MODE_BACK);
+	void setupGraphicsPipeline(RHICommandList* cmd_list,
+							   RHIShaderRef vertex_shader, RHIShaderRef fragment_shader,
+							   VertexInputsDescription vertex_inputs = VertexInputsDescription{},
+							   bool use_blending = false,
+							   bool depth_test = true,
+							   CullMode cull_mode = CULL_MODE_BACK);
 
-	eastl::vector<RHIShaderRef> getCurrentShaders();
+	void flushAndBind(RHICommandList *cmd_list);
 
 	void bindScreenQuadPipeline(RHICommandList *cmd_list, RHIShaderRef fragment_shader);
 
+private:
+	void reset();
+	void flush();
 	void bind(RHICommandList *cmd_list);
-	void unbind(RHICommandList *cmd_list);
 
-public:
-	bool is_binded = false;
 	PipelineDescription current_description;
 	RHIPipelineRef current_pipeline;
 	eastl::unordered_map<size_t, RHIPipelineRef> cached_pipelines;

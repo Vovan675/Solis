@@ -32,8 +32,7 @@ void MeshRenderer::fillCommandBuffer(RHICommandList *cmd_list)
 	p->setRenderTargets(VkWrapper::current_render_targets);
 	p->setUseBlending(false);
 
-	p->flush();
-	p->bind(command_buffer);
+	p->flushAndBind(command_buffer);
 
 	// Uniforms
 	Renderer::bindShadersDescriptorSets(p->getCurrentShaders(), command_buffer, p->getPipelineLayout());
@@ -52,6 +51,5 @@ void MeshRenderer::fillCommandBuffer(RHICommandList *cmd_list)
 	vkCmdBindIndexBuffer(command_buffer.get_buffer(), mesh->indexBuffer->buffer_handle, 0, VK_INDEX_TYPE_UINT32);
 	vkCmdDrawIndexed(command_buffer.get_buffer(), mesh->indices.size(), 1, 0, 0, 0);
 
-	p->unbind(command_buffer);
 	*/
 }

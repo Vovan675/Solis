@@ -372,6 +372,8 @@ void DX12DynamicRHI::prepareRenderCall()
 		}
 	}
 
+	bool is_compute_pipeline = native_pso->description.pipeline_type == PipelineType::Compute || native_pso->description.pipeline_type == PipelineType::RayTracing;
+
 	// Constant buffers
 	if (pso_changed || is_buffers_dirty)
 	{
@@ -380,7 +382,7 @@ void DX12DynamicRHI::prepareRenderCall()
 			if (current_bind_buffers[info.bind_point] == nullptr)
 				continue;
 
-			if (native_pso->description.is_compute_pipeline || native_pso->description.is_ray_tracing_pipeline)
+			if (is_compute_pipeline)
 				cmd_list_native->cmd_list->SetComputeRootConstantBufferView(info.root_param_index, current_bind_buffers_gpu_address[info.bind_point]);
 			else
 				cmd_list_native->cmd_list->SetGraphicsRootConstantBufferView(info.root_param_index, current_bind_buffers_gpu_address[info.bind_point]);
@@ -389,8 +391,6 @@ void DX12DynamicRHI::prepareRenderCall()
 
 
 	// Set where descriptor table will start getting data from heap.
-	
-	bool is_compute_pipeline = native_pso->description.is_compute_pipeline || native_pso->description.is_ray_tracing_pipeline;
 	auto setRootDescriptorTable = [is_compute_pipeline, cmd_list_native](uint32_t root_parameter_index, D3D12_GPU_DESCRIPTOR_HANDLE start_descriptor)
 	{
 		if (is_compute_pipeline)

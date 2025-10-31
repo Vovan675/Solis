@@ -27,6 +27,7 @@ public:
 	virtual uint32_t getTextureIndex(RHITexture *texture) { return texture_to_resource_index[texture]; }
 
 	virtual uint32_t addBuffer(RHIBuffer *buffer);
+	virtual void removeBuffer(RHIBuffer *buffer);
 	virtual void setBuffer(uint32_t index, RHIBuffer *buffer);
 
 	virtual uint32_t addSampler(const TextureDescription &description) { return 0; }

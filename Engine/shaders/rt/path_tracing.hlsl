@@ -6,11 +6,12 @@
 #include "../random.h"
 #include "../path_tracing_utils.h"
 
+[[vk::image_format("rgba16")]]
 RWTexture2D<float4> output : register(u0);
 RWTexture2D<float4> accumulation : register(u1);
 RaytracingAccelerationStructure tlas : register(t2);
 
-cbuffer Light : register(b1)
+cbuffer Light : register(b3)
 {
 	float4 dir_light_direction;
 	float4 dir_light_color;

@@ -376,9 +376,9 @@ void VulkanDynamicRHI::prepareRenderCall()
 	}
 
 	VkPipelineBindPoint bind_point = VK_PIPELINE_BIND_POINT_GRAPHICS;
-	if (native_pso->description.is_compute_pipeline)
+	if (native_pso->description.pipeline_type == PipelineType::Compute)
 		bind_point = VK_PIPELINE_BIND_POINT_COMPUTE;
-	else if (native_pso->description.is_ray_tracing_pipeline)
+	else if (native_pso->description.pipeline_type == PipelineType::RayTracing)
 		bind_point = VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR;
 	VulkanCommandList *native_cmd_list = cmd_lists[frame_in_flight];
 	// use offset?
