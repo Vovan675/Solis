@@ -49,10 +49,11 @@ struct Descriptor
 class RHIShader: public RefCounted
 {
 public:
-	RHIShader(const eastl::wstring &path, ShaderType type, eastl::wstring entry_point, eastl::vector<eastl::pair<const char *, const char *>> defines);
+	RHIShader(const eastl::wstring &path, ShaderType type, eastl::string entry_point, eastl::vector<eastl::pair<const char *, const char *>> defines);
 	virtual ~RHIShader();
 
 	size_t getHash() const { return hash; }
+	eastl::string getEntry() const { return entry_point.c_str(); }
 
 	virtual void recompile() = 0;
 	
@@ -62,7 +63,7 @@ protected:
 	size_t hash = 0;
 	std::filesystem::path path;
 	ShaderType type;
-	eastl::wstring entry_point;
+	eastl::string entry_point;
 	eastl::vector<eastl::pair<const char *, const char *>> defines;
 
 	static eastl::unordered_map<eastl::wstring, eastl::list<RHIShader *>> path_to_shaders;

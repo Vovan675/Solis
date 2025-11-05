@@ -7,7 +7,7 @@ class PathTracingRenderer
 public:
 	PathTracingRenderer();
 
-	void AddPass(FrameGraph &fg, Ref<RayTracingScene> rt_scene);
+	void addPass(FrameGraph &fg, Ref<RayTracingScene> rt_scene);
 
 private:
 	RHITextureRef accumulation_texture;

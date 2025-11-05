@@ -115,13 +115,13 @@ bool ParametersPanel::renderImGui(EditorContext context, DebugRenderer &debug_re
 
 					auto show_texture_edit = [](Material::MaterialTexture &material_texture, const char *name)
 					{
-						bool use_texture = material_texture.bindless_id != -1;
+						bool use_texture = material_texture.bindless_id != 0;
 						eastl::string label = eastl::string("Use ") + name + " texture";
 						if (ImGui::Checkbox(label.c_str(), &use_texture))
 						{
 							if (!use_texture)
 								material_texture.asset_handle = 0;
-							material_texture.bindless_id = use_texture ? 0 : -1;
+							material_texture.bindless_id = use_texture ? 1 : 0;
 						}
 						if (use_texture)
 						{
@@ -131,7 +131,7 @@ bool ParametersPanel::renderImGui(EditorContext context, DebugRenderer &debug_re
 								if (!path.empty())
 								{
 									material_texture.asset_handle = AssetManager::getGUIDFromPath(path.c_str());
-									material_texture.bindless_id = -1;
+									material_texture.bindless_id = 0;
 								}
 							}
 
@@ -147,7 +147,7 @@ bool ParametersPanel::renderImGui(EditorContext context, DebugRenderer &debug_re
 										if (payload = ImGui::AcceptDragDropPayload("DND_ASSET_PATH"))
 										{
 											material_texture.asset_handle = AssetManager::getGUIDFromPath(payload_str);
-											material_texture.bindless_id = -1;
+											material_texture.bindless_id = 0;
 										}
 									}
 								}

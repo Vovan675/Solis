@@ -93,7 +93,7 @@ void DefferedLightingRenderer::renderLights(FrameGraph &fg)
 			{
 				p->setupGraphicsPipeline(cmd_list,
 										  gDynamicRHI->createShader(L"shaders/lighting/deferred_lighting.hlsl", VERTEX_SHADER),
-										  gDynamicRHI->createShader(L"shaders/lighting/deferred_lighting.hlsl", FRAGMENT_SHADER, {{"RAY_TRACED_SHADOWS", "1"}, {"USE_SHADOWS", render_shadows ? "1" : "0"}}),
+										  gDynamicRHI->createShader(L"shaders/lighting/deferred_lighting.hlsl", FRAGMENT_SHADER, "PSMain", {{"RAY_TRACED_SHADOWS", "1"}, {"USE_SHADOWS", render_shadows ? "1" : "0"}}),
 										  Engine::Vertex::GetVertexInputsDescription(),
 										  true, false, CULL_MODE_FRONT);
 				p->setBlendMode(BLEND_ONE, BLEND_ONE, BLEND_OP_ADD,
@@ -140,8 +140,8 @@ void DefferedLightingRenderer::renderLights(FrameGraph &fg)
 					shader_defines.push_back({"LIGHT_TYPE", "1"});
 
 				p->setupGraphicsPipeline(cmd_list,
-										  gDynamicRHI->createShader(L"shaders/lighting/deferred_lighting.hlsl", VERTEX_SHADER, shader_defines),
-										  gDynamicRHI->createShader(L"shaders/lighting/deferred_lighting.hlsl", FRAGMENT_SHADER, shader_defines),
+										  gDynamicRHI->createShader(L"shaders/lighting/deferred_lighting.hlsl", VERTEX_SHADER, "VSMain", shader_defines),
+										  gDynamicRHI->createShader(L"shaders/lighting/deferred_lighting.hlsl", FRAGMENT_SHADER, "PSMain", shader_defines),
 										  Engine::Vertex::GetVertexInputsDescription(),
 										  true, false, CULL_MODE_FRONT);
 				p->setBlendMode(BLEND_ONE, BLEND_ONE, BLEND_OP_ADD,

@@ -3,7 +3,7 @@
 #include "RHI/DynamicRHI.h"
 
 
-DX12Shader::DX12Shader(const eastl::wstring &path, ShaderType type, eastl::wstring entry_point, eastl::vector<eastl::pair<const char *, const char *>> defines, IDxcUtils* dxc_utils)
+DX12Shader::DX12Shader(const eastl::wstring &path, ShaderType type, eastl::string entry_point, eastl::vector<eastl::pair<const char *, const char *>> defines, IDxcUtils* dxc_utils)
 	: RHIShader(path, type, entry_point, defines), dxc_utils(dxc_utils)
 {
 	recompile();

@@ -71,6 +71,7 @@ public:
 	}
 
 	DX12Descriptor getShaderResourceView() const { return shader_resource_view; }
+	DX12Descriptor getUnorderedAccessView() const { return unordered_access_view; }
 
 
 	void setState(ResourceState new_state);
@@ -82,4 +83,5 @@ private:
 
 	ResourceState current_state;
 	DX12Descriptor shader_resource_view;
+	DX12Descriptor unordered_access_view;
 };

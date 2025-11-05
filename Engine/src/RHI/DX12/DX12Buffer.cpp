@@ -39,7 +39,8 @@ DX12Buffer::DX12Buffer(BufferDescription description) : RHIBuffer(description)
 	assert(res == S_OK);
 	//setState(RESOURCE_STATE_VERTEX_BUFFER);
 
-	if (description.usage & (STORAGE_BUFFER | RAW_STORAGE_BUFFER))
+	if (description.usage & (STORAGE_BUFFER | RAW_STORAGE_BUFFER) ||
+		(description.usage & UAV_BUFFER && description.stride != 0))
 	{
 		bool is_raw = description.usage & RAW_STORAGE_BUFFER;
 
@@ -70,6 +71,24 @@ DX12Buffer::DX12Buffer(BufferDescription description) : RHIBuffer(description)
 
 		rhi->device->CreateShaderResourceView(resource->resource, &srv_desc, shader_resource_view.getCpuHandle());
 		gDynamicRHI->getBindlessResources()->addBuffer(this);
+	}
+
+	if (description.usage & (UAV_BUFFER) && description.stride != 0)
+	{
+		DX12DynamicRHI *rhi = (DX12DynamicRHI *)gDynamicRHI;
+
+		// Allocate in staging heap
+		unordered_access_view = rhi->cbv_srv_uav_staging_heap->allocate();
+
+		D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc = {};
+		uav_desc.Format = DXGI_FORMAT_UNKNOWN;
+		uav_desc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
+		uav_desc.Buffer.FirstElement = 0;
+		uav_desc.Buffer.NumElements = description.size / description.stride;
+		uav_desc.Buffer.StructureByteStride = description.stride;
+		uav_desc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_NONE;
+
+		rhi->device->CreateUnorderedAccessView(resource->resource, nullptr, &uav_desc, unordered_access_view.getCpuHandle());
 	}
 }
 

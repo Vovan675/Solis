@@ -33,8 +33,8 @@ public:
 
 	virtual RHISwapchainRef createSwapchain(GLFWwindow *window) = 0;
 	virtual void resizeSwapchain(int width, int height) {};
-	virtual RHIShaderRef createShader(eastl::wstring path, ShaderType type, eastl::wstring entry_point = L"") = 0;
-	virtual RHIShaderRef createShader(eastl::wstring path, ShaderType type, eastl::vector<eastl::pair<const char *, const char *>> defines) = 0;
+	virtual RHIShaderRef createShader(eastl::wstring path, ShaderType type, eastl::string entry_point = "") = 0;
+	virtual RHIShaderRef createShader(eastl::wstring path, ShaderType type, eastl::string entry_point, eastl::vector<eastl::pair<const char *, const char *>> defines) = 0;
 	virtual RHIPipelineRef createPipeline() = 0;
 	virtual RHIBufferRef createBuffer(BufferDescription description) = 0;
 	virtual RHITextureRef createTexture(TextureDescription description) = 0;
@@ -62,6 +62,7 @@ public:
 	virtual void setConstantBufferDataPerFrame(unsigned int binding, void *params_struct, size_t params_size) = 0;
 	virtual void setTexture(unsigned int binding, RHITextureRef texture) = 0;
 	virtual void setUAVTexture(unsigned int binding, RHITextureRef texture, int mip = 0) = 0;
+	virtual void setUAVBuffer(unsigned int binding, RHIBufferRef buffer) = 0;
 	virtual void setAccelerationStructure(unsigned int binding, RHITopLevelAccelerationStructureRef acceleration_structure) = 0;
 
 	struct CompileShaderResult
@@ -71,7 +72,7 @@ public:
 		eastl::hash_set<eastl::wstring> included_files;
 	};
 
-	CompileShaderResult compile_shader(eastl::wstring path, ShaderType type, eastl::wstring entry_point, bool is_vulkan, eastl::vector<eastl::pair<const char *, const char *>> *defines = nullptr);
+	CompileShaderResult compile_shader(eastl::wstring path, ShaderType type, eastl::string entry_point, bool is_vulkan, eastl::vector<eastl::pair<const char *, const char *>> *defines = nullptr);
 
 	void releaseGPUResource(RenderResource *resource)
 	{

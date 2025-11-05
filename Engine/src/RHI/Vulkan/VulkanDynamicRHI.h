@@ -32,8 +32,8 @@ public:
 
 	RHISwapchainRef createSwapchain(GLFWwindow *window) override;
 	void resizeSwapchain(int width, int height) override;
-	RHIShaderRef createShader(eastl::wstring path, ShaderType type, eastl::wstring entry_point) override;
-	RHIShaderRef createShader(eastl::wstring path, ShaderType type, eastl::vector<eastl::pair<const char *, const char *>> defines) override;
+	RHIShaderRef createShader(eastl::wstring path, ShaderType type, eastl::string entry_point) override;
+	RHIShaderRef createShader(eastl::wstring path, ShaderType type, eastl::string entry_point, eastl::vector<eastl::pair<const char *, const char *>> defines) override;
 	RHIPipelineRef createPipeline() override;
 	RHIBufferRef createBuffer(BufferDescription description) override;
 	RHITextureRef createTexture(TextureDescription description) override;
@@ -164,6 +164,13 @@ public:
 		is_uav_textures_dirty = true;
 	}
 
+	void setUAVBuffer(unsigned int binding, RHIBufferRef buffer) override
+	{
+		VulkanBuffer *native_buffer = (VulkanBuffer *)buffer.getReference();
+		current_bind_uav_buffers[binding] = native_buffer;
+		is_uav_buffers_dirty = true;
+	}
+
 	void setAccelerationStructure(unsigned int binding, RHITopLevelAccelerationStructureRef acceleration_structure) override
 	{
 		VulkanTopLevelAccelerationStructure *native_tlas = (VulkanTopLevelAccelerationStructure *)acceleration_structure.getReference();
@@ -205,11 +212,13 @@ public:
 	VulkanTexture *current_bind_uav_textures[64];
 	VkImageView current_bind_uav_textures_views[64];
 	VulkanBuffer *current_bind_structured_buffers[64];
+	VulkanBuffer *current_bind_uav_buffers[64];
 	VulkanTopLevelAccelerationStructure *current_bind_acceleration_structures[4];
 
 	bool is_textures_dirty;
 	bool is_uav_textures_dirty;
 	bool is_buffers_dirty;
+	bool is_uav_buffers_dirty;
 	bool is_acceleration_structures_dirty;
 
 	VulkanPipeline *last_native_pso;

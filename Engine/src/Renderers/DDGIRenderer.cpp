@@ -1,0 +1,374 @@
+#include "pch.h"
+#include "DDGIRenderer.h"
+#include "Rendering/Model.h"
+#include <imgui.h>
+#include <random>
+
+// 16x16 pixels for one probe
+static int distance_probe_texels = 14;
+// 8x8 pixels for one probe
+static int irradiance_probe_texels = 6;
+
+DDGIRenderer::DDGIRenderer()
+{
+	// Dense
+	volume.origin = {0.0f, 0.5f, -2.0f};
+	volume.size = {8, 4, 6};
+	volume.spacing = {1, 1, 1};
+	volume.rays_per_probe = 128;
+
+	// Less dense
+	volume.origin = {-5.5f, 0.5f, -3.5f};
+	volume.size = {8, 4, 6};
+	volume.spacing = {2, 2, 2};
+	volume.rays_per_probe = 128;
+
+	volume.origin = {-14.0f, 0.0f, -6.0f};
+	volume.size = {28, 24, 24};
+	volume.spacing = {1, 0.5, 0.5};
+	volume.rays_per_probe = 128;
+
+	BufferDescription desc;
+	desc.size = sizeof(volume);
+	desc.usage = STORAGE_BUFFER;
+	desc.useStagingBuffer = false;
+	desc.stride = sizeof(volume);
+	volume_buffer = gDynamicRHI->createBuffer(desc);
+	volume_buffer->setDebugName("DDGI Volume Buffer");
+
+	auto model = AssetManager::getModelAsset("assets/icosphere_3.fbx");
+	sphere_mesh = model->getRootNode()->children[0]->meshes[0];
+
+	visualize_vertex_shader = gDynamicRHI->createShader(L"shaders/ddgi/ddgi_visualize.hlsl", VERTEX_SHADER);
+	visualize_fragment_shader = gDynamicRHI->createShader(L"shaders/ddgi/ddgi_visualize.hlsl", FRAGMENT_SHADER);
+}
+
+void DDGIRenderer::addPasses(FrameGraph & fg, Ref<RayTracingScene> rt_scene)
+{
+	int border_size = 1;
+	int layers = volume.size.y;
+	int depth_width = (distance_probe_texels + border_size * 2) * volume.size.x * layers;
+	int depth_height = (distance_probe_texels + border_size * 2) * volume.size.z;
+
+	if (!distance_atlas_texture || distance_atlas_texture->getWidth() != depth_width || distance_atlas_texture->getHeight() != depth_height)
+	{
+		TextureDescription desc;
+		desc.width = depth_width;
+		desc.height = depth_height;
+		desc.format = FORMAT_R16G16_SFLOAT;
+		desc.usage_flags = TEXTURE_USAGE_STORAGE;
+		distance_atlas_texture = gDynamicRHI->createTexture(desc);
+		distance_atlas_texture->fill();
+
+		volume.distance_altas_tex_id = gDynamicRHI->getBindlessResources()->getTextureIndex(distance_atlas_texture);
+	}
+
+	int irradiance_width = (irradiance_probe_texels + border_size * 2) * volume.size.x * layers;
+	int irradiance_height = (irradiance_probe_texels + border_size * 2) * volume.size.z;
+	if (!irradiance_atlas_texture || irradiance_atlas_texture->getWidth() != irradiance_width || irradiance_atlas_texture->getHeight() != irradiance_height)
+	{
+		TextureDescription desc;
+		desc.width = irradiance_width;
+		desc.height = irradiance_height;
+		desc.format = FORMAT_R16G16B16A16_SFLOAT;
+		desc.usage_flags = TEXTURE_USAGE_STORAGE;
+		irradiance_atlas_texture = gDynamicRHI->createTexture(desc);
+		irradiance_atlas_texture->fill();
+
+		volume.irradiance_altas_tex_id = gDynamicRHI->getBindlessResources()->getTextureIndex(irradiance_atlas_texture);
+	}
+
+	int metadata_width = volume.size.x * layers;
+	int metadata_height = volume.size.z;
+	if (!metadata_atlas_texture || metadata_atlas_texture->getWidth() != metadata_width || metadata_atlas_texture->getHeight() != metadata_height)
+	{
+		TextureDescription desc;
+		desc.width = metadata_width;
+		desc.height = metadata_height;
+		desc.format = FORMAT_R16G16B16A16_SFLOAT;
+		desc.usage_flags = TEXTURE_USAGE_STORAGE;
+		metadata_atlas_texture = gDynamicRHI->createTexture(desc);
+		metadata_atlas_texture->fill();
+
+		volume.metadata_altas_tex_id = gDynamicRHI->getBindlessResources()->getTextureIndex(metadata_atlas_texture);
+	}
+
+	int ray_data_size = sizeof(glm::vec4) * volume.rays_per_probe * volume.getProbesCount();
+	if (!ray_data_buffer || ray_data_buffer->getSize() != ray_data_size)
+	{
+		BufferDescription desc;
+		desc.size = sizeof(glm::vec4) * volume.rays_per_probe * volume.getProbesCount();
+		desc.stride = sizeof(glm::vec4);
+		desc.usage = UAV_BUFFER | STORAGE_BUFFER;
+		ray_data_buffer = gDynamicRHI->createBuffer(desc);
+		volume.ray_data_buffer_id = gDynamicRHI->getBindlessResources()->addBuffer(ray_data_buffer);
+	}
+
+	volume.use_relocation = use_relocation;
+	volume.use_classification = use_classification;
+
+	fg.importTexture(GFXRID(DDGIDistance), distance_atlas_texture);
+	fg.importTexture(GFXRID(DDGIIrradiance), irradiance_atlas_texture);
+	fg.importTexture(GFXRID(DDGIMetadata), metadata_atlas_texture);
+
+	// Generate random rotation for ray directions
+	std::default_random_engine generator(0);
+	std::uniform_real_distribution<float> dist(0.0f, 1.0f);
+	
+	glm::vec3 random_vector(
+		2.0f * dist(generator) - 1.0f,
+		2.0f * dist(generator) - 1.0f,
+		2.0f * dist(generator) - 1.0f
+	);
+	random_vector = glm::normalize(random_vector);
+	float random_angle = dist(generator) * 2.0f * glm::pi<float>();
+
+	volume.random_vector = random_vector;
+	volume.random_angle = random_angle;
+
+	auto lights = Scene::getCurrentScene()->getEntitiesWith<LightComponent>().each();
+	for (auto &&[entity, light_component]: lights)
+	{
+		if (light_component.getType() == LIGHT_TYPE_DIRECTIONAL)
+		{
+			Entity light_entity(entity);
+			glm::vec3 scale, position, skew;
+			glm::vec4 persp;
+			glm::quat rotation;
+			glm::decompose(light_entity.getWorldTransformMatrix(), scale, rotation, position, skew, persp);
+
+			volume.sun_dir = rotation * glm::vec4(0, 0, -1, 1);
+			volume.sun_color = glm::vec4(light_component.color, 1.0);
+			break;
+		}
+	}
+
+	volume_buffer->fill(&volume);
+
+	static bool prev_use_relocation = false;
+	if (use_relocation != prev_use_relocation)
+		addResetRelocationPass(fg);
+	prev_use_relocation = use_relocation;
+
+	static bool prev_use_classification = false;
+	if (use_classification != prev_use_classification)
+		addResetClassificationPass(fg);
+	prev_use_classification = use_classification;
+
+	addTraceRaysPass(fg, rt_scene);
+	addUpdatePass(fg);
+
+	if (use_relocation)
+		addRelocationPass(fg);
+	if (use_classification)
+		addClassificationPass(fg);
+}
+
+void DDGIRenderer::addVisualizePass(FrameGraph &fg)
+{
+	if (!render_ddgi_visualize)
+		return;
+
+	fg.addCallbackPass<EmptyData>("DDGI Visualize Pass",
+	[&](RenderPassBuilder &builder, EmptyData &data)
+	{
+		builder.writeTexture(GFXRID(FinalNoPostTexture));
+		builder.writeTexture(GFXRID(GBufferDepth));
+
+		builder.readTexture(GFXRID(DDGIIrradiance));
+		builder.readTexture(GFXRID(DDGIDistance));
+		if (use_relocation || use_classification)
+			builder.readTexture(GFXRID(DDGIMetadata));
+	},
+	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
+	{
+		auto final = resources.getTexture(GFXRID(FinalNoPostTexture));
+		auto depth = resources.getTexture(GFXRID(GBufferDepth));
+
+		cmd_list->setRenderTargets({final}, depth, 0, 0, false);
+
+		gGlobalPipeline->setupGraphicsPipeline(cmd_list, visualize_vertex_shader, visualize_fragment_shader, Engine::Vertex::GetVertexInputsDescription());
+		gGlobalPipeline->setDepthWrite(true);
+		gGlobalPipeline->setDepthFunc(COMPARE_FUNC_LESS_EQUAL);
+		gGlobalPipeline->flushAndBind(cmd_list);
+
+		gDynamicRHI->setConstantBufferData(1, &visualization_settings, sizeof(visualization_settings));
+
+		cmd_list->setVertexBuffer(sphere_mesh->vertexBuffer);
+		cmd_list->setIndexBuffer(sphere_mesh->indexBuffer);
+		cmd_list->drawIndexedInstanced(sphere_mesh->indices.size(), volume.getProbesCount(), 0, 0, 0);
+
+		cmd_list->resetRenderTargets();
+		gDynamicRHI->waitGPU();
+	});
+}
+
+void DDGIRenderer::renderImgui()
+{
+	if (ImGui::CollapsingHeader("DDGI Volume", ImGuiTreeNodeFlags_DefaultOpen))
+	{
+		ImGui::DragFloat3("Origin", volume.origin.data.data, 0.1f, -10, 10);
+		ImGui::DragInt3("Size", volume.size.data.data, 1.0f, 1, 10);
+		ImGui::DragFloat3("Spacing", volume.spacing.data.data, 0.05f, 0.05, 5);
+
+		ImGui::Checkbox("Use Relocation", &use_relocation);
+		ImGui::Checkbox("Use Classification", &use_classification);
+		char* items[] = { "Irradiance", "Distance", "State", "State Not Disabled" };
+		ImGui::Combo("Preview Combo", &visualization_settings.mode, items, _countof(items));
+	}
+}
+
+void DDGIRenderer::addTraceRaysPass(FrameGraph &fg, Ref<RayTracingScene> rt_scene)
+{
+	fg.addCallbackPass<EmptyData>("DDGI Trace Rays Pass",
+	[&](RenderPassBuilder &builder, EmptyData &data)
+	{
+		builder.setSideEffect(true);
+		builder.readTexture(GFXRID(Sky));
+		if (use_relocation || use_classification)
+			builder.readTexture(GFXRID(DDGIMetadata));
+	},
+	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
+	{
+		gGlobalPipeline->setupRayTracing(L"shaders/ddgi/ddgi_trace_rays.hlsl");
+		gGlobalPipeline->flushAndBind(cmd_list);
+
+		gDynamicRHI->setAccelerationStructure(2, rt_scene->getTopLevelAS());
+
+		gDynamicRHI->setUAVBuffer(1, ray_data_buffer);
+
+		struct Constants
+		{
+			uint32_t environment_tex_id;
+		} constants;
+		constants.environment_tex_id = resources.getBindlessId(GFXRID(Sky));
+		gDynamicRHI->setConstantBufferData(3, &constants, sizeof(constants));
+
+		cmd_list->dispatchRays(volume.rays_per_probe, volume.getProbesCount(), 1);
+	});
+}
+
+void DDGIRenderer::addUpdatePass(FrameGraph & fg)
+{
+	fg.addCallbackPass<EmptyData>("DDGI Update Irradiances Pass",
+	[&](RenderPassBuilder &builder, EmptyData &data)
+	{
+		builder.writeUAVTexture(GFXRID(DDGIIrradiance), TEXTURE_RESOURCE_ACCESS_GENERAL);
+		if (use_relocation || use_classification)
+			builder.readTexture(GFXRID(DDGIMetadata));
+	},
+	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
+	{
+		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/ddgi/ddgi_update_probe.hlsl", COMPUTE_SHADER, "CSMain", {{"NUM_TEXELS", "8"}, {"IRRADIANCE", "1"}}));
+		gGlobalPipeline->flushAndBind(cmd_list);
+
+		gDynamicRHI->setUAVTexture(1, resources.getTexture(GFXRID(DDGIIrradiance)));
+
+		// XZ plane, Y layer
+		cmd_list->dispatch(volume.size.x, volume.size.z, volume.size.y);
+		gDynamicRHI->waitGPU();
+	});
+
+	fg.addCallbackPass<EmptyData>("DDGI Update Distances Pass",
+	[&](RenderPassBuilder &builder, EmptyData &data)
+	{
+		builder.writeUAVTexture(GFXRID(DDGIDistance), TEXTURE_RESOURCE_ACCESS_GENERAL);
+		if (use_relocation || use_classification)
+			builder.readTexture(GFXRID(DDGIMetadata));
+	},
+	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
+	{
+		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/ddgi/ddgi_update_probe.hlsl", COMPUTE_SHADER, "CSMain", {{"NUM_TEXELS", "16"}}));
+		gGlobalPipeline->flushAndBind(cmd_list);
+
+		gDynamicRHI->setUAVTexture(1, resources.getTexture(GFXRID(DDGIDistance)));
+
+		// XZ plane, Y layer
+		cmd_list->dispatch(volume.size.x, volume.size.z, volume.size.y);
+		gDynamicRHI->waitGPU();
+	});
+}
+
+void DDGIRenderer::addRelocationPass(FrameGraph & fg)
+{
+	fg.addCallbackPass<EmptyData>("DDGI Relocation Pass",
+	[&](RenderPassBuilder &builder, EmptyData &data)
+	{
+		builder.writeUAVTexture(GFXRID(DDGIMetadata), TEXTURE_RESOURCE_ACCESS_GENERAL);
+	},
+	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
+	{
+		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/ddgi/ddgi_relocation.hlsl", COMPUTE_SHADER, "CS_Relocate"));
+		gGlobalPipeline->flushAndBind(cmd_list);
+
+		gDynamicRHI->setUAVTexture(1, resources.getTexture(GFXRID(DDGIMetadata)));
+
+		uint32_t probes_count = volume.getProbesCount();
+		uint32_t num_groups = ceil(probes_count / 32.0f);
+		cmd_list->dispatch(num_groups, 1, 1);
+		gDynamicRHI->waitGPU();
+	});
+}
+
+void DDGIRenderer::addResetRelocationPass(FrameGraph & fg)
+{
+	fg.addCallbackPass<EmptyData>("DDGI Reset Relocation Pass",
+	[&](RenderPassBuilder &builder, EmptyData &data)
+	{
+		builder.writeUAVTexture(GFXRID(DDGIMetadata), TEXTURE_RESOURCE_ACCESS_GENERAL);
+	},
+	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
+	{
+		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/ddgi/ddgi_relocation.hlsl", COMPUTE_SHADER, "CS_ResetRelocation"));
+		gGlobalPipeline->flushAndBind(cmd_list);
+
+		gDynamicRHI->setUAVTexture(1, resources.getTexture(GFXRID(DDGIMetadata)));
+
+		uint32_t probes_count = volume.getProbesCount();
+		uint32_t num_groups = ceil(probes_count / 32.0f);
+		cmd_list->dispatch(num_groups, 1, 1);
+		gDynamicRHI->waitGPU();
+	});
+}
+
+void DDGIRenderer::addClassificationPass(FrameGraph &fg)
+{
+	fg.addCallbackPass<EmptyData>("DDGI Classification Pass",
+	[&](RenderPassBuilder &builder, EmptyData &data)
+	{
+		builder.writeUAVTexture(GFXRID(DDGIMetadata), TEXTURE_RESOURCE_ACCESS_GENERAL);
+	},
+	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
+	{
+		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/ddgi/ddgi_classification.hlsl", COMPUTE_SHADER, "CS_Classification"));
+		gGlobalPipeline->flushAndBind(cmd_list);
+
+		gDynamicRHI->setUAVTexture(1, resources.getTexture(GFXRID(DDGIMetadata)));
+
+		uint32_t probes_count = volume.getProbesCount();
+		uint32_t num_groups = ceil(probes_count / 32.0f);
+		cmd_list->dispatch(num_groups, 1, 1);
+		gDynamicRHI->waitGPU();
+	});
+}
+
+void DDGIRenderer::addResetClassificationPass(FrameGraph & fg)
+{
+	fg.addCallbackPass<EmptyData>("DDGI Reset Classification Pass",
+	[&](RenderPassBuilder &builder, EmptyData &data)
+	{
+		builder.writeUAVTexture(GFXRID(DDGIMetadata), TEXTURE_RESOURCE_ACCESS_GENERAL);
+	},
+	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
+	{
+		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/ddgi/ddgi_classification.hlsl", COMPUTE_SHADER, "CS_ResetClassification"));
+		gGlobalPipeline->flushAndBind(cmd_list);
+
+		gDynamicRHI->setUAVTexture(1, resources.getTexture(GFXRID(DDGIMetadata)));
+
+		uint32_t probes_count = volume.getProbesCount();
+		uint32_t num_groups = ceil(probes_count / 32.0f);
+		cmd_list->dispatch(num_groups, 1, 1);
+		gDynamicRHI->waitGPU();
+	});
+}

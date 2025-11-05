@@ -38,38 +38,6 @@ struct SurfaceProperties
 // Geometry
 // ============================================================================
 
-struct VertexData
-{
-	float3 position;
-	float3 normal;
-	float2 uv;
-};
-
-VertexData GetVertexData(Mesh mesh, uint primitive_id, float2 bary)
-{
-	uint index_0 = GetMeshVertexData<uint>(mesh.index_buffer_id, 0, 3 * primitive_id, sizeof(uint));
-	uint index_1 = GetMeshVertexData<uint>(mesh.index_buffer_id, 0, 3 * primitive_id + 1, sizeof(uint));
-	uint index_2 = GetMeshVertexData<uint>(mesh.index_buffer_id, 0, 3 * primitive_id + 2, sizeof(uint));
-
-	float3 pos_1 = GetMeshVertexData<float3>(mesh.vertex_buffer_id, mesh.positions_offset, index_0, mesh.vertex_stride);
-	float3 pos_2 = GetMeshVertexData<float3>(mesh.vertex_buffer_id, mesh.positions_offset, index_1, mesh.vertex_stride);
-	float3 pos_3 = GetMeshVertexData<float3>(mesh.vertex_buffer_id, mesh.positions_offset, index_2, mesh.vertex_stride);
-
-	float3 normal_1 = GetMeshVertexData<float3>(mesh.vertex_buffer_id, mesh.normals_offset, index_0, mesh.vertex_stride);
-	float3 normal_2 = GetMeshVertexData<float3>(mesh.vertex_buffer_id, mesh.normals_offset, index_1, mesh.vertex_stride);
-	float3 normal_3 = GetMeshVertexData<float3>(mesh.vertex_buffer_id, mesh.normals_offset, index_2, mesh.vertex_stride);
-
-	float2 uv_1 = GetMeshVertexData<float2>(mesh.vertex_buffer_id, mesh.uvs_offset, index_0, mesh.vertex_stride);
-	float2 uv_2 = GetMeshVertexData<float2>(mesh.vertex_buffer_id, mesh.uvs_offset, index_1, mesh.vertex_stride);
-	float2 uv_3 = GetMeshVertexData<float2>(mesh.vertex_buffer_id, mesh.uvs_offset, index_2, mesh.vertex_stride);
-
-	VertexData vertex;
-	vertex.position = Interpolate(pos_1, pos_2, pos_3, bary);
-	vertex.normal = Interpolate(normal_1, normal_2, normal_3, bary);
-	vertex.uv = Interpolate(uv_1, uv_2, uv_3, bary);
-	return vertex;
-}
-
 struct SurfaceHit
 {
 	float3 position;
@@ -97,7 +65,8 @@ SurfaceHit TraceSurface(RayDesc ray)
 		VertexData vertex = GetVertexData(mesh, payload.primitive_id, payload.bary);
 		
 		hit.position = mul(instance.world_transform, float4(vertex.position, 1.0)).xyz;
-		hit.normal = normalize(vertex.normal);
+		float3x3 normalMatrix = (float3x3)instance.world_transform;
+		hit.normal = normalize(mul(normalMatrix, vertex.normal));
 		hit.uv = vertex.uv;
 		hit.instance_id = payload.instance_id;
 		hit.primitive_id = payload.primitive_id;

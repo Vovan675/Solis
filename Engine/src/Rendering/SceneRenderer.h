@@ -18,6 +18,7 @@
 #include "renderers/ShadowRenderer.h"
 #include "renderers/SSAORenderer.h"
 #include "renderers/SSRRenderer.h"
+#include "renderers/DDGIRenderer.h"
 
 #include "renderers/PathTracingRenderer.h"
 
@@ -61,6 +62,7 @@ public:
 
 	SSAORenderer ssao_renderer;
 	SSRRenderer ssr_renderer;
+	DDGIRenderer ddgi_renderer;
 
 	PathTracingRenderer path_tracing_renderer;
 };

@@ -226,6 +226,12 @@ void DebugRenderer::addTextureDebugPass(FrameGraph &fg)
 		builder.readTexture(GFXRID(LutBRDF));
 		if (builder.isTextureCreated(GFXRID(SSAOBlurred)))
 			builder.readTexture(GFXRID(SSAOBlurred));
+		if (builder.isTextureCreated(GFXRID(DDGIDistance)))
+			builder.readTexture(GFXRID(DDGIDistance));
+		if (builder.isTextureCreated(GFXRID(DDGIIrradiance)))
+			builder.readTexture(GFXRID(DDGIIrradiance));
+		if (builder.isTextureCreated(GFXRID(DDGIMetadata)))
+			builder.readTexture(GFXRID(DDGIMetadata));
 		builder.readTexture(GFXRID(FinalNoPostTexture));
 		if (ray_tracing_shadows_data)
 			builder.read(ray_tracing_shadows_data->visibility);
@@ -247,6 +253,9 @@ void DebugRenderer::addTextureDebugPass(FrameGraph &fg)
 			ubo.ssao_id = resources.getBindlessId(GFXRID(SSAOBlurred));
 		else
 			ubo.ssao_id = 0;
+		ubo.ddgi_distance_tex_id = resources.has(GFXRID(DDGIDistance)) ? resources.getBindlessId(GFXRID(DDGIDistance)) : 0;
+		ubo.ddgi_irradiance_tex_id = resources.has(GFXRID(DDGIIrradiance)) ? resources.getBindlessId(GFXRID(DDGIIrradiance)) : 0;
+		ubo.ddgi_metadata_tex_id = resources.has(GFXRID(DDGIMetadata)) ? resources.getBindlessId(GFXRID(DDGIMetadata)) : 0;
 		ubo.composite_final_tex_id = resources.getBindlessId(GFXRID(FinalNoPostTexture));
 
 		if (ray_tracing_shadows_data)

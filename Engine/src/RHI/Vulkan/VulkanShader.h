@@ -7,7 +7,7 @@ class VulkanDynamicRHI;
 class VulkanShader final: public RHIShader
 {
 public:
-	VulkanShader(const eastl::wstring &path, ShaderType type, eastl::wstring entry_point, eastl::vector<eastl::pair<const char *, const char *>> defines);
+	VulkanShader(const eastl::wstring &path, ShaderType type, eastl::string entry_point, eastl::vector<eastl::pair<const char *, const char *>> defines);
 	~VulkanShader() { destroy(); }
 
 	void destroy();

@@ -81,6 +81,7 @@ enum Format
 	FORMAT_R16G16_UNORM,
 	FORMAT_R16G16_SFLOAT,
 	FORMAT_R16G16B16A16_UNORM,
+	FORMAT_R16G16B16A16_SFLOAT,
 
 	// 32 bit
 	FORMAT_R32_UINT,
@@ -116,6 +117,7 @@ inline uint32_t getFormatSize(Format format)
 		case FORMAT_R16_UNORM: return 2;
 		case FORMAT_R16G16_UNORM: return 4;
 		case FORMAT_R16G16B16A16_UNORM: return 8;
+		case FORMAT_R16G16B16A16_SFLOAT: return 8;
 
 		// 32 bit
 		case FORMAT_R32_UINT:
@@ -150,6 +152,7 @@ inline const char *getFormatName(Format format)
 		case FORMAT_R16_UNORM: return "R16_UNORM";
 		case FORMAT_R16G16_UNORM: return "R16G16_UNORM";
 		case FORMAT_R16G16B16A16_UNORM: return "R16G16B16A16_UNORM";
+		case FORMAT_R16G16B16A16_SFLOAT: return "R16G16B16A16_SFLOAT";
 		case FORMAT_R32_UINT: return "R32_UINT";
 		case FORMAT_R32_SFLOAT: return "R32_SFLOAT";
 		case FORMAT_R32G32_SFLOAT: return "R32G32_SFLOAT";

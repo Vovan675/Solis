@@ -429,7 +429,7 @@ uint32_t DX12BindlessResources::addSampler(const TextureDescription &description
 	sampler_desc.AddressV = address_mode;
 	sampler_desc.AddressW = address_mode;
 	sampler_desc.MipLODBias = 0;
-	sampler_desc.MaxAnisotropy = description.anisotropy ? 4 : 1.0f;
+	sampler_desc.MaxAnisotropy = description.anisotropy ? 16 : 1.0f;
 	sampler_desc.ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
 	sampler_desc.MinLOD = 0.0f;
 	sampler_desc.MaxLOD = D3D12_FLOAT32_MAX;

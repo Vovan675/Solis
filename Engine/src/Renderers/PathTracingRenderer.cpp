@@ -12,7 +12,7 @@ PathTracingRenderer::PathTracingRenderer()
 
 static uint32_t accumulation_frame = 0;
 
-void PathTracingRenderer::AddPass(FrameGraph &fg, Ref<RayTracingScene> rt_scene)
+void PathTracingRenderer::addPass(FrameGraph &fg, Ref<RayTracingScene> rt_scene)
 {
 	if (!accumulation_texture || accumulation_texture->getSize() != Renderer::getViewportSize())
 	{

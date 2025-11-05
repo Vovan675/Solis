@@ -1,6 +1,7 @@
 #pragma once
 #include "RHI/RHIDefinitions.h"
 #include "RHI/RHITexture.h"
+#include "RHI/RHIBuffer.h"
 #include "RHI/Vulkan/Descriptors.h"
 #include "RHI/Vulkan/VulkanResources.h"
 

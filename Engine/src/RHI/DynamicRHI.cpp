@@ -70,13 +70,14 @@ private:
 };
 
 
-DynamicRHI::CompileShaderResult DynamicRHI::compile_shader(eastl::wstring path, ShaderType type, eastl::wstring entry_point, bool is_vulkan, eastl::vector<eastl::pair<const char *, const char *>> *defines)
+DynamicRHI::CompileShaderResult DynamicRHI::compile_shader(eastl::wstring path, ShaderType type, eastl::string entry_point, bool is_vulkan, eastl::vector<eastl::pair<const char *, const char *>> *defines)
 {
+	eastl::wstring entry_point_wstr = unicode_to_wstring(entry_point.c_str());
 	eastl::vector<LPCWSTR> args =
 	{
 		path.c_str(),            // Optional shader_blob source file name for error reporting
 		// and for PIX shader_blob source view.  
-		L"-E", entry_point.c_str(),              // Entry point.
+		L"-E", entry_point_wstr.c_str(),              // Entry point.
 		L"-Zs",                      // Enable debug information (slim format)
 		//L"-Zi",
 		//L"-Qsource_in_debug_module", 

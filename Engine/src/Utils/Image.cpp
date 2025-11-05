@@ -196,6 +196,8 @@ void Image::save(const std::filesystem::path &path)
 				break;
 			case FORMAT_R16G16B16A16_UNORM:
 				break;
+			case FORMAT_R16G16B16A16_SFLOAT:
+				break;
 			case FORMAT_R32_UINT:
 				break;
 			case FORMAT_R32_SFLOAT:

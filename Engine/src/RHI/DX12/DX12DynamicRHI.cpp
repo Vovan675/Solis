@@ -182,22 +182,22 @@ void DX12DynamicRHI::resizeSwapchain(int width, int height)
 	swapchain->resize(width, height);
 }
 
-RHIShaderRef DX12DynamicRHI::createShader(eastl::wstring path, ShaderType type, eastl::wstring entry_point)
+RHIShaderRef DX12DynamicRHI::createShader(eastl::wstring path, ShaderType type, eastl::string entry_point)
 {
 	if (entry_point.empty())
 	{
 		if (type == VERTEX_SHADER)
-			entry_point = L"VSMain";
+			entry_point = "VSMain";
 		else if (type == FRAGMENT_SHADER)
-			entry_point = L"PSMain";
+			entry_point = "PSMain";
 		else if (type == COMPUTE_SHADER)
-			entry_point = L"CSMain";
+			entry_point = "CSMain";
 		else if (type == RAY_GENERATION_SHADER)
-			entry_point = L"RayGen";
+			entry_point = "RayGen";
 		else if (type == MISS_SHADER)
-			entry_point = L"Miss";
+			entry_point = "Miss";
 		else if (type == CLOSEST_HIT_SHADER)
-			entry_point = L"ClosestHit";
+			entry_point = "ClosestHit";
 	}
 
 	size_t cache_hash = 0;
@@ -215,22 +215,8 @@ RHIShaderRef DX12DynamicRHI::createShader(eastl::wstring path, ShaderType type, 
 	return shader;
 }
 
-RHIShaderRef DX12DynamicRHI::createShader(eastl::wstring path, ShaderType type, eastl::vector<eastl::pair<const char *, const char *>> defines)
+RHIShaderRef DX12DynamicRHI::createShader(eastl::wstring path, ShaderType type, eastl::string entry_point, eastl::vector<eastl::pair<const char *, const char *>> defines)
 {
-	eastl::wstring entry_point;
-	if (type == VERTEX_SHADER)
-		entry_point = L"VSMain";
-	else if (type == FRAGMENT_SHADER)
-		entry_point = L"PSMain";
-	else if (type == COMPUTE_SHADER)
-		entry_point = L"CSMain";
-	else if (type == RAY_GENERATION_SHADER)
-		entry_point = L"RayGen";
-	else if (type == MISS_SHADER)
-		entry_point = L"Miss";
-	else if (type == CLOSEST_HIT_SHADER)
-		entry_point = L"ClosestHit";
-
 	size_t cache_hash = 0;
 	hash_combine(cache_hash, path);
 	hash_combine(cache_hash, type);
@@ -368,7 +354,42 @@ void DX12DynamicRHI::prepareRenderCall()
 
 			DX12Texture *native_uav_texture = (DX12Texture *)current_bind_uav_textures[i];
 			// TODO: transit to UAV
+
 			native_uav_texture->transitLayout(cmd_list_native, TEXTURE_LAYOUT_UAV);
+
+			D3D12_RESOURCE_BARRIER barrier;
+			barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
+			barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+			barrier.UAV.pResource = native_uav_texture->resource->resource;
+
+			cmd_list_native->cmd_list->ResourceBarrier(1, &barrier);
+		}
+	}
+
+	if (is_uav_buffers_dirty)
+	{
+		for (int i = binding_info.uav_table.begin_register; i < binding_info.uav_table.end_register; i++)
+		{
+			if (current_bind_uav_buffers[i] == nullptr)
+				continue;
+
+			int relative_index = i - binding_info.uav_table.begin_register;
+			D3D12_CPU_DESCRIPTOR_HANDLE cpu_handle_srv_heap(cbv_srv_uav_heap->getHandle(first_cbv_heap_uav_textures_descriptor.getIndex() + relative_index).getCpuHandle());
+
+			DX12Buffer *native_uav_buffer = (DX12Buffer *)current_bind_uav_buffers[i];
+
+			// Copy from staging heap, to current frame's shader visible heap
+			D3D12_CPU_DESCRIPTOR_HANDLE cpu_handle_staging_heap = native_uav_buffer->getUnorderedAccessView().getCpuHandle();
+
+			device->CopyDescriptorsSimple(1, cpu_handle_srv_heap, cpu_handle_staging_heap, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+			// TODO: UAV barrier
+			D3D12_RESOURCE_BARRIER barrier;
+			barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
+			barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+			barrier.UAV.pResource = native_uav_buffer->resource->resource;
+
+			cmd_list_native->cmd_list->ResourceBarrier(1, &barrier);
 		}
 	}
 
@@ -400,11 +421,11 @@ void DX12DynamicRHI::prepareRenderCall()
 	};
 
 	bool is_update_srv_table = pso_changed || is_textures_dirty || is_acceleration_structures_dirty;
-	bool is_update_uav = pso_changed || is_uav_textures_dirty;
+	bool is_update_uav = pso_changed || is_uav_textures_dirty || is_uav_buffers_dirty;
 	if (binding_info.srv_table.registersCount() > 0 && is_update_srv_table)
 		setRootDescriptorTable(binding_info.srv_table.table_index, first_srv_heap_textures_descriptor.getGpuHandle());
 
-	if (binding_info.uav_table.table_index != -1 && is_uav_textures_dirty)
+	if (binding_info.uav_table.table_index != -1 && (is_uav_textures_dirty || is_uav_buffers_dirty))
 		setRootDescriptorTable(binding_info.uav_table.table_index, first_cbv_heap_uav_textures_descriptor.getGpuHandle());
 
 
@@ -420,6 +441,7 @@ void DX12DynamicRHI::prepareRenderCall()
 	is_textures_dirty = false;
 	is_uav_textures_dirty = false;
 	is_buffers_dirty = false;
+	is_uav_buffers_dirty = false;
 	is_acceleration_structures_dirty = false;
 }
 
@@ -432,6 +454,8 @@ void DX12DynamicRHI::beginFrame()
 		buf = nullptr;
 	for (auto &tex : current_bind_uav_textures)
 		tex = nullptr;
+	for (auto &buf : current_bind_uav_buffers)
+		buf = nullptr;
 	for (auto &as : current_bind_acceleration_structures)
 		as = nullptr;
 

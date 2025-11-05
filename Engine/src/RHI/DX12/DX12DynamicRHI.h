@@ -38,8 +38,8 @@ public:
 	// Inherited via DynamicRHI
 	RHISwapchainRef createSwapchain(GLFWwindow *window) override;
 	void resizeSwapchain(int width, int height) override;
-	RHIShaderRef createShader(eastl::wstring path, ShaderType type, eastl::wstring entry_point) override;
-	RHIShaderRef createShader(eastl::wstring path, ShaderType type, eastl::vector<eastl::pair<const char *, const char *>> defines) override;
+	RHIShaderRef createShader(eastl::wstring path, ShaderType type, eastl::string entry_point) override;
+	RHIShaderRef createShader(eastl::wstring path, ShaderType type, eastl::string entry_point, eastl::vector<eastl::pair<const char *, const char *>> defines) override;
 	RHIPipelineRef createPipeline() override;
 	RHIBufferRef createBuffer(BufferDescription description) override;
 	RHITextureRef createTexture(TextureDescription description) override;
@@ -167,6 +167,13 @@ public:
 		is_uav_textures_dirty = true;
 	}
 
+	void setUAVBuffer(unsigned int binding, RHIBufferRef buffer) override
+	{
+		DX12Buffer *native_buffer = (DX12Buffer *)buffer.getReference();
+		current_bind_uav_buffers[binding] = buffer.getReference();
+		is_uav_buffers_dirty = true;
+	}
+
 	void setAccelerationStructure(unsigned int binding, RHITopLevelAccelerationStructureRef acceleration_structure) override
 	{
 		DX12TopLevelAccelerationStructure *native_tlas = (DX12TopLevelAccelerationStructure *)acceleration_structure.getReference();
@@ -223,12 +230,15 @@ public:
 	RHIBuffer *current_bind_buffers[64];
 	D3D12_GPU_VIRTUAL_ADDRESS current_bind_buffers_gpu_address[64];
 
+	RHIBuffer *current_bind_uav_buffers[64];
+
 	RHITopLevelAccelerationStructure *current_bind_acceleration_structures[64];
 	D3D12_CPU_DESCRIPTOR_HANDLE current_bind_acceleration_structures_descriptors[64];
 
 	bool is_textures_dirty = false;
 	bool is_uav_textures_dirty = false;
 	bool is_buffers_dirty = false;
+	bool is_uav_buffers_dirty = false;
 	bool is_acceleration_structures_dirty = false;
 
 	DX12Pipeline *last_native_pso;

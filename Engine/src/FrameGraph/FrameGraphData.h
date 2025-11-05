@@ -33,6 +33,10 @@ struct EmptyData {};
 
 #define PathTraceAccumulation
 
+#define DDGIDistance
+#define DDGIIrradiance
+#define DDGIMetadata
+
 struct RayTracedShadowPass
 {
 	FrameGraphTextureId visibility;

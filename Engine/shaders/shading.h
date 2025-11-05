@@ -47,6 +47,11 @@ float Fr_DisneyDiffuse(float NdotV, float NdotL, float LdotH, float linearRoughn
     return lightScatter * viewScatter * energyFactor;
 }
 
+float3 LambertDiffuse(float3 albedo)
+{
+	return albedo / PI;
+}
+
 // ============================================================================
 // GGX Importance Sampling
 // ============================================================================

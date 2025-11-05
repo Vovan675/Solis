@@ -87,13 +87,18 @@ void SceneRenderer::render_deferred(Camera *camera, FrameGraph &frame_graph)
 	if (render_ssao)
 		ssao_renderer.addPasses(frame_graph);
 
+	if (render_ddgi)
+		ddgi_renderer.addPasses(frame_graph, rt_scene);
+
 	{
 		// Shadows
 		if (render_shadows)
-			shadow_renderer.addShadowMapPasses(frame_graph, render_batches);
-
-		if (render_ray_traced_shadows)
-			shadow_renderer.addRayTracedShadowPasses(frame_graph, rt_scene);
+		{
+			if (render_ray_traced_shadows)
+				shadow_renderer.addRayTracedShadowPasses(frame_graph, rt_scene);
+			else
+				shadow_renderer.addShadowMapPasses(frame_graph, render_batches);
+		}
 	}
 
 	{
@@ -107,6 +112,9 @@ void SceneRenderer::render_deferred(Camera *camera, FrameGraph &frame_graph)
 		// Forward
 		sky_renderer.addCompositePasses(frame_graph);
 	}
+
+	if (render_ddgi && render_ddgi_visualize)
+		ddgi_renderer.addVisualizePass(frame_graph);
 
 	// Render post process
 	{
@@ -122,7 +130,7 @@ void SceneRenderer::render_deferred(Camera *camera, FrameGraph &frame_graph)
 
 void SceneRenderer::render_path_traced(Camera *camera, FrameGraph &frame_graph)
 {
-	path_tracing_renderer.AddPass(frame_graph, rt_scene);
+	path_tracing_renderer.addPass(frame_graph, rt_scene);
 	post_renderer.addPasses(frame_graph);
 }
 
@@ -251,5 +259,6 @@ void SceneRenderer::update(Camera *camera)
 	uniforms.materials_buffer_id = gDynamicRHI->getBindlessResources()->addBuffer(materials_buffer);
 	uniforms.instances_buffer_id = gDynamicRHI->getBindlessResources()->addBuffer(instances_buffer);
 	uniforms.meshes_buffer_id = gDynamicRHI->getBindlessResources()->addBuffer(meshes_buffer);
+	uniforms.ddgi_volume_buffer_id = render_ddgi ? ddgi_renderer.getVolumeBufferId() : 0;
 	gDynamicRHI->setConstantBufferDataPerFrame(32, &uniforms, sizeof(uniforms));
 }

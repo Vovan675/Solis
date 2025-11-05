@@ -155,7 +155,7 @@ void VulkanTopLevelAccelerationStructure::build(bool update, const eastl::vector
 		desc.instanceCustomIndex = instance.instance_id;
 		desc.mask = instance.instance_mask;
 		desc.instanceShaderBindingTableRecordOffset = instance.instance_contribution_to_hit_group_index;
-		desc.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
+		desc.flags = 0;
 
 		VulkanBottomLevelAccelerationStructure *native_blas = (VulkanBottomLevelAccelerationStructure *)instance.blas.getReference();
 		desc.accelerationStructureReference = native_blas->deviceAddress;

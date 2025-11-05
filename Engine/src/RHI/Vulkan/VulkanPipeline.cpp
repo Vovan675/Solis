@@ -67,7 +67,7 @@ void VulkanPipeline::create(const PipelineDescription &description)
 		compShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 		compShaderStageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
 		compShaderStageInfo.module = static_cast<VulkanShader *>(description.compute_shader.getReference())->handle;
-		compShaderStageInfo.pName = "CSMain";
+		compShaderStageInfo.pName = description.compute_shader->getEntry().c_str();
 
 		VkComputePipelineCreateInfo pipelineInfo{};
 		pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
@@ -180,13 +180,13 @@ void VulkanPipeline::create(const PipelineDescription &description)
 		vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 		vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
 		vertShaderStageInfo.module = static_cast<VulkanShader *>(description.vertex_shader.getReference())->handle;
-		vertShaderStageInfo.pName = "VSMain";
+		vertShaderStageInfo.pName = description.vertex_shader->getEntry().c_str();
 
 		VkPipelineShaderStageCreateInfo fragShaderStageInfo{};
 		fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 		fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
 		fragShaderStageInfo.module = static_cast<VulkanShader *>(description.fragment_shader.getReference())->handle;
-		fragShaderStageInfo.pName = "PSMain";
+		fragShaderStageInfo.pName = description.fragment_shader->getEntry().c_str();
 
 		VkPipelineShaderStageCreateInfo shaderStagesInfo[] = {vertShaderStageInfo, fragShaderStageInfo};
 

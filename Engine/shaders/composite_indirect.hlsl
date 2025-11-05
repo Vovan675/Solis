@@ -1,5 +1,6 @@
 #include "bindless.h"
 #include "shading.h"
+#include "ddgi/ddgi_common.hlsl"
 
 struct VSInput {
 	float2 uv : TEXCOORD0;
@@ -80,7 +81,24 @@ PSOutput PSMain(VSInput input)
 	float3 specular = prefilter * (f0 * brdf_lut.x + brdf_lut.y);
 	float3 ibl = diffuse + specular;
 
+
 	output.ambient = float4(ibl * 0.1, 1.0);
+
+	if (ddgi_volume_buffer_id > 0)
+	{
+		StructuredBuffer<DDGIVolume> volumes = ResourceDescriptorHeap[ddgi_volume_buffer_id];
+		DDGIVolume volume = volumes[0];
+		float volume_weight = GetVolumeWeight(world_pos, volume);
+		if (volume_weight > 0.0f)
+		{
+			float3 surface_bias = GetSurfaceBias(normal, -v);
+			//output.ambient = float4(volume_weight, 0, 0, 1.0);
+			float3 irradiance = SampleIrradiance(world_pos, normal, surface_bias, volume);
+			output.ambient = float4(albedo.rgb / PI * irradiance * volume_weight, 1.0);
+			//output.ambient = float4(irradiance, 1.0);
+		}
+	}
+
 	output.specular = float4(0, 0, 0, 1.0);
 
 	#if SSR

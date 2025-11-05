@@ -7,6 +7,7 @@
 #include "Renderers/SSAORenderer.h"
 #include "Renderers/DefferedLightingRenderer.h"
 #include "Renderers/SkyRenderer.h"
+#include "Renderers/DDGIRenderer.h"
 
 class DebugPanel
 {
@@ -19,5 +20,6 @@ public:
 	PostProcessingRenderer *post_renderer;
 	DebugRenderer *debug_renderer;
 	SSAORenderer *ssao_renderer;
+	DDGIRenderer *ddgi_renderer;
 private:
 };

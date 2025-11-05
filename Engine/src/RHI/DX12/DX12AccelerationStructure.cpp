@@ -92,7 +92,7 @@ void DX12TopLevelAccelerationStructure::build(bool update, const eastl::vector<R
 		desc.InstanceID = instance.instance_id;
 		desc.InstanceMask = instance.instance_mask;
 		desc.InstanceContributionToHitGroupIndex = instance.instance_contribution_to_hit_group_index;
-		desc.Flags = D3D12_RAYTRACING_INSTANCE_FLAG_TRIANGLE_CULL_DISABLE;
+		desc.Flags = 0;
 
 		DX12BottomLevelAccelerationStructure *native_blas = (DX12BottomLevelAccelerationStructure *)instance.blas.getReference();
 		desc.AccelerationStructure = native_blas->buffer->getGPUAddress();

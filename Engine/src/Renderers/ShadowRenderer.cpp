@@ -18,8 +18,8 @@
 ShadowRenderer::ShadowRenderer()
 {
 	shadows_vertex_shader = gDynamicRHI->createShader(L"shaders/lighting/shadows.hlsl", VERTEX_SHADER);
-	shadows_fragment_shader_point = gDynamicRHI->createShader(L"shaders/lighting/shadows.hlsl", FRAGMENT_SHADER, {{"LIGHT_TYPE", "0"}});
-	shadows_fragment_shader_directional = gDynamicRHI->createShader(L"shaders/lighting/shadows.hlsl", FRAGMENT_SHADER, {{"LIGHT_TYPE", "1"}});
+	shadows_fragment_shader_point = gDynamicRHI->createShader(L"shaders/lighting/shadows.hlsl", FRAGMENT_SHADER, "PSMain", {{"LIGHT_TYPE", "0"}});
+	shadows_fragment_shader_directional = gDynamicRHI->createShader(L"shaders/lighting/shadows.hlsl", FRAGMENT_SHADER, "PSMain", {{"LIGHT_TYPE", "1"}});
 
 	if (engine_ray_tracing)
 	{

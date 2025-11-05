@@ -2,7 +2,7 @@
 #include "VulkanShader.h"
 #include "VulkanDynamicRHI.h"
 
-VulkanShader::VulkanShader(const eastl::wstring &path, ShaderType type, eastl::wstring entry_point, eastl::vector<eastl::pair<const char *, const char *>> defines)
+VulkanShader::VulkanShader(const eastl::wstring &path, ShaderType type, eastl::string entry_point, eastl::vector<eastl::pair<const char *, const char *>> defines)
 	: RHIShader(path, type, entry_point, defines)
 {
 	recompile();
@@ -147,6 +147,11 @@ eastl::vector<Descriptor> VulkanShader::getDescriptors(eastl::vector<VulkanShade
 						uint32_t size = binding->block.size;
 						if (!isDefined(DESCRIPTOR_TYPE_STORAGE_IMAGE, binding->set, binding->binding))
 							auto &desc = descriptors.emplace_back(DESCRIPTOR_TYPE_STORAGE_IMAGE, binding->set, binding->binding, size, stage, binding->name);
+					} else if (binding->descriptor_type == SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_BUFFER)
+					{
+						uint32_t size = binding->block.size;
+						if (!isDefined(DESCRIPTOR_TYPE_STORAGE_BUFFER, binding->set, binding->binding))
+							auto &desc = descriptors.emplace_back(DESCRIPTOR_TYPE_STORAGE_BUFFER, binding->set, binding->binding, size, stage, binding->name);
 					}
 
 				}

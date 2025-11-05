@@ -76,7 +76,7 @@ void DefferedCompositeRenderer::addPasses(FrameGraph &fg)
 		if (resources.has(GFXRID(SSR)))
 			ubo.ssr_tex_id = resources.getBindlessId(GFXRID(SSR));
 
-		auto shader = gDynamicRHI->createShader(L"shaders/composite_indirect.hlsl", FRAGMENT_SHADER, {
+		auto shader = gDynamicRHI->createShader(L"shaders/composite_indirect.hlsl", FRAGMENT_SHADER, "PSMain", {
 			{"SSR", ubo.ssr_tex_id ? "1" : "0"},
 			{"SSAO", ubo.ssao_tex_id ? "1" : "0"},
 		});
@@ -138,8 +138,4 @@ void DefferedCompositeRenderer::addPasses(FrameGraph &fg)
 
 		cmd_list->resetRenderTargets();
 	});
-}
-
-void DefferedCompositeRenderer::renderImgui()
-{
 }

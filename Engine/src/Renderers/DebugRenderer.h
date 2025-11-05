@@ -22,6 +22,9 @@ public:
 		uint32_t light_specular_id = 0;
 		uint32_t brdf_lut_id = 0;
 		uint32_t ssao_id = 0;
+		uint32_t ddgi_distance_tex_id = 0;
+		uint32_t ddgi_irradiance_tex_id = 0;
+		uint32_t ddgi_metadata_tex_id = 0;
 	} ubo;
 
 	DebugRenderer();

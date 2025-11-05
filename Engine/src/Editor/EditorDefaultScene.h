@@ -23,14 +23,20 @@ public:
 		//auto model = AssetManager::getModelAsset("assets/hideout/source/FullSceneSubstance.fbx");
 		//auto model = AssetManager::getModelAsset("assets/pbr/source/Ref.fbx");
 		//auto model = AssetManager::getModelAsset("assets/level/Isometric_Game_Level_Low_Poly.obj");
+		//auto model = AssetManager::getModelAsset("assets/other_sponza/Sponza.gltf");
+		//auto model = AssetManager::getModelAsset("assets/pica/scene.gltf");
+		//auto model = AssetManager::getModelAsset("assets/axis.fbx");
 		//model->saveFile("test_model.mesh");
 		//model->loadFile("test_model.mesh");
 		Entity entity = model->createEntity(model);
+		//entity.getTransform().setLocalScale(glm::vec3(1));
 		entity.getTransform().setLocalScale(glm::vec3(0.01));
 		//entity.addComponent<LightComponent>();
 
-		Entity light = Scene::getCurrentScene()->createEntity("Point Light");
-		light.getTransform().setLocalTransform(glm::eulerAngleXYX(3.14 / 4.0, 3.14 / 4.0, 0.0));
+		Entity light = Scene::getCurrentScene()->createEntity("Directional Light");
+		//light.getTransform().setLocalTransform(glm::eulerAngleXYX(3.14 / 4.0, 3.14 / 4.0, 0.0));
+		//light.getTransform().setLocalRotationEuler(glm::radians(glm::vec3(180.0f, 60.0f, 130.0f)));
+		light.getTransform().setLocalRotationEuler(glm::radians(glm::vec3(-111.0f, 0.0f, 175.0f)));
 		//light.getTransform().setLocalTransform(glm::eulerAngleXYX(3.14 / 2.0f, 0.01, 0.0));
 		auto &light_component = light.addComponent<LightComponent>();
 		light_component.setType(LIGHT_TYPE_DIRECTIONAL);

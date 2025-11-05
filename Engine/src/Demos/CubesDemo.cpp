@@ -61,8 +61,8 @@ void CubesDemo::initResources()
 	index_buffer->fill(cube_indices);
 
 	// Shaders (cache it and get in render?)
-	vertex_shader = gDynamicRHI->createShader(L"shaders/demos/test_shaders.hlsl", VERTEX_SHADER, L"VSMain");
-	pixel_shader = gDynamicRHI->createShader(L"shaders/demos/test_shaders.hlsl", FRAGMENT_SHADER, L"PSMain");
+	vertex_shader = gDynamicRHI->createShader(L"shaders/demos/test_shaders.hlsl", VERTEX_SHADER, "VSMain");
+	pixel_shader = gDynamicRHI->createShader(L"shaders/demos/test_shaders.hlsl", FRAGMENT_SHADER, "PSMain");
 
 	// Create PSO (cache it and set via global pso)
 	pso = gDynamicRHI->createPipeline();
@@ -106,8 +106,8 @@ void CubesDemo::initResources()
 
 	// Bindless
 	{
-		vertex_shader_bindless = gDynamicRHI->createShader(L"shaders/demos/bindless.hlsl", VERTEX_SHADER, L"VSMain");
-		pixel_shader_bindless = gDynamicRHI->createShader(L"shaders/demos/bindless.hlsl", FRAGMENT_SHADER, L"PSMain");
+		vertex_shader_bindless = gDynamicRHI->createShader(L"shaders/demos/bindless.hlsl", VERTEX_SHADER, "VSMain");
+		pixel_shader_bindless = gDynamicRHI->createShader(L"shaders/demos/bindless.hlsl", FRAGMENT_SHADER, "PSMain");
 
 		pso_bindless = gDynamicRHI->createPipeline();
 
@@ -279,11 +279,11 @@ void RenderTargetsDemo::initResources()
 	result_texture->fill();
 
 	// Shaders (cache it and get in render?)
-	vertex_shader = gDynamicRHI->createShader(L"shaders/demos/mesh_render.hlsl", VERTEX_SHADER, L"VSMain");
-	pixel_shader = gDynamicRHI->createShader(L"shaders/demos/mesh_render.hlsl", FRAGMENT_SHADER, L"PSMain");
+	vertex_shader = gDynamicRHI->createShader(L"shaders/demos/mesh_render.hlsl", VERTEX_SHADER, "VSMain");
+	pixel_shader = gDynamicRHI->createShader(L"shaders/demos/mesh_render.hlsl", FRAGMENT_SHADER, "PSMain");
 
-	vertex_shader_quad = gDynamicRHI->createShader(L"shaders/demos/quad.hlsl", VERTEX_SHADER, L"VSMain");
-	pixel_shader_quad = gDynamicRHI->createShader(L"shaders/demos/quad.hlsl", FRAGMENT_SHADER, L"PSMain");
+	vertex_shader_quad = gDynamicRHI->createShader(L"shaders/demos/quad.hlsl", VERTEX_SHADER, "VSMain");
+	pixel_shader_quad = gDynamicRHI->createShader(L"shaders/demos/quad.hlsl", FRAGMENT_SHADER, "PSMain");
 
 	model.load("assets/demo_scene.fbx");
 	//model.load("assets/cube.fbx");

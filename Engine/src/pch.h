@@ -57,3 +57,5 @@ using Microsoft::WRL::ComPtr;
 
 #include "Core/Memory.h"
 #include "Core/Log.h"
+
+#include "Utils/StringUtils.h"

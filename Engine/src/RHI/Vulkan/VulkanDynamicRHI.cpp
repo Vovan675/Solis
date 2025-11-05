@@ -150,22 +150,22 @@ void VulkanDynamicRHI::resizeSwapchain(int width, int height)
 	swapchain->resize(width, height);
 }
 
-RHIShaderRef VulkanDynamicRHI::createShader(eastl::wstring path, ShaderType type, eastl::wstring entry_point)
+RHIShaderRef VulkanDynamicRHI::createShader(eastl::wstring path, ShaderType type, eastl::string entry_point)
 {
 	if (entry_point.empty())
 	{
 		if (type == VERTEX_SHADER)
-			entry_point = L"VSMain";
+			entry_point = "VSMain";
 		else if (type == FRAGMENT_SHADER)
-			entry_point = L"PSMain";
+			entry_point = "PSMain";
 		else if (type == COMPUTE_SHADER)
-			entry_point = L"CSMain";
+			entry_point = "CSMain";
 		else if (type == RAY_GENERATION_SHADER)
-			entry_point = L"RayGen";
+			entry_point = "RayGen";
 		else if (type == MISS_SHADER)
-			entry_point = L"Miss";
+			entry_point = "Miss";
 		else if (type == CLOSEST_HIT_SHADER)
-			entry_point = L"ClosestHit";
+			entry_point = "ClosestHit";
 	}
 
 	size_t cache_hash = 0;
@@ -183,22 +183,8 @@ RHIShaderRef VulkanDynamicRHI::createShader(eastl::wstring path, ShaderType type
 	return shader;
 }
 
-RHIShaderRef VulkanDynamicRHI::createShader(eastl::wstring path, ShaderType type, eastl::vector<eastl::pair<const char *, const char *>> defines)
+RHIShaderRef VulkanDynamicRHI::createShader(eastl::wstring path, ShaderType type, eastl::string entry_point, eastl::vector<eastl::pair<const char *, const char *>> defines)
 {
-	eastl::wstring entry_point;
-	if (type == VERTEX_SHADER)
-		entry_point = L"VSMain";
-	else if (type == FRAGMENT_SHADER)
-		entry_point = L"PSMain";
-	else if (type == COMPUTE_SHADER)
-		entry_point = L"CSMain";
-	else if (type == RAY_GENERATION_SHADER)
-		entry_point = L"RayGen";
-	else if (type == MISS_SHADER)
-		entry_point = L"Miss";
-	else if (type == CLOSEST_HIT_SHADER)
-		entry_point = L"ClosestHit";
-
 	size_t cache_hash = 0;
 	hash_combine(cache_hash, path);
 	hash_combine(cache_hash, type);
@@ -336,6 +322,24 @@ void VulkanDynamicRHI::prepareRenderCall()
 			}
 		}
 
+		if (is_uav_buffers_dirty)
+		{
+			for (auto &desc : descriptors_info)
+			{
+				if (desc.type != DESCRIPTOR_TYPE_STORAGE_BUFFER || desc.set != 0)
+					continue;
+
+				VulkanBuffer *buffer = current_bind_uav_buffers[desc.binding];
+
+				if (buffer == nullptr)
+					continue;
+
+				VkDescriptorType descriptor_type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+
+				writer.writeBuffer(desc.binding, descriptor_type, buffer->buffer->resource, buffer->description.size);
+			}
+		}
+
 		if (is_buffers_dirty || true)
 		{
 			for (auto &desc : descriptors_info)
@@ -392,6 +396,7 @@ void VulkanDynamicRHI::prepareRenderCall()
 	is_textures_dirty = false;
 	is_uav_textures_dirty = false;
 	is_buffers_dirty = false;
+	is_uav_buffers_dirty = false;
 	is_acceleration_structures_dirty = false;
 }
 
@@ -457,7 +462,11 @@ void VulkanDynamicRHI::beginFrame()
 
 	for (auto &tex : current_bind_textures)
 		tex = nullptr;
+	for (auto &tex : current_bind_uav_textures)
+		tex = nullptr;
 	for (auto &buf : current_bind_structured_buffers)
+		buf = nullptr;
+	for (auto &buf : current_bind_uav_buffers)
 		buf = nullptr;
 
 	// Acquire image and trigger semaphore

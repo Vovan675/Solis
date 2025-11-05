@@ -3,7 +3,7 @@
 
 class DX12Shader final: public RHIShader {
 public:
-	DX12Shader(const eastl::wstring &path, ShaderType type, eastl::wstring entry_point, eastl::vector<eastl::pair<const char *, const char *>> defines, IDxcUtils* dxc_utils);
+	DX12Shader(const eastl::wstring &path, ShaderType type, eastl::string entry_point, eastl::vector<eastl::pair<const char *, const char *>> defines, IDxcUtils* dxc_utils);
 	~DX12Shader() { destroy(); }
 
 	void destroy();
