@@ -7,7 +7,6 @@ class CubesDemo
 public:
 	static void initResources();
 	static void render(RHICommandList *cmd_list);
-	static void renderBindless(RHICommandList *cmd_list);
 private:
 	inline static RHIBufferRef vertex_buffer;
 	inline static RHIBufferRef index_buffer;

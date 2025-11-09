@@ -14,18 +14,12 @@ void VulkanTexture::destroy()
 {
 	auto native_rhi = VulkanUtils::getNativeRHI();
 
-	for (auto &view : image_views)
-		native_rhi->releaseGPUResource(view.image_view.release());
-	image_views.clear();
-
+	shader_resource_views.clear();
+	unordered_access_views.clear();
+	render_target_views.clear();
 	
 	native_rhi->releaseGPUResource(image.release());
 	native_rhi->releaseGPUResource(allocation.release());
-
-	if (gDynamicRHI && gDynamicRHI->getBindlessResources())
-	{
-		gDynamicRHI->getBindlessResources()->removeTexture(this);
-	}
 }
 
 void VulkanTexture::fill()
@@ -70,8 +64,7 @@ void VulkanTexture::fill()
 	alloc_info.usage = VMA_MEMORY_USAGE_GPU_ONLY;
 	vmaCreateImage(VulkanUtils::getNativeRHI()->allocator, &imageInfo, &alloc_info, &image->resource, &allocation->resource, nullptr);
 
-	getImageView();
-	gDynamicRHI->getBindlessResources()->addTexture(this);
+	getShaderResourceView();
 }
 
 void VulkanTexture::fill(const void *sourceData)
@@ -159,7 +152,7 @@ void VulkanTexture::loadEquirectangularCubemap(const char *path)
 	{
 		uint32_t equirect_tex_id;
 	} uniforms;
-	uniforms.equirect_tex_id = gDynamicRHI->getBindlessResources()->getTextureIndex(equirect_texture);
+	uniforms.equirect_tex_id = equirect_texture->getShaderResourceView()->getBindlessIndex();
 	gDynamicRHI->setConstantBufferData(1, &uniforms, sizeof(uniforms));
 
 	cmd_list->dispatch(getWidth() / 32, getHeight() / 32, 6);
@@ -392,81 +385,46 @@ void VulkanTexture::generateMipmaps(RHICommandList *cmd_list)
 	*/
 }
 
-VkImageView VulkanTexture::getImageView(int mip, int layer, bool for_uav)
+RHITextureView *VulkanTexture::getRenderTargetView(uint32_t mip, uint32_t layer)
 {
-	// Find already created
-	for (const auto &view : image_views)
+	// Try to find view
+	for (auto &view : render_target_views)
 	{
-		if (view.mip == mip && view.layer == layer && view.for_uav == for_uav)
-			return view.image_view->resource;
+		const TextureViewDescription &view_desc = view->getDescription();
+		if (view_desc.mip == mip && view_desc.layer == layer)
+			return view;
 	}
 
-	// Otherwise create new
-	VkImageViewCreateInfo viewInfo{};
-	viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-	viewInfo.image = image->resource;
-	viewInfo.format = native_format;
-	viewInfo.subresourceRange.aspectMask = isDepthTexture() ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
+	auto &view = render_target_views.emplace_back(new VulkanTextureView(TextureViewDescription(this, TextureViewType::RENDER_TARGET, mip, layer)));
+	return view;
+}
 
-	// -1 = all mips
-	viewInfo.subresourceRange.baseMipLevel = mip == -1 ? 0 : mip;
-	viewInfo.subresourceRange.levelCount = mip == -1 ? description.mip_levels : 1;
-
-	// -1 = all layers
-	if (description.is_cube)
+RHITextureView *VulkanTexture::getShaderResourceView(uint32_t mip, uint32_t layer)
+{
+	// Try to find view
+	for (auto &view : shader_resource_views)
 	{
-		if (for_uav)
-		{
-			viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
-			viewInfo.subresourceRange.baseArrayLayer = 0;
-			viewInfo.subresourceRange.layerCount = 6;
-		} else
-		{
-			if (layer == -1)
-			{
-				viewInfo.viewType = VK_IMAGE_VIEW_TYPE_CUBE;
-				viewInfo.subresourceRange.baseArrayLayer = 0;
-				viewInfo.subresourceRange.layerCount = 6;
-			} else
-			{
-				viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-				viewInfo.subresourceRange.baseArrayLayer = layer;
-				viewInfo.subresourceRange.layerCount = 1;
-			}
-		}
-	} else if (description.array_levels > 1)
-	{
-		if (layer == -1)
-		{
-			viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
-			viewInfo.subresourceRange.baseArrayLayer = 0;
-			viewInfo.subresourceRange.layerCount = description.array_levels;
-		} else
-		{
-			viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-			viewInfo.subresourceRange.baseArrayLayer = layer;
-			viewInfo.subresourceRange.layerCount = 1;
-		}
-
-	} else
-	{
-		viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-		viewInfo.subresourceRange.layerCount = 1;
+		const TextureViewDescription &view_desc = view->getDescription();
+		if (view_desc.mip == mip && view_desc.layer == layer)
+			return view;
 	}
 
-	VkImageView image_view_resource;
-	CHECK_ERROR(vkCreateImageView(VulkanUtils::getNativeRHI()->device->logicalHandle, &viewInfo, nullptr, &image_view_resource));
+	auto &view = shader_resource_views.emplace_back(new VulkanTextureView(TextureViewDescription(this, TextureViewType::SHADER_RESOURCE, mip, layer)));
+	return view;
+}
 
-	if (debug_name)
-		VulkanUtils::setDebugName(VK_OBJECT_TYPE_IMAGE_VIEW, (uint64_t)image_view_resource, debug_name);
+RHITextureView *VulkanTexture::getUnorderedAccessView(uint32_t mip, uint32_t layer)
+{
+	// Try to find view
+	for (auto &view : unordered_access_views)
+	{
+		const TextureViewDescription &view_desc = view->getDescription();
+		if (view_desc.mip == mip && view_desc.layer == layer)
+			return view;
+	}
 
-	ImageView &view = image_views.emplace_back();
-	view.mip = mip;
-	view.layer = layer;
-	view.image_view = std::make_unique<VkImageViewResource>();
-	view.image_view->resource = image_view_resource;
-	
-	return image_view_resource;
+	auto &view = unordered_access_views.emplace_back(new VulkanTextureView(TextureViewDescription(this, TextureViewType::SHADER_RESOURCE_STORAGE, mip, layer)));
+	return view;
 }
 
 VkImageLayout VulkanTexture::get_vk_layout(TextureLayoutType layout_type)
@@ -500,4 +458,81 @@ VkImageLayout VulkanTexture::get_vk_layout(TextureLayoutType layout_type)
 void VulkanTexture::set_native_format()
 {
 	native_format = VulkanUtils::getNativeFormat(description.format);
+}
+
+VulkanTextureView::VulkanTextureView(TextureViewDescription description): RHITextureView(description)
+{
+	VulkanTexture *native_texture = (VulkanTexture *)description.texture;
+	VkFormat native_format = VulkanUtils::getNativeFormat(native_texture->getFormat());
+
+	VkImageViewCreateInfo viewInfo{};
+	viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+	viewInfo.image = native_texture->getImage();
+	viewInfo.format = native_format;
+	viewInfo.subresourceRange.aspectMask = native_texture->isDepthTexture() ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
+
+	// -1 = all mips
+	viewInfo.subresourceRange.baseMipLevel = description.mip == -1 ? 0 : description.mip;
+	viewInfo.subresourceRange.levelCount = description.mip == -1 ? native_texture->getMipLevels() : 1;
+
+	// -1 = all layers
+	if (native_texture->getDescription().is_cube)
+	{
+		if (description.view_type == TextureViewType::SHADER_RESOURCE_STORAGE)
+		{
+			viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
+			viewInfo.subresourceRange.baseArrayLayer = 0;
+			viewInfo.subresourceRange.layerCount = 6;
+		} else
+		{
+			if (description.layer == -1)
+			{
+				viewInfo.viewType = VK_IMAGE_VIEW_TYPE_CUBE;
+				viewInfo.subresourceRange.baseArrayLayer = 0;
+				viewInfo.subresourceRange.layerCount = 6;
+			} else
+			{
+				viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+				viewInfo.subresourceRange.baseArrayLayer = description.layer;
+				viewInfo.subresourceRange.layerCount = 1;
+			}
+		}
+	} else if (native_texture->getDescription().array_levels > 1)
+	{
+		if (description.layer == -1)
+		{
+			viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
+			viewInfo.subresourceRange.baseArrayLayer = 0;
+			viewInfo.subresourceRange.layerCount = native_texture->getDescription().array_levels;
+		} else
+		{
+			viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+			viewInfo.subresourceRange.baseArrayLayer = description.layer;
+			viewInfo.subresourceRange.layerCount = 1;
+		}
+
+	} else
+	{
+		viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+		viewInfo.subresourceRange.layerCount = 1;
+	}
+
+	VkImageView image_view_resource;
+	CHECK_ERROR(vkCreateImageView(VulkanUtils::getNativeRHI()->device->logicalHandle, &viewInfo, nullptr, &image_view_resource));
+
+	if (native_texture->getDebugName())
+		VulkanUtils::setDebugName(VK_OBJECT_TYPE_IMAGE_VIEW, (uint64_t)image_view_resource, native_texture->getDebugName());
+
+	image_view = std::make_unique<VkImageViewResource>();
+	image_view->resource = image_view_resource;
+
+	if (description.view_type == TextureViewType::SHADER_RESOURCE)
+		bindless_index = gDynamicRHI->getBindlessResources()->addTexture(description.texture);
+}
+
+VulkanTextureView::~VulkanTextureView()
+{
+	gDynamicRHI->releaseGPUResource(image_view.release());
+	if (gDynamicRHI && gDynamicRHI->getBindlessResources())
+		gDynamicRHI->getBindlessResources()->removeTexture(description.texture);
 }

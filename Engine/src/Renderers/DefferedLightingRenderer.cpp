@@ -116,8 +116,8 @@ void DefferedLightingRenderer::renderLights(FrameGraph &fg)
 				gDynamicRHI->setConstantBufferData(2, &constants, sizeof(PushConstant));
 
 				// Render mesh
-				cmd_list->setVertexBuffer(icosphere_mesh->vertexBuffer);
-				cmd_list->setIndexBuffer(icosphere_mesh->indexBuffer);
+				cmd_list->setVertexBuffer(icosphere_mesh->vertexBuffer, 0, sizeof(Engine::Vertex));
+				cmd_list->setIndexBuffer(icosphere_mesh->indexBuffer, 0, IndexFormat::UINT32);
 				cmd_list->drawIndexedInstanced(icosphere_mesh->indices.size(), 1, 0, 0, 0);
 
 			}
@@ -179,7 +179,7 @@ void DefferedLightingRenderer::renderLights(FrameGraph &fg)
 				constants.light_range_square = pow(light.radius, 2);
 				constants.light_intensity = light.intensity;
 				constants.z_far = light.radius;
-				constants.shadow_map_tex_id = gDynamicRHI->getBindlessResources()->getTextureIndex(light.shadow_map);
+				constants.shadow_map_tex_id = light.shadow_map->getShaderResourceView()->getBindlessIndex();
 
 				gDynamicRHI->setConstantBufferData(1, &ubo, sizeof(UBO));
 				gDynamicRHI->setConstantBufferData(0, &ubo_sphere, sizeof(UniformBufferObject));
@@ -187,8 +187,8 @@ void DefferedLightingRenderer::renderLights(FrameGraph &fg)
 				gDynamicRHI->setConstantBufferData(2, &constants, sizeof(PushConstant));
 
 				// Render mesh
-				cmd_list->setVertexBuffer(icosphere_mesh->vertexBuffer);
-				cmd_list->setIndexBuffer(icosphere_mesh->indexBuffer);
+				cmd_list->setVertexBuffer(icosphere_mesh->vertexBuffer, 0, sizeof(Engine::Vertex));
+				cmd_list->setIndexBuffer(icosphere_mesh->indexBuffer, 0, IndexFormat::UINT32);
 				cmd_list->drawIndexedInstanced(icosphere_mesh->indices.size(), 1, 0, 0, 0);
 
 			}

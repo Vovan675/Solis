@@ -20,7 +20,6 @@ IrradianceRenderer::IrradianceRenderer(): RendererBase()
 	irradiance_texture = gDynamicRHI->createTexture(desc);
 	irradiance_texture->fill();
 	irradiance_texture->setDebugName("IBL Irradiance Image");
-	gDynamicRHI->getBindlessResources()->addTexture(irradiance_texture);
 }
 
 void IrradianceRenderer::addPass(FrameGraph &fg, uint32_t samples_count)

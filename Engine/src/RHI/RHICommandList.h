@@ -19,8 +19,8 @@ public:
 
 	virtual void setPipeline(RHIPipeline *pipeline) = 0;
 
-	virtual void setVertexBuffer(RHIBuffer *buffer) = 0;
-	virtual void setIndexBuffer(RHIBuffer *buffer) = 0;
+	virtual void setVertexBuffer(RHIBuffer *buffer, uint32_t offset, uint32_t stride) = 0;
+	virtual void setIndexBuffer(RHIBuffer *buffer, uint32_t offset, IndexFormat format = IndexFormat::UINT32) = 0;
 	virtual void drawIndexedInstanced(uint32_t indexCount, uint32_t instanceCount, uint32_t firstIndex, int32_t vertexOffset, uint32_t firstInstance) = 0;
 	virtual void drawInstanced(uint32_t vertex_count_per_instance, uint32_t instance_count, uint32_t firstVertex, uint32_t firstInstance) = 0;
 

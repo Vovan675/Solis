@@ -5,41 +5,13 @@
 #include "DX12DescriptorHeap.h"
 #include "D3D12MemoryAllocator/D3D12MemAlloc.h"
 
-enum ResourceState
-{
-	RESOURCE_STATE_UNDEFINED = 0,
-	RESOURCE_STATE_COMMON = 1 << 0,
-	RESOURCE_STATE_RENDER_TARGET = 1 << 1,
-	RESOURCE_STATE_SHADER_RESOURCE = 1 << 2,
-	RESOURCE_STATE_COPY_SRC = 1 << 3,
-	RESOURCE_STATE_COPY_DST = 1 << 4,
-	RESOURCE_STATE_UAV = 1 << 5,
-	RESOURCE_STATE_PRESENT = 1 << 6,
+class DX12BufferView;
 
-	RESOURCE_STATE_VERTEX_BUFFER = 1 << 7,
-	RESOURCE_STATE_INDEX_BUFFER = 1 << 8,
-};
-
-static D3D12_RESOURCE_STATES toDX12ResourceState(ResourceState state)
-{
-	D3D12_RESOURCE_STATES result = D3D12_RESOURCE_STATE_COMMON; // = 0
-	if (state & RESOURCE_STATE_SHADER_RESOURCE) result |= D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
-	if (state & RESOURCE_STATE_COPY_SRC) result |= D3D12_RESOURCE_STATE_COPY_SOURCE;
-	if (state & RESOURCE_STATE_COPY_DST) result |= D3D12_RESOURCE_STATE_COPY_DEST;
-	if (state & RESOURCE_STATE_UAV) result |= D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-	if (state & RESOURCE_STATE_VERTEX_BUFFER) result |= D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER;
-	if (state & RESOURCE_STATE_INDEX_BUFFER) result |= D3D12_RESOURCE_STATE_INDEX_BUFFER;
-	return result;
-}
-
-class DX12DynamicRHI;
 class DX12Buffer final: public RHIBuffer
 {
 public:
 	DX12Buffer(BufferDescription description);
 	~DX12Buffer();
-
-	void destroy();
 
 	void fill(const void *sourceData) override;
 	void map(void **data) override;
@@ -52,36 +24,33 @@ public:
 		return resource->resource->GetGPUVirtualAddress();
 	}
 
-	D3D12_VERTEX_BUFFER_VIEW getVertexBufferView() const
-	{
-		D3D12_VERTEX_BUFFER_VIEW view;
-		view.BufferLocation = resource->resource->GetGPUVirtualAddress();
-		view.SizeInBytes = description.size;
-		view.StrideInBytes = description.stride;
-		return view;
-	}
+	RHIBufferView *getShaderResourceView() override;
+	RHIBufferView *getUnorderedAccessView() override;
 
-	D3D12_INDEX_BUFFER_VIEW getIndexBufferView() const
-	{
-		D3D12_INDEX_BUFFER_VIEW view;
-		view.BufferLocation = resource->resource->GetGPUVirtualAddress();
-		view.SizeInBytes = description.size;
-		view.Format = DXGI_FORMAT_R32_UINT; //16?
-		return view;
-	}
-
-	DX12Descriptor getShaderResourceView() const { return shader_resource_view; }
-	DX12Descriptor getUnorderedAccessView() const { return unordered_access_view; }
-
+public:
+	ID3D12Resource *getResource() const { return resource->resource; }
+	D3D12MA::Allocation *getAllocation() const { return allocation->resource; }
 
 	void setState(ResourceState new_state);
-
-	std::unique_ptr<DX12AllocationResource> allocation;
-	std::unique_ptr<DX12Resource> resource;
-	bool is_mapped = false;
 private:
-
+	std::unique_ptr<DX12Resource> resource;
+	std::unique_ptr<DX12AllocationResource> allocation;
+	
 	ResourceState current_state;
-	DX12Descriptor shader_resource_view;
-	DX12Descriptor unordered_access_view;
+	Ref<DX12BufferView> shader_resource_view;
+	Ref<DX12BufferView> unordered_access_view;
+
+	bool is_mapped = false;
+};
+
+class DX12BufferView final: public RHIBufferView
+{
+public:
+	DX12BufferView(BufferViewDescription description);
+	~DX12BufferView();
+
+	const DX12Descriptor &getDescriptor() const { return descriptor; }
+
+private:
+	DX12Descriptor descriptor;
 };

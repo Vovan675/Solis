@@ -15,36 +15,9 @@ void DX12Texture::destroy()
 	rhi->releaseGPUResource(resource.release());
 	rhi->releaseGPUResource(allocation.release());
 
-	shader_resource_view = {};
-	unordered_access_view = {};
-	render_target_view = {};
-	depth_stencil_view = {};
-
-	#define DELETE_DESCRIPTOR(descriptor, heap) if (descriptor.isValid())	{ rhi->heap->release(descriptor); descriptor = {}; }
-
-	for (auto &view : shader_resource_views)
-		DELETE_DESCRIPTOR(view.handle, cbv_srv_uav_staging_heap);
 	shader_resource_views.clear();
-
-	for (auto &view : unordered_access_views)
-		DELETE_DESCRIPTOR(view.handle, cbv_srv_uav_staging_heap);
 	unordered_access_views.clear();
-
-	for (auto &view : render_target_views)
-		DELETE_DESCRIPTOR(view.handle, render_target_view_heap);
 	render_target_views.clear();
-
-	for (auto &view : depth_stencil_views)
-		DELETE_DESCRIPTOR(view.handle, depth_stencil_view_heap);
-	depth_stencil_views.clear();
-
-	#undef DELETE_DESCRIPTOR
-
-
-	if (gDynamicRHI && gDynamicRHI->getBindlessResources())
-	{
-		gDynamicRHI->getBindlessResources()->removeTexture(this);
-	}
 }
 
 void DX12Texture::fill()
@@ -111,7 +84,6 @@ void DX12Texture::fill()
 		&allocation->resource,
 		IID_PPV_ARGS(&resource->resource));
 	create_views();
-	gDynamicRHI->getBindlessResources()->addTexture(this);
 }
 
 void DX12Texture::fill(const void *sourceData)
@@ -285,265 +257,253 @@ void DX12Texture::create_views()
 {
 	DX12DynamicRHI *rhi = (DX12DynamicRHI *)gDynamicRHI;
 
-	shader_resource_view = getShaderResourceView();
+	getShaderResourceView();
 
 	// UAV
 	if (isUAV())
-	{
-		unordered_access_view = getUnorderedAccessView();
-	}
-	// RTV
-	if (isRenderTargetTexture() && !isDepthTexture())
-	{
-		render_target_view = getRenderTargetView();
-	}
-
-	// DSV
-	if (isDepthTexture())
-	{
-		depth_stencil_view = getDepthStencilView();
-	}
+		getUnorderedAccessView();
+	// RTV/DSV
+	if (isRenderTargetTexture())
+		getRenderTargetView();
 }
 
-DX12Descriptor DX12Texture::getShaderResourceView(int mip, int layer)
+RHITextureView *DX12Texture::getRenderTargetView(uint32_t mip, uint32_t layer)
 {
-	if (mip == -1 && layer == -1 && shader_resource_view.isValid())
-		return shader_resource_view;
-
-	// Try to find view
-	for (auto &view : shader_resource_views)
-	{
-		if (view.mip == mip && view.layer == layer)
-			return view.handle;
-	}
-
-	auto &view = shader_resource_views.emplace_back();
-	view.mip = mip;
-	view.layer = layer;
-
-	DX12DynamicRHI *rhi = (DX12DynamicRHI *)gDynamicRHI;
-
-	// Allocate in staging heap
-	view.handle = rhi->cbv_srv_uav_staging_heap->allocate();
-
-	DXGI_FORMAT srv_format = native_format;
-	if (description.format == FORMAT_D32S8)
-	{
-		srv_format = DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS;
-	}
-
-	int mip_count = mip == -1 ? description.mip_levels : 1;
-	int mip_base = mip == -1 ? 0 : mip;
-
-	D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
-	srv_desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-	srv_desc.Format = srv_format;
-	if (description.is_cube)
-	{
-		srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBE;
-		srv_desc.TextureCube.MipLevels = mip_count;
-		srv_desc.TextureCube.MostDetailedMip = mip_base;
-	} else if (description.array_levels > 1)
-	{
-		srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2DARRAY;
-		srv_desc.Texture2DArray.MipLevels = mip_count;
-		srv_desc.Texture2DArray.MostDetailedMip = mip_base;
-		if (layer == -1)
-		{
-			srv_desc.Texture2DArray.FirstArraySlice = 0;
-			srv_desc.Texture2DArray.ArraySize = description.array_levels;
-		} else
-		{
-			srv_desc.Texture2DArray.FirstArraySlice = layer;
-			srv_desc.Texture2DArray.ArraySize = 1;
-		}
-	}  else
-	{
-		srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-		srv_desc.Texture2D.MipLevels = mip_count;
-		srv_desc.Texture2D.MostDetailedMip = mip_base;
-	}
-
-	rhi->device->CreateShaderResourceView(resource->resource, &srv_desc, view.handle.getCpuHandle());
-	return view.handle;
-}
-
-DX12Descriptor DX12Texture::getRenderTargetView(int mip, int layer)
-{
-	if (!isRenderTargetTexture() || isDepthTexture())
-		return {};
-
-	if (mip == 0 && layer == -1 && render_target_view.isValid())
-		return render_target_view;
-
 	// Try to find view
 	for (auto &view : render_target_views)
 	{
-		if (view.mip == mip && view.layer == layer)
-			return view.handle;
+		const TextureViewDescription &view_desc = view->getDescription();
+		if (view_desc.mip == mip && view_desc.layer == layer)
+			return view;
 	}
 
-	// Create new RTV
-	auto &view = render_target_views.emplace_back();
-	view.mip = mip;
-	view.layer = layer;
-
-	DX12DynamicRHI *rhi = (DX12DynamicRHI *)gDynamicRHI;
-
-	view.handle = rhi->render_target_view_heap->allocate();
-
-	D3D12_RENDER_TARGET_VIEW_DESC rtv_desc = {};
-	rtv_desc.Format = native_format;
-	if (description.is_cube)
-	{
-		rtv_desc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2DARRAY;
-		rtv_desc.Texture2DArray.MipSlice = mip;
-		if (layer == -1)
-		{
-			rtv_desc.Texture2DArray.FirstArraySlice = 0;
-			rtv_desc.Texture2DArray.ArraySize = 6;
-		} else
-		{
-			rtv_desc.Texture2DArray.FirstArraySlice = layer;
-			rtv_desc.Texture2DArray.ArraySize = 1;
-		}
-	} else if (description.array_levels > 1)
-	{
-		rtv_desc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2DARRAY;
-		rtv_desc.Texture2DArray.MipSlice = mip;
-		if (layer == -1)
-		{
-			rtv_desc.Texture2DArray.FirstArraySlice = 0;
-			rtv_desc.Texture2DArray.ArraySize = description.array_levels;
-		} else
-		{
-			rtv_desc.Texture2DArray.FirstArraySlice = layer;
-			rtv_desc.Texture2DArray.ArraySize = 1;
-		}
-	}  else
-	{
-		rtv_desc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
-		rtv_desc.Texture2D.MipSlice = mip;
-	}
-	rhi->device->CreateRenderTargetView(resource->resource, &rtv_desc, view.handle.getCpuHandle());
-	return view.handle;
+	auto &view = render_target_views.emplace_back(new DX12TextureView(TextureViewDescription(this, TextureViewType::RENDER_TARGET, mip, layer)));
+	return view;
 }
 
-DX12Descriptor DX12Texture::getDepthStencilView(int mip, int layer)
+RHITextureView *DX12Texture::getShaderResourceView(uint32_t mip, uint32_t layer)
 {
-	if (!isDepthTexture())
-		return {};
-
-	if (mip == 0 && layer == -1 && depth_stencil_view.isValid())
-		return depth_stencil_view;
-
 	// Try to find view
-	for (auto &view : depth_stencil_views)
+	for (auto &view : shader_resource_views)
 	{
-		if (view.mip == mip && view.layer == layer)
-			return view.handle;
+		const TextureViewDescription &view_desc = view->getDescription();
+		if (view_desc.mip == mip && view_desc.layer == layer)
+			return view;
 	}
 
-	// Create new RTV
-	auto &view = depth_stencil_views.emplace_back();
-	view.mip = mip;
-	view.layer = layer;
-
-	DX12DynamicRHI *rhi = (DX12DynamicRHI *)gDynamicRHI;
-
-	view.handle = rhi->depth_stencil_view_heap->allocate();
-
-	D3D12_DEPTH_STENCIL_VIEW_DESC dsv_desc = {};
-	dsv_desc.Format = native_format;
-	if (description.is_cube)
-	{
-		dsv_desc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2DARRAY;
-		dsv_desc.Texture2DArray.MipSlice = mip;
-		if (layer == -1)
-		{
-			dsv_desc.Texture2DArray.FirstArraySlice = 0;
-			dsv_desc.Texture2DArray.ArraySize = 6;
-		} else
-		{
-			dsv_desc.Texture2DArray.FirstArraySlice = layer;
-			dsv_desc.Texture2DArray.ArraySize = 1;
-		}
-	}  else if (description.array_levels > 1)
-	{
-		dsv_desc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2DARRAY;
-		dsv_desc.Texture2DArray.MipSlice = mip;
-		if (layer == -1)
-		{
-			dsv_desc.Texture2DArray.FirstArraySlice = 0;
-			dsv_desc.Texture2DArray.ArraySize = description.array_levels;
-		} else
-		{
-			dsv_desc.Texture2DArray.FirstArraySlice = layer;
-			dsv_desc.Texture2DArray.ArraySize = 1;
-		}
-	} else
-	{
-		dsv_desc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
-		dsv_desc.Texture2D.MipSlice = mip;
-	}
-	rhi->device->CreateDepthStencilView(resource->resource, &dsv_desc, view.handle.getCpuHandle());
-	return view.handle;
+	auto &view = shader_resource_views.emplace_back(new DX12TextureView(TextureViewDescription(this, TextureViewType::SHADER_RESOURCE, mip, layer)));
+	return view;
 }
 
-DX12Descriptor DX12Texture::getUnorderedAccessView(int mip, int layer)
+RHITextureView *DX12Texture::getUnorderedAccessView(uint32_t mip, uint32_t layer)
 {
-	if (mip == 0 && layer == -1 && unordered_access_view.isValid())
-		return unordered_access_view;
-
 	// Try to find view
 	for (auto &view : unordered_access_views)
 	{
-		if (view.mip == mip && view.layer == layer)
-			return view.handle;
+		const TextureViewDescription &view_desc = view->getDescription();
+		if (view_desc.mip == mip && view_desc.layer == layer)
+			return view;
 	}
 
-	// Create new UAV
-	auto &view = unordered_access_views.emplace_back();
-	view.mip = mip;
-	view.layer = layer;
+	auto &view = unordered_access_views.emplace_back(new DX12TextureView(TextureViewDescription(this, TextureViewType::SHADER_RESOURCE_STORAGE, mip, layer)));
+	return view;
+}
 
+DX12TextureView::DX12TextureView(TextureViewDescription description): RHITextureView(description)
+{
 	DX12DynamicRHI *rhi = (DX12DynamicRHI *)gDynamicRHI;
 
-	view.handle = rhi->cbv_srv_uav_staging_heap->allocate();
+	DX12Texture *native_texture = static_cast<DX12Texture *>(description.texture);
+	Format format = description.texture->getFormat();
 
-	D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc = {};
-	uav_desc.Format = native_format;
-	if (description.is_cube)
+	DXGI_FORMAT native_format = DX12Utils::getNativeFormat(format);
+
+	int mip_count = description.mip == -1 ? native_texture->getMipLevels() : 1;
+	int mip_base = description.mip == -1 ? 0 : description.mip;
+
+	if (description.view_type == TextureViewType::RENDER_TARGET)
 	{
-		uav_desc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2DARRAY;
-		uav_desc.Texture2DArray.MipSlice = mip;
-		if (layer == -1)
+		ENGINE_ASSERT_MSG(native_texture->isRenderTargetTexture(), "Can't create Render Target texture view on non render target texture");
+		
+		if (native_texture->isDepthTexture())
 		{
-			uav_desc.Texture2DArray.FirstArraySlice = 0;
-			uav_desc.Texture2DArray.ArraySize = 6;
+			descriptor = rhi->depth_stencil_view_heap->allocate();
+
+			D3D12_DEPTH_STENCIL_VIEW_DESC dsv_desc = {};
+			dsv_desc.Format = native_format;
+			if (native_texture->getDescription().is_cube)
+			{
+				dsv_desc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2DARRAY;
+				dsv_desc.Texture2DArray.MipSlice = description.mip;
+				if (description.layer == -1)
+				{
+					dsv_desc.Texture2DArray.FirstArraySlice = 0;
+					dsv_desc.Texture2DArray.ArraySize = 6;
+				} else
+				{
+					dsv_desc.Texture2DArray.FirstArraySlice = description.layer;
+					dsv_desc.Texture2DArray.ArraySize = 1;
+				}
+			}  else if (native_texture->getDescription().array_levels > 1)
+			{
+				dsv_desc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2DARRAY;
+				dsv_desc.Texture2DArray.MipSlice = description.mip;
+				if (description.layer == -1)
+				{
+					dsv_desc.Texture2DArray.FirstArraySlice = 0;
+					dsv_desc.Texture2DArray.ArraySize = native_texture->getDescription().array_levels;
+				} else
+				{
+					dsv_desc.Texture2DArray.FirstArraySlice = description.layer;
+					dsv_desc.Texture2DArray.ArraySize = 1;
+				}
+			} else
+			{
+				dsv_desc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
+				dsv_desc.Texture2D.MipSlice = description.mip;
+			}
+			rhi->device->CreateDepthStencilView(native_texture->getResource(), &dsv_desc, descriptor.getCpuHandle());
 		} else
 		{
-			uav_desc.Texture2DArray.FirstArraySlice = layer;
-			uav_desc.Texture2DArray.ArraySize = 1;
+			descriptor = rhi->render_target_view_heap->allocate();
+
+			D3D12_RENDER_TARGET_VIEW_DESC rtv_desc = {};
+			rtv_desc.Format = native_format;
+			if (native_texture->getDescription().is_cube)
+			{
+				rtv_desc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2DARRAY;
+				rtv_desc.Texture2DArray.MipSlice = description.mip;
+				if (description.layer == -1)
+				{
+					rtv_desc.Texture2DArray.FirstArraySlice = 0;
+					rtv_desc.Texture2DArray.ArraySize = 6;
+				} else
+				{
+					rtv_desc.Texture2DArray.FirstArraySlice = description.layer;
+					rtv_desc.Texture2DArray.ArraySize = 1;
+				}
+			} else if (native_texture->getDescription().array_levels > 1)
+			{
+				rtv_desc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2DARRAY;
+				rtv_desc.Texture2DArray.MipSlice = description.mip;
+				if (description.layer == -1)
+				{
+					rtv_desc.Texture2DArray.FirstArraySlice = 0;
+					rtv_desc.Texture2DArray.ArraySize = native_texture->getDescription().array_levels;
+				} else
+				{
+					rtv_desc.Texture2DArray.FirstArraySlice = description.layer;
+					rtv_desc.Texture2DArray.ArraySize = 1;
+				}
+			} else
+			{
+				rtv_desc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
+				rtv_desc.Texture2D.MipSlice = mip_base;
+			}
+			rhi->device->CreateRenderTargetView(native_texture->getResource(), &rtv_desc, descriptor.getCpuHandle());
 		}
-	} else if (description.array_levels > 1)
+	} else if (description.view_type == TextureViewType::SHADER_RESOURCE)
 	{
-		uav_desc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2DARRAY;
-		uav_desc.Texture2DArray.MipSlice = mip;
-		if (layer == -1)
+		// Allocate in staging heap
+		descriptor = rhi->cbv_srv_uav_staging_heap->allocate();
+
+		DXGI_FORMAT srv_format = native_format;
+		if (format == FORMAT_D32S8)
+			srv_format = DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS;
+
+		D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
+		srv_desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+		srv_desc.Format = srv_format;
+		if (native_texture->getDescription().is_cube)
 		{
-			uav_desc.Texture2DArray.FirstArraySlice = 0;
-			uav_desc.Texture2DArray.ArraySize = description.array_levels;
+			srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBE;
+			srv_desc.TextureCube.MipLevels = mip_count;
+			srv_desc.TextureCube.MostDetailedMip = mip_base;
+		} else if (native_texture->getDescription().array_levels > 1)
+		{
+			srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2DARRAY;
+			srv_desc.Texture2DArray.MipLevels = mip_count;
+			srv_desc.Texture2DArray.MostDetailedMip = mip_base;
+			if (description.layer == -1)
+			{
+				srv_desc.Texture2DArray.FirstArraySlice = 0;
+				srv_desc.Texture2DArray.ArraySize = native_texture->getDescription().array_levels;
+			} else
+			{
+				srv_desc.Texture2DArray.FirstArraySlice = description.layer;
+				srv_desc.Texture2DArray.ArraySize = 1;
+			}
 		} else
 		{
-			uav_desc.Texture2DArray.FirstArraySlice = layer;
-			uav_desc.Texture2DArray.ArraySize = 1;
+			srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+			srv_desc.Texture2D.MipLevels = mip_count;
+			srv_desc.Texture2D.MostDetailedMip = mip_base;
 		}
-	} else
+
+		rhi->device->CreateShaderResourceView(native_texture->getResource(), &srv_desc, descriptor.getCpuHandle());
+		bindless_index = gDynamicRHI->getBindlessResources()->addTexture(native_texture);
+	} else if (description.view_type == TextureViewType::SHADER_RESOURCE_STORAGE)
 	{
-		uav_desc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
-		uav_desc.Texture2D.MipSlice = mip;
+		descriptor = rhi->cbv_srv_uav_staging_heap->allocate();
+
+		D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc = {};
+		uav_desc.Format = native_format;
+		if (native_texture->getDescription().is_cube)
+		{
+			uav_desc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2DARRAY;
+			uav_desc.Texture2DArray.MipSlice = mip_base;
+			if (description.layer == -1)
+			{
+				uav_desc.Texture2DArray.FirstArraySlice = 0;
+				uav_desc.Texture2DArray.ArraySize = 6;
+			} else
+			{
+				uav_desc.Texture2DArray.FirstArraySlice = description.layer;
+				uav_desc.Texture2DArray.ArraySize = 1;
+			}
+		} else if (native_texture->getDescription().array_levels > 1)
+		{
+			uav_desc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2DARRAY;
+			uav_desc.Texture2DArray.MipSlice = mip_base;
+			if (description.layer == -1)
+			{
+				uav_desc.Texture2DArray.FirstArraySlice = 0;
+				uav_desc.Texture2DArray.ArraySize = native_texture->getDescription().array_levels;
+			} else
+			{
+				uav_desc.Texture2DArray.FirstArraySlice = description.layer;
+				uav_desc.Texture2DArray.ArraySize = 1;
+			}
+		} else
+		{
+			uav_desc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
+			uav_desc.Texture2D.MipSlice = mip_base;
+		}
+		rhi->device->CreateUnorderedAccessView(native_texture->getResource(), nullptr, &uav_desc, descriptor.getCpuHandle());
 	}
-	rhi->device->CreateUnorderedAccessView(resource->resource, nullptr, &uav_desc, view.handle.getCpuHandle());
-	return view.handle;
+}
+
+DX12TextureView::~DX12TextureView()
+{
+	DX12DynamicRHI *rhi = (DX12DynamicRHI *)gDynamicRHI;
+
+	if (descriptor.isValid())
+	{
+		if (description.view_type == TextureViewType::RENDER_TARGET)
+		{
+			if (description.texture->isDepthTexture())
+				rhi->depth_stencil_view_heap->release(descriptor);
+			else
+				rhi->render_target_view_heap->release(descriptor);
+		} else if (description.view_type == TextureViewType::SHADER_RESOURCE)
+		{
+			rhi->cbv_srv_uav_staging_heap->release(descriptor);
+		} else if (description.view_type == TextureViewType::SHADER_RESOURCE_STORAGE)
+		{
+			rhi->cbv_srv_uav_staging_heap->release(descriptor);
+		}
+	}
+
+	if (gDynamicRHI && gDynamicRHI->getBindlessResources())
+		gDynamicRHI->getBindlessResources()->removeTexture(description.texture);
 }

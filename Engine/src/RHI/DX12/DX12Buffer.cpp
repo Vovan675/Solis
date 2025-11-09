@@ -3,28 +3,36 @@
 #include "DX12DynamicRHI.h"
 #include "DX12Utils.h"
 
+static D3D12_RESOURCE_STATES toDX12ResourceState(ResourceState state)
+{
+	D3D12_RESOURCE_STATES result = D3D12_RESOURCE_STATE_COMMON; // = 0
+	if (hasAnyFlags(state, ResourceState::SHADER_RESOURCE)) result |= D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+	if (hasAnyFlags(state, ResourceState::COPY_SRC)) result |= D3D12_RESOURCE_STATE_COPY_SOURCE;
+	if (hasAnyFlags(state, ResourceState::COPY_DST)) result |= D3D12_RESOURCE_STATE_COPY_DEST;
+	if (hasAnyFlags(state, ResourceState::UAV)) result |= D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+	if (hasAnyFlags(state, ResourceState::VERTEX_BUFFER)) result |= D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER;
+	if (hasAnyFlags(state, ResourceState::INDEX_BUFFER)) result |= D3D12_RESOURCE_STATE_INDEX_BUFFER;
+	return result;
+}
+
 DX12Buffer::DX12Buffer(BufferDescription description) : RHIBuffer(description)
 {
 	auto *native_rhi = DX12Utils::getNativeRHI();
 
 	D3D12_RESOURCE_FLAGS resource_flags = D3D12_RESOURCE_FLAG_NONE;
 
-	if (description.usage & UAV_BUFFER)
-	{
+	if (hasAnyFlags(description.usage, BufferUsage::SHADER_WRITE_BUFFER | BufferUsage::SCRATCH_BUFFER | BufferUsage::ACCELERATION_STRUCTURE_STORAGE_BUFFER))
 		resource_flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
-	}
 
 	D3D12_RESOURCE_DESC resource_desc = CD3DX12_RESOURCE_DESC::Buffer(description.size, resource_flags);
-	D3D12_RESOURCE_STATES resource_state = description.useStagingBuffer ? D3D12_RESOURCE_STATE_COMMON : D3D12_RESOURCE_STATE_GENERIC_READ;
-	current_state = description.useStagingBuffer ? RESOURCE_STATE_COMMON : RESOURCE_STATE_COPY_SRC;
+	D3D12_RESOURCE_STATES resource_state = description.use_staging_buffer ? D3D12_RESOURCE_STATE_COMMON : D3D12_RESOURCE_STATE_GENERIC_READ;
+	current_state = description.use_staging_buffer ? ResourceState::COMMON : ResourceState::COPY_SRC;
 
-	if (description.usage & ACCELERATION_STRUCTURE_STORAGE_BUFFER)
-	{
+	if (hasAnyFlags(description.usage, BufferUsage::ACCELERATION_STRUCTURE_STORAGE_BUFFER))
 		resource_state = D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE;
-	}
 
 	D3D12MA::ALLOCATION_DESC allocation_desc = {};
-	allocation_desc.HeapType = description.useStagingBuffer ? D3D12_HEAP_TYPE_DEFAULT : D3D12_HEAP_TYPE_UPLOAD;
+	allocation_desc.HeapType = description.use_staging_buffer ? D3D12_HEAP_TYPE_DEFAULT : D3D12_HEAP_TYPE_UPLOAD;
 
 	allocation = std::make_unique<DX12AllocationResource>();
 	resource = std::make_unique<DX12Resource>();
@@ -36,86 +44,25 @@ DX12Buffer::DX12Buffer(BufferDescription description) : RHIBuffer(description)
 		nullptr,
 		&allocation->resource,
 		IID_PPV_ARGS(&resource->resource));
-	assert(res == S_OK);
-	//setState(RESOURCE_STATE_VERTEX_BUFFER);
-
-	if (description.usage & (STORAGE_BUFFER | RAW_STORAGE_BUFFER) ||
-		(description.usage & UAV_BUFFER && description.stride != 0))
-	{
-		bool is_raw = description.usage & RAW_STORAGE_BUFFER;
-
-		DX12DynamicRHI *rhi = (DX12DynamicRHI *)gDynamicRHI;
-
-		// Allocate in staging heap
-		shader_resource_view = rhi->cbv_srv_uav_staging_heap->allocate();
-
-		D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
-		srv_desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-		srv_desc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
-
-		if (is_raw)
-		{
-			srv_desc.Format = DXGI_FORMAT_R32_TYPELESS;
-			srv_desc.Buffer.FirstElement = 0;
-			srv_desc.Buffer.NumElements = description.size / sizeof(uint32_t);
-			srv_desc.Buffer.StructureByteStride = 0;
-			srv_desc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_RAW;
-		} else
-		{
-			srv_desc.Format = DXGI_FORMAT_UNKNOWN;
-			srv_desc.Buffer.FirstElement = 0;
-			srv_desc.Buffer.NumElements = description.size / description.stride;
-			srv_desc.Buffer.StructureByteStride = description.stride;
-			srv_desc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
-		}
-
-		rhi->device->CreateShaderResourceView(resource->resource, &srv_desc, shader_resource_view.getCpuHandle());
-		gDynamicRHI->getBindlessResources()->addBuffer(this);
-	}
-
-	if (description.usage & (UAV_BUFFER) && description.stride != 0)
-	{
-		DX12DynamicRHI *rhi = (DX12DynamicRHI *)gDynamicRHI;
-
-		// Allocate in staging heap
-		unordered_access_view = rhi->cbv_srv_uav_staging_heap->allocate();
-
-		D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc = {};
-		uav_desc.Format = DXGI_FORMAT_UNKNOWN;
-		uav_desc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
-		uav_desc.Buffer.FirstElement = 0;
-		uav_desc.Buffer.NumElements = description.size / description.stride;
-		uav_desc.Buffer.StructureByteStride = description.stride;
-		uav_desc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_NONE;
-
-		rhi->device->CreateUnorderedAccessView(resource->resource, nullptr, &uav_desc, unordered_access_view.getCpuHandle());
-	}
+	ENGINE_ASSERT(SUCCEEDED(res));
 }
 
 DX12Buffer::~DX12Buffer()
 {
-	destroy();
-}
-
-void DX12Buffer::destroy()
-{
 	auto *native_rhi = DX12Utils::getNativeRHI();
 	native_rhi->releaseGPUResource(resource.release());
 	native_rhi->releaseGPUResource(allocation.release());
-	if (gDynamicRHI && gDynamicRHI->getBindlessResources())
-		gDynamicRHI->getBindlessResources()->removeBuffer(this);
 }
 
 void DX12Buffer::fill(const void *sourceData)
 {
-	if (!sourceData)
-		return;
+	ENGINE_ASSERT(sourceData);
 	PROFILE_CPU_FUNCTION();
 
 	auto *native_rhi = DX12Utils::getNativeRHI();
 	uint64_t buffer_size = description.size;
 
-	if (description.useStagingBuffer)
+	if (description.use_staging_buffer)
 	{
 		ComPtr<ID3D12Resource> intermediate_resource;
 		native_rhi->device->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), D3D12_HEAP_FLAG_NONE, &CD3DX12_RESOURCE_DESC::Buffer(buffer_size),
@@ -143,7 +90,7 @@ void DX12Buffer::fill(const void *sourceData)
 		native_rhi->getCmdQueueCopy()->wait(last_fence + 1);
 
 		// According to https://learn.microsoft.com/en-us/windows/win32/direct3d12/using-resource-barriers-to-synchronize-resource-states-in-direct3d-12#implicit-state-transitions
-		current_state = RESOURCE_STATE_SHADER_RESOURCE;
+		current_state = ResourceState::SHADER_RESOURCE;
 
 		intermediate_resource.Reset();
 	} else
@@ -159,6 +106,7 @@ void DX12Buffer::fill(const void *sourceData)
 
 void DX12Buffer::map(void **data)
 {
+	ENGINE_ASSERT(data);
 	resource->resource->Map(0, nullptr, data);
 }
 
@@ -177,9 +125,23 @@ void DX12Buffer::setDebugName(const char *name)
 	resource->resource->SetName(wbuf);
 }
 
+RHIBufferView *DX12Buffer::getShaderResourceView()
+{
+	if (!shader_resource_view)
+		shader_resource_view = new DX12BufferView(BufferViewDescription(this, BufferViewType::SHADER_RESOURCE));
+	return shader_resource_view;
+}
+
+RHIBufferView *DX12Buffer::getUnorderedAccessView()
+{
+	if (!unordered_access_view)
+		unordered_access_view = new DX12BufferView(BufferViewDescription(this, BufferViewType::SHADER_RESOURCE_STORAGE));
+	return unordered_access_view;
+}
+
 void DX12Buffer::setState(ResourceState new_state)
 {
-	if (current_state == new_state && (new_state & RESOURCE_STATE_UAV) == 0)
+	if (current_state == new_state && !hasAnyFlags(new_state, ResourceState::UAV))
 		return;
 
 	if (current_state != new_state)
@@ -193,7 +155,7 @@ void DX12Buffer::setState(ResourceState new_state)
 
 		DX12CommandList *native_cmd_list = (DX12CommandList *)gDynamicRHI->getCmdList();
 		native_cmd_list->cmd_list->ResourceBarrier(1, &barrier);
-	} else if ((new_state & RESOURCE_STATE_UAV) != 0)
+	} else if (hasAnyFlags(new_state, ResourceState::UAV))
 	{
 		D3D12_RESOURCE_BARRIER barrier{};
 		barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
@@ -204,4 +166,73 @@ void DX12Buffer::setState(ResourceState new_state)
 	}
 
 	current_state = new_state;
+}
+
+DX12BufferView::DX12BufferView(BufferViewDescription description) : RHIBufferView(description)
+{
+	ENGINE_ASSERT(description.buffer);
+
+	DX12DynamicRHI *rhi = (DX12DynamicRHI *)gDynamicRHI;
+
+	// Allocate descriptor in staging heap
+	descriptor = rhi->cbv_srv_uav_staging_heap->allocate();
+
+	DX12Buffer *native_buffer = static_cast<DX12Buffer *>(description.buffer);
+
+	bool is_raw = native_buffer->getStride() == sizeof(uint32_t);
+	ENGINE_ASSERT_MSG(native_buffer->getStride() > 0, "Cannot create buffer with zero stride");
+	if (description.view_type == BufferViewType::SHADER_RESOURCE)
+	{
+
+		D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
+		srv_desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+		srv_desc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+
+		if (is_raw)
+		{
+			srv_desc.Format = DXGI_FORMAT_R32_TYPELESS;
+			srv_desc.Buffer.FirstElement = 0;
+			srv_desc.Buffer.NumElements = native_buffer->getSize() / sizeof(uint32_t);
+			srv_desc.Buffer.StructureByteStride = 0;
+			srv_desc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_RAW;
+		} else
+		{
+			srv_desc.Format = DXGI_FORMAT_UNKNOWN;
+			srv_desc.Buffer.FirstElement = 0;
+			srv_desc.Buffer.NumElements = native_buffer->getSize() / native_buffer->getStride();
+			srv_desc.Buffer.StructureByteStride = native_buffer->getStride();
+			srv_desc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
+		}
+
+		rhi->device->CreateShaderResourceView(native_buffer->getResource(), &srv_desc, descriptor.getCpuHandle());
+		bindless_index = gDynamicRHI->getBindlessResources()->addBuffer(native_buffer);
+	} else if (description.view_type == BufferViewType::SHADER_RESOURCE_STORAGE)
+	{
+		D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc = {};
+		uav_desc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
+
+		if (is_raw)
+		{
+			uav_desc.Format = DXGI_FORMAT_R32_TYPELESS;
+			uav_desc.Buffer.FirstElement = 0;
+			uav_desc.Buffer.NumElements = native_buffer->getSize() / sizeof(uint32_t);
+			uav_desc.Buffer.StructureByteStride = 0;
+			uav_desc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_RAW;
+		} else
+		{
+			uav_desc.Format = DXGI_FORMAT_UNKNOWN;
+			uav_desc.Buffer.FirstElement = 0;
+			uav_desc.Buffer.NumElements = native_buffer->getSize() / native_buffer->getStride();
+			uav_desc.Buffer.StructureByteStride = native_buffer->getStride();
+			uav_desc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_NONE;
+		}
+
+		rhi->device->CreateUnorderedAccessView(native_buffer->getResource(), nullptr, &uav_desc, descriptor.getCpuHandle());
+	}
+}
+
+DX12BufferView::~DX12BufferView()
+{
+	if (gDynamicRHI && gDynamicRHI->getBindlessResources())
+		gDynamicRHI->getBindlessResources()->removeBuffer(description.buffer);
 }

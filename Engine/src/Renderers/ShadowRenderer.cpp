@@ -118,7 +118,7 @@ void ShadowRenderer::addShadowMapPasses(FrameGraph &fg, const eastl::vector<Rend
 						push_constant.instance_id = batch.instance_id;
 						gDynamicRHI->setConstantBufferData(2, &push_constant, sizeof(ShadowPushConstact));
 
-						cmd_list->setIndexBuffer(batch.mesh->indexBuffer);
+						cmd_list->setIndexBuffer(batch.mesh->indexBuffer, 0, IndexFormat::UINT32);
 						cmd_list->drawIndexedInstanced(batch.mesh->indices.size(), 1, 0, 0, 0);
 						Renderer::addDrawCalls(1);
 					}
@@ -173,7 +173,7 @@ void ShadowRenderer::addShadowMapPasses(FrameGraph &fg, const eastl::vector<Rend
 						push_constant.instance_id = batch.instance_id;
 						gDynamicRHI->setConstantBufferData(2, &push_constant, sizeof(ShadowPushConstact));
 
-						cmd_list->setIndexBuffer(batch.mesh->indexBuffer);
+						cmd_list->setIndexBuffer(batch.mesh->indexBuffer, 0, IndexFormat::UINT32);
 						cmd_list->drawIndexedInstanced(batch.mesh->indices.size(), 1, 0, 0, 0);
 						Renderer::addDrawCalls(1);
 					}

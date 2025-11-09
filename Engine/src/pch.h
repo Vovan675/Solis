@@ -59,3 +59,43 @@ using Microsoft::WRL::ComPtr;
 #include "Core/Log.h"
 
 #include "Utils/StringUtils.h"
+
+#define ENGINE_ASSERT(condition) assert(condition)
+#define ENGINE_ASSERT_MSG(condition, message) assert(condition && message)
+
+template<typename T>
+struct EnableEnumBits
+{
+	static constexpr bool enable = false;
+};
+
+template<typename T>
+typename std::enable_if_t<EnableEnumBits<T>::enable, T> operator|(T lhs, T rhs) 
+{
+	return static_cast<T>(
+		static_cast<std::underlying_type<T>::type>(lhs) |
+		static_cast<std::underlying_type<T>::type>(rhs));
+}
+
+template<typename T>
+typename std::enable_if_t<EnableEnumBits<T>::enable, T> operator&(T lhs, T rhs) 
+{
+	return static_cast<T>(
+		static_cast<std::underlying_type<T>::type>(lhs) &
+		static_cast<std::underlying_type<T>::type>(rhs));
+}
+
+template<typename T>
+typename std::enable_if_t<EnableEnumBits<T>::enable, T> &operator|=(T &lhs, T rhs) 
+{
+	lhs = lhs | rhs;
+	return lhs;
+}
+
+#define ALLOW_ENUM_BITS(type) template<> struct EnableEnumBits<type> { static constexpr bool enable = true; };
+
+template<typename T>
+inline constexpr bool hasAnyFlags(T value, T flags)
+{
+	return (static_cast<std::underlying_type_t<T>>(value) & static_cast<std::underlying_type_t<T>>(flags)) != 0;
+}

@@ -6,28 +6,26 @@
 
 VulkanBuffer::VulkanBuffer(BufferDescription description) : RHIBuffer(description)
 {
-	VkDeviceSize bufferSize = description.size;
-
 	VkBufferUsageFlags usage_flags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
 
-	if (description.usage & VERTEX_BUFFER)
+	if (hasAnyFlags(description.usage, BufferUsage::VERTEX_BUFFER))
 		usage_flags |= VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-	if (description.usage & INDEX_BUFFER)
+	if (hasAnyFlags(description.usage, BufferUsage::INDEX_BUFFER))
 		usage_flags |= VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
-	if (description.usage & UNIFORM_BUFFER)
+	if (hasAnyFlags(description.usage, BufferUsage::CONSTANT_BUFFER))
 		usage_flags |= VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-	if (description.usage & (UAV_BUFFER | STORAGE_BUFFER | RAW_STORAGE_BUFFER))
+	if (hasAnyFlags(description.usage, (BufferUsage::SHADER_READ_BUFFER | BufferUsage::SHADER_WRITE_BUFFER | BufferUsage::SCRATCH_BUFFER)))
 		usage_flags |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-	if (description.usage & ACCELERATION_STRUCTURE_BUILD_INPUT_BUFFER)
+	if (hasAnyFlags(description.usage, BufferUsage::ACCELERATION_STRUCTURE_BUILD_INPUT_BUFFER))
 		usage_flags |= VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
-	if (description.usage & ACCELERATION_STRUCTURE_STORAGE_BUFFER)
+	if (hasAnyFlags(description.usage, BufferUsage::ACCELERATION_STRUCTURE_STORAGE_BUFFER))
 		usage_flags |= VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR;
-	if (description.usage & SHADER_BINGING_TABLE_BUFFER)
+	if (hasAnyFlags(description.usage, BufferUsage::SHADER_BINGING_TABLE_BUFFER))
 		usage_flags |= VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR;
 
 	VmaMemoryUsage memory_usage = VMA_MEMORY_USAGE_AUTO;
 	VmaAllocationCreateFlags flags = 0;
-	if (description.useStagingBuffer)
+	if (description.use_staging_buffer)
 	{
 		memory_usage = VMA_MEMORY_USAGE_GPU_ONLY;
 	} else
@@ -37,16 +35,13 @@ VulkanBuffer::VulkanBuffer(BufferDescription description) : RHIBuffer(descriptio
 	}
 	buffer = std::make_unique<VkBufferResource>();
 	allocation = std::make_unique<VkAllocationResource>();
-	VulkanUtils::createBuffer(bufferSize, usage_flags, memory_usage, flags, buffer->resource, allocation->resource, description.alignment);
-	gDynamicRHI->getBindlessResources()->addBuffer(this);
+	VulkanUtils::createBuffer(description.size, usage_flags, memory_usage, flags, buffer->resource, allocation->resource, description.alignment);
+
+	if (hasAnyFlags(description.usage, BufferUsage::SHADER_READ_BUFFER | BufferUsage::SHADER_WRITE_BUFFER))
+		gDynamicRHI->getBindlessResources()->addBuffer(this);
 }
 
 VulkanBuffer::~VulkanBuffer()
-{
-	destroy();
-}
-
-void VulkanBuffer::destroy()
 {
 	auto *native_rhi = VulkanUtils::getNativeRHI();
 	if (is_mapped)
@@ -60,20 +55,19 @@ void VulkanBuffer::destroy()
 
 void VulkanBuffer::fill(const void *sourceData)
 {
-	if (!sourceData)
-		return;
+	ENGINE_ASSERT(sourceData);
 	PROFILE_CPU_FUNCTION();
 
 	auto native_rhi = VulkanUtils::getNativeRHI();
 	uint64_t buffer_size = description.size;
 
-	if (description.useStagingBuffer)
+	if (description.use_staging_buffer)
 	{
 		// Staging buffer
 		BufferDescription staging_buffer_description;
 		staging_buffer_description.size = description.size;
 		staging_buffer_description.alignment = description.alignment;
-		staging_buffer_description.useStagingBuffer = false;
+		staging_buffer_description.use_staging_buffer = false;
 		RHIBufferRef staging_buffer = gDynamicRHI->createBuffer(staging_buffer_description);
 
 		// Map buffer memory to CPU accessible memory
@@ -102,6 +96,7 @@ void VulkanBuffer::fill(const void *sourceData)
 
 void VulkanBuffer::map(void **data)
 {
+	ENGINE_ASSERT(data);
 	if (is_mapped)
 		return;
 	// Map buffer memory to CPU accessible memory
@@ -128,4 +123,37 @@ uint64_t VulkanBuffer::getGPUAddress() const
 	bufferDeviceAI.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
 	bufferDeviceAI.buffer = buffer->resource;
 	return VulkanUtils::vkGetBufferDeviceAddressKHR(&bufferDeviceAI);
+}
+
+RHIBufferView *VulkanBuffer::getShaderResourceView()
+{
+	if (!shader_resource_view)
+		shader_resource_view = new VulkanBufferView(BufferViewDescription(this, BufferViewType::SHADER_RESOURCE));
+	return shader_resource_view;
+}
+
+RHIBufferView *VulkanBuffer::getUnorderedAccessView()
+{
+	if (!unordered_access_view)
+		unordered_access_view = new VulkanBufferView(BufferViewDescription(this, BufferViewType::SHADER_RESOURCE_STORAGE));
+	return unordered_access_view;
+}
+
+VulkanBufferView::VulkanBufferView(BufferViewDescription description): RHIBufferView(description)
+{
+	ENGINE_ASSERT(description.buffer);
+	
+	if (description.view_type == BufferViewType::SHADER_RESOURCE)
+	{
+		bindless_index = gDynamicRHI->getBindlessResources()->addBuffer(description.buffer);
+	} else
+	{
+		ENGINE_ASSERT_MSG(false, "TODO: Implement VulkanBufferView for UAV resource");
+	}
+}
+
+VulkanBufferView::~VulkanBufferView()
+{
+	if (gDynamicRHI && gDynamicRHI->getBindlessResources())
+		gDynamicRHI->getBindlessResources()->removeBuffer(description.buffer);
 }

@@ -3,6 +3,7 @@
 #include "VulkanUtils.h"
 #include "VulkanResources.h"
 
+class VulkanTextureView;
 class VulkanTexture final: public RHITexture
 {
 public:
@@ -27,9 +28,15 @@ public:
 
 	void generateMipmaps(RHICommandList *cmd_list);
 
-	VkImageView getImageView(int mip = -1, int layer = -1, bool for_uav = false);
-
 	bool isValid() const override { return image != nullptr; }
+
+	RHITextureView *getRenderTargetView(uint32_t mip = 0, uint32_t layer = 0) override;
+	RHITextureView *getShaderResourceView(uint32_t mip = -1, uint32_t layer = -1) override;
+	RHITextureView *getUnorderedAccessView(uint32_t mip = -1, uint32_t layer = -1) override;
+
+public:
+	VkImage getImage() const { return image->resource; }
+
 protected:
 	friend class VulkanDynamicRHI;
 	friend class VulkanSwapchain;
@@ -146,17 +153,21 @@ protected:
 	std::unique_ptr<VkImageResource> image = nullptr;
 	std::unique_ptr<VkAllocationResource> allocation = nullptr;
 
-	struct ImageView
-	{
-		void cleanup();
-
-		int mip = 0;
-		int layer = 0;
-		bool for_uav = false;
-		// ImageView needs to gain some information about how to render into this image
-		std::unique_ptr<VkImageViewResource> image_view = nullptr;
-	};
-	eastl::vector<ImageView> image_views;
+	eastl::vector<Ref<VulkanTextureView>> shader_resource_views;
+	eastl::vector<Ref<VulkanTextureView>> unordered_access_views;
+	eastl::vector<Ref<VulkanTextureView>> render_target_views;
 
 	const char *debug_name = "";
+};
+
+class VulkanTextureView final: public RHITextureView
+{
+public:
+	VulkanTextureView(TextureViewDescription description);
+	~VulkanTextureView();
+
+	VkImageView getImageView() const { return image_view->resource; }
+
+private:
+	std::unique_ptr<VkImageViewResource> image_view;
 };

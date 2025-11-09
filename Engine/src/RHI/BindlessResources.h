@@ -14,6 +14,11 @@ static const int BINDLESS_RESOURCES_SET = 1;
 static const int BINDLESS_SAMPLERS_BINDING = 1;
 static const int BINDLESS_SAMPLERS_SET = 1;
 
+// Bindless Resources:
+// Storage Buffers (SRV, TODO: UAV)
+// Textures (SRV, TODO: UAV)
+// Samplers
+
 class RHIBindlessResources
 {
 public:

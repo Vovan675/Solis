@@ -91,8 +91,8 @@ public:
 		{
 			BufferDescription desc;
 			desc.size = params_size;
-			desc.useStagingBuffer = false;
-			desc.usage = BufferUsage::UNIFORM_BUFFER;
+			desc.use_staging_buffer = false;
+			desc.usage = BufferUsage::CONSTANT_BUFFER;
 			ShaderDataBuffer data_buffer;
 			data_buffer.buffer = gDynamicRHI->createBuffer(desc);
 			data_buffer.buffer->map(&data_buffer.mapped_data);
@@ -124,8 +124,8 @@ public:
 		{
 			BufferDescription desc;
 			desc.size = params_size;
-			desc.useStagingBuffer = false;
-			desc.usage = BufferUsage::UNIFORM_BUFFER;
+			desc.use_staging_buffer = false;
+			desc.usage = BufferUsage::CONSTANT_BUFFER;
 			ShaderDataBuffer data_buffer;
 			data_buffer.buffer = gDynamicRHI->createBuffer(desc);
 			data_buffer.buffer->map(&data_buffer.mapped_data);
@@ -142,14 +142,6 @@ public:
 		is_buffers_dirty = true;
 	}
 
-	void setTexture(unsigned int binding, RHITextureRef texture) override
-	{
-		CORE_INFO("setTexture was used, please consider bindless instead");
-		VulkanTexture *native_texture = (VulkanTexture *)texture.getReference();
-		current_bind_textures[binding] = native_texture;
-		is_textures_dirty = true;
-	}
-
 	void setUAVTexture(unsigned int binding, RHITextureRef texture, int mip = 0) override
 	{
 		if ((texture->getUsageFlags() & TEXTURE_USAGE_STORAGE) == 0)
@@ -160,7 +152,7 @@ public:
 
 		VulkanTexture *native_texture = (VulkanTexture *)texture.getReference();
 		current_bind_uav_textures[binding] = native_texture;
-		current_bind_uav_textures_views[binding] = native_texture->getImageView(mip, -1, true);
+		current_bind_uav_textures_views[binding] = ((VulkanTextureView *)native_texture->getUnorderedAccessView(mip))->getImageView();
 		is_uav_textures_dirty = true;
 	}
 
@@ -215,7 +207,6 @@ public:
 	VulkanBuffer *current_bind_uav_buffers[64];
 	VulkanTopLevelAccelerationStructure *current_bind_acceleration_structures[4];
 
-	bool is_textures_dirty;
 	bool is_uav_textures_dirty;
 	bool is_buffers_dirty;
 	bool is_uav_buffers_dirty;

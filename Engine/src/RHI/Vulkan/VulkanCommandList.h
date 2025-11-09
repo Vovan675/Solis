@@ -44,9 +44,9 @@ public:
 
 	void setPipeline(RHIPipeline *pipeline) override;
 
-	void setVertexBuffer(RHIBuffer *buffer) override;
+	void setVertexBuffer(RHIBuffer *buffer, uint32_t offset, uint32_t stride) override;
 
-	void setIndexBuffer(RHIBuffer *buffer) override;
+	void setIndexBuffer(RHIBuffer *buffer, uint32_t offset, IndexFormat format = IndexFormat::UINT32) override;
 
 	void drawIndexedInstanced(uint32_t indexCount, uint32_t instanceCount, uint32_t firstIndex, int32_t vertexOffset, uint32_t firstInstance) override
 	{

@@ -64,6 +64,7 @@ void VulkanDynamicRHI::init()
 	dxc_utils->CreateDefaultIncludeHandler(&dxc_include_handler);
 
 	bindless_resources = new VulkanBindlessResources();
+	bindless_resources->init();
 
 	tracy_ctx = TracyVkContextCalibrated(device->physicalHandle, device->logicalHandle, cmd_queue->queue, tracy_cmd_list->cmd_buffer,
 										 VulkanUtils::p_vkGetPhysicalDeviceCalibrateableTimeDomainsEXT, VulkanUtils::p_vkGetCalibratedTimestampsEXT);
@@ -253,7 +254,7 @@ void VulkanDynamicRHI::prepareRenderCall()
 		pso_changed = true;
 	}
 
-	bool is_something_changed = pso_changed || is_textures_dirty || is_uav_textures_dirty || is_buffers_dirty;
+	bool is_something_changed = pso_changed || is_uav_textures_dirty || is_buffers_dirty;
 
 	VkDescriptorSet current_set;
 
@@ -285,23 +286,6 @@ void VulkanDynamicRHI::prepareRenderCall()
 		// Update set
 		static DescriptorWriter writer;
 		writer.clear();
-		if (is_textures_dirty)
-		{
-			for (auto &desc : descriptors_info)
-			{
-				if (desc.type != DESCRIPTOR_TYPE_SAMPLED_IMAGE || desc.set != 0)
-					continue;
-
-				VulkanTexture *texture = current_bind_textures[desc.binding];
-
-				if (texture == nullptr)
-					continue;
-
-				VkImageLayout image_layout = texture->isDepthTexture() ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-				writer.writeImage(desc.binding, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, texture->getImageView(-1, -1, false), nullptr, image_layout);
-			}
-		}
 
 		if (is_uav_textures_dirty)
 		{
@@ -336,7 +320,7 @@ void VulkanDynamicRHI::prepareRenderCall()
 
 				VkDescriptorType descriptor_type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 
-				writer.writeBuffer(desc.binding, descriptor_type, buffer->buffer->resource, buffer->description.size);
+				writer.writeBuffer(desc.binding, descriptor_type, buffer->getBuffer(), buffer->getSize());
 			}
 		}
 
@@ -354,7 +338,7 @@ void VulkanDynamicRHI::prepareRenderCall()
 
 				VkDescriptorType descriptor_type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 
-				writer.writeBuffer(desc.binding, descriptor_type, buffer->buffer->resource, buffer->description.size);
+				writer.writeBuffer(desc.binding, descriptor_type, buffer->getBuffer(), buffer->getSize());
 			}
 		}
 
@@ -393,7 +377,6 @@ void VulkanDynamicRHI::prepareRenderCall()
 	VkDescriptorSet bindless_set = native_bindless->getDescriptorSet();
 	vkCmdBindDescriptorSets(native_cmd_list->cmd_buffer, bind_point, native_pso->resource->pipeline_layout, BINDLESS_RESOURCES_SET, 1, &bindless_set, 0, nullptr);
 
-	is_textures_dirty = false;
 	is_uav_textures_dirty = false;
 	is_buffers_dirty = false;
 	is_uav_buffers_dirty = false;

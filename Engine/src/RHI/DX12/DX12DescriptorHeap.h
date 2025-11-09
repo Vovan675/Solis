@@ -10,8 +10,8 @@ struct DX12Descriptor
 		if (gpu_handle.ptr != 0) gpu_handle.ptr += index * stride;
 		this->index += index;
 	}
-	D3D12_CPU_DESCRIPTOR_HANDLE getCpuHandle() { return cpu_handle; }
-	D3D12_GPU_DESCRIPTOR_HANDLE getGpuHandle() { return gpu_handle; }
+	D3D12_CPU_DESCRIPTOR_HANDLE getCpuHandle() const { return cpu_handle; }
+	D3D12_GPU_DESCRIPTOR_HANDLE getGpuHandle() const { return gpu_handle; }
 
 	uint32_t getIndex() const { return index; }
 

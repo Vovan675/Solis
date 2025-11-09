@@ -32,12 +32,12 @@ static CubeVertex cube_vertices[8] = {
 
 static uint32_t cube_indices[36] =
 {
-	0, 1, 2, 0, 2, 3,
-	4, 6, 5, 4, 7, 6,
-	4, 5, 1, 4, 1, 0,
-	3, 2, 6, 3, 6, 7,
-	1, 5, 6, 1, 6, 2,
-	4, 0, 3, 4, 3, 7
+	0, 2, 1, 0, 3, 2,
+	4, 5, 6, 4, 6, 7,
+	4, 1, 5, 4, 0, 1,
+	3, 6, 2, 3, 7, 6,
+	1, 6, 5, 1, 2, 6,
+	4, 3, 0, 4, 7, 3
 };
 
 static uint32_t texture_id;
@@ -47,14 +47,14 @@ void CubesDemo::initResources()
 	// Vertex & Index buffers
 	BufferDescription desc{};
 	desc.size = sizeof(cube_vertices[0]) * _countof(cube_vertices);
-	desc.usage = VERTEX_BUFFER;
-	desc.useStagingBuffer = true;
-	desc.stride = sizeof(cube_vertices[0]);
+	desc.usage = BufferUsage::VERTEX_BUFFER;
+	desc.use_staging_buffer = true;
+	desc.storage_stride = sizeof(cube_vertices[0]);
 	vertex_buffer = gDynamicRHI->createBuffer(desc);
 
 	desc.size = sizeof(cube_indices[0]) * _countof(cube_indices);
-	desc.usage = INDEX_BUFFER;
-	desc.useStagingBuffer = true;
+	desc.usage = BufferUsage::INDEX_BUFFER;
+	desc.use_staging_buffer = true;
 	index_buffer = gDynamicRHI->createBuffer(desc);
 
 	vertex_buffer->fill(cube_vertices);
@@ -100,8 +100,6 @@ void CubesDemo::initResources()
 		auto texture = gDynamicRHI->createTexture(tex_desc);
 		texture->load((std::string("assets/demo/checker_") + std::to_string(i + 1) + ".png").c_str());
 		checker_textures.push_back(texture);
-
-		gDynamicRHI->getBindlessResources()->addTexture(texture);
 	}
 
 	// Bindless
@@ -128,64 +126,6 @@ void CubesDemo::initResources()
 }
 
 void CubesDemo::render(RHICommandList *cmd_list)
-{
-	for (auto &texture : checker_textures)
-		texture->transitLayout(cmd_list, TEXTURE_LAYOUT_SHADER_READ);
-
-	// Set swapchain color image layout for writing
-	RHITextureRef swapchain_texture = gDynamicRHI->getCurrentSwapchainTexture();
-	swapchain_texture->transitLayout(cmd_list, TEXTURE_LAYOUT_ATTACHMENT);
-	depth_stencil_texture->transitLayout(cmd_list, TEXTURE_LAYOUT_ATTACHMENT);
-	cmd_list->setRenderTargets({swapchain_texture.getReference()}, {depth_stencil_texture.getReference()}, 0, 0, true);
-
-	// Set PSO
-	bool use_precached_pso = false;
-	if (use_precached_pso)
-	{
-		cmd_list->setPipeline(pso);
-	} else
-	{
-		VertexInputsDescription input_desc;
-		input_desc.inputs.push_back({"POSITION", 0, FORMAT_R32G32B32_SFLOAT});
-		input_desc.inputs.push_back({"UV", 0, FORMAT_R32G32_SFLOAT});
-		gGlobalPipeline->setupGraphicsPipeline(cmd_list, vertex_shader, pixel_shader,
-											   input_desc, false, true, CULL_MODE_BACK);
-		gGlobalPipeline->flushAndBind(cmd_list);
-	}
-
-	value += 0.01f;
-
-	float aspect = (float)swapchain_texture->getWidth() / (float)swapchain_texture->getHeight();
-	glm::mat4 view_proj = glm::perspectiveLH(glm::radians(45.0f), aspect, 0.01f, 100.0f) * glm::lookAtLH(glm::vec3(2.0f * sin(value), 0.0f, 5.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-
-	auto render_cube_at_position = [&](glm::vec3 pos, RHITextureRef texture, RHITextureRef texture2)
-	{
-		glm::mat4 model = glm::translate(pos) * glm::scale(glm::vec3(0.2f));
-		glm::mat4 mvp = view_proj * model;
-
-		gDynamicRHI->setConstantBufferData(0, &mvp, sizeof(mvp));
-		gDynamicRHI->setTexture(1, texture);
-		gDynamicRHI->setTexture(2, texture2);
-
-		cmd_list->setVertexBuffer(vertex_buffer);
-		cmd_list->setIndexBuffer(index_buffer);
-		cmd_list->drawIndexedInstanced(_countof(cube_indices), 1, 0, 0, 0);
-	};
-	
-	for (float x = -3; x <= 3; x += 0.5f)
-	{
-		for (float y = -3; y <= 3; y += 0.5f)
-		{
-			int index = std::fabs(x + y);
-			auto texture = checker_textures[index % checker_textures.size()];
-			auto texture2 = checker_textures[(index * 3) % checker_textures.size()];
-			render_cube_at_position(glm::vec3(x, y, -2), texture, texture2);
-		}
-	}
-
-}
-
-void CubesDemo::renderBindless(RHICommandList *cmd_list)
 {
 	for (auto &texture : checker_textures)
 		texture->transitLayout(cmd_list, TEXTURE_LAYOUT_SHADER_READ);
@@ -229,15 +169,13 @@ void CubesDemo::renderBindless(RHICommandList *cmd_list)
 		glm::mat4 mvp = view_proj * model;
 
 		uniform.mvp = mvp;
-		uniform.texture_index = gDynamicRHI->getBindlessResources()->getTextureIndex(texture);
-		uniform.texture2_index = gDynamicRHI->getBindlessResources()->getTextureIndex(texture2);
+		uniform.texture_index = texture->getShaderResourceView()->getBindlessIndex();
+		uniform.texture2_index = texture2->getShaderResourceView()->getBindlessIndex();
 
 		gDynamicRHI->setConstantBufferData(0, &uniform, sizeof(uniform));
-		gDynamicRHI->setTexture(1, texture);
-		gDynamicRHI->setTexture(2, texture2);
 
-		cmd_list->setVertexBuffer(vertex_buffer);
-		cmd_list->setIndexBuffer(index_buffer);
+		cmd_list->setVertexBuffer(vertex_buffer, 0, sizeof(cube_vertices[0]));
+		cmd_list->setIndexBuffer(index_buffer, 0, IndexFormat::UINT32);
 		cmd_list->drawIndexedInstanced(_countof(cube_indices), 1, 0, 0, 0);
 	};
 
@@ -332,8 +270,8 @@ void RenderTargetsDemo::render(RHICommandList *cmd_list)
 
 			gDynamicRHI->setConstantBufferData(0, &uniforms, sizeof(uniforms));
 
-			cmd_list->setVertexBuffer(mesh->vertexBuffer);
-			cmd_list->setIndexBuffer(mesh->indexBuffer);
+			cmd_list->setVertexBuffer(mesh->vertexBuffer, 0, sizeof(Engine::Vertex));
+			cmd_list->setIndexBuffer(mesh->indexBuffer, 0, IndexFormat::UINT32);
 			cmd_list->drawIndexedInstanced(mesh->indices.size(), 1, 0, 0, 0);
 		}
 	}
@@ -350,7 +288,13 @@ void RenderTargetsDemo::render(RHICommandList *cmd_list)
 										   VertexInputsDescription{}, false, false, CULL_MODE_BACK);
 	gGlobalPipeline->flushAndBind(cmd_list);
 
-	gDynamicRHI->setTexture(1, result_texture);
+	struct Uniform
+	{
+		uint32_t texture_index;
+	} uniforms;
+	uniforms.texture_index = result_texture->getShaderResourceView()->getBindlessIndex();
+
+	gDynamicRHI->setConstantBufferData(0, &uniforms, sizeof(uniforms));
 
 	cmd_list->drawInstanced(6, 1, 0, 0);
 }
@@ -437,8 +381,8 @@ void RenderTargetsDemo::renderFrameGraph(RHICommandList *cmd_list)
 				gDynamicRHI->setConstantBufferData(0, &draw_call_uniforms, sizeof(draw_call_uniforms));
 				//gDynamicRHI->setConstantBufferDataPerFrame(32, &frame_uniforms, sizeof(frame_uniforms));
 
-				cmd_list->setVertexBuffer(mesh->vertexBuffer);
-				cmd_list->setIndexBuffer(mesh->indexBuffer);
+				cmd_list->setVertexBuffer(mesh->vertexBuffer, 0, sizeof(Engine::Vertex));
+				cmd_list->setIndexBuffer(mesh->indexBuffer, 0, IndexFormat::UINT32);
 				cmd_list->drawIndexedInstanced(mesh->indices.size(), 1, 0, 0, 0);
 			}
 		}
@@ -469,7 +413,12 @@ void RenderTargetsDemo::renderFrameGraph(RHICommandList *cmd_list)
 											   VertexInputsDescription{}, false, false, CULL_MODE_BACK);
 		gGlobalPipeline->flushAndBind(cmd_list);
 
-		gDynamicRHI->setTexture(1, result);
+		struct Uniform
+		{
+			uint32_t texture_index;
+		} uniforms;
+		uniforms.texture_index = result->getShaderResourceView()->getBindlessIndex();
+		gDynamicRHI->setConstantBufferData(0, &uniforms, sizeof(uniforms));
 
 		cmd_list->drawInstanced(6, 1, 0, 0);
 	});

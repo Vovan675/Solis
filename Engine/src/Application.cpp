@@ -83,6 +83,8 @@ Application::Application(int argc, char *argv[])
 		}
 	}
 
+	AssetManager::init();
+
 	if (gapi == GRAPHICS_API_VULKAN)
 		gDynamicRHI = new VulkanDynamicRHI();
 	else
@@ -97,9 +99,7 @@ Application::Application(int argc, char *argv[])
 
 	Renderer::init();
 
-	AssetManager::init();
 	PhysXWrapper::init();
-
 	ImGuiWrapper::init(window);
 }
 
@@ -129,7 +129,6 @@ void Application::run()
 		if (is_first_frame)
 		{
 			is_first_frame = false;
-			gDynamicRHI->getBindlessResources()->init();
 			init();
 
 			if (current_demo != DEMO_NONE)
@@ -194,8 +193,7 @@ void Application::render(RHICommandList *cmd_list)
 		//swapchain_texture->transitLayout(cmd_list, TEXTURE_LAYOUT_ATTACHMENT);
 		//cmd_list->setRenderTargets({swapchain_texture}, nullptr, 0, 0, true);
 
-		//CubesDemo::render(cmd_list);
-		//CubesDemo::renderBindless(cmd_list);
+		CubesDemo::render(cmd_list);
 		//RenderTargetsDemo::render(cmd_list);
 		//RenderTargetsDemo::renderFrameGraph(cmd_list);
 

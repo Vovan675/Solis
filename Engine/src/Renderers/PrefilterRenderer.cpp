@@ -20,7 +20,6 @@ PrefilterRenderer::PrefilterRenderer(): RendererBase()
 	prefilter_texture = gDynamicRHI->createTexture(desc);
 	prefilter_texture->fill();
 	prefilter_texture->setDebugName("IBL Prefilter Image");
-	gDynamicRHI->getBindlessResources()->addTexture(prefilter_texture);
 }
 
 void PrefilterRenderer::addPass(FrameGraph &fg, uint32_t samples_count)

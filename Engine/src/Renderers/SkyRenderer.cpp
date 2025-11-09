@@ -58,8 +58,8 @@ void SkyRenderer::addProceduralPasses(FrameGraph &fg)
 			procedural_uniforms.mvp = glm::perspectiveLH(glm::radians(90.0f), 1.0f, 0.01f, 512.0f) * Math::getCubeFaceTransform(face) * glm::eulerAngleXYZ(0.0f, glm::radians(180.0f), 0.0f);
 			gDynamicRHI->setConstantBufferData(0, &procedural_uniforms, sizeof(procedural_uniforms));
 
-			cmd_list->setVertexBuffer(mesh->vertexBuffer);
-			cmd_list->setIndexBuffer(mesh->indexBuffer);
+			cmd_list->setVertexBuffer(mesh->vertexBuffer, 0, sizeof(Engine::Vertex));
+			cmd_list->setIndexBuffer(mesh->indexBuffer, 0, IndexFormat::UINT32);
 			cmd_list->drawIndexedInstanced(mesh->indices.size(), 1, 0, 0, 0);
 
 			cmd_list->resetRenderTargets();
@@ -110,8 +110,8 @@ void SkyRenderer::addCompositePasses(FrameGraph &fg)
 		constants.cubemap_tex_id = resources.getBindlessId(GFXRID(Sky));
 		gDynamicRHI->setConstantBufferData(0, &constants, sizeof(Constants));
 
-		cmd_list->setVertexBuffer(mesh->vertexBuffer);
-		cmd_list->setIndexBuffer(mesh->indexBuffer);
+		cmd_list->setVertexBuffer(mesh->vertexBuffer, 0, sizeof(Engine::Vertex));
+		cmd_list->setIndexBuffer(mesh->indexBuffer, 0, IndexFormat::UINT32);
 		cmd_list->drawIndexedInstanced(mesh->indices.size(), 1, 0, 0, 0);
 
 		cmd_list->resetRenderTargets();

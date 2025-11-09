@@ -40,7 +40,7 @@ public:
 					auto tex = AssetManager::getTextureAsset(runtime_path.string().c_str()); // TODO: desc
 					if (!tex || !tex->isValid())
 						return;
-					material_texture.bindless_id = gDynamicRHI->getBindlessResources()->addTexture(tex);
+					material_texture.bindless_id = tex->getShaderResourceView()->getBindlessIndex();
 				}
 			};
 
@@ -145,7 +145,7 @@ namespace YAML
 			if (node["AlbedoTexture"])
 			{
 				auto tex = AssetManager::getTextureAsset(node["AlbedoTexture"].as<eastl::string>());
-				mat->albedo_tex.bindless_id = gDynamicRHI->getBindlessResources()->addTexture(tex);
+				mat->albedo_tex.bindless_id = tex->getShaderResourceView()->getBindlessIndex();
 			}
 
 			if (node["MetalnessTexture"])
@@ -155,7 +155,7 @@ namespace YAML
 				tex_description.usage_flags = TEXTURE_USAGE_TRANSFER_SRC;
 
 				auto tex = AssetManager::getTextureAsset(node["MetalnessTexture"].as<eastl::string>(), tex_description);
-				mat->metalness_tex.bindless_id = gDynamicRHI->getBindlessResources()->addTexture(tex);
+				mat->metalness_tex.bindless_id = tex->getShaderResourceView()->getBindlessIndex();
 			}
 
 			if (node["RoughnessTexture"])
@@ -165,7 +165,7 @@ namespace YAML
 				tex_description.usage_flags = TEXTURE_USAGE_TRANSFER_SRC;
 
 				auto tex = AssetManager::getTextureAsset(node["RoughnessTexture"].as<eastl::string>(), tex_description);
-				mat->roughness_tex.bindless_id = gDynamicRHI->getBindlessResources()->addTexture(tex);
+				mat->roughness_tex.bindless_id = tex->getShaderResourceView()->getBindlessIndex();
 			}
 
 			if (node["SpecularTexture"])
@@ -175,7 +175,7 @@ namespace YAML
 				tex_description.usage_flags = TEXTURE_USAGE_TRANSFER_SRC;
 
 				auto tex = AssetManager::getTextureAsset(node["SpecularTexture"].as<eastl::string>(), tex_description);
-				mat->specular_tex.bindless_id = gDynamicRHI->getBindlessResources()->addTexture(tex);
+				mat->specular_tex.bindless_id = tex->getShaderResourceView()->getBindlessIndex();
 			}
 
 			if (node["NormalTexture"])
@@ -185,7 +185,7 @@ namespace YAML
 				tex_description.usage_flags = TEXTURE_USAGE_TRANSFER_SRC;
 
 				auto tex = AssetManager::getTextureAsset(node["NormalTexture"].as<eastl::string>(), tex_description);
-				mat->normal_tex.bindless_id = gDynamicRHI->getBindlessResources()->addTexture(tex);
+				mat->normal_tex.bindless_id = tex->getShaderResourceView()->getBindlessIndex();
 			}
 
 			return true;

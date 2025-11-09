@@ -42,7 +42,7 @@ void VulkanPipeline::create(const PipelineDescription &description)
 	descriptor_layout = VulkanUtils::getDescriptorLayout(descriptors);
 
 	// Pipeline layout state (aka uniform values)
-	eastl::vector<VkDescriptorSetLayout> descriptor_set_layouts;
+	eastl::fixed_vector<VkDescriptorSetLayout, 2> descriptor_set_layouts;
 	descriptor_set_layouts.push_back(descriptor_layout.layout);
 
 	VulkanDynamicRHI *native_rhi = VulkanUtils::getNativeRHI();
@@ -53,13 +53,13 @@ void VulkanPipeline::create(const PipelineDescription &description)
 
 	eastl::vector<VkPushConstantRange> push_constant_ranges = VulkanShader::getPushConstantRanges(descriptors);
 
-	VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
-	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-	pipelineLayoutInfo.setLayoutCount = descriptor_set_layouts.size();
-	pipelineLayoutInfo.pSetLayouts = descriptor_set_layouts.data();
-	pipelineLayoutInfo.pushConstantRangeCount = push_constant_ranges.size();
-	pipelineLayoutInfo.pPushConstantRanges = push_constant_ranges.data();
-	CHECK_ERROR(vkCreatePipelineLayout(native_rhi->device->logicalHandle, &pipelineLayoutInfo, nullptr, &resource->pipeline_layout));
+	VkPipelineLayoutCreateInfo pipeline_layout_info{};
+	pipeline_layout_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+	pipeline_layout_info.setLayoutCount = descriptor_set_layouts.size();
+	pipeline_layout_info.pSetLayouts = descriptor_set_layouts.data();
+	pipeline_layout_info.pushConstantRangeCount = push_constant_ranges.size();
+	pipeline_layout_info.pPushConstantRanges = push_constant_ranges.data();
+	CHECK_ERROR(vkCreatePipelineLayout(native_rhi->device->logicalHandle, &pipeline_layout_info, nullptr, &resource->pipeline_layout));
 
 	if (description.pipeline_type == PipelineType::Compute)
 	{
@@ -76,7 +76,7 @@ void VulkanPipeline::create(const PipelineDescription &description)
 		CHECK_ERROR(vkCreateComputePipelines(native_rhi->device->logicalHandle, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &resource->pipeline));
 	} else if (description.pipeline_type == PipelineType::RayTracing)
 	{
-		eastl::vector<VkPipelineShaderStageCreateInfo> shaderStages;
+		eastl::fixed_vector<VkPipelineShaderStageCreateInfo, 3> shader_stages;
 
 		// Ray generation group
 		{
@@ -85,16 +85,16 @@ void VulkanPipeline::create(const PipelineDescription &description)
 			ray_gen_shader_stage.stage = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
 			ray_gen_shader_stage.module = static_cast<VulkanShader *>(description.ray_generation_shader.getReference())->handle;
 			ray_gen_shader_stage.pName = "RayGen";
-			shaderStages.push_back(ray_gen_shader_stage);
+			shader_stages.push_back(ray_gen_shader_stage);
 
-			VkRayTracingShaderGroupCreateInfoKHR shaderGroup{};
-			shaderGroup.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
-			shaderGroup.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
-			shaderGroup.generalShader = static_cast<uint32_t>(shaderStages.size()) - 1;
-			shaderGroup.closestHitShader = VK_SHADER_UNUSED_KHR;
-			shaderGroup.anyHitShader = VK_SHADER_UNUSED_KHR;
-			shaderGroup.intersectionShader = VK_SHADER_UNUSED_KHR;
-			shaderGroups.push_back(shaderGroup);
+			VkRayTracingShaderGroupCreateInfoKHR shader_group{};
+			shader_group.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
+			shader_group.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
+			shader_group.generalShader = static_cast<uint32_t>(shader_stages.size()) - 1;
+			shader_group.closestHitShader = VK_SHADER_UNUSED_KHR;
+			shader_group.anyHitShader = VK_SHADER_UNUSED_KHR;
+			shader_group.intersectionShader = VK_SHADER_UNUSED_KHR;
+			shader_groups.push_back(shader_group);
 		}
 
 		// Miss group
@@ -104,16 +104,16 @@ void VulkanPipeline::create(const PipelineDescription &description)
 			miss_shader_stage.stage = VK_SHADER_STAGE_MISS_BIT_KHR;
 			miss_shader_stage.module = static_cast<VulkanShader *>(description.miss_shader.getReference())->handle;
 			miss_shader_stage.pName = "Miss";
-			shaderStages.push_back(miss_shader_stage);
+			shader_stages.push_back(miss_shader_stage);
 
-			VkRayTracingShaderGroupCreateInfoKHR shaderGroup{};
-			shaderGroup.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
-			shaderGroup.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
-			shaderGroup.generalShader = static_cast<uint32_t>(shaderStages.size()) - 1;
-			shaderGroup.closestHitShader = VK_SHADER_UNUSED_KHR;
-			shaderGroup.anyHitShader = VK_SHADER_UNUSED_KHR;
-			shaderGroup.intersectionShader = VK_SHADER_UNUSED_KHR;
-			shaderGroups.push_back(shaderGroup);
+			VkRayTracingShaderGroupCreateInfoKHR shader_group{};
+			shader_group.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
+			shader_group.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
+			shader_group.generalShader = static_cast<uint32_t>(shader_stages.size()) - 1;
+			shader_group.closestHitShader = VK_SHADER_UNUSED_KHR;
+			shader_group.anyHitShader = VK_SHADER_UNUSED_KHR;
+			shader_group.intersectionShader = VK_SHADER_UNUSED_KHR;
+			shader_groups.push_back(shader_group);
 		}
 
 		// Closest hit group
@@ -123,81 +123,79 @@ void VulkanPipeline::create(const PipelineDescription &description)
 			closest_hit_shader_stage.stage = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
 			closest_hit_shader_stage.module = static_cast<VulkanShader *>(description.closest_hit_shader.getReference())->handle;
 			closest_hit_shader_stage.pName = "ClosestHit";
-			shaderStages.push_back(closest_hit_shader_stage);
+			shader_stages.push_back(closest_hit_shader_stage);
 
-			VkRayTracingShaderGroupCreateInfoKHR shaderGroup{};
-			shaderGroup.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
-			shaderGroup.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR;
-			shaderGroup.generalShader = VK_SHADER_UNUSED_KHR;
-			shaderGroup.closestHitShader = static_cast<uint32_t>(shaderStages.size()) - 1;
-			shaderGroup.anyHitShader = VK_SHADER_UNUSED_KHR;
-			shaderGroup.intersectionShader = VK_SHADER_UNUSED_KHR;
-			shaderGroups.push_back(shaderGroup);
+			VkRayTracingShaderGroupCreateInfoKHR shader_group{};
+			shader_group.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
+			shader_group.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR;
+			shader_group.generalShader = VK_SHADER_UNUSED_KHR;
+			shader_group.closestHitShader = static_cast<uint32_t>(shader_stages.size()) - 1;
+			shader_group.anyHitShader = VK_SHADER_UNUSED_KHR;
+			shader_group.intersectionShader = VK_SHADER_UNUSED_KHR;
+			shader_groups.push_back(shader_group);
 		}
 
 		//Create the ray tracing pipeline
-		VkRayTracingPipelineCreateInfoKHR rayTracingPipelineCI{};
-		rayTracingPipelineCI.sType = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR;
-		rayTracingPipelineCI.stageCount = static_cast<uint32_t>(shaderStages.size());
-		rayTracingPipelineCI.pStages = shaderStages.data();
-		rayTracingPipelineCI.groupCount = static_cast<uint32_t>(shaderGroups.size());
-		rayTracingPipelineCI.pGroups = shaderGroups.data();
-		rayTracingPipelineCI.maxPipelineRayRecursionDepth = 1;
-		rayTracingPipelineCI.layout = resource->pipeline_layout;
-		CHECK_ERROR(VulkanUtils::vkCreateRayTracingPipelinesKHR(VK_NULL_HANDLE, VK_NULL_HANDLE, 1, &rayTracingPipelineCI, nullptr, &resource->pipeline));
+		VkRayTracingPipelineCreateInfoKHR ray_tracing_pipeline_info{};
+		ray_tracing_pipeline_info.sType = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR;
+		ray_tracing_pipeline_info.stageCount = static_cast<uint32_t>(shader_stages.size());
+		ray_tracing_pipeline_info.pStages = shader_stages.data();
+		ray_tracing_pipeline_info.groupCount = static_cast<uint32_t>(shader_groups.size());
+		ray_tracing_pipeline_info.pGroups = shader_groups.data();
+		ray_tracing_pipeline_info.maxPipelineRayRecursionDepth = 1;
+		ray_tracing_pipeline_info.layout = resource->pipeline_layout;
+		CHECK_ERROR(VulkanUtils::vkCreateRayTracingPipelinesKHR(VK_NULL_HANDLE, VK_NULL_HANDLE, 1, &ray_tracing_pipeline_info, nullptr, &resource->pipeline));
 
 		// Create shader binding table
-		const uint32_t handleSize = native_rhi->device->physicalRayTracingProperties.shaderGroupHandleSize;
-		const uint32_t handleSizeAligned = Math::alignedSize(native_rhi->device->physicalRayTracingProperties.shaderGroupHandleSize, native_rhi->device->physicalRayTracingProperties.shaderGroupHandleAlignment);
-		const uint32_t groupCount = static_cast<uint32_t>(shaderGroups.size());
-		const uint32_t sbtSize = groupCount * handleSizeAligned;
+		const uint32_t handle_size = native_rhi->device->physicalRayTracingProperties.shaderGroupHandleSize;
+		const uint32_t handle_size_aligned = Math::alignedSize(native_rhi->device->physicalRayTracingProperties.shaderGroupHandleSize, native_rhi->device->physicalRayTracingProperties.shaderGroupHandleAlignment);
+		const uint32_t group_count = static_cast<uint32_t>(shader_groups.size());
+		const uint32_t sbt_size = group_count * handle_size_aligned;
 
-		eastl::vector<uint8_t> shaderHandleStorage(sbtSize);
-		CHECK_ERROR(VulkanUtils::vkGetRayTracingShaderGroupHandlesKHR(resource->pipeline, 0, groupCount, sbtSize, shaderHandleStorage.data()));
+		eastl::fixed_vector<uint8_t, 1> shader_handle_storage(sbt_size);
+		CHECK_ERROR(VulkanUtils::vkGetRayTracingShaderGroupHandlesKHR(resource->pipeline, 0, group_count, sbt_size, shader_handle_storage.data()));
 
-		const VkBufferUsageFlags bufferUsageFlags = VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
-		const VkMemoryPropertyFlags memoryUsageFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+		BufferDescription sbt_buffer_desc;
+		sbt_buffer_desc.size = handle_size;
+		sbt_buffer_desc.use_staging_buffer = true;
+		sbt_buffer_desc.usage = BufferUsage::SHADER_BINGING_TABLE_BUFFER;
+		sbt_buffer_desc.alignment = native_rhi->device->physicalRayTracingProperties.shaderGroupBaseAlignment;
 
-		BufferDescription accDesc;
-		accDesc.size = handleSize;
-		accDesc.useStagingBuffer = true;
-		accDesc.usage = SHADER_BINGING_TABLE_BUFFER;
-		accDesc.alignment = native_rhi->device->physicalRayTracingProperties.shaderGroupBaseAlignment;
-
-		raygenShaderBindingTable = gDynamicRHI->createBuffer(accDesc);
-		missShaderBindingTable = gDynamicRHI->createBuffer(accDesc);
-		hitShaderBindingTable = gDynamicRHI->createBuffer(accDesc);
+		raygen_sbt = gDynamicRHI->createBuffer(sbt_buffer_desc);
+		miss_sbt = gDynamicRHI->createBuffer(sbt_buffer_desc);
+		hit_sbt = gDynamicRHI->createBuffer(sbt_buffer_desc);
 
 		// Copy handles
-		raygenShaderBindingTable->fill(shaderHandleStorage.data());
-		missShaderBindingTable->fill(shaderHandleStorage.data() + handleSizeAligned);
-		hitShaderBindingTable->fill(shaderHandleStorage.data() + handleSizeAligned * 2);
+		raygen_sbt->fill(shader_handle_storage.data());
+		miss_sbt->fill(shader_handle_storage.data() + handle_size_aligned);
+		hit_sbt->fill(shader_handle_storage.data() + handle_size_aligned * 2);
 	} else
 	{
 
 		// Shaders state
-		VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
-		vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-		vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
-		vertShaderStageInfo.module = static_cast<VulkanShader *>(description.vertex_shader.getReference())->handle;
-		vertShaderStageInfo.pName = description.vertex_shader->getEntry().c_str();
+		VkPipelineShaderStageCreateInfo vs_stage_info{};
+		vs_stage_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+		vs_stage_info.stage = VK_SHADER_STAGE_VERTEX_BIT;
+		vs_stage_info.module = static_cast<VulkanShader *>(description.vertex_shader.getReference())->handle;
+		vs_stage_info.pName = description.vertex_shader->getEntry().c_str();
 
-		VkPipelineShaderStageCreateInfo fragShaderStageInfo{};
-		fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-		fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-		fragShaderStageInfo.module = static_cast<VulkanShader *>(description.fragment_shader.getReference())->handle;
-		fragShaderStageInfo.pName = description.fragment_shader->getEntry().c_str();
+		VkPipelineShaderStageCreateInfo fs_stage_info{};
+		fs_stage_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+		fs_stage_info.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+		fs_stage_info.module = static_cast<VulkanShader *>(description.fragment_shader.getReference())->handle;
+		fs_stage_info.pName = description.fragment_shader->getEntry().c_str();
 
-		VkPipelineShaderStageCreateInfo shaderStagesInfo[] = {vertShaderStageInfo, fragShaderStageInfo};
+		VkPipelineShaderStageCreateInfo stages_info[] = {vs_stage_info, fs_stage_info};
 
 		// Vertex input state
-		VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
-		vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+		VkPipelineVertexInputStateCreateInfo vertex_input_info{};
+		vertex_input_info.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 
 		// Use vertices
+		bool use_vertex_inputs = !description.vertex_inputs_descriptions.inputs.empty();
 		VkVertexInputBindingDescription vertex_input_binding_description{};
-		eastl::vector<VkVertexInputAttributeDescription> vertex_input_attribute_descriptions;
-		if (!description.vertex_inputs_descriptions.inputs.empty())
+		eastl::fixed_vector<VkVertexInputAttributeDescription, 16> vertex_input_attribute_descriptions;
+		if (use_vertex_inputs)
 		{
 			uint32_t offset = 0;
 			int location = 0;
@@ -219,14 +217,14 @@ void VulkanPipeline::create(const PipelineDescription &description)
 			vertex_input_binding_description.stride = offset;
 			vertex_input_binding_description.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
-			vertexInputInfo.vertexBindingDescriptionCount = 1;
-			vertexInputInfo.pVertexBindingDescriptions = &vertex_input_binding_description;
-			vertexInputInfo.vertexAttributeDescriptionCount = vertex_input_attribute_descriptions.size();
-			vertexInputInfo.pVertexAttributeDescriptions = vertex_input_attribute_descriptions.data();
+			vertex_input_info.vertexBindingDescriptionCount = 1;
+			vertex_input_info.pVertexBindingDescriptions = &vertex_input_binding_description;
+			vertex_input_info.vertexAttributeDescriptionCount = vertex_input_attribute_descriptions.size();
+			vertex_input_info.pVertexAttributeDescriptions = vertex_input_attribute_descriptions.data();
 		} else
 		{
-			vertexInputInfo.vertexBindingDescriptionCount = 0;
-			vertexInputInfo.vertexAttributeDescriptionCount = 0;
+			vertex_input_info.vertexBindingDescriptionCount = 0;
+			vertex_input_info.vertexAttributeDescriptionCount = 0;
 		}
 
 		// Input assembly state
@@ -238,17 +236,17 @@ void VulkanPipeline::create(const PipelineDescription &description)
 			case TOPOLOGY_TRIANGLE_LIST: topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST; break;
 			case TOPOLOGY_TRIANGLE_STRIP: topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP; break;
 		}
-		VkPipelineInputAssemblyStateCreateInfo inputAssemblyInfo{};
-		inputAssemblyInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-		inputAssemblyInfo.topology = topology;
-		inputAssemblyInfo.primitiveRestartEnable = VK_FALSE;
+		VkPipelineInputAssemblyStateCreateInfo input_assembly_info{};
+		input_assembly_info.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+		input_assembly_info.topology = topology;
+		input_assembly_info.primitiveRestartEnable = VK_FALSE;
 
-		VkPipelineViewportStateCreateInfo viewportState{};
-		viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-		viewportState.viewportCount = 1;
-		viewportState.pViewports = nullptr; // ignored because its dynamic state
-		viewportState.scissorCount = 1;
-		viewportState.pScissors = nullptr; // ignored because its dynamic state
+		VkPipelineViewportStateCreateInfo viewport_info{};
+		viewport_info.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+		viewport_info.viewportCount = 1;
+		viewport_info.pViewports = nullptr; // ignored because its dynamic state
+		viewport_info.scissorCount = 1;
+		viewport_info.pScissors = nullptr; // ignored because its dynamic state
 
 
 		VkCullModeFlags cull_mode = VK_CULL_MODE_BACK_BIT;
@@ -260,27 +258,27 @@ void VulkanPipeline::create(const PipelineDescription &description)
 		}
 
 		// Rasterizer state
-		VkPipelineRasterizationStateCreateInfo rasterizer{};
-		rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-		rasterizer.depthClampEnable = VK_FALSE;
-		rasterizer.rasterizerDiscardEnable = VK_FALSE;
-		rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
-		rasterizer.lineWidth = 1;
-		rasterizer.cullMode = cull_mode;
-		rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-		rasterizer.depthBiasEnable = VK_FALSE;
-		rasterizer.depthBiasConstantFactor = 0;
-		rasterizer.depthBiasClamp = 0;
-		rasterizer.depthBiasSlopeFactor = 0;
+		VkPipelineRasterizationStateCreateInfo rasterizer_info{};
+		rasterizer_info.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+		rasterizer_info.depthClampEnable = VK_FALSE;
+		rasterizer_info.rasterizerDiscardEnable = VK_FALSE;
+		rasterizer_info.polygonMode = VK_POLYGON_MODE_FILL;
+		rasterizer_info.lineWidth = 1;
+		rasterizer_info.cullMode = cull_mode;
+		rasterizer_info.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+		rasterizer_info.depthBiasEnable = VK_FALSE;
+		rasterizer_info.depthBiasConstantFactor = 0;
+		rasterizer_info.depthBiasClamp = 0;
+		rasterizer_info.depthBiasSlopeFactor = 0;
 
 		// Multisample state
-		VkPipelineMultisampleStateCreateInfo multisampling{};
-		multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-		multisampling.sampleShadingEnable = VK_FALSE;
-		multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+		VkPipelineMultisampleStateCreateInfo multisampling_info{};
+		multisampling_info.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+		multisampling_info.sampleShadingEnable = VK_FALSE;
+		multisampling_info.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 
 		// Color blend state
-		auto getBlend = [](Blend blend)
+		auto get_blend = [](Blend blend)
 		{
 			switch (blend)
 			{
@@ -303,7 +301,7 @@ void VulkanPipeline::create(const PipelineDescription &description)
 			return VK_BLEND_FACTOR_ZERO;
 		};
 
-		auto getBlendOp = [](BlendOp op)
+		auto get_blend_op = [](BlendOp op)
 		{
 			switch (op)
 			{
@@ -316,31 +314,31 @@ void VulkanPipeline::create(const PipelineDescription &description)
 			return VK_BLEND_OP_ADD;
 		};
 
-		eastl::vector<VkPipelineColorBlendAttachmentState> color_blend_attachments(description.color_formats.size());
+		eastl::fixed_vector<VkPipelineColorBlendAttachmentState, 8> color_blend_attachments(description.color_formats.size());
 		for (int i = 0; i < description.color_formats.size(); i++)
 		{
 			VkPipelineColorBlendAttachmentState attachment{};
 			attachment.blendEnable = description.use_blending;
-			attachment.srcColorBlendFactor = getBlend(description.src_color_blend);
-			attachment.dstColorBlendFactor = getBlend(description.dst_color_blend);
-			attachment.colorBlendOp = getBlendOp(description.color_blend_op);
-			attachment.srcAlphaBlendFactor = getBlend(description.src_alpha_blend);
-			attachment.dstAlphaBlendFactor = getBlend(description.dst_alpha_blend);
-			attachment.alphaBlendOp = getBlendOp(description.alpha_blend_op);
+			attachment.srcColorBlendFactor = get_blend(description.src_color_blend);
+			attachment.dstColorBlendFactor = get_blend(description.dst_color_blend);
+			attachment.colorBlendOp = get_blend_op(description.color_blend_op);
+			attachment.srcAlphaBlendFactor = get_blend(description.src_alpha_blend);
+			attachment.dstAlphaBlendFactor = get_blend(description.dst_alpha_blend);
+			attachment.alphaBlendOp = get_blend_op(description.alpha_blend_op);
 			attachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
 			color_blend_attachments[i] = attachment;
 		}
 
-		VkPipelineColorBlendStateCreateInfo colorBlending{};
-		colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-		colorBlending.logicOpEnable = VK_FALSE;
-		colorBlending.logicOp = VK_LOGIC_OP_COPY;
-		colorBlending.attachmentCount = color_blend_attachments.size();;
-		colorBlending.pAttachments = color_blend_attachments.data();
-		colorBlending.blendConstants[0] = 0;
-		colorBlending.blendConstants[1] = 0;
-		colorBlending.blendConstants[2] = 0;
-		colorBlending.blendConstants[3] = 0;
+		VkPipelineColorBlendStateCreateInfo color_blending_info{};
+		color_blending_info.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+		color_blending_info.logicOpEnable = VK_FALSE;
+		color_blending_info.logicOp = VK_LOGIC_OP_COPY;
+		color_blending_info.attachmentCount = color_blend_attachments.size();;
+		color_blending_info.pAttachments = color_blend_attachments.data();
+		color_blending_info.blendConstants[0] = 0;
+		color_blending_info.blendConstants[1] = 0;
+		color_blending_info.blendConstants[2] = 0;
+		color_blending_info.blendConstants[3] = 0;
 
 		// Depth Stencil state
 		VkCompareOp depth_compare_op = VK_COMPARE_OP_LESS;
@@ -356,61 +354,64 @@ void VulkanPipeline::create(const PipelineDescription &description)
 			case COMPARE_FUNC_ALWAYS: depth_compare_op = VK_COMPARE_OP_ALWAYS; break;
 		}
 
-		VkPipelineDepthStencilStateCreateInfo depthStencil{};
-		depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-		depthStencil.depthTestEnable = description.use_depth_test;
-		depthStencil.depthWriteEnable = description.use_depth_write;
-		depthStencil.depthCompareOp = depth_compare_op;
-		depthStencil.depthBoundsTestEnable = VK_FALSE;
-		depthStencil.minDepthBounds = 0.0f;
-		depthStencil.maxDepthBounds = 1.0f;
-		depthStencil.stencilTestEnable = VK_FALSE;
-		depthStencil.front = {};
-		depthStencil.back = {};
+		VkPipelineDepthStencilStateCreateInfo depth_stencil_info{};
+		depth_stencil_info.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+		depth_stencil_info.depthTestEnable = description.use_depth_test;
+		depth_stencil_info.depthWriteEnable = description.use_depth_write;
+		depth_stencil_info.depthCompareOp = depth_compare_op;
+		depth_stencil_info.depthBoundsTestEnable = VK_FALSE;
+		depth_stencil_info.minDepthBounds = 0.0f;
+		depth_stencil_info.maxDepthBounds = 1.0f;
+		depth_stencil_info.stencilTestEnable = VK_FALSE;
+		depth_stencil_info.front = {};
+		depth_stencil_info.back = {};
 
 		// Dynamic states
-		VkDynamicState dynamicStates[] = {
+		eastl::fixed_vector<VkDynamicState, MAX_COLOR_ATTACHMENTS> dynamic_states = {
 			VK_DYNAMIC_STATE_VIEWPORT,
 			VK_DYNAMIC_STATE_SCISSOR
 		};
-		VkPipelineDynamicStateCreateInfo dynamicState{};
-		dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-		dynamicState.dynamicStateCount = 2;
-		dynamicState.pDynamicStates = dynamicStates;
+		if (use_vertex_inputs)
+			dynamic_states.push_back(VK_DYNAMIC_STATE_VERTEX_INPUT_BINDING_STRIDE);
+
+		VkPipelineDynamicStateCreateInfo dynamic_state_info{};
+		dynamic_state_info.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+		dynamic_state_info.dynamicStateCount = dynamic_states.size();
+		dynamic_state_info.pDynamicStates = dynamic_states.data();
 
 		// Needed for dynamic rendering
-		eastl::vector<VkFormat> color_attachments;
+		eastl::fixed_vector<VkFormat, MAX_COLOR_ATTACHMENTS> color_attachments;
 		for (auto &format : description.color_formats)
 			color_attachments.push_back(VulkanUtils::getNativeFormat(format));
 
-		VkPipelineRenderingCreateInfo pipeline_rendering_create_info{};
-		pipeline_rendering_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
-		pipeline_rendering_create_info.colorAttachmentCount = color_attachments.size();
-		pipeline_rendering_create_info.pColorAttachmentFormats = color_attachments.data();
+		VkPipelineRenderingCreateInfo pipeline_rendering_info{};
+		pipeline_rendering_info.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
+		pipeline_rendering_info.colorAttachmentCount = color_attachments.size();
+		pipeline_rendering_info.pColorAttachmentFormats = color_attachments.data();
 
 		if (description.depth_format != FORMAT_UNDEFINED)
-			pipeline_rendering_create_info.depthAttachmentFormat = VulkanUtils::getNativeFormat(description.depth_format);
+			pipeline_rendering_info.depthAttachmentFormat = VulkanUtils::getNativeFormat(description.depth_format);
 
 		// Finally create graphics pipeline
-		VkGraphicsPipelineCreateInfo pipelineInfo{};
-		pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-		pipelineInfo.pNext = &pipeline_rendering_create_info;
-		pipelineInfo.stageCount = 2;
-		pipelineInfo.pStages = shaderStagesInfo;
-		pipelineInfo.pVertexInputState = &vertexInputInfo;
-		pipelineInfo.pInputAssemblyState = &inputAssemblyInfo;
-		pipelineInfo.pViewportState = &viewportState;
-		pipelineInfo.pRasterizationState = &rasterizer;
-		pipelineInfo.pMultisampleState = &multisampling;
-		pipelineInfo.pDepthStencilState = &depthStencil;
-		pipelineInfo.pColorBlendState = &colorBlending;
-		pipelineInfo.pDynamicState = &dynamicState;
-		pipelineInfo.layout = resource->pipeline_layout;
-		pipelineInfo.renderPass = nullptr;
-		pipelineInfo.subpass = 0;
-		pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
-		pipelineInfo.basePipelineIndex = -1;
+		VkGraphicsPipelineCreateInfo pipeline_info{};
+		pipeline_info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+		pipeline_info.pNext = &pipeline_rendering_info;
+		pipeline_info.stageCount = 2;
+		pipeline_info.pStages = stages_info;
+		pipeline_info.pVertexInputState = &vertex_input_info;
+		pipeline_info.pInputAssemblyState = &input_assembly_info;
+		pipeline_info.pViewportState = &viewport_info;
+		pipeline_info.pRasterizationState = &rasterizer_info;
+		pipeline_info.pMultisampleState = &multisampling_info;
+		pipeline_info.pDepthStencilState = &depth_stencil_info;
+		pipeline_info.pColorBlendState = &color_blending_info;
+		pipeline_info.pDynamicState = &dynamic_state_info;
+		pipeline_info.layout = resource->pipeline_layout;
+		pipeline_info.renderPass = nullptr;
+		pipeline_info.subpass = 0;
+		pipeline_info.basePipelineHandle = VK_NULL_HANDLE;
+		pipeline_info.basePipelineIndex = -1;
 
-		CHECK_ERROR(vkCreateGraphicsPipelines(native_rhi->device->logicalHandle, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &resource->pipeline));
+		CHECK_ERROR(vkCreateGraphicsPipelines(native_rhi->device->logicalHandle, VK_NULL_HANDLE, 1, &pipeline_info, nullptr, &resource->pipeline));
 	}
 }

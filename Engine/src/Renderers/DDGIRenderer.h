@@ -32,7 +32,7 @@ public:
 	void renderImgui();
 
 	DDGIVolumeGPU getVolume() const { return volume; }
-	uint32_t getVolumeBufferId() const { return gDynamicRHI->getBindlessResources()->addBuffer(volume_buffer); }
+	uint32_t getVolumeBufferId() const { return volume_buffer->getShaderResourceView()->getBindlessIndex(); }
 private:
 	void addTraceRaysPass(FrameGraph &fg, Ref<RayTracingScene> rt_scene);
 	void addUpdatePass(FrameGraph &fg);

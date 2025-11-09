@@ -36,7 +36,6 @@ bool ViewportPanel::renderImGui(EditorContext &context, float delta_time)
 		viewport_texture = gDynamicRHI->createTexture(description);
 		viewport_texture->fill();
 		viewport_texture->setDebugName("Viewport Texture");
-		gDynamicRHI->getBindlessResources()->addTexture(viewport_texture);
 	}
 
 	if (viewport_texture)

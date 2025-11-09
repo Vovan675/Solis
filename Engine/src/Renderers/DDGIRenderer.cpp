@@ -30,9 +30,9 @@ DDGIRenderer::DDGIRenderer()
 
 	BufferDescription desc;
 	desc.size = sizeof(volume);
-	desc.usage = STORAGE_BUFFER;
-	desc.useStagingBuffer = false;
-	desc.stride = sizeof(volume);
+	desc.usage = BufferUsage::SHADER_READ_BUFFER;
+	desc.use_staging_buffer = false;
+	desc.storage_stride = sizeof(volume);
 	volume_buffer = gDynamicRHI->createBuffer(desc);
 	volume_buffer->setDebugName("DDGI Volume Buffer");
 
@@ -60,7 +60,7 @@ void DDGIRenderer::addPasses(FrameGraph & fg, Ref<RayTracingScene> rt_scene)
 		distance_atlas_texture = gDynamicRHI->createTexture(desc);
 		distance_atlas_texture->fill();
 
-		volume.distance_altas_tex_id = gDynamicRHI->getBindlessResources()->getTextureIndex(distance_atlas_texture);
+		volume.distance_altas_tex_id = distance_atlas_texture->getShaderResourceView()->getBindlessIndex();
 	}
 
 	int irradiance_width = (irradiance_probe_texels + border_size * 2) * volume.size.x * layers;
@@ -75,7 +75,7 @@ void DDGIRenderer::addPasses(FrameGraph & fg, Ref<RayTracingScene> rt_scene)
 		irradiance_atlas_texture = gDynamicRHI->createTexture(desc);
 		irradiance_atlas_texture->fill();
 
-		volume.irradiance_altas_tex_id = gDynamicRHI->getBindlessResources()->getTextureIndex(irradiance_atlas_texture);
+		volume.irradiance_altas_tex_id = irradiance_atlas_texture->getShaderResourceView()->getBindlessIndex();
 	}
 
 	int metadata_width = volume.size.x * layers;
@@ -90,7 +90,7 @@ void DDGIRenderer::addPasses(FrameGraph & fg, Ref<RayTracingScene> rt_scene)
 		metadata_atlas_texture = gDynamicRHI->createTexture(desc);
 		metadata_atlas_texture->fill();
 
-		volume.metadata_altas_tex_id = gDynamicRHI->getBindlessResources()->getTextureIndex(metadata_atlas_texture);
+		volume.metadata_altas_tex_id = metadata_atlas_texture->getShaderResourceView()->getBindlessIndex();
 	}
 
 	int ray_data_size = sizeof(glm::vec4) * volume.rays_per_probe * volume.getProbesCount();
@@ -98,10 +98,10 @@ void DDGIRenderer::addPasses(FrameGraph & fg, Ref<RayTracingScene> rt_scene)
 	{
 		BufferDescription desc;
 		desc.size = sizeof(glm::vec4) * volume.rays_per_probe * volume.getProbesCount();
-		desc.stride = sizeof(glm::vec4);
-		desc.usage = UAV_BUFFER | STORAGE_BUFFER;
+		desc.storage_stride = sizeof(glm::vec4);
+		desc.usage = BufferUsage::SHADER_READ_BUFFER | BufferUsage::SHADER_WRITE_BUFFER;
 		ray_data_buffer = gDynamicRHI->createBuffer(desc);
-		volume.ray_data_buffer_id = gDynamicRHI->getBindlessResources()->addBuffer(ray_data_buffer);
+		volume.ray_data_buffer_id = ray_data_buffer->getShaderResourceView()->getBindlessIndex();
 	}
 
 	volume.use_relocation = use_relocation;
@@ -194,8 +194,8 @@ void DDGIRenderer::addVisualizePass(FrameGraph &fg)
 
 		gDynamicRHI->setConstantBufferData(1, &visualization_settings, sizeof(visualization_settings));
 
-		cmd_list->setVertexBuffer(sphere_mesh->vertexBuffer);
-		cmd_list->setIndexBuffer(sphere_mesh->indexBuffer);
+		cmd_list->setVertexBuffer(sphere_mesh->vertexBuffer, 0, sizeof(Engine::Vertex));
+		cmd_list->setIndexBuffer(sphere_mesh->indexBuffer, 0);
 		cmd_list->drawIndexedInstanced(sphere_mesh->indices.size(), volume.getProbesCount(), 0, 0, 0);
 
 		cmd_list->resetRenderTargets();

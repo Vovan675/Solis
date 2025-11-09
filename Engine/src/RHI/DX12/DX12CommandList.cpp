@@ -40,7 +40,8 @@ void DX12CommandList::setRenderTargets(const eastl::vector<RHITexture *> &color_
 	for (const auto &attachment : color_attachments)
 	{
 		DX12Texture *texture = (DX12Texture *)attachment;
-		rtvs.push_back(texture->getRenderTargetView(mip, layer).getCpuHandle());
+		DX12TextureView *view = (DX12TextureView *)texture->getRenderTargetView(mip, layer);
+		rtvs.push_back(view->getDescriptor().getCpuHandle());
 	
 		if (clear)
 			cmd_list->ClearRenderTargetView(rtvs.back(), clearColor, 0, nullptr);
@@ -50,7 +51,8 @@ void DX12CommandList::setRenderTargets(const eastl::vector<RHITexture *> &color_
 	if (depth_attachment)
 	{
 		DX12Texture *depth = (DX12Texture *)depth_attachment;
-		depth_stencil = depth->getDepthStencilView(mip, layer).getCpuHandle();
+		DX12TextureView *view = (DX12TextureView *)depth->getRenderTargetView(mip, layer);
+		depth_stencil = view->getDescriptor().getCpuHandle();
 
 		if (clear)
 			cmd_list->ClearDepthStencilView(depth_stencil, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
@@ -94,18 +96,34 @@ void DX12CommandList::setPipeline(RHIPipeline *pipeline)
 	current_pipeline = pipeline;
 }
 
-void DX12CommandList::setVertexBuffer(RHIBuffer *buffer)
+void DX12CommandList::setVertexBuffer(RHIBuffer *buffer, uint32_t offset, uint32_t stride)
 {
 	DX12Buffer *native_buffer = static_cast<DX12Buffer *>(buffer);
-	native_buffer->setState(RESOURCE_STATE_VERTEX_BUFFER);
-	cmd_list->IASetVertexBuffers(0, 1, &native_buffer->getVertexBufferView());
+	native_buffer->setState(ResourceState::VERTEX_BUFFER);
+	D3D12_VERTEX_BUFFER_VIEW view;
+	view.BufferLocation = native_buffer->getGPUAddress() + offset;
+	view.SizeInBytes = buffer->getSize() - offset;
+	view.StrideInBytes = stride;
+	cmd_list->IASetVertexBuffers(0, 1, &view);
 }
 
-void DX12CommandList::setIndexBuffer(RHIBuffer *buffer)
+void DX12CommandList::setIndexBuffer(RHIBuffer *buffer, uint32_t offset, IndexFormat format)
 {
 	DX12Buffer *native_buffer = static_cast<DX12Buffer *>(buffer);
-	native_buffer->setState(RESOURCE_STATE_INDEX_BUFFER);
-	cmd_list->IASetIndexBuffer(&native_buffer->getIndexBufferView());
+	native_buffer->setState(ResourceState::INDEX_BUFFER);
+	D3D12_INDEX_BUFFER_VIEW view;
+	view.BufferLocation = native_buffer->getGPUAddress() + offset;
+	view.SizeInBytes = buffer->getSize() - offset;
+	switch (format)
+	{
+		case IndexFormat::UINT16:
+			view.Format = DXGI_FORMAT_R16_UINT;
+			break;
+		case IndexFormat::UINT32:
+			view.Format = DXGI_FORMAT_R32_UINT;
+			break;
+	}
+	cmd_list->IASetIndexBuffer(&view);
 }
 
 void DX12CommandList::dispatchRays(uint32_t width, uint32_t height, uint32_t depth)
@@ -127,7 +145,7 @@ void DX12CommandList::copyBuffer(RHIBuffer *src, RHIBuffer *dest, uint64_t src_o
 	DX12Buffer *native_src_buffer = (DX12Buffer *)src;
 	DX12Buffer *native_dst_buffer = (DX12Buffer *)dest;
 
-	cmd_list->CopyBufferRegion(native_dst_buffer->resource->resource, dest_offset, native_src_buffer->resource->resource, src_offset, size);
+	cmd_list->CopyBufferRegion(native_dst_buffer->getResource(), dest_offset, native_src_buffer->getResource(), src_offset, size);
 }
 
 void DX12CommandList::beginDebugLabel(const char *label, glm::vec3 color, uint32_t line, const char* source, size_t source_size, const char* function, size_t function_size)

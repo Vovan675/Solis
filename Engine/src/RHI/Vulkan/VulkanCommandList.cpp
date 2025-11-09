@@ -48,7 +48,7 @@ void VulkanCommandList::setRenderTargets(const eastl::vector<RHITexture *> &colo
 
 		VkRenderingAttachmentInfo info{};
 		info.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-		info.imageView = texture->getImageView(mip, layer);
+		info.imageView = ((VulkanTextureView *)texture->getRenderTargetView(mip))->getImageView();
 		info.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL;
 		info.loadOp = clear ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
 		info.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -64,7 +64,7 @@ void VulkanCommandList::setRenderTargets(const eastl::vector<RHITexture *> &colo
 		VulkanTexture *texture = (VulkanTexture *)depth_attachment;
 
 		depth_stencil_attachment_info.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-		depth_stencil_attachment_info.imageView = texture->getImageView(mip, layer);
+		depth_stencil_attachment_info.imageView = ((VulkanTextureView *)texture->getRenderTargetView(mip))->getImageView();
 		depth_stencil_attachment_info.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 		depth_stencil_attachment_info.loadOp = clear ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
 		depth_stencil_attachment_info.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -107,17 +107,30 @@ void VulkanCommandList::setPipeline(RHIPipeline *pipeline)
 	current_pipeline = pipeline;
 }
 
-void VulkanCommandList::setVertexBuffer(RHIBuffer *buffer)
+void VulkanCommandList::setVertexBuffer(RHIBuffer *buffer, uint32_t offset, uint32_t stride)
 {
 	VulkanBuffer *native_buffer = static_cast<VulkanBuffer *>(buffer);
-	VkDeviceSize offsets[] = {0};
-	vkCmdBindVertexBuffers(cmd_buffer, 0, 1, &native_buffer->buffer->resource, offsets);
+	VkBuffer buffers[] = {native_buffer->getBuffer()};
+	VkDeviceSize offsets[] = {offset};
+	VkDeviceSize sizes[] = {buffer->getSize() - offset};
+	VkDeviceSize strides[] = {stride};
+	vkCmdBindVertexBuffers2(cmd_buffer, 0, 1, buffers, offsets, sizes, strides);
 }
 
-void VulkanCommandList::setIndexBuffer(RHIBuffer *buffer)
+void VulkanCommandList::setIndexBuffer(RHIBuffer *buffer, uint32_t offset, IndexFormat format)
 {
 	VulkanBuffer *native_buffer = static_cast<VulkanBuffer *>(buffer);
-	vkCmdBindIndexBuffer(cmd_buffer, native_buffer->buffer->resource, 0, VK_INDEX_TYPE_UINT32);
+	VkIndexType index_type = VK_INDEX_TYPE_UINT32;
+	switch (format)
+	{
+		case IndexFormat::UINT16:
+			index_type = VK_INDEX_TYPE_UINT16;
+			break;
+		case IndexFormat::UINT32:
+			index_type = VK_INDEX_TYPE_UINT32;
+			break;
+	}
+	vkCmdBindIndexBuffer(cmd_buffer, native_buffer->getBuffer(), offset, index_type);
 }
 
 void VulkanCommandList::dispatchRays(uint32_t width, uint32_t height, uint32_t depth)
@@ -130,19 +143,19 @@ void VulkanCommandList::dispatchRays(uint32_t width, uint32_t height, uint32_t d
 	const uint32_t handleSizeAligned = Math::alignedSize(native_rhi->device->physicalRayTracingProperties.shaderGroupHandleSize, native_rhi->device->physicalRayTracingProperties.shaderGroupHandleAlignment);
 	VkStridedDeviceAddressRegionKHR raygenShaderSbtEntry{};
 	// TODO: fix
-	raygenShaderSbtEntry.deviceAddress = native_pipeline->raygenShaderBindingTable->getGPUAddress();
+	raygenShaderSbtEntry.deviceAddress = native_pipeline->raygen_sbt->getGPUAddress();
 	raygenShaderSbtEntry.stride = handleSizeAligned;
 	raygenShaderSbtEntry.size = handleSizeAligned;
 
 	VkStridedDeviceAddressRegionKHR missShaderSbtEntry{};
 	// TODO: fix
-	missShaderSbtEntry.deviceAddress = native_pipeline->missShaderBindingTable->getGPUAddress();
+	missShaderSbtEntry.deviceAddress = native_pipeline->miss_sbt->getGPUAddress();
 	missShaderSbtEntry.stride = handleSizeAligned;
 	missShaderSbtEntry.size = handleSizeAligned;
 
 	VkStridedDeviceAddressRegionKHR hitShaderSbtEntry{};
 	// TODO: fix
-	hitShaderSbtEntry.deviceAddress = native_pipeline->hitShaderBindingTable->getGPUAddress();
+	hitShaderSbtEntry.deviceAddress = native_pipeline->hit_sbt->getGPUAddress();
 	hitShaderSbtEntry.stride = handleSizeAligned;
 	hitShaderSbtEntry.size = handleSizeAligned;
 
@@ -160,7 +173,7 @@ void VulkanCommandList::copyBuffer(RHIBuffer *src, RHIBuffer *dest, uint64_t src
 	copyRegion.srcOffset = src_offset;
 	copyRegion.dstOffset = dest_offset;
 	copyRegion.size = size;
-	vkCmdCopyBuffer(cmd_buffer, native_src_buffer->buffer->resource, native_dst_buffer->buffer->resource, 1, &copyRegion);
+	vkCmdCopyBuffer(cmd_buffer, native_src_buffer->getBuffer(), native_dst_buffer->getBuffer(), 1, &copyRegion);
 }
 
 void VulkanCommandList::beginDebugLabel(const char *label, glm::vec3 color, uint32_t line, const char *source, size_t source_size, const char *function, size_t function_size)

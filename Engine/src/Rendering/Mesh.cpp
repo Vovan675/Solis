@@ -43,18 +43,18 @@ namespace Engine
 
 	void Mesh::create_buffers()
 	{
-		uint32_t additional_usage = RAW_STORAGE_BUFFER;
+		BufferUsage additional_usage = BufferUsage::SHADER_READ_BUFFER;
 		if (engine_ray_tracing)
-			additional_usage |= ACCELERATION_STRUCTURE_BUILD_INPUT_BUFFER;
+			additional_usage |= BufferUsage::ACCELERATION_STRUCTURE_BUILD_INPUT_BUFFER;
 
 		// Create Vertex buffer
 		BufferDescription vertexDesc;
 		vertexDesc.size = sizeof(vertices[0]) * vertices.size();
-		vertexDesc.useStagingBuffer = true;
+		vertexDesc.use_staging_buffer = true;
 		vertexDesc.usage = BufferUsage::VERTEX_BUFFER | additional_usage;
+		vertexDesc.storage_stride = sizeof(uint32_t);
 
 		vertexDesc.alignment = 16;
-		vertexDesc.stride = sizeof(vertices[0]);
 
 		vertexBuffer = gDynamicRHI->createBuffer(vertexDesc);
 		vertexBuffer->fill(vertices.data());
@@ -63,9 +63,10 @@ namespace Engine
 		// Create Index buffer
 		BufferDescription indexDesc;
 		indexDesc.size = sizeof(indices[0]) * indices.size();
-		indexDesc.useStagingBuffer = true;
+		indexDesc.use_staging_buffer = true;
 		indexDesc.usage = BufferUsage::INDEX_BUFFER | additional_usage;
 		indexDesc.alignment = 0;
+		indexDesc.storage_stride = sizeof(uint32_t);
 
 		indexBuffer = gDynamicRHI->createBuffer(indexDesc);
 		indexBuffer->fill(indices.data());

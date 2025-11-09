@@ -20,12 +20,13 @@ enum TextureLayoutType
 	TEXTURE_LAYOUT_UAV,
 };
 
+class RHITextureView;
 class RHITexture : public Asset
 {
 protected:
 	RHITexture(TextureDescription description) : description(description) {}
 public:
-	virtual ~RHITexture() {}
+	virtual ~RHITexture() = default;
 
 	AssetType getAssetType() const override { return ASSET_TYPE_TEXTURE; }
 
@@ -43,6 +44,8 @@ public:
 	glm::ivec2 getSize(int mip = 0) const { return glm::ivec2(description.width >> mip, description.height >> mip); }
 	uint32_t getWidth(int mip = 0) const { return description.width >> mip; }
 	uint32_t getHeight(int mip = 0) const { return description.height >> mip; }
+	uint32_t getMipLevels() const { return description.mip_levels; }
+	Format getFormat() const { return description.format; }
 
 	virtual void transitLayout(RHICommandList *cmd_list, TextureLayoutType new_layout_type, int mip = -1) {}
 
@@ -69,6 +72,11 @@ public:
 	bool isRenderTargetTexture() const { return description.usage_flags & TEXTURE_USAGE_ATTACHMENT; }
 
 	virtual bool isValid() const { return true; }
+
+	virtual RHITextureView *getRenderTargetView(uint32_t mip = 0, uint32_t layer = 0) = 0;
+	virtual RHITextureView *getShaderResourceView(uint32_t mip = -1, uint32_t layer = -1) = 0;
+	virtual RHITextureView *getUnorderedAccessView(uint32_t mip = -1, uint32_t layer = -1) = 0;
+
 protected:
 	friend class VulkanSwapchain;
 	friend class DX12DynamicRHI;
@@ -84,4 +92,18 @@ protected:
 	eastl::vector<TextureLayoutType> current_layouts; // Image layouts for each mip map
 	eastl::string path = "";
 	eastl::string debug_name = "";
+};
+
+class RHITextureView : public RefCounted
+{
+public:
+	RHITextureView(TextureViewDescription description): description(description) {}
+	virtual ~RHITextureView() = default;
+
+	const TextureViewDescription &getDescription() const { return description; }
+	uint32_t getBindlessIndex() const { return bindless_index; }
+
+protected:
+	TextureViewDescription description;
+	uint32_t bindless_index = 0;
 };

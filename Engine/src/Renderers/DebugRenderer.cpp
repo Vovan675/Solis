@@ -18,8 +18,8 @@ DebugRenderer::DebugRenderer()
 
 	BufferDescription desc;
 	desc.size = sizeof(uint32_t) * 2048;
-	desc.useStagingBuffer = true;
-	desc.usage = INDEX_BUFFER;
+	desc.use_staging_buffer = true;
+	desc.usage = BufferUsage::INDEX_BUFFER;
 
 	lines_index_buffer = gDynamicRHI->createBuffer(desc);
 	lines_index_buffer->fill(indices);
@@ -28,9 +28,9 @@ DebugRenderer::DebugRenderer()
 	vertices = new LineVertex[2048];
 	
 	desc.size = sizeof(LineVertex) * 2048;
-	desc.stride = sizeof(LineVertex);
-	desc.useStagingBuffer = false;
-	desc.usage = VERTEX_BUFFER;
+	desc.storage_stride = sizeof(LineVertex);
+	desc.use_staging_buffer = false;
+	desc.usage = BufferUsage::VERTEX_BUFFER;
 
 	lines_vertex_buffer = gDynamicRHI->createBuffer(desc);
 	lines_vertex_buffer->map((void **)&vertices);
@@ -297,8 +297,8 @@ void DebugRenderer::addVisualizerPass(FrameGraph & fg)
 		p->setPrimitiveTopology(TOPOLOGY_LINE_LIST);
 		p->flushAndBind(cmd_list);
 
-		cmd_list->setVertexBuffer(lines_vertex_buffer);
-		cmd_list->setIndexBuffer(lines_index_buffer);
+		cmd_list->setVertexBuffer(lines_vertex_buffer, 0, sizeof(LineVertex));
+		cmd_list->setIndexBuffer(lines_index_buffer, 0, IndexFormat::UINT32);
 		cmd_list->drawIndexedInstanced(lines_index_count, 1, 0, 0, 0);
 		cmd_list->resetRenderTargets();
 

@@ -92,8 +92,8 @@ public:
 		{
 			BufferDescription desc;
 			desc.size = params_size;
-			desc.useStagingBuffer = false;
-			desc.usage = BufferUsage::UNIFORM_BUFFER;
+			desc.use_staging_buffer = false;
+			desc.usage = BufferUsage::CONSTANT_BUFFER;
 			ShaderDataBuffer data_buffer;
 			data_buffer.buffer = gDynamicRHI->createBuffer(desc);
 			data_buffer.buffer->map(&data_buffer.mapped_data);
@@ -109,7 +109,7 @@ public:
 		DX12CommandList *cmd_list_native = static_cast<DX12CommandList *>(rhi->getCmdList());
 		DX12Buffer *native_buffer = (DX12Buffer *)current_buffer.buffer.getReference();
 		current_bind_buffers[binding] = native_buffer;
-		current_bind_buffers_gpu_address[binding] = native_buffer->resource->resource->GetGPUVirtualAddress();
+		current_bind_buffers_gpu_address[binding] = native_buffer->getGPUAddress();
 		is_buffers_dirty = true;
 	}
 
@@ -129,8 +129,8 @@ public:
 		{
 			BufferDescription desc;
 			desc.size = params_size;
-			desc.useStagingBuffer = false;
-			desc.usage = BufferUsage::UNIFORM_BUFFER;
+			desc.use_staging_buffer = false;
+			desc.usage = BufferUsage::CONSTANT_BUFFER;
 			ShaderDataBuffer data_buffer;
 			data_buffer.buffer = gDynamicRHI->createBuffer(desc);
 			data_buffer.buffer->map(&data_buffer.mapped_data);
@@ -146,24 +146,15 @@ public:
 		DX12CommandList *cmd_list_native = static_cast<DX12CommandList *>(rhi->getCmdList());
 		DX12Buffer *native_buffer = (DX12Buffer *)current_buffer.buffer.getReference();
 		current_bind_buffers[binding] = native_buffer;
-		current_bind_buffers_gpu_address[binding] = native_buffer->resource->resource->GetGPUVirtualAddress();
+		current_bind_buffers_gpu_address[binding] = native_buffer->getGPUAddress();
 		is_buffers_dirty = true;
-	}
-
-	void setTexture(unsigned int binding, RHITextureRef texture) override
-	{
-		CORE_INFO("setTexture was used, please consider bindless instead");
-		DX12Texture *native_texture = (DX12Texture *)texture.getReference();
-		current_bind_textures[binding] = texture.getReference();
-		current_bind_textures_descriptors[binding] = native_texture->shader_resource_view.getCpuHandle();
-		is_textures_dirty = true;
 	}
 
 	void setUAVTexture(unsigned int binding, RHITextureRef texture, int mip = 0) override
 	{
 		DX12Texture *native_texture = (DX12Texture *)texture.getReference();
 		current_bind_uav_textures[binding] = texture.getReference();
-		current_bind_uav_textures_descriptors[binding] = native_texture->getUnorderedAccessView(mip).getCpuHandle();
+		current_bind_uav_textures_descriptors[binding] = ((DX12TextureView *)native_texture->getUnorderedAccessView(mip))->getDescriptor().getCpuHandle();
 		is_uav_textures_dirty = true;
 	}
 
@@ -178,7 +169,6 @@ public:
 	{
 		DX12TopLevelAccelerationStructure *native_tlas = (DX12TopLevelAccelerationStructure *)acceleration_structure.getReference();
 		current_bind_acceleration_structures[binding] = acceleration_structure;
-		//current_bind_acceleration_structures_descriptors[binding] = acceleration_structure;
 		is_acceleration_structures_dirty = true;
 	}
 
@@ -233,9 +223,7 @@ public:
 	RHIBuffer *current_bind_uav_buffers[64];
 
 	RHITopLevelAccelerationStructure *current_bind_acceleration_structures[64];
-	D3D12_CPU_DESCRIPTOR_HANDLE current_bind_acceleration_structures_descriptors[64];
 
-	bool is_textures_dirty = false;
 	bool is_uav_textures_dirty = false;
 	bool is_buffers_dirty = false;
 	bool is_uav_buffers_dirty = false;

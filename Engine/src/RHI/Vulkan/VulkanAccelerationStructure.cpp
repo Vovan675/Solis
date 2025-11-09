@@ -68,8 +68,8 @@ void VulkanBottomLevelAccelerationStructure::build(const eastl::vector<RayTracin
 	// Create Acceleration structure buffer
 	BufferDescription accDesc;
 	accDesc.size = Math::roundUp(accelerationStructureBuildSizesInfo.accelerationStructureSize, 256);
-	accDesc.useStagingBuffer = true;
-	accDesc.usage = ACCELERATION_STRUCTURE_STORAGE_BUFFER;
+	accDesc.use_staging_buffer = true;
+	accDesc.usage = BufferUsage::ACCELERATION_STRUCTURE_STORAGE_BUFFER;
 
 	buffer = gDynamicRHI->createBuffer(accDesc);
 
@@ -77,7 +77,7 @@ void VulkanBottomLevelAccelerationStructure::build(const eastl::vector<RayTracin
 
 	VkAccelerationStructureCreateInfoKHR accelerationStructureCreateInfo{};
 	accelerationStructureCreateInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR;
-	accelerationStructureCreateInfo.buffer = native_buffer->buffer->resource;
+	accelerationStructureCreateInfo.buffer = native_buffer->getBuffer();
 	accelerationStructureCreateInfo.size = accelerationStructureBuildSizesInfo.accelerationStructureSize;
 	accelerationStructureCreateInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
 	VulkanUtils::vkCreateAccelerationStructureKHR(&accelerationStructureCreateInfo, nullptr, &handle);
@@ -86,8 +86,8 @@ void VulkanBottomLevelAccelerationStructure::build(const eastl::vector<RayTracin
 	BufferDescription scratchDesc;
 	scratchDesc.size = Math::roundUp(accelerationStructureBuildSizesInfo.buildScratchSize, min_scratch_alignment);
 	scratchDesc.alignment = min_scratch_alignment;
-	scratchDesc.useStagingBuffer = true;
-	scratchDesc.usage = UAV_BUFFER;
+	scratchDesc.use_staging_buffer = true;
+	scratchDesc.usage = BufferUsage::SCRATCH_BUFFER;
 
 	scratch_buffer = gDynamicRHI->createBuffer(scratchDesc);
 
@@ -169,8 +169,8 @@ void VulkanTopLevelAccelerationStructure::build(bool update, const eastl::vector
 	// Buffer for instance data
 	BufferDescription instanceDesc;
 	instanceDesc.size = instances_desc.size() * sizeof(VkAccelerationStructureInstanceKHR);
-	instanceDesc.useStagingBuffer = true;
-	instanceDesc.usage = ACCELERATION_STRUCTURE_BUILD_INPUT_BUFFER;
+	instanceDesc.use_staging_buffer = true;
+	instanceDesc.usage = BufferUsage::ACCELERATION_STRUCTURE_BUILD_INPUT_BUFFER;
 	instanceDesc.alignment = 16;
 
 	auto instanceBuffer = gDynamicRHI->createBuffer(instanceDesc);
@@ -219,15 +219,15 @@ void VulkanTopLevelAccelerationStructure::build(bool update, const eastl::vector
 		// Create acceleration structure buffer
 		BufferDescription accDesc;
 		accDesc.size = Math::roundUp(accelerationStructureBuildSizesInfo.accelerationStructureSize, 256);
-		accDesc.useStagingBuffer = true;
-		accDesc.usage = ACCELERATION_STRUCTURE_STORAGE_BUFFER;
+		accDesc.use_staging_buffer = true;
+		accDesc.usage = BufferUsage::ACCELERATION_STRUCTURE_STORAGE_BUFFER;
 
 		acc_buffer = gDynamicRHI->createBuffer(accDesc);
 		VulkanBuffer *native_buffer = (VulkanBuffer *)acc_buffer.getReference();
 
 		VkAccelerationStructureCreateInfoKHR accelerationStructureCreateInfo{};
 		accelerationStructureCreateInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR;
-		accelerationStructureCreateInfo.buffer = native_buffer->buffer->resource;
+		accelerationStructureCreateInfo.buffer = native_buffer->getBuffer();
 		accelerationStructureCreateInfo.size = accelerationStructureBuildSizesInfo.accelerationStructureSize;
 		accelerationStructureCreateInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
 		VulkanUtils::vkCreateAccelerationStructureKHR(&accelerationStructureCreateInfo, nullptr, &handle);
@@ -238,8 +238,8 @@ void VulkanTopLevelAccelerationStructure::build(bool update, const eastl::vector
 	BufferDescription scratchDesc;
 	scratchDesc.size = Math::roundUp(accelerationStructureBuildSizesInfo.buildScratchSize, min_scratch_alignment);
 	scratchDesc.alignment = min_scratch_alignment;
-	scratchDesc.useStagingBuffer = true;
-	scratchDesc.usage = UAV_BUFFER;
+	scratchDesc.use_staging_buffer = true;
+	scratchDesc.usage = BufferUsage::SCRATCH_BUFFER;
 
 	scratch_buffer = gDynamicRHI->createBuffer(scratchDesc);
 

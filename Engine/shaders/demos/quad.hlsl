@@ -1,3 +1,5 @@
+#include "../common.h"
+
 static const float3 QUAD[6] =
 {
 	float3(-1.0, -1.0, 0.0),
@@ -31,18 +33,22 @@ VSOutput VSMain(uint vertexID : SV_VertexID)
 	return output;
 }
 
-SamplerState Sampler : register(s1);
-Texture2D Texture : register(t1);
+cbuffer Constants
+{
+    uint texture_index;
+};
 
 float4 PSMain(VSOutput input) : SV_TARGET
 {
+	Texture2D texture = ResourceDescriptorHeap[texture_index];
+
 	// Blur
 	float3 sum = float3(0, 0, 0);
 	
 	float count = 0.0f;
 	
 	uint width, height;
-	Texture.GetDimensions(width, height);
+	texture.GetDimensions(width, height);
 
 	float2 texel_size = float2(1.0f / width, 1.0f / height);
 	
@@ -51,7 +57,7 @@ float4 PSMain(VSOutput input) : SV_TARGET
 		for (int y = -3; y <= 3; y++)
 		{
 			float2 offset = float2(x * texel_size.x, y * texel_size.y);
-			sum += Texture.Sample(Sampler, input.uv + offset).rgb;
+			sum += texture.Sample(linear_wrap_sampler, input.uv + offset).rgb;
 			count++;
 		}
 	}

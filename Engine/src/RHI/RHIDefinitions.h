@@ -5,6 +5,7 @@
 #define ENABLE_RHI_VALIDATION
 
 static const int MAX_FRAMES_IN_FLIGHT = 2;
+static const int MAX_COLOR_ATTACHMENTS = 8;
 
 enum ShaderType
 {
@@ -19,27 +20,67 @@ enum ShaderType
 	CLOSEST_HIT_SHADER,
 };
 
-enum BufferUsage
+enum class ResourceState
 {
+	UNDEFINED = 0,
+	COMMON = 1 << 0,
+	RENDER_TARGET = 1 << 1,
+	SHADER_RESOURCE = 1 << 2,
+	COPY_SRC = 1 << 3,
+	COPY_DST = 1 << 4,
+	UAV = 1 << 5,
+	PRESENT = 1 << 6,
+
+	VERTEX_BUFFER = 1 << 7,
+	INDEX_BUFFER = 1 << 8,
+};
+ALLOW_ENUM_BITS(ResourceState)
+
+enum class BufferUsage
+{
+	NONE = 0,
 	VERTEX_BUFFER = 1 << 0,
 	INDEX_BUFFER = 1 << 1,
-	UNIFORM_BUFFER = 1 << 2,
-	UAV_BUFFER = 1 << 3,
-	STORAGE_BUFFER = 1 << 4,
-	RAW_STORAGE_BUFFER = 1 << 5,
+	CONSTANT_BUFFER = 1 << 2,
+	SHADER_READ_BUFFER = 1 << 3, // Read-only Storage Buffer (SRV)
+	SHADER_WRITE_BUFFER = 1 << 4, // Read/Write Storage Buffer (UAV)
+	SCRATCH_BUFFER = 1 << 5, // Scratch Buffer for acceleration structures
 	ACCELERATION_STRUCTURE_BUILD_INPUT_BUFFER = 1 << 6,
 	ACCELERATION_STRUCTURE_STORAGE_BUFFER = 1 << 7,
 	SHADER_BINGING_TABLE_BUFFER = 1 << 8,
+};
+ALLOW_ENUM_BITS(BufferUsage)
+
+enum class BufferViewType
+{
+	CONSTANT, // Constant Buffer View on DX12, and Uniform Buffer on Vulkan
+	SHADER_RESOURCE, 
+	SHADER_RESOURCE_STORAGE,
+};
+
+class RHIBuffer;
+struct BufferViewDescription
+{
+	RHIBuffer *buffer;
+	BufferViewType view_type;
+
+	BufferViewDescription(RHIBuffer *buffer, BufferViewType view_type): buffer(buffer), view_type(view_type) {};
+};
+
+enum class IndexFormat
+{
+	UINT16,
+	UINT32,
 };
 
 struct BufferDescription
 {
 	uint64_t size = 0;
-	bool useStagingBuffer;
-	uint32_t usage = 0;
+	BufferUsage usage = BufferUsage::NONE;
 	uint32_t alignment = 0;
 
-	uint32_t stride = 0;
+	uint32_t storage_stride; // storage_stride = 4 for raw access. Stride is more tied to data, thats why it is here instead of BufferView
+	bool use_staging_buffer; // Use separate buffer for filling data (if true then only GPU memory is used)
 };
 
 enum Filter
@@ -210,6 +251,25 @@ struct TextureDescription
 
 		return hash;
 	}
+};
+
+enum class TextureViewType
+{
+	RENDER_TARGET, 
+	SHADER_RESOURCE,
+	SHADER_RESOURCE_STORAGE,
+};
+
+class RHITexture;
+struct TextureViewDescription
+{
+	RHITexture *texture;
+	TextureViewType view_type;
+	uint32_t mip = -1;
+	uint32_t layer = -1;
+
+	TextureViewDescription(RHITexture *texture, TextureViewType view_type): texture(texture), view_type(view_type) {};
+	TextureViewDescription(RHITexture *texture, TextureViewType view_type, uint32_t mip, uint32_t layer): texture(texture), view_type(view_type), mip(mip), layer(layer) {};
 };
 
 struct RenderResource

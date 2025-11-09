@@ -44,15 +44,15 @@ void DX12BottomLevelAccelerationStructure::build(const eastl::vector<RayTracingG
 	// Create Acceleration structure buffer
 	BufferDescription scratchDesc;
 	scratchDesc.size = prebuild_info.ScratchDataSizeInBytes;
-	scratchDesc.useStagingBuffer = true;
-	scratchDesc.usage = UAV_BUFFER;
+	scratchDesc.use_staging_buffer = true;
+	scratchDesc.usage = BufferUsage::SCRATCH_BUFFER;
 	scratch_buffer = gDynamicRHI->createBuffer(scratchDesc); // TODO: STATE_COMMON AT CREATION NEEDED?
 
 
 	BufferDescription accDesc;
 	accDesc.size = prebuild_info.ResultDataMaxSizeInBytes;
-	accDesc.useStagingBuffer = true;
-	accDesc.usage = ACCELERATION_STRUCTURE_STORAGE_BUFFER | UAV_BUFFER;
+	accDesc.use_staging_buffer = true;
+	accDesc.usage = BufferUsage::ACCELERATION_STRUCTURE_STORAGE_BUFFER;
 
 	buffer = gDynamicRHI->createBuffer(accDesc);
 
@@ -106,9 +106,9 @@ void DX12TopLevelAccelerationStructure::build(bool update, const eastl::vector<R
 	// Buffer for instance data
 	BufferDescription instanceDesc;	
 	instanceDesc.size = instances_desc.size() * sizeof(D3D12_RAYTRACING_INSTANCE_DESC);
-	instanceDesc.useStagingBuffer = true;
+	instanceDesc.use_staging_buffer = true;
 	instanceDesc.alignment = D3D12_RAYTRACING_INSTANCE_DESCS_BYTE_ALIGNMENT;
-	instanceDesc.usage = ACCELERATION_STRUCTURE_BUILD_INPUT_BUFFER;
+	instanceDesc.usage = BufferUsage::ACCELERATION_STRUCTURE_BUILD_INPUT_BUFFER;
 
 	instances_buffer = gDynamicRHI->createBuffer(instanceDesc);
 	instances_buffer->fill(instances_desc.data());
@@ -126,14 +126,14 @@ void DX12TopLevelAccelerationStructure::build(bool update, const eastl::vector<R
 
 	BufferDescription scratchDesc;
 	scratchDesc.size = prebuild_info.ScratchDataSizeInBytes;
-	scratchDesc.useStagingBuffer = true;
-	scratchDesc.usage = UAV_BUFFER;
+	scratchDesc.use_staging_buffer = true;
+	scratchDesc.usage = BufferUsage::SCRATCH_BUFFER;
 	scratch_buffer = gDynamicRHI->createBuffer(scratchDesc);
 
 	BufferDescription accDesc;
 	accDesc.size = prebuild_info.ResultDataMaxSizeInBytes;
-	accDesc.useStagingBuffer = true;
-	accDesc.usage = ACCELERATION_STRUCTURE_STORAGE_BUFFER | UAV_BUFFER;
+	accDesc.use_staging_buffer = true;
+	accDesc.usage = BufferUsage::ACCELERATION_STRUCTURE_STORAGE_BUFFER;
 	buffer = gDynamicRHI->createBuffer(accDesc);
 
 	D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC build_desc = {};

@@ -19,9 +19,9 @@ public:
 	eastl::vector<Descriptor> descriptors;
 
 	// TODO: refactor
-	eastl::vector<VkRayTracingShaderGroupCreateInfoKHR> shaderGroups{};
+	eastl::vector<VkRayTracingShaderGroupCreateInfoKHR> shader_groups{};
 
-	RHIBufferRef raygenShaderBindingTable;
-	RHIBufferRef missShaderBindingTable;
-	RHIBufferRef hitShaderBindingTable;
+	RHIBufferRef raygen_sbt;
+	RHIBufferRef miss_sbt;
+	RHIBufferRef hit_sbt;
 };

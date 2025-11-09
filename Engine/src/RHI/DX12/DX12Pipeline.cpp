@@ -71,28 +71,28 @@ void DX12Pipeline::create(const PipelineDescription &description)
 	sampler.RegisterSpace = 0;
 	sampler.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
-	CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDescription;
-	rootSignatureDescription.Init_1_1(root_params.size(), root_params.data(), 0, nullptr, rootSignatureFlags);
+	CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC root_signature_desc;
+	root_signature_desc.Init_1_1(root_params.size(), root_params.data(), 0, nullptr, rootSignatureFlags);
 
 
-	D3D12_FEATURE_DATA_ROOT_SIGNATURE featureData = {};
-	featureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_1;
+	D3D12_FEATURE_DATA_ROOT_SIGNATURE feature_data = {};
+	feature_data.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_1;
 	// Serialize the root signature.
-	ComPtr<ID3DBlob> rootSignatureBlob;
-	ComPtr<ID3DBlob> errorBlob;
-	HRESULT res = D3DX12SerializeVersionedRootSignature(&rootSignatureDescription, featureData.HighestVersion, &rootSignatureBlob, &errorBlob);
+	ComPtr<ID3DBlob> root_signature_blob;
+	ComPtr<ID3DBlob> error_blob;
+	HRESULT res = D3DX12SerializeVersionedRootSignature(&root_signature_desc, feature_data.HighestVersion, &root_signature_blob, &error_blob);
 	// Create the root signature.
-	device->CreateRootSignature(0, rootSignatureBlob->GetBufferPointer(), rootSignatureBlob->GetBufferSize(), IID_PPV_ARGS(&pipeline->root_signature));
+	device->CreateRootSignature(0, root_signature_blob->GetBufferPointer(), root_signature_blob->GetBufferSize(), IID_PPV_ARGS(&pipeline->root_signature));
 
 	if (description.pipeline_type == PipelineType::Compute)
 	{
 		DX12Shader *cs = static_cast<DX12Shader *>(description.compute_shader.getReference());
 
-		D3D12_COMPUTE_PIPELINE_STATE_DESC psoDesc = {};
-		psoDesc.pRootSignature = pipeline->root_signature;
-		psoDesc.CS = {cs->blob->GetBufferPointer(), cs->blob->GetBufferSize()};
-		psoDesc.Flags = D3D12_PIPELINE_STATE_FLAG_NONE;
-		device->CreateComputePipelineState(&psoDesc, IID_PPV_ARGS(&pipeline->pipeline_state));
+		D3D12_COMPUTE_PIPELINE_STATE_DESC pipeline_desc = {};
+		pipeline_desc.pRootSignature = pipeline->root_signature;
+		pipeline_desc.CS = {cs->blob->GetBufferPointer(), cs->blob->GetBufferSize()};
+		pipeline_desc.Flags = D3D12_PIPELINE_STATE_FLAG_NONE;
+		device->CreateComputePipelineState(&pipeline_desc, IID_PPV_ARGS(&pipeline->pipeline_state));
 	} else if (description.pipeline_type == PipelineType::RayTracing)
 	{
 		DX12Shader *ray_gen = static_cast<DX12Shader *>(description.ray_generation_shader.getReference());
@@ -100,9 +100,9 @@ void DX12Pipeline::create(const PipelineDescription &description)
 		DX12Shader *closest_hit = static_cast<DX12Shader *>(description.closest_hit_shader.getReference());
 
 
-		CD3DX12_STATE_OBJECT_DESC raytracingPipeline{ D3D12_STATE_OBJECT_TYPE_RAYTRACING_PIPELINE };
+		CD3DX12_STATE_OBJECT_DESC ray_tracing_pipeline_desc{ D3D12_STATE_OBJECT_TYPE_RAYTRACING_PIPELINE };
 
-		auto addLibrary = [](CD3DX12_STATE_OBJECT_DESC& raytracingPipeline, IDxcBlob *s, const eastl::vector<const wchar_t*>& export_)
+		auto add_library = [](CD3DX12_STATE_OBJECT_DESC& raytracingPipeline, IDxcBlob *s, const eastl::fixed_vector<const wchar_t*, 4>& export_)
 		{
 			auto raygen_lib = raytracingPipeline.CreateSubobject<CD3DX12_DXIL_LIBRARY_SUBOBJECT>();
 			D3D12_SHADER_BYTECODE shaderBytecode;
@@ -114,28 +114,28 @@ void DX12Pipeline::create(const PipelineDescription &description)
 				raygen_lib->DefineExport(e);
 		};
 
-		const wchar_t* raygenname = L"RayGen";
-		const wchar_t* missname = L"Miss";
-		const wchar_t* hitname = L"ClosestHit";
-		const wchar_t* hitGroupName = L"HitGroup";
+		const wchar_t* raygen_name = L"RayGen";
+		const wchar_t* miss_name = L"Miss";
+		const wchar_t* hit_name = L"ClosestHit";
+		const wchar_t* hit_group_name = L"HitGroup";
 
-		addLibrary(raytracingPipeline, ray_gen->blob.Get(), {raygenname});
-		addLibrary(raytracingPipeline, miss->blob.Get(), { missname });
-		addLibrary(raytracingPipeline, closest_hit->blob.Get(), { hitname });
+		add_library(ray_tracing_pipeline_desc, ray_gen->blob.Get(), {raygen_name});
+		add_library(ray_tracing_pipeline_desc, miss->blob.Get(), { miss_name });
+		add_library(ray_tracing_pipeline_desc, closest_hit->blob.Get(), { hit_name });
 
 		// Triangle hit group
-		auto hitGroup = raytracingPipeline.CreateSubobject<CD3DX12_HIT_GROUP_SUBOBJECT>();
-		hitGroup->SetClosestHitShaderImport(hitname);
-		hitGroup->SetHitGroupExport(hitGroupName);
-		hitGroup->SetHitGroupType(D3D12_HIT_GROUP_TYPE_TRIANGLES);
+		auto hit_group = ray_tracing_pipeline_desc.CreateSubobject<CD3DX12_HIT_GROUP_SUBOBJECT>();
+		hit_group->SetClosestHitShaderImport(hit_name);
+		hit_group->SetHitGroupExport(hit_group_name);
+		hit_group->SetHitGroupType(D3D12_HIT_GROUP_TYPE_TRIANGLES);
 
 
 		// Shader config
 		// Defines the maximum sizes in bytes for the ray payload and attribute structure.
-		auto shaderConfig = raytracingPipeline.CreateSubobject<CD3DX12_RAYTRACING_SHADER_CONFIG_SUBOBJECT>();
-		UINT payloadSize = 8 * sizeof(float);
-		UINT attributeSize = 2 * sizeof(float); // float2 barycentrics
-		shaderConfig->Config(payloadSize, attributeSize);
+		auto shader_config = ray_tracing_pipeline_desc.CreateSubobject<CD3DX12_RAYTRACING_SHADER_CONFIG_SUBOBJECT>();
+		UINT payload_size = 8 * sizeof(float);
+		UINT attribute_size = 2 * sizeof(float); // float2 barycentrics
+		shader_config->Config(payload_size, attribute_size);
 
 		// Local root signature and shader association
 		///CreateRaygenLocalSignatureSubobject(&raytracingPipeline, hitGroupName, raytracingLocalRootSignature.Get());
@@ -143,19 +143,19 @@ void DX12Pipeline::create(const PipelineDescription &description)
 
 		// Global root signature
 		// This is a root signature that is shared across all raytracing shaders invoked during a DispatchRays() call.
-		auto globalRootSignature = raytracingPipeline.CreateSubobject<CD3DX12_GLOBAL_ROOT_SIGNATURE_SUBOBJECT>();
-		globalRootSignature->SetRootSignature(pipeline->root_signature);
+		auto global_root_signature = ray_tracing_pipeline_desc.CreateSubobject<CD3DX12_GLOBAL_ROOT_SIGNATURE_SUBOBJECT>();
+		global_root_signature->SetRootSignature(pipeline->root_signature);
 
 
 		// Pipeline config
 		// Defines the maximum TraceRay() recursion depth.
-		auto pipelineConfig = raytracingPipeline.CreateSubobject<CD3DX12_RAYTRACING_PIPELINE_CONFIG_SUBOBJECT>();
+		auto pipeline_config = ray_tracing_pipeline_desc.CreateSubobject<CD3DX12_RAYTRACING_PIPELINE_CONFIG_SUBOBJECT>();
 		// PERFOMANCE TIP: Set max recursion depth as low as needed 
 		// as drivers may apply optimization strategies for low recursion depths. 
-		UINT maxRecursionDepth = 1; // ~ primary rays only + TraceRayInline(). 
-		pipelineConfig->Config(maxRecursionDepth);
+		UINT max_recustion_depth = 1; // ~ primary rays only + TraceRayInline(). 
+		pipeline_config->Config(max_recustion_depth);
 
-		DX12Utils::getNativeRHI()->device->CreateStateObject(raytracingPipeline, IID_PPV_ARGS(&pipeline->rt_pso));
+		DX12Utils::getNativeRHI()->device->CreateStateObject(ray_tracing_pipeline_desc, IID_PPV_ARGS(&pipeline->rt_pso));
 
 		pipeline->rt_pso->QueryInterface(IID_PPV_ARGS(&pipeline->rt_props));
 	} else
@@ -163,8 +163,7 @@ void DX12Pipeline::create(const PipelineDescription &description)
 		DX12Shader *vs = static_cast<DX12Shader *>(description.vertex_shader.getReference());
 		DX12Shader *ps = static_cast<DX12Shader *>(description.fragment_shader.getReference());
 
-
-		eastl::vector<D3D12_INPUT_ELEMENT_DESC> input_layout;
+		eastl::fixed_vector<D3D12_INPUT_ELEMENT_DESC, 16> input_layout;
 
 		uint32_t offset = 0;
 		for (auto &input : description.vertex_inputs_descriptions.inputs)
@@ -308,7 +307,7 @@ void DX12Pipeline::fillDispatchRaysDesc(D3D12_DISPATCH_RAYS_DESC &desc)
 {
 	BufferDescription sbt_buffer_desc;
 	sbt_buffer_desc.size = D3D12_RAYTRACING_SHADER_TABLE_BYTE_ALIGNMENT * 3;
-	sbt_buffer_desc.useStagingBuffer = false;
+	sbt_buffer_desc.use_staging_buffer = false;
 	sbt_buffer_desc.alignment = D3D12_RAYTRACING_SHADER_TABLE_BYTE_ALIGNMENT;
 	if (!sbt_buffer)
 	{

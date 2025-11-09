@@ -77,7 +77,6 @@ public:
 		if (!texture->isValid())
 			texture->fill();
 		texture->setDebugName(name.c_str());
-		gDynamicRHI->getBindlessResources()->addTexture(texture);
 	}
 
 	void destroy()
@@ -112,15 +111,9 @@ public:
 		texture->transitLayout(cmd_list, new_layout);
 	}
 
-	
-	uint32_t addToBindless() const
-	{
-		return gDynamicRHI->getBindlessResources()->addTexture(texture);
-	}
-
 	uint32_t getBindlessId() const
 	{
-		return gDynamicRHI->getBindlessResources()->getTextureIndex(texture);
+		return texture->getShaderResourceView()->getBindlessIndex();
 	}
 
 	eastl::string toString() const

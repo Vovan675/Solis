@@ -24,8 +24,8 @@ void RayTracingScene::build_blas()
 			// Create Transform buffer
 			BufferDescription transformDesc;
 			transformDesc.size = sizeof(transformMatrix);
-			transformDesc.useStagingBuffer = true;
-			transformDesc.usage = ACCELERATION_STRUCTURE_BUILD_INPUT_BUFFER;
+			transformDesc.use_staging_buffer = true;
+			transformDesc.usage = BufferUsage::ACCELERATION_STRUCTURE_BUILD_INPUT_BUFFER;
 			transformDesc.alignment = 16;
 
 			transform_buffer = gDynamicRHI->createBuffer(transformDesc);

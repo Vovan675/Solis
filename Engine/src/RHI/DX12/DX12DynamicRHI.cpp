@@ -94,6 +94,7 @@ void DX12DynamicRHI::init()
 	depth_stencil_view_heap = new DX12DescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 1024, false);
 
 	bindless_resources = new DX12BindlessResources();
+	bindless_resources->init();
 
 	tracy_ctx = TracyD3D12Context(device.Get(), cmd_queue->cmd_queue.Get());
 }
@@ -298,23 +299,6 @@ void DX12DynamicRHI::prepareRenderCall()
 	if (binding_info.uav_table.registersCount() > 0)
 		first_cbv_heap_uav_textures_descriptor = cbv_srv_uav_heap->allocate(binding_info.uav_table.registersCount());
 
-	if (is_textures_dirty)
-	{
-		for (int i = binding_info.srv_table.begin_register; i < binding_info.srv_table.end_register; i++)
-		{
-			if (current_bind_textures[i] == nullptr)
-				continue;
-
-			int relative_index = i - binding_info.srv_table.begin_register;
-			D3D12_CPU_DESCRIPTOR_HANDLE cpu_handle_srv_heap(cbv_srv_uav_heap->getHandle(first_srv_heap_textures_descriptor.getIndex() + relative_index).getCpuHandle());
-
-			// Copy from staging heap, to current frame's shader visible heap
-			D3D12_CPU_DESCRIPTOR_HANDLE cpu_handle_staging_heap = current_bind_textures_descriptors[i];
-
-			device->CopyDescriptorsSimple(1, cpu_handle_srv_heap, cpu_handle_staging_heap, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-		}
-	}
-
 	if (is_acceleration_structures_dirty)
 	{
 		for (int i = binding_info.srv_table.begin_register; i < binding_info.srv_table.end_register; i++)
@@ -379,7 +363,7 @@ void DX12DynamicRHI::prepareRenderCall()
 			DX12Buffer *native_uav_buffer = (DX12Buffer *)current_bind_uav_buffers[i];
 
 			// Copy from staging heap, to current frame's shader visible heap
-			D3D12_CPU_DESCRIPTOR_HANDLE cpu_handle_staging_heap = native_uav_buffer->getUnorderedAccessView().getCpuHandle();
+			D3D12_CPU_DESCRIPTOR_HANDLE cpu_handle_staging_heap = ((DX12BufferView *)native_uav_buffer->getUnorderedAccessView())->getDescriptor().getCpuHandle();
 
 			device->CopyDescriptorsSimple(1, cpu_handle_srv_heap, cpu_handle_staging_heap, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
@@ -387,7 +371,7 @@ void DX12DynamicRHI::prepareRenderCall()
 			D3D12_RESOURCE_BARRIER barrier;
 			barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
 			barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-			barrier.UAV.pResource = native_uav_buffer->resource->resource;
+			barrier.UAV.pResource = native_uav_buffer->getResource();
 
 			cmd_list_native->cmd_list->ResourceBarrier(1, &barrier);
 		}
@@ -420,7 +404,7 @@ void DX12DynamicRHI::prepareRenderCall()
 			cmd_list_native->cmd_list->SetGraphicsRootDescriptorTable(root_parameter_index, start_descriptor);
 	};
 
-	bool is_update_srv_table = pso_changed || is_textures_dirty || is_acceleration_structures_dirty;
+	bool is_update_srv_table = pso_changed || is_acceleration_structures_dirty;
 	bool is_update_uav = pso_changed || is_uav_textures_dirty || is_uav_buffers_dirty;
 	if (binding_info.srv_table.registersCount() > 0 && is_update_srv_table)
 		setRootDescriptorTable(binding_info.srv_table.table_index, first_srv_heap_textures_descriptor.getGpuHandle());
@@ -438,7 +422,6 @@ void DX12DynamicRHI::prepareRenderCall()
 		setRootDescriptorTable(binding_info.samplers_bindless, sampler_bindless_gpu_handle);
 	}
 
-	is_textures_dirty = false;
 	is_uav_textures_dirty = false;
 	is_buffers_dirty = false;
 	is_uav_buffers_dirty = false;

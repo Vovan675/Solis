@@ -4,6 +4,7 @@
 #include "D3D12MemoryAllocator/D3D12MemAlloc.h"
 #include "DX12Resources.h"
 
+class DX12TextureView;
 class DX12Texture final: public RHITexture
 {
 public:
@@ -38,10 +39,13 @@ public:
 
 	bool isValid() const override { return resource != nullptr; }
 
-	DX12Descriptor getShaderResourceView(int mip = -1, int layer = -1);
-	DX12Descriptor getRenderTargetView(int mip = 0, int layer = -1);
-	DX12Descriptor getDepthStencilView(int mip = 0, int layer = -1);
-	DX12Descriptor getUnorderedAccessView(int mip = 0, int layer = -1);
+	RHITextureView *getRenderTargetView(uint32_t mip = 0, uint32_t layer = 0) override;
+	RHITextureView *getShaderResourceView(uint32_t mip = -1, uint32_t layer = -1) override;
+	RHITextureView *getUnorderedAccessView(uint32_t mip = -1, uint32_t layer = -1) override;
+
+public:
+	ID3D12Resource *getResource() const { return resource->resource; }
+	D3D12MA::Allocation *getAllocation() const { return allocation->resource; }
 
 protected:
 	friend class DX12DynamicRHI;
@@ -112,21 +116,22 @@ protected:
 public:
 	std::unique_ptr<DX12AllocationResource> allocation;
 	std::unique_ptr<DX12Resource> resource;
-	DX12Descriptor shader_resource_view;
-	DX12Descriptor unordered_access_view;
-	DX12Descriptor render_target_view;
-	DX12Descriptor depth_stencil_view;
 
-	struct DescriptorView
-	{
-		int mip = 0;
-		int layer = 0;
-		DX12Descriptor handle;
-	};
-	eastl::vector<DescriptorView> shader_resource_views;
-	eastl::vector<DescriptorView> unordered_access_views;
-	eastl::vector<DescriptorView> render_target_views;
-	eastl::vector<DescriptorView> depth_stencil_views;
+	eastl::vector<Ref<DX12TextureView>> shader_resource_views;
+	eastl::vector<Ref<DX12TextureView>> unordered_access_views;
+	eastl::vector<Ref<DX12TextureView>> render_target_views;
 
 	const char *debug_name = "";
+};
+
+class DX12TextureView final: public RHITextureView
+{
+public:
+	DX12TextureView(TextureViewDescription description);
+	~DX12TextureView();
+
+	const DX12Descriptor &getDescriptor() const { return descriptor; }
+
+private:
+	DX12Descriptor descriptor;
 };

@@ -223,8 +223,8 @@ void SceneRenderer::update(Camera *camera)
 				material_gpu.normal_tex_id = material->normal_tex.bindless_id;
 
 				MeshGPU &mesh_gpu = meshes_gpu.emplace_back();
-				mesh_gpu.vertex_buffer_id = gDynamicRHI->getBindlessResources()->addBuffer(mesh->vertexBuffer);
-				mesh_gpu.index_buffer_id = gDynamicRHI->getBindlessResources()->addBuffer(mesh->indexBuffer);
+				mesh_gpu.vertex_buffer_id = mesh->vertexBuffer->getShaderResourceView()->getBindlessIndex();
+				mesh_gpu.index_buffer_id = mesh->indexBuffer->getShaderResourceView()->getBindlessIndex();
 				mesh_gpu.vertex_stride = sizeof(Engine::Vertex);
 				mesh_gpu.positions_offset = offsetof(Engine::Vertex, pos);
 				mesh_gpu.normals_offset = offsetof(Engine::Vertex, normal);
@@ -241,9 +241,9 @@ void SceneRenderer::update(Camera *camera)
 			{
 				BufferDescription desc;
 				desc.size = buffer_size;
-				desc.usage = STORAGE_BUFFER;
-				desc.useStagingBuffer = false;
-				desc.stride = stride;
+				desc.usage = BufferUsage::SHADER_READ_BUFFER;
+				desc.use_staging_buffer = false;
+				desc.storage_stride = stride;
 				buffer = gDynamicRHI->createBuffer(desc);
 				buffer->setDebugName(name);
 			}
@@ -256,9 +256,9 @@ void SceneRenderer::update(Camera *camera)
 	}
 
 	auto uniforms = Renderer::getDefaultUniforms();
-	uniforms.materials_buffer_id = gDynamicRHI->getBindlessResources()->addBuffer(materials_buffer);
-	uniforms.instances_buffer_id = gDynamicRHI->getBindlessResources()->addBuffer(instances_buffer);
-	uniforms.meshes_buffer_id = gDynamicRHI->getBindlessResources()->addBuffer(meshes_buffer);
+	uniforms.materials_buffer_id = materials_buffer->getShaderResourceView()->getBindlessIndex();
+	uniforms.instances_buffer_id = instances_buffer->getShaderResourceView()->getBindlessIndex();
+	uniforms.meshes_buffer_id = meshes_buffer->getShaderResourceView()->getBindlessIndex();
 	uniforms.ddgi_volume_buffer_id = render_ddgi ? ddgi_renderer.getVolumeBufferId() : 0;
 	gDynamicRHI->setConstantBufferDataPerFrame(32, &uniforms, sizeof(uniforms));
 }
