@@ -22,16 +22,16 @@ public:
 	void load(const char *path) override;
 	void loadEquirectangularCubemap(const char *path) override;
 
-	void setDebugName(const char *name) override
+	void setDebugName(eastl::string name) override
 	{
 		debug_name = name;
 		wchar_t wbuf[128];
-		size_t l = std::min(size_t(127), strlen(name));
+		size_t l = std::min(size_t(127), name.size());
 		wbuf[l] = '\0';
-		mbstowcs(wbuf, name, l);
+		mbstowcs(wbuf, name.c_str(), l);
 		resource->resource->SetName(wbuf);
 	}
-	const char *getDebugName() { return debug_name; }
+	const char *getDebugName() { return debug_name.c_str(); }
 
 	void transitLayout(RHICommandList *cmd_list, TextureLayoutType new_layout_type, int mip = -1) override;
 
@@ -55,7 +55,6 @@ protected:
 	{
 		resource = std::make_unique<DX12Resource>();
 		resource->resource = reinterpret_cast<ID3D12Resource *>(raw_resource);
-		create_views();
 	}
 
 	D3D12_RESOURCE_STATES get_native_layout(TextureLayoutType layout_type)
@@ -107,8 +106,6 @@ protected:
 
 	void set_native_format();
 
-	void create_views();
-
 	DXGI_FORMAT native_format = DXGI_FORMAT_UNKNOWN;
 
 	TextureLayoutType current_layout = TEXTURE_LAYOUT_GENERAL;
@@ -121,7 +118,7 @@ public:
 	eastl::vector<Ref<DX12TextureView>> unordered_access_views;
 	eastl::vector<Ref<DX12TextureView>> render_target_views;
 
-	const char *debug_name = "";
+	eastl::string debug_name = "";
 };
 
 class DX12TextureView final: public RHITextureView

@@ -49,19 +49,19 @@ void PathTracingRenderer::addPass(FrameGraph &fg, Ref<RayTracingScene> rt_scene)
 		gGlobalPipeline->setupRayTracing(L"shaders/rt/path_tracing.hlsl");
 		gGlobalPipeline->flushAndBind(cmd_list);
 
-		gDynamicRHI->setUAVTexture(0, output);
-		gDynamicRHI->setUAVTexture(1, accumulation);
-		gDynamicRHI->setAccelerationStructure(2, rt_scene->getTopLevelAS());
-
 		struct Light
 		{
 			glm::vec4 dir_light_direction;
 			glm::vec4 dir_light_color;
 			uint32_t accumulation_frame;
 			uint32_t environment_tex_id;
+			uint32_t output_tex_id;
+			uint32_t accumulation_tex_id;
 		} light;
 		light.accumulation_frame = accumulation_frame;
 		light.environment_tex_id = resources.getBindlessId(GFXRID(Sky));
+		light.output_tex_id = output->getUnorderedAccessView()->getBindlessIndex();
+		light.accumulation_tex_id = accumulation->getUnorderedAccessView()->getBindlessIndex();
 
 		auto lights = Scene::getCurrentScene()->getEntitiesWith<LightComponent>().each();
 		for (auto &&[entity, light_component]: lights)

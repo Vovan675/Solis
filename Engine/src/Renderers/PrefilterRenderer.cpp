@@ -48,9 +48,8 @@ void PrefilterRenderer::addPass(FrameGraph &fg, uint32_t samples_count)
 
 			float roughness = (float)mip / (float)(5 - 1);
 			constants_frag.roughness = roughness;
+			constants_frag.output_tex_id = prefilter->getUnorderedAccessView(mip)->getBindlessIndex();
 
-			// Uniforms
-			gDynamicRHI->setUAVTexture(1, prefilter, mip);
 			gDynamicRHI->setConstantBufferData(0, &constants_frag, sizeof(PushConstantFrag));
 
 			cmd_list->dispatch(prefilter->getWidth(mip) / 32, prefilter->getHeight(mip) / 32, 6);

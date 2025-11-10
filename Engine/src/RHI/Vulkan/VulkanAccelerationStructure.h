@@ -35,10 +35,12 @@ public:
 	}
 
 	void build(bool update, const eastl::vector<RayTracingInstance> &instances) override;
+	uint32_t getBindlessId() override { return bindless_id; }
 
 	VkAccelerationStructureKHR handle = 0;
 	uint64_t deviceAddress = 0;
 	VkDeviceMemory memory;
 	RHIBufferRef acc_buffer;
 	RHIBufferRef scratch_buffer;
+	uint32_t bindless_id;
 };

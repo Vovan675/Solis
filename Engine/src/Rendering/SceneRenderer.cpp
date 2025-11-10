@@ -259,6 +259,7 @@ void SceneRenderer::update(Camera *camera)
 	uniforms.materials_buffer_id = materials_buffer->getShaderResourceView()->getBindlessIndex();
 	uniforms.instances_buffer_id = instances_buffer->getShaderResourceView()->getBindlessIndex();
 	uniforms.meshes_buffer_id = meshes_buffer->getShaderResourceView()->getBindlessIndex();
+	uniforms.tlas_id = engine_ray_tracing ? rt_scene->getTopLevelAS()->getBindlessId() : 0;
 	uniforms.ddgi_volume_buffer_id = render_ddgi ? ddgi_renderer.getVolumeBufferId() : 0;
 	gDynamicRHI->setConstantBufferDataPerFrame(32, &uniforms, sizeof(uniforms));
 }

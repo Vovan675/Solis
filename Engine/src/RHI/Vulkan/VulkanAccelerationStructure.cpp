@@ -212,6 +212,8 @@ void VulkanTopLevelAccelerationStructure::build(bool update, const eastl::vector
 	{
 		if (handle)
 		{
+			gDynamicRHI->getBindlessResources()->removeAccelerationStructure(this);
+			bindless_id = 0;
 			VulkanUtils::vkDestroyAccelerationStructureKHR(handle, nullptr);
 			handle = nullptr;
 		}
@@ -287,4 +289,6 @@ void VulkanTopLevelAccelerationStructure::build(bool update, const eastl::vector
 	accelerationDeviceAddressInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR;
 	accelerationDeviceAddressInfo.accelerationStructure = handle;
 	deviceAddress = VulkanUtils::vkGetAccelerationStructureDeviceAddressKHR(&accelerationDeviceAddressInfo);
+
+	bindless_id = gDynamicRHI->getBindlessResources()->addAccelerationStructure(this);
 }

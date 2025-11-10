@@ -21,8 +21,8 @@ public:
 	void load(const char *path) override;
 	void loadEquirectangularCubemap(const char *path) override;
 
-	void setDebugName(const char *name) override;
-	const char *getDebugName() { return debug_name; }
+	void setDebugName(eastl::string name) override;
+	const char *getDebugName() { return debug_name.c_str(); }
 
 	void transitLayout(RHICommandList *cmd_list, TextureLayoutType new_layout_type, int mip = -1) override;
 
@@ -157,7 +157,7 @@ protected:
 	eastl::vector<Ref<VulkanTextureView>> unordered_access_views;
 	eastl::vector<Ref<VulkanTextureView>> render_target_views;
 
-	const char *debug_name = "";
+	eastl::string debug_name = "";
 };
 
 class VulkanTextureView final: public RHITextureView

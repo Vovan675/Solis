@@ -254,7 +254,7 @@ void VulkanDynamicRHI::prepareRenderCall()
 		pso_changed = true;
 	}
 
-	bool is_something_changed = pso_changed || is_uav_textures_dirty || is_buffers_dirty;
+	bool is_something_changed = pso_changed || is_buffers_dirty;
 
 	VkDescriptorSet current_set;
 
@@ -287,43 +287,6 @@ void VulkanDynamicRHI::prepareRenderCall()
 		static DescriptorWriter writer;
 		writer.clear();
 
-		if (is_uav_textures_dirty)
-		{
-			for (auto &desc : descriptors_info)
-			{
-				if (desc.type != DESCRIPTOR_TYPE_STORAGE_IMAGE || desc.set != 0)
-					continue;
-
-				VulkanTexture *texture = current_bind_uav_textures[desc.binding];
-
-				if (texture == nullptr)
-					continue;
-
-				VkDescriptorType descriptor_type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-				VkImageLayout image_layout = VK_IMAGE_LAYOUT_GENERAL;
-
-				writer.writeImage(desc.binding, descriptor_type, current_bind_uav_textures_views[desc.binding], nullptr, image_layout);
-			}
-		}
-
-		if (is_uav_buffers_dirty)
-		{
-			for (auto &desc : descriptors_info)
-			{
-				if (desc.type != DESCRIPTOR_TYPE_STORAGE_BUFFER || desc.set != 0)
-					continue;
-
-				VulkanBuffer *buffer = current_bind_uav_buffers[desc.binding];
-
-				if (buffer == nullptr)
-					continue;
-
-				VkDescriptorType descriptor_type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-
-				writer.writeBuffer(desc.binding, descriptor_type, buffer->getBuffer(), buffer->getSize());
-			}
-		}
-
 		if (is_buffers_dirty || true)
 		{
 			for (auto &desc : descriptors_info)
@@ -339,24 +302,6 @@ void VulkanDynamicRHI::prepareRenderCall()
 				VkDescriptorType descriptor_type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 
 				writer.writeBuffer(desc.binding, descriptor_type, buffer->getBuffer(), buffer->getSize());
-			}
-		}
-
-		if (is_acceleration_structures_dirty)
-		{
-			for (auto &desc : descriptors_info)
-			{
-				if (desc.type != DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE || desc.set != 0)
-					continue;
-
-				VulkanTopLevelAccelerationStructure *tlas = current_bind_acceleration_structures[desc.binding];
-
-				if (tlas == nullptr)
-					continue;
-
-				VkDescriptorType descriptor_type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
-
-				writer.writeAccelerationStructure(desc.binding, &tlas->handle);
 			}
 		}
 
@@ -377,10 +322,7 @@ void VulkanDynamicRHI::prepareRenderCall()
 	VkDescriptorSet bindless_set = native_bindless->getDescriptorSet();
 	vkCmdBindDescriptorSets(native_cmd_list->cmd_buffer, bind_point, native_pso->resource->pipeline_layout, BINDLESS_RESOURCES_SET, 1, &bindless_set, 0, nullptr);
 
-	is_uav_textures_dirty = false;
 	is_buffers_dirty = false;
-	is_uav_buffers_dirty = false;
-	is_acceleration_structures_dirty = false;
 }
 
 void VulkanDynamicRHI::init_instance()
@@ -443,13 +385,7 @@ void VulkanDynamicRHI::beginFrame()
 {
 	PROFILE_CPU_FUNCTION();
 
-	for (auto &tex : current_bind_textures)
-		tex = nullptr;
-	for (auto &tex : current_bind_uav_textures)
-		tex = nullptr;
 	for (auto &buf : current_bind_structured_buffers)
-		buf = nullptr;
-	for (auto &buf : current_bind_uav_buffers)
 		buf = nullptr;
 
 	// Acquire image and trigger semaphore

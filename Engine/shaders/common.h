@@ -33,6 +33,7 @@ cbuffer FrameConstants : register(b32) {
 	uint materials_buffer_id;
 	uint instances_buffer_id;
 	uint meshes_buffer_id;
+	uint tlas_id;
 	uint ddgi_volume_buffer_id;
 };
 

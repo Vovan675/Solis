@@ -6,17 +6,14 @@
 #include "../random.h"
 #include "../path_tracing_utils.h"
 
-[[vk::image_format("rgba16")]]
-RWTexture2D<float4> output : register(u0);
-RWTexture2D<float4> accumulation : register(u1);
-RaytracingAccelerationStructure tlas : register(t2);
-
 cbuffer Light : register(b3)
 {
 	float4 dir_light_direction;
 	float4 dir_light_color;
 	uint accumulation_frame;
 	uint environment_tex_id;
+	uint output_tex_id;
+	uint accumulation_tex_id;
 };
 
 struct RayPayload {
@@ -48,7 +45,7 @@ struct SurfaceHit
 	bool hit;
 };
 
-SurfaceHit TraceSurface(RayDesc ray)
+SurfaceHit TraceSurface(RaytracingAccelerationStructure tlas, RayDesc ray)
 {
 	RayPayload payload;
 	payload.hit = false;
@@ -75,7 +72,7 @@ SurfaceHit TraceSurface(RayDesc ray)
 	return hit;
 }
 
-bool TraceShadowRay(float3 origin, float3 direction, float max_distance)
+bool TraceShadowRay(RaytracingAccelerationStructure tlas, float3 origin, float3 direction, float max_distance)
 {
 	RayDesc shadow_ray;
 	shadow_ray.Origin = origin;
@@ -222,7 +219,7 @@ MaterialSample SampleBRDF(SurfaceProperties surface, float3 V, float3 N, inout R
 // Lighting
 // ============================================================================
 
-float3 SampleDirectLighting(SurfaceHit hit, SurfaceProperties surface, float3 V, inout RandomState rng)
+float3 SampleDirectLighting(RaytracingAccelerationStructure tlas, SurfaceHit hit, SurfaceProperties surface, float3 V, inout RandomState rng)
 {
 	float3 L = dir_light_direction.xyz;
 	float3 N = hit.normal;
@@ -232,7 +229,7 @@ float3 SampleDirectLighting(SurfaceHit hit, SurfaceProperties surface, float3 V,
 		return float3(0, 0, 0);
 	
 	float3 shadow_origin = hit.position + N * 0.001;
-	if (TraceShadowRay(shadow_origin, L, 10000.0))
+	if (TraceShadowRay(tlas, shadow_origin, L, 10000.0))
 		return float3(0, 0, 0);
 	
 	float3 brdf = EvaluateBRDF(surface, L, V, N);
@@ -277,6 +274,9 @@ RayDesc GenerateCameraRay(uint2 pixel, uint2 screen_size)
 
 void AccumulateAndOutput(uint2 pixel, float3 radiance)
 {
+	RWTexture2D<float4> output = ResourceDescriptorHeap[output_tex_id];
+	RWTexture2D<float4> accumulation = ResourceDescriptorHeap[accumulation_tex_id];
+
 	float4 accumulated = accumulation_frame > 0 ? accumulation[pixel] : float4(0, 0, 0, 0);
 	accumulated += float4(radiance, 0.0f);
 	accumulation[pixel] = accumulated;
@@ -292,6 +292,8 @@ void AccumulateAndOutput(uint2 pixel, float3 radiance)
 [shader("raygeneration")]
 void RayGen()
 {
+	RaytracingAccelerationStructure tlas = ResourceDescriptorHeap[tlas_id];
+
 	uint2 pixel = DispatchRaysIndex().xy;
 	uint2 screen_size = DispatchRaysDimensions().xy;
 	
@@ -311,7 +313,7 @@ void RayGen()
 		throughput *= rr_correction;
 		rr_correction = 1.0;
 		
-		SurfaceHit hit = TraceSurface(ray);
+		SurfaceHit hit = TraceSurface(tlas, ray);
 		
 		if (!hit.hit)
 		{
@@ -325,7 +327,7 @@ void RayGen()
 		SurfaceProperties surface = EvaluateMaterial(material, hit.uv);
 		
 		// Direct lighting with relaxed firefly threshold
-		float3 direct = throughput * SampleDirectLighting(hit, surface, -ray.Direction, rng);
+		float3 direct = throughput * SampleDirectLighting(tlas, hit, surface, -ray.Direction, rng);
 		radiance += FireflyFilter(direct, BASE_FIREFLY_THRESHOLD * 6.0, fireflyFilterK);
 		
 		// Sample BRDF and update path

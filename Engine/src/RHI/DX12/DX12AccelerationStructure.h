@@ -25,10 +25,12 @@ public:
 	}
 
 	void build(bool update, const eastl::vector<RayTracingInstance> &instances) override;
+	uint32_t getBindlessId() override { return bindless_id; }
 
 	RHIBufferRef instances_buffer;
 	RHIBufferRef buffer;
 	RHIBufferRef scratch_buffer;
 
 	DX12Descriptor shader_resource_view;
+	uint32_t bindless_id = 0;
 };

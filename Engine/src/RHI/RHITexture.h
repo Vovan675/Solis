@@ -36,7 +36,7 @@ public:
 	virtual void load(const char *path) {}
 	virtual void loadEquirectangularCubemap(const char *path) {}
 
-	virtual void setDebugName(const char *name) = 0;
+	virtual void setDebugName(eastl::string name) = 0;
 	virtual const char *getDebugName() = 0;
 
 	eastl::string getPath() const { return path; }
@@ -91,7 +91,6 @@ protected:
 
 	eastl::vector<TextureLayoutType> current_layouts; // Image layouts for each mip map
 	eastl::string path = "";
-	eastl::string debug_name = "";
 };
 
 class RHITextureView : public RefCounted
@@ -101,6 +100,7 @@ public:
 	virtual ~RHITextureView() = default;
 
 	const TextureViewDescription &getDescription() const { return description; }
+	TextureViewType getViewType() const { return description.view_type; }
 	uint32_t getBindlessIndex() const { return bindless_index; }
 
 protected:

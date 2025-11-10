@@ -63,8 +63,6 @@ void VulkanTexture::fill()
 	VmaAllocationCreateInfo alloc_info{};
 	alloc_info.usage = VMA_MEMORY_USAGE_GPU_ONLY;
 	vmaCreateImage(VulkanUtils::getNativeRHI()->allocator, &imageInfo, &alloc_info, &image->resource, &allocation->resource, nullptr);
-
-	getShaderResourceView();
 }
 
 void VulkanTexture::fill(const void *sourceData)
@@ -147,12 +145,13 @@ void VulkanTexture::loadEquirectangularCubemap(const char *path)
 	gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/equirect_to_cubemap.hlsl", COMPUTE_SHADER));
 	gGlobalPipeline->flushAndBind(cmd_list);
 
-	gDynamicRHI->setUAVTexture(0, this);
 	struct Uniforms
 	{
 		uint32_t equirect_tex_id;
+		uint32_t output_tex_id;
 	} uniforms;
 	uniforms.equirect_tex_id = equirect_texture->getShaderResourceView()->getBindlessIndex();
+	uniforms.output_tex_id = getUnorderedAccessView()->getBindlessIndex();
 	gDynamicRHI->setConstantBufferData(1, &uniforms, sizeof(uniforms));
 
 	cmd_list->dispatch(getWidth() / 32, getHeight() / 32, 6);
@@ -162,10 +161,10 @@ void VulkanTexture::loadEquirectangularCubemap(const char *path)
 	this->path = path;
 }
 
-void VulkanTexture::setDebugName(const char *name)
+void VulkanTexture::setDebugName(eastl::string name)
 {
 	debug_name = name;
-	VulkanUtils::setDebugName(VK_OBJECT_TYPE_IMAGE, (uint64_t)image->resource, name);
+	VulkanUtils::setDebugName(VK_OBJECT_TYPE_IMAGE, (uint64_t)image->resource, name.c_str());
 }
 
 void VulkanTexture::transitLayout(RHICommandList *cmd_list, TextureLayoutType new_layout_type, int mip)
@@ -526,13 +525,13 @@ VulkanTextureView::VulkanTextureView(TextureViewDescription description): RHITex
 	image_view = std::make_unique<VkImageViewResource>();
 	image_view->resource = image_view_resource;
 
-	if (description.view_type == TextureViewType::SHADER_RESOURCE)
-		bindless_index = gDynamicRHI->getBindlessResources()->addTexture(description.texture);
+	if (description.view_type == TextureViewType::SHADER_RESOURCE || description.view_type == TextureViewType::SHADER_RESOURCE_STORAGE)
+		bindless_index = gDynamicRHI->getBindlessResources()->addTexture(this);
 }
 
 VulkanTextureView::~VulkanTextureView()
 {
 	gDynamicRHI->releaseGPUResource(image_view.release());
 	if (gDynamicRHI && gDynamicRHI->getBindlessResources())
-		gDynamicRHI->getBindlessResources()->removeTexture(description.texture);
+		gDynamicRHI->getBindlessResources()->removeTexture(this);
 }

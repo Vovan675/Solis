@@ -42,12 +42,13 @@ void IrradianceRenderer::addPass(FrameGraph &fg, uint32_t samples_count)
 		struct Constants
 		{
 			uint32_t input_tex_id;
+			uint32_t output_tex_id;
 			uint32_t samples_count;
 		} constants;
 		constants.input_tex_id = resources.getBindlessId(GFXRID(Sky));
+		constants.output_tex_id = irradiance->getUnorderedAccessView()->getBindlessIndex();
 		constants.samples_count = samples_count;
 
-		gDynamicRHI->setUAVTexture(1, irradiance);
 		gDynamicRHI->setConstantBufferData(0, &constants, sizeof(constants));
 
 		cmd_list->dispatch(irradiance->getWidth() / 32, irradiance->getHeight() / 32, 6);

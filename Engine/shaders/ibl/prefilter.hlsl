@@ -3,12 +3,13 @@
 cbuffer Constants : register(b0)
 {
     uint input_tex_id;
+    uint output_tex_id;
     float roughness;
     uint mip_count;
     uint samples_count;
 }
 
-RWTexture2DArray<float4> output_texture : register(u1);
+static RWTexture2DArray<float4> output_texture = ResourceDescriptorHeap[output_tex_id];
 static TextureCube input_texture = ResourceDescriptorHeap[input_tex_id];
 
 float RadicalInverse_VdC(uint bits) 

@@ -3,13 +3,9 @@
 #include "../shading.h"
 #include "ddgi_common.hlsl"
 
-
-RWStructuredBuffer<float4> ray_data : register(u1);
-
-RaytracingAccelerationStructure tlas : register(t2);
-
 cbuffer Constants : register(b3)
 {
+	uint output_buffer_id;
 	uint environment_tex_id;
 };
 
@@ -22,7 +18,7 @@ struct RayPayload {
 	uint hit_kind;
 };
 
-bool TraceShadowRay(float3 origin, float3 direction, float max_distance)
+bool TraceShadowRay(RaytracingAccelerationStructure tlas, float3 origin, float3 direction, float max_distance)
 {
 	RayDesc shadow_ray;
 	shadow_ray.Origin = origin;
@@ -61,6 +57,8 @@ void RayGen()
 			return;
 	}
 
+	RaytracingAccelerationStructure tlas = ResourceDescriptorHeap[tlas_id];
+
 	RayDesc ray;
 	ray.Origin = probe_position;
 	ray.Direction = ray_direction;
@@ -73,6 +71,8 @@ void RayGen()
 	TraceRay(tlas, RAY_FLAG_NONE, 0xff, 0, 0, 0, ray, payload);
 	
 	uint ray_data_index = GetRayDataIndex(probe_index, ray_index, volume);
+
+	RWStructuredBuffer<float4> ray_data = ResourceDescriptorHeap[output_buffer_id];
 
 	if (!payload.hit)
 	{
@@ -103,7 +103,7 @@ void RayGen()
 		float3 position = mul(instance.world_transform, float4(vertex.position, 1.0)).xyz;
 		float3x3 normalMatrix = (float3x3)instance.world_transform;
 		float3 normal = normalize(mul(normalMatrix, vertex.normal));
-		bool visibility = !TraceShadowRay(position + normal * 0.01, volume.sun_dir.xyz, 10000.0);
+		bool visibility = !TraceShadowRay(tlas, position + normal * 0.01, volume.sun_dir.xyz, 10000.0);
 
 
 		float3 diffuse = saturate(dot(normal, volume.sun_dir.xyz)) * LambertDiffuse(albedo);

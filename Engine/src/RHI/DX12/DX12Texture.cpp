@@ -83,7 +83,6 @@ void DX12Texture::fill()
 		isRenderTargetTexture() ? &clear_value : nullptr,
 		&allocation->resource,
 		IID_PPV_ARGS(&resource->resource));
-	create_views();
 }
 
 void DX12Texture::fill(const void *sourceData)
@@ -140,7 +139,6 @@ void DX12Texture::fill(const void *sourceData)
 	rhi->getCmdQueueCopy()->signal(last_fence + 1);
 	rhi->getCmdQueueCopy()->wait(last_fence + 1);
 
-	create_views();
 	resource->resource->SetName(L"FILLED TEXTURE");
 }
 
@@ -185,12 +183,13 @@ void DX12Texture::loadEquirectangularCubemap(const char *path)
 	gGlobalPipeline->flushAndBind(cmd_list);
 	
 	equirect_texture->transitLayout(cmd_list, TEXTURE_LAYOUT_SHADER_READ);
-	gDynamicRHI->setUAVTexture(0, this);
 	struct Uniforms
 	{
 		uint32_t equirect_tex_id;
+		uint32_t output_tex_id;
 	} uniforms;
-	uniforms.equirect_tex_id = gDynamicRHI->getBindlessResources()->getTextureIndex(equirect_texture);
+	uniforms.equirect_tex_id = equirect_texture->getShaderResourceView()->getBindlessIndex();
+	uniforms.output_tex_id = getUnorderedAccessView()->getBindlessIndex();
 	gDynamicRHI->setConstantBufferData(1, &uniforms, sizeof(uniforms));
 
 	cmd_list->dispatch(getWidth() / 32, getHeight() / 32, 6);
@@ -251,20 +250,6 @@ void DX12Texture::generateMipmaps(RHICommandList *cmd_list)
 void DX12Texture::set_native_format()
 {
 	native_format = DX12Utils::getNativeFormat(description.format);
-}
-
-void DX12Texture::create_views()
-{
-	DX12DynamicRHI *rhi = (DX12DynamicRHI *)gDynamicRHI;
-
-	getShaderResourceView();
-
-	// UAV
-	if (isUAV())
-		getUnorderedAccessView();
-	// RTV/DSV
-	if (isRenderTargetTexture())
-		getRenderTargetView();
 }
 
 RHITextureView *DX12Texture::getRenderTargetView(uint32_t mip, uint32_t layer)
@@ -441,7 +426,7 @@ DX12TextureView::DX12TextureView(TextureViewDescription description): RHITexture
 		}
 
 		rhi->device->CreateShaderResourceView(native_texture->getResource(), &srv_desc, descriptor.getCpuHandle());
-		bindless_index = gDynamicRHI->getBindlessResources()->addTexture(native_texture);
+		bindless_index = gDynamicRHI->getBindlessResources()->addTexture(this);
 	} else if (description.view_type == TextureViewType::SHADER_RESOURCE_STORAGE)
 	{
 		descriptor = rhi->cbv_srv_uav_staging_heap->allocate();
@@ -480,6 +465,7 @@ DX12TextureView::DX12TextureView(TextureViewDescription description): RHITexture
 			uav_desc.Texture2D.MipSlice = mip_base;
 		}
 		rhi->device->CreateUnorderedAccessView(native_texture->getResource(), nullptr, &uav_desc, descriptor.getCpuHandle());
+		bindless_index = gDynamicRHI->getBindlessResources()->addTexture(this);
 	}
 }
 
@@ -505,5 +491,5 @@ DX12TextureView::~DX12TextureView()
 	}
 
 	if (gDynamicRHI && gDynamicRHI->getBindlessResources())
-		gDynamicRHI->getBindlessResources()->removeTexture(description.texture);
+		gDynamicRHI->getBindlessResources()->removeTexture(this);
 }

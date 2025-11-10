@@ -142,34 +142,6 @@ public:
 		is_buffers_dirty = true;
 	}
 
-	void setUAVTexture(unsigned int binding, RHITextureRef texture, int mip = 0) override
-	{
-		if ((texture->getUsageFlags() & TEXTURE_USAGE_STORAGE) == 0)
-		{
-			CORE_ERROR("Can't use texture without flag TEXTURE_USAGE_STORAGE as UAV");
-			return;
-		}
-
-		VulkanTexture *native_texture = (VulkanTexture *)texture.getReference();
-		current_bind_uav_textures[binding] = native_texture;
-		current_bind_uav_textures_views[binding] = ((VulkanTextureView *)native_texture->getUnorderedAccessView(mip))->getImageView();
-		is_uav_textures_dirty = true;
-	}
-
-	void setUAVBuffer(unsigned int binding, RHIBufferRef buffer) override
-	{
-		VulkanBuffer *native_buffer = (VulkanBuffer *)buffer.getReference();
-		current_bind_uav_buffers[binding] = native_buffer;
-		is_uav_buffers_dirty = true;
-	}
-
-	void setAccelerationStructure(unsigned int binding, RHITopLevelAccelerationStructureRef acceleration_structure) override
-	{
-		VulkanTopLevelAccelerationStructure *native_tlas = (VulkanTopLevelAccelerationStructure *)acceleration_structure.getReference();
-		current_bind_acceleration_structures[binding] = native_tlas;
-		is_acceleration_structures_dirty = true;
-	}
-
 private:
 	void init_instance();
 	void init_vma();
@@ -200,17 +172,9 @@ public:
 	uint32_t image_index;
 	bool framebuffer_resized = false;
 
-	VulkanTexture *current_bind_textures[64];
-	VulkanTexture *current_bind_uav_textures[64];
-	VkImageView current_bind_uav_textures_views[64];
 	VulkanBuffer *current_bind_structured_buffers[64];
-	VulkanBuffer *current_bind_uav_buffers[64];
-	VulkanTopLevelAccelerationStructure *current_bind_acceleration_structures[4];
 
-	bool is_uav_textures_dirty;
 	bool is_buffers_dirty;
-	bool is_uav_buffers_dirty;
-	bool is_acceleration_structures_dirty;
 
 	VulkanPipeline *last_native_pso;
 

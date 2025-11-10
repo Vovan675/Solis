@@ -150,28 +150,6 @@ public:
 		is_buffers_dirty = true;
 	}
 
-	void setUAVTexture(unsigned int binding, RHITextureRef texture, int mip = 0) override
-	{
-		DX12Texture *native_texture = (DX12Texture *)texture.getReference();
-		current_bind_uav_textures[binding] = texture.getReference();
-		current_bind_uav_textures_descriptors[binding] = ((DX12TextureView *)native_texture->getUnorderedAccessView(mip))->getDescriptor().getCpuHandle();
-		is_uav_textures_dirty = true;
-	}
-
-	void setUAVBuffer(unsigned int binding, RHIBufferRef buffer) override
-	{
-		DX12Buffer *native_buffer = (DX12Buffer *)buffer.getReference();
-		current_bind_uav_buffers[binding] = buffer.getReference();
-		is_uav_buffers_dirty = true;
-	}
-
-	void setAccelerationStructure(unsigned int binding, RHITopLevelAccelerationStructureRef acceleration_structure) override
-	{
-		DX12TopLevelAccelerationStructure *native_tlas = (DX12TopLevelAccelerationStructure *)acceleration_structure.getReference();
-		current_bind_acceleration_structures[binding] = acceleration_structure;
-		is_acceleration_structures_dirty = true;
-	}
-
 public:
 
 	ComPtr<IDXGIFactory4> factory;
@@ -210,24 +188,10 @@ public:
 	DX12DescriptorHeap *render_target_view_heap;
 	DX12DescriptorHeap *depth_stencil_view_heap;
 
-
-	RHITexture *current_bind_textures[64];
-	D3D12_CPU_DESCRIPTOR_HANDLE current_bind_textures_descriptors[64];
-
-	RHITexture *current_bind_uav_textures[64];
-	D3D12_CPU_DESCRIPTOR_HANDLE current_bind_uav_textures_descriptors[64];
-
 	RHIBuffer *current_bind_buffers[64];
 	D3D12_GPU_VIRTUAL_ADDRESS current_bind_buffers_gpu_address[64];
 
-	RHIBuffer *current_bind_uav_buffers[64];
-
-	RHITopLevelAccelerationStructure *current_bind_acceleration_structures[64];
-
-	bool is_uav_textures_dirty = false;
 	bool is_buffers_dirty = false;
-	bool is_uav_buffers_dirty = false;
-	bool is_acceleration_structures_dirty = false;
 
 	DX12Pipeline *last_native_pso;
 

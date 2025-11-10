@@ -60,9 +60,6 @@ public:
 	virtual void prepareRenderCall() = 0;
 	virtual void setConstantBufferData(unsigned int binding, void *params_struct, size_t params_size) = 0;
 	virtual void setConstantBufferDataPerFrame(unsigned int binding, void *params_struct, size_t params_size) = 0;
-	virtual void setUAVTexture(unsigned int binding, RHITextureRef texture, int mip = 0) = 0;
-	virtual void setUAVBuffer(unsigned int binding, RHIBufferRef buffer) = 0;
-	virtual void setAccelerationStructure(unsigned int binding, RHITopLevelAccelerationStructureRef acceleration_structure) = 0;
 
 	struct CompileShaderResult
 	{

@@ -12,6 +12,7 @@ public:
 	struct PushConstantFrag
 	{
 		uint32_t input_tex_id = 0;
+		uint32_t output_tex_id = 0;
 		float roughness = 0;
 		uint32_t mip_count;
 		uint32_t samples_count;

@@ -82,6 +82,7 @@ private:
 		uint32_t materials_buffer_id;
 		uint32_t instances_buffer_id;
 		uint32_t meshes_buffer_id;
+		uint32_t tlas_id = 0;
 		uint32_t ddgi_volume_buffer_id = 0;
 	};
 	static DefaultUniforms default_uniforms;

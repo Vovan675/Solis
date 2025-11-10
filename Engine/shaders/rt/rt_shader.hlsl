@@ -2,14 +2,11 @@
 #include "../common.h"
 #include "../bindless.h"
 
-[[vk::image_format("rgba8")]]
-RWTexture2D<float4> image : register(u0);
 cbuffer Lights : register(b1) {
     float4 dir_light_direction;
-	uint depthTexId;
+	uint depth_texture_id;
+	uint output_texture_id;
 };
-
-RaytracingAccelerationStructure topLevelAS : register(t2);
 
 struct RayPayload {
     bool hit;
@@ -25,12 +22,16 @@ void RayGen() {
     float2 d = inUV * 2.0f - 1.0f;
     d.y *= -1.0f;
 
-    Texture2D<float> depth_texture = ResourceDescriptorHeap[depthTexId];
+    RWTexture2D<float4> output = ResourceDescriptorHeap[output_texture_id];
+
+    Texture2D<float> depth_texture = ResourceDescriptorHeap[depth_texture_id];
 	float depth = depth_texture.Load(int3(launchId, 0)).r;
 	float3 world_pos = GetWSPosition(inUV, depth);
 
     float3 origin = world_pos;
     float4 direction = dir_light_direction;
+
+	RaytracingAccelerationStructure tlas = ResourceDescriptorHeap[tlas_id];
 
     RayPayload payload;
     payload.hit = false;
@@ -42,13 +43,13 @@ void RayGen() {
     ray.TMax = 10000.0;
 
     TraceRay(
-        topLevelAS,
+        tlas,
         RAY_FLAG_NONE,
         0xff, 0, 0, 0,
         ray, payload
     );
 
-    image[int2(launchId)] = float4(payload.hit ? 0 : 1, 0, 0, 0);
+    output[int2(launchId)] = float4(payload.hit ? 0 : 1, 0, 0, 0);
 }
 
 

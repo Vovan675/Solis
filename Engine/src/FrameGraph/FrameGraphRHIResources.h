@@ -27,6 +27,7 @@ namespace eastl
 	{
 		size_t operator()(const GraphicsResourceName &v) const
 		{
+			return strlen(v);
 			return crc::crc32((uint8_t *)v.name, strlen(v));
 		}
 	};
@@ -76,7 +77,7 @@ public:
 
 		if (!texture->isValid())
 			texture->fill();
-		texture->setDebugName(name.c_str());
+		texture->setDebugName(name);
 	}
 
 	void destroy()

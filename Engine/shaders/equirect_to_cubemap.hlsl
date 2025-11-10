@@ -3,9 +3,10 @@
 cbuffer Uniforms : register(b1)
 {
     uint equirect_tex_id;
+    uint output_tex_id;
 };
 
-RWTexture2DArray<float4> cubemap_image : register(u0);
+static RWTexture2DArray<float4> cubemap_image = ResourceDescriptorHeap[output_tex_id];
 static Texture2D equirect_texture = ResourceDescriptorHeap[equirect_tex_id];
 
 float2 cartesianToSpherical(float3 cartesian)

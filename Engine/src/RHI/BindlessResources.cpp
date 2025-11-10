@@ -49,51 +49,51 @@ void RHIBindlessResources::cleanup()
 	invalid_texture = nullptr;
 }
 
-void RHIBindlessResources::setTexture(uint32_t index, RHITexture *texture)
+void RHIBindlessResources::setTexture(uint32_t index, RHITextureView *view)
 {
-	if (texture == nullptr)
+	if (view == nullptr)
 	{
 		set_invalid_texture(index);
 		return;
 	}
 }
 
-uint32_t RHIBindlessResources::addTexture(RHITexture *texture)
+uint32_t RHIBindlessResources::addTexture(RHITextureView *view)
 {
 	if (empty_resource_indices.size() == 0)
 		CORE_CRITICAL("Bindless: not enough indices");
 
 	// If already exists, return index
-	auto it = texture_to_resource_index.find(texture);
-	if (it != texture_to_resource_index.end())
+	auto it = texture_view_to_resource_index.find(view);
+	if (it != texture_view_to_resource_index.end())
 		return it->second;
 	uint32_t index = empty_resource_indices.back();
 	empty_resource_indices.pop_back();
-	setTexture(index, texture);
+	setTexture(index, view);
 	return index;
 }
 
 RHITexture *RHIBindlessResources::getTexture(uint32_t index)
 {
-	for (auto &tex : texture_to_resource_index)
+	for (auto &tex : texture_view_to_resource_index)
 	{
 		if (tex.second == index)
-			return tex.first;
+			return tex.first->getDescription().texture;
 	}
 	return nullptr;
 }
 
-void RHIBindlessResources::removeTexture(RHITexture *texture)
+void RHIBindlessResources::removeTexture(RHITextureView *view)
 {
-	if (texture_to_resource_index.empty())
+	if (texture_view_to_resource_index.empty())
 		return;
 	// If not found, return
-	auto it = texture_to_resource_index.find(texture);
-	if (it == texture_to_resource_index.end())
+	auto it = texture_view_to_resource_index.find(view);
+	if (it == texture_view_to_resource_index.end())
 		return;
 
-	uint32_t index = texture_to_resource_index[texture];
-	texture_to_resource_index.erase(texture);
+	uint32_t index = texture_view_to_resource_index[view];
+	texture_view_to_resource_index.erase(view);
 
 	gDynamicRHI->releaseNextFrame([this, index]()
 	{
@@ -102,32 +102,32 @@ void RHIBindlessResources::removeTexture(RHITexture *texture)
 	});
 }
 
-uint32_t RHIBindlessResources::addBuffer(RHIBuffer *buffer)
+uint32_t RHIBindlessResources::addBuffer(RHIBufferView *view)
 {
 	if (empty_resource_indices.size() == 0)
 		CORE_CRITICAL("Bindless: not enough indices");
 
 	// If already exists, return index
-	auto it = buffer_to_resource_index.find(buffer);
+	auto it = buffer_to_resource_index.find(view);
 	if (it != buffer_to_resource_index.end())
 		return it->second;
 	uint32_t index = empty_resource_indices.back();
 	empty_resource_indices.pop_back();
-	setBuffer(index, buffer);
+	setBuffer(index, view);
 	return index;
 }
 
-void RHIBindlessResources::removeBuffer(RHIBuffer *buffer)
+void RHIBindlessResources::removeBuffer(RHIBufferView *view)
 {
 	if (buffer_to_resource_index.empty())
 		return;
 	// If not found, return
-	auto it = buffer_to_resource_index.find(buffer);
+	auto it = buffer_to_resource_index.find(view);
 	if (it == buffer_to_resource_index.end())
 		return;
 
-	uint32_t index = buffer_to_resource_index[buffer];
-	buffer_to_resource_index.erase(buffer);
+	uint32_t index = buffer_to_resource_index[view];
+	buffer_to_resource_index.erase(view);
 
 	gDynamicRHI->releaseNextFrame([this, index]()
 	{
@@ -135,10 +135,46 @@ void RHIBindlessResources::removeBuffer(RHIBuffer *buffer)
 	});
 }
 
-void RHIBindlessResources::setBuffer(uint32_t index, RHIBuffer *buffer)
+void RHIBindlessResources::setBuffer(uint32_t index, RHIBufferView *view)
 {
-	ENGINE_ASSERT_MSG(hasAnyFlags(buffer->getUsage(), BufferUsage::SHADER_READ_BUFFER | BufferUsage::SHADER_WRITE_BUFFER), "Only Bindless Storage Buffers Supported");
+	ENGINE_ASSERT_MSG(hasAnyFlags(view->getDescription().buffer->getUsage(), BufferUsage::SHADER_READ_BUFFER | BufferUsage::SHADER_WRITE_BUFFER), "Only Bindless Storage Buffers Supported");
 }
+
+uint32_t RHIBindlessResources::addAccelerationStructure(RHITopLevelAccelerationStructure *as)
+{
+	if (empty_resource_indices.size() == 0)
+		CORE_CRITICAL("Bindless: not enough indices");
+
+	// If already exists, return index
+	auto it = acceleration_structure_to_resource_index.find(as);
+	if (it != acceleration_structure_to_resource_index.end())
+		return it->second;
+	uint32_t index = empty_resource_indices.back();
+	empty_resource_indices.pop_back();
+	setAccelerationStructure(index, as);
+	return index;
+}
+
+void RHIBindlessResources::removeAccelerationStructure(RHITopLevelAccelerationStructure *as)
+{
+	if (acceleration_structure_to_resource_index.empty())
+		return;
+	// If not found, return
+	auto it = acceleration_structure_to_resource_index.find(as);
+	if (it == acceleration_structure_to_resource_index.end())
+		return;
+
+	uint32_t index = acceleration_structure_to_resource_index[as];
+	acceleration_structure_to_resource_index.erase(as);
+
+	gDynamicRHI->releaseNextFrame([this, index]()
+	{
+		empty_resource_indices.push_back(index);
+	});
+}
+
+void RHIBindlessResources::setAccelerationStructure(uint32_t index, RHITopLevelAccelerationStructure *as)
+{}
 
 
 // VULKAN
@@ -151,6 +187,7 @@ static VkDescriptorPool createBindlessDescriptorPool()
 	poolSizes.push_back({VK_DESCRIPTOR_TYPE_MUTABLE_EXT, MAX_BINDLESS_RESOURCES});
 	poolSizes.push_back({VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, MAX_BINDLESS_RESOURCES});
 	poolSizes.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, MAX_BINDLESS_RESOURCES});
+	poolSizes.push_back({VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, MAX_BINDLESS_RESOURCES});
 	poolSizes.push_back({VK_DESCRIPTOR_TYPE_SAMPLER, MAX_BINDLESS_SAMPLERS * 10});
 
 	VkDescriptorPoolCreateInfo poolInfo{};
@@ -177,10 +214,12 @@ void VulkanBindlessResources::init()
 	};
 	extended_info.pBindingFlags = binding_flags.data();
 	
-	eastl::array<VkDescriptorType, 2> mutable_descriptor_types
+	eastl::array<VkDescriptorType, 4> mutable_descriptor_types
 	{
 		VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
-		VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
+		VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+		VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+		VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR
 	};
 
 	VkMutableDescriptorTypeListEXT mutable_descriptor_type_list{};
@@ -231,35 +270,61 @@ void VulkanBindlessResources::cleanup()
 		gDynamicRHI->releaseGPUResource(sampler);
 }
 
-void VulkanBindlessResources::setTexture(uint32_t index, RHITexture *texture)
+void VulkanBindlessResources::setTexture(uint32_t index, RHITextureView *view)
 {
-	RHIBindlessResources::setTexture(index, texture);
-	if (texture == nullptr || (texture->getUsageFlags() & TEXTURE_USAGE_NO_SAMPLED))
+	RHIBindlessResources::setTexture(index, view);
+	if (view == nullptr)
 		return;
-	texture_to_resource_index[texture] = index;
+	texture_view_to_resource_index[view] = index;
+
+	RHITexture *texture = view->getDescription().texture;
 	CORE_INFO("Set texture {} at index {} w {} h {}", texture->getDebugName(), index, texture->getWidth(), texture->getHeight());
 
 	VulkanTexture *native_texture = (VulkanTexture *)texture;
-	VulkanTextureView *view = (VulkanTextureView *)texture->getShaderResourceView();
-	descriptor_writer.writeImage(BINDLESS_RESOURCES_BINDING, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, view->getImageView(), nullptr, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	VulkanTextureView *native_view = (VulkanTextureView *)view;
+	if (view->getViewType() == TextureViewType::SHADER_RESOURCE)
+	{
+		descriptor_writer.writeImage(BINDLESS_RESOURCES_BINDING, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, native_view->getImageView(), nullptr, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	} else if (view->getViewType() == TextureViewType::SHADER_RESOURCE_STORAGE)
+	{
+		descriptor_writer.writeImage(BINDLESS_RESOURCES_BINDING, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, native_view->getImageView(), nullptr, VK_IMAGE_LAYOUT_GENERAL);
+	}
 	descriptor_writer.writes.back().dstArrayElement = index;
 	is_dirty = true;
 	updateSets();
 }
 
-void VulkanBindlessResources::setBuffer(uint32_t index, RHIBuffer *buffer)
+void VulkanBindlessResources::setBuffer(uint32_t index, RHIBufferView *view)
 {
-	RHIBindlessResources::setBuffer(index, buffer);
-	if (buffer == nullptr)
+	RHIBindlessResources::setBuffer(index, view);
+	if (view == nullptr)
 	{
 		empty_resource_indices.push_back(index);
 		return;
 	}
-	buffer_to_resource_index[buffer] = index;
+	buffer_to_resource_index[view] = index;
+	RHIBuffer *buffer = view->getDescription().buffer;
 	CORE_INFO("Set buffer at index {} size {}", index, buffer->getSize());
 
 	VulkanBuffer *native_buffer = (VulkanBuffer *)buffer;
 	descriptor_writer.writeBuffer(BINDLESS_RESOURCES_BINDING, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, native_buffer->getBuffer(), native_buffer->getSize());
+	descriptor_writer.writes.back().dstArrayElement = index;
+	is_dirty = true;
+	updateSets();
+}
+
+void VulkanBindlessResources::setAccelerationStructure(uint32_t index, RHITopLevelAccelerationStructure *as)
+{
+	RHIBindlessResources::setAccelerationStructure(index, as);
+	if (as == nullptr)
+	{
+		empty_resource_indices.push_back(index);
+		return;
+	}
+	acceleration_structure_to_resource_index[as] = index;
+
+	VulkanTopLevelAccelerationStructure *native_as = (VulkanTopLevelAccelerationStructure *)as;
+	descriptor_writer.writeAccelerationStructure(BINDLESS_RESOURCES_BINDING, &native_as->handle);
 	descriptor_writer.writes.back().dstArrayElement = index;
 	is_dirty = true;
 	updateSets();
@@ -361,12 +426,14 @@ void DX12BindlessResources::init()
 void DX12BindlessResources::cleanup()
 {}
 
-void DX12BindlessResources::setTexture(uint32_t index, RHITexture *texture)
+void DX12BindlessResources::setTexture(uint32_t index, RHITextureView *view)
 {
-	RHIBindlessResources::setTexture(index, texture);
-	if (texture == nullptr)
+	RHIBindlessResources::setTexture(index, view);
+	if (view == nullptr)
 		return;
-	texture_to_resource_index[texture] = index;
+	texture_view_to_resource_index[view] = index;
+
+	RHITexture *texture = view->getDescription().texture;
 	CORE_INFO("Set texture {} at index {} w {} h {}", texture->getDebugName(), index, texture->getWidth(), texture->getHeight());
 
 	DX12DynamicRHI *rhi = (DX12DynamicRHI *)gDynamicRHI;
@@ -376,19 +443,26 @@ void DX12BindlessResources::setTexture(uint32_t index, RHITexture *texture)
 	D3D12_CPU_DESCRIPTOR_HANDLE cpu_handle_srv_heap(rhi->cbv_srv_uav_heap->getHandle(index).getCpuHandle());
 
 	// Copy from staging heap, to current frame's shader visible heap
-	DX12TextureView *view = (DX12TextureView *)native_texture->getShaderResourceView();
-	rhi->device->CopyDescriptorsSimple(1, cpu_handle_srv_heap, view->getDescriptor().getCpuHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	DX12TextureView *native_view = (DX12TextureView *)view;
+	if (view->getViewType() == TextureViewType::SHADER_RESOURCE)
+	{
+		rhi->device->CopyDescriptorsSimple(1, cpu_handle_srv_heap, native_view->getDescriptor().getCpuHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	} else if (view->getViewType() == TextureViewType::SHADER_RESOURCE_STORAGE)
+	{
+		rhi->device->CopyDescriptorsSimple(1, cpu_handle_srv_heap, native_view->getDescriptor().getCpuHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	}
 }
 
-void DX12BindlessResources::setBuffer(uint32_t index, RHIBuffer *buffer)
+void DX12BindlessResources::setBuffer(uint32_t index, RHIBufferView *view)
 {
-	RHIBindlessResources::setBuffer(index, buffer);
-	if (buffer == nullptr)
+	RHIBindlessResources::setBuffer(index, view);
+	if (view == nullptr)
 	{
 		empty_resource_indices.push_back(index);
 		return;
 	}
-	buffer_to_resource_index[buffer] = index;
+	buffer_to_resource_index[view] = index;
+	RHIBuffer *buffer = view->getDescription().buffer;
 	CORE_INFO("Set buffer at index {} size {}", index, buffer->getSize());
 
 	DX12DynamicRHI *rhi = (DX12DynamicRHI *)gDynamicRHI;
@@ -398,7 +472,27 @@ void DX12BindlessResources::setBuffer(uint32_t index, RHIBuffer *buffer)
 	D3D12_CPU_DESCRIPTOR_HANDLE cpu_handle_srv_heap(rhi->cbv_srv_uav_heap->getHandle(index).getCpuHandle());
 
 	// Copy from staging heap, to current frame's shader visible heap
-	rhi->device->CopyDescriptorsSimple(1, cpu_handle_srv_heap, ((DX12BufferView *)native_buffer->getShaderResourceView())->getDescriptor().getCpuHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	DX12BufferView *native_view = (DX12BufferView *)view;
+	rhi->device->CopyDescriptorsSimple(1, cpu_handle_srv_heap, native_view->getDescriptor().getCpuHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+}
+
+void DX12BindlessResources::setAccelerationStructure(uint32_t index, RHITopLevelAccelerationStructure *as)
+{
+	RHIBindlessResources::setAccelerationStructure(index, as);
+	if (as == nullptr)
+	{
+		empty_resource_indices.push_back(index);
+		return;
+	}
+	acceleration_structure_to_resource_index[as] = index;
+
+	DX12DynamicRHI *rhi = (DX12DynamicRHI *)gDynamicRHI;
+
+	D3D12_CPU_DESCRIPTOR_HANDLE cpu_handle_srv_heap(rhi->cbv_srv_uav_heap->getHandle(index).getCpuHandle());
+
+	// Copy from staging heap, to current frame's shader visible heap
+	DX12TopLevelAccelerationStructure *native_as = (DX12TopLevelAccelerationStructure *)as;
+	rhi->device->CopyDescriptorsSimple(1, cpu_handle_srv_heap, native_as->shader_resource_view.getCpuHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 }
 
 void DX12BindlessResources::update()

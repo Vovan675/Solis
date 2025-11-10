@@ -5,12 +5,17 @@
 static StructuredBuffer<DDGIVolume> volumes = ResourceDescriptorHeap[ddgi_volume_buffer_id];
 static DDGIVolume volume = volumes[0];
 
+cbuffer Constants : register(b1)
+{
+	uint output_atlas_tex_id;
+};
+
 #ifdef IRRADIANCE
 	[[vk::image_format("rgba16f")]]
-	RWTexture2D<float4> output_atlas : register(u1);
+	static RWTexture2D<float4> output_atlas = ResourceDescriptorHeap[output_atlas_tex_id];
 #else
 	[[vk::image_format("rg16f")]]
-	RWTexture2D<float2> output_atlas : register(u1);
+	static RWTexture2D<float2> output_atlas = ResourceDescriptorHeap[output_atlas_tex_id];
 #endif
 
 struct CSInput

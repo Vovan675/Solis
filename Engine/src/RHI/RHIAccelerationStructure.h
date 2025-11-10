@@ -35,4 +35,5 @@ class RHITopLevelAccelerationStructure : public RefCounted
 {
 public:
 	virtual void build(bool update, const eastl::vector<RayTracingInstance> &instances) = 0;
+	virtual uint32_t getBindlessId() = 0;
 };

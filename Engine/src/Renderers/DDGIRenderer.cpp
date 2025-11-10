@@ -233,14 +233,12 @@ void DDGIRenderer::addTraceRaysPass(FrameGraph &fg, Ref<RayTracingScene> rt_scen
 		gGlobalPipeline->setupRayTracing(L"shaders/ddgi/ddgi_trace_rays.hlsl");
 		gGlobalPipeline->flushAndBind(cmd_list);
 
-		gDynamicRHI->setAccelerationStructure(2, rt_scene->getTopLevelAS());
-
-		gDynamicRHI->setUAVBuffer(1, ray_data_buffer);
-
 		struct Constants
 		{
+			uint32_t output_buffer_id;
 			uint32_t environment_tex_id;
 		} constants;
+		constants.output_buffer_id = ray_data_buffer->getUnorderedAccessView()->getBindlessIndex();
 		constants.environment_tex_id = resources.getBindlessId(GFXRID(Sky));
 		gDynamicRHI->setConstantBufferData(3, &constants, sizeof(constants));
 
@@ -262,7 +260,8 @@ void DDGIRenderer::addUpdatePass(FrameGraph & fg)
 		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/ddgi/ddgi_update_probe.hlsl", COMPUTE_SHADER, "CSMain", {{"NUM_TEXELS", "8"}, {"IRRADIANCE", "1"}}));
 		gGlobalPipeline->flushAndBind(cmd_list);
 
-		gDynamicRHI->setUAVTexture(1, resources.getTexture(GFXRID(DDGIIrradiance)));
+		uint32_t irradiance_uav_id = resources.getTexture(GFXRID(DDGIIrradiance))->getUnorderedAccessView()->getBindlessIndex();
+		gDynamicRHI->setConstantBufferData(1, &irradiance_uav_id, sizeof(uint32_t));
 
 		// XZ plane, Y layer
 		cmd_list->dispatch(volume.size.x, volume.size.z, volume.size.y);
@@ -281,7 +280,8 @@ void DDGIRenderer::addUpdatePass(FrameGraph & fg)
 		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/ddgi/ddgi_update_probe.hlsl", COMPUTE_SHADER, "CSMain", {{"NUM_TEXELS", "16"}}));
 		gGlobalPipeline->flushAndBind(cmd_list);
 
-		gDynamicRHI->setUAVTexture(1, resources.getTexture(GFXRID(DDGIDistance)));
+		uint32_t distance_uav_id = resources.getTexture(GFXRID(DDGIDistance))->getUnorderedAccessView()->getBindlessIndex();
+		gDynamicRHI->setConstantBufferData(1, &distance_uav_id, sizeof(uint32_t));
 
 		// XZ plane, Y layer
 		cmd_list->dispatch(volume.size.x, volume.size.z, volume.size.y);
@@ -301,7 +301,8 @@ void DDGIRenderer::addRelocationPass(FrameGraph & fg)
 		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/ddgi/ddgi_relocation.hlsl", COMPUTE_SHADER, "CS_Relocate"));
 		gGlobalPipeline->flushAndBind(cmd_list);
 
-		gDynamicRHI->setUAVTexture(1, resources.getTexture(GFXRID(DDGIMetadata)));
+		uint32_t metadata_uav_id = resources.getTexture(GFXRID(DDGIMetadata))->getUnorderedAccessView()->getBindlessIndex();
+		gDynamicRHI->setConstantBufferData(1, &metadata_uav_id, sizeof(uint32_t));
 
 		uint32_t probes_count = volume.getProbesCount();
 		uint32_t num_groups = ceil(probes_count / 32.0f);
@@ -322,7 +323,8 @@ void DDGIRenderer::addResetRelocationPass(FrameGraph & fg)
 		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/ddgi/ddgi_relocation.hlsl", COMPUTE_SHADER, "CS_ResetRelocation"));
 		gGlobalPipeline->flushAndBind(cmd_list);
 
-		gDynamicRHI->setUAVTexture(1, resources.getTexture(GFXRID(DDGIMetadata)));
+		uint32_t metadata_uav_id = resources.getTexture(GFXRID(DDGIMetadata))->getUnorderedAccessView()->getBindlessIndex();
+		gDynamicRHI->setConstantBufferData(1, &metadata_uav_id, sizeof(uint32_t));
 
 		uint32_t probes_count = volume.getProbesCount();
 		uint32_t num_groups = ceil(probes_count / 32.0f);
@@ -343,7 +345,8 @@ void DDGIRenderer::addClassificationPass(FrameGraph &fg)
 		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/ddgi/ddgi_classification.hlsl", COMPUTE_SHADER, "CS_Classification"));
 		gGlobalPipeline->flushAndBind(cmd_list);
 
-		gDynamicRHI->setUAVTexture(1, resources.getTexture(GFXRID(DDGIMetadata)));
+		uint32_t metadata_uav_id = resources.getTexture(GFXRID(DDGIMetadata))->getUnorderedAccessView()->getBindlessIndex();
+		gDynamicRHI->setConstantBufferData(1, &metadata_uav_id, sizeof(uint32_t));
 
 		uint32_t probes_count = volume.getProbesCount();
 		uint32_t num_groups = ceil(probes_count / 32.0f);
@@ -364,7 +367,8 @@ void DDGIRenderer::addResetClassificationPass(FrameGraph & fg)
 		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/ddgi/ddgi_classification.hlsl", COMPUTE_SHADER, "CS_ResetClassification"));
 		gGlobalPipeline->flushAndBind(cmd_list);
 
-		gDynamicRHI->setUAVTexture(1, resources.getTexture(GFXRID(DDGIMetadata)));
+		uint32_t metadata_uav_id = resources.getTexture(GFXRID(DDGIMetadata))->getUnorderedAccessView()->getBindlessIndex();
+		gDynamicRHI->setConstantBufferData(1, &metadata_uav_id, sizeof(uint32_t));
 
 		uint32_t probes_count = volume.getProbesCount();
 		uint32_t num_groups = ceil(probes_count / 32.0f);

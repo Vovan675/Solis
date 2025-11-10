@@ -36,9 +36,6 @@ VulkanBuffer::VulkanBuffer(BufferDescription description) : RHIBuffer(descriptio
 	buffer = std::make_unique<VkBufferResource>();
 	allocation = std::make_unique<VkAllocationResource>();
 	VulkanUtils::createBuffer(description.size, usage_flags, memory_usage, flags, buffer->resource, allocation->resource, description.alignment);
-
-	if (hasAnyFlags(description.usage, BufferUsage::SHADER_READ_BUFFER | BufferUsage::SHADER_WRITE_BUFFER))
-		gDynamicRHI->getBindlessResources()->addBuffer(this);
 }
 
 VulkanBuffer::~VulkanBuffer()
@@ -49,8 +46,6 @@ VulkanBuffer::~VulkanBuffer()
 
 	native_rhi->releaseGPUResource(buffer.release());
 	native_rhi->releaseGPUResource(allocation.release());
-	if (gDynamicRHI && gDynamicRHI->getBindlessResources())
-		gDynamicRHI->getBindlessResources()->removeBuffer(this);
 }
 
 void VulkanBuffer::fill(const void *sourceData)
@@ -144,16 +139,13 @@ VulkanBufferView::VulkanBufferView(BufferViewDescription description): RHIBuffer
 	ENGINE_ASSERT(description.buffer);
 	
 	if (description.view_type == BufferViewType::SHADER_RESOURCE)
-	{
-		bindless_index = gDynamicRHI->getBindlessResources()->addBuffer(description.buffer);
-	} else
-	{
-		ENGINE_ASSERT_MSG(false, "TODO: Implement VulkanBufferView for UAV resource");
-	}
+		bindless_index = gDynamicRHI->getBindlessResources()->addBuffer(this);
+	else if (description.view_type == BufferViewType::SHADER_RESOURCE_STORAGE)
+		bindless_index = gDynamicRHI->getBindlessResources()->addBuffer(this);
 }
 
 VulkanBufferView::~VulkanBufferView()
 {
 	if (gDynamicRHI && gDynamicRHI->getBindlessResources())
-		gDynamicRHI->getBindlessResources()->removeBuffer(description.buffer);
+		gDynamicRHI->getBindlessResources()->removeBuffer(this);
 }

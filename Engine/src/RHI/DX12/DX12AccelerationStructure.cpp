@@ -100,8 +100,12 @@ void DX12TopLevelAccelerationStructure::build(bool update, const eastl::vector<R
 		// TODO: set in object description array at index `instance_id`, index to another buffers that contains vertices, indices, materials
 	}
 
-
-	update = false;
+	if (buffer)
+	{
+		gDynamicRHI->getBindlessResources()->removeAccelerationStructure(this);
+		bindless_id = 0;
+		buffer = nullptr;
+	}
 
 	// Buffer for instance data
 	BufferDescription instanceDesc;	
@@ -158,4 +162,6 @@ void DX12TopLevelAccelerationStructure::build(bool update, const eastl::vector<R
 
 	shader_resource_view = native_rhi->cbv_srv_uav_staging_heap->allocate();
 	native_rhi->device->CreateShaderResourceView(nullptr, &srv_desc, shader_resource_view.getCpuHandle());
+
+	bindless_id = gDynamicRHI->getBindlessResources()->addAccelerationStructure(this);
 }

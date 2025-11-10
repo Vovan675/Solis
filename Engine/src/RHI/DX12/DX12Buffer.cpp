@@ -205,7 +205,7 @@ DX12BufferView::DX12BufferView(BufferViewDescription description) : RHIBufferVie
 		}
 
 		rhi->device->CreateShaderResourceView(native_buffer->getResource(), &srv_desc, descriptor.getCpuHandle());
-		bindless_index = gDynamicRHI->getBindlessResources()->addBuffer(native_buffer);
+		bindless_index = gDynamicRHI->getBindlessResources()->addBuffer(this);
 	} else if (description.view_type == BufferViewType::SHADER_RESOURCE_STORAGE)
 	{
 		D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc = {};
@@ -228,11 +228,12 @@ DX12BufferView::DX12BufferView(BufferViewDescription description) : RHIBufferVie
 		}
 
 		rhi->device->CreateUnorderedAccessView(native_buffer->getResource(), nullptr, &uav_desc, descriptor.getCpuHandle());
+		bindless_index = gDynamicRHI->getBindlessResources()->addBuffer(this);
 	}
 }
 
 DX12BufferView::~DX12BufferView()
 {
 	if (gDynamicRHI && gDynamicRHI->getBindlessResources())
-		gDynamicRHI->getBindlessResources()->removeBuffer(description.buffer);
+		gDynamicRHI->getBindlessResources()->removeBuffer(this);
 }

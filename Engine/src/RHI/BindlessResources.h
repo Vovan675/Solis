@@ -15,9 +15,10 @@ static const int BINDLESS_SAMPLERS_BINDING = 1;
 static const int BINDLESS_SAMPLERS_SET = 1;
 
 // Bindless Resources:
-// Storage Buffers (SRV, TODO: UAV)
-// Textures (SRV, TODO: UAV)
+// Storage Buffers (SRV, UAV)
+// Textures (SRV, UAV)
 // Samplers
+// Acceleration Structures
 
 class RHIBindlessResources
 {
@@ -26,15 +27,18 @@ public:
 	virtual void cleanup();
 
 	void finishFrame() {}
-	virtual void setTexture(uint32_t index, RHITexture *texture);
-	virtual uint32_t addTexture(RHITexture *texture);
+	virtual void setTexture(uint32_t index, RHITextureView *view);
+	virtual uint32_t addTexture(RHITextureView *view);
 	virtual RHITexture *getTexture(uint32_t index);
-	virtual void removeTexture(RHITexture *texture);
-	virtual uint32_t getTextureIndex(RHITexture *texture) { return texture_to_resource_index[texture]; }
+	virtual void removeTexture(RHITextureView *view);
 
-	virtual uint32_t addBuffer(RHIBuffer *buffer);
-	virtual void removeBuffer(RHIBuffer *buffer);
-	virtual void setBuffer(uint32_t index, RHIBuffer *buffer);
+	virtual uint32_t addBuffer(RHIBufferView *view);
+	virtual void removeBuffer(RHIBufferView *view);
+	virtual void setBuffer(uint32_t index, RHIBufferView *view);
+
+	virtual uint32_t addAccelerationStructure(RHITopLevelAccelerationStructure *as);
+	virtual void removeAccelerationStructure(RHITopLevelAccelerationStructure *as);
+	virtual void setAccelerationStructure(uint32_t index, RHITopLevelAccelerationStructure *as);
 
 	virtual uint32_t addSampler(const TextureDescription &description) { return 0; }
 protected:
@@ -43,8 +47,9 @@ protected:
 protected:
 	RHITextureRef invalid_texture;
 
-	eastl::unordered_map<RHITexture *, uint32_t> texture_to_resource_index;
-	eastl::unordered_map<RHIBuffer *, uint32_t> buffer_to_resource_index;
+	eastl::unordered_map<RHITextureView *, uint32_t> texture_view_to_resource_index;
+	eastl::unordered_map<RHIBufferView *, uint32_t> buffer_to_resource_index;
+	eastl::unordered_map<RHITopLevelAccelerationStructure *, uint32_t> acceleration_structure_to_resource_index;
 	eastl::vector<int> empty_resource_indices;
 	
 	eastl::unordered_map<RHITexture *, uint32_t> texture_to_sampler_index;
@@ -56,8 +61,9 @@ public:
 	void init() override;
 	void cleanup() override;
 
-	void setTexture(uint32_t index, RHITexture *texture) override;
-	void setBuffer(uint32_t index, RHIBuffer *buffer) override;
+	void setTexture(uint32_t index, RHITextureView *view) override;
+	void setBuffer(uint32_t index, RHIBufferView *view) override;
+	void setAccelerationStructure(uint32_t index, RHITopLevelAccelerationStructure *as) override;
 
 	uint32_t addSampler(const TextureDescription &description) override;
 	VkSampler getNativeSampler(uint32_t sampler_index);
@@ -86,8 +92,9 @@ public:
 	void init() override;
 	void cleanup() override;
 
-	void setTexture(uint32_t index, RHITexture *texture) override;
-	void setBuffer(uint32_t index, RHIBuffer *buffer) override;
+	void setTexture(uint32_t index, RHITextureView *view) override;
+	void setBuffer(uint32_t index, RHIBufferView *view) override;
+	void setAccelerationStructure(uint32_t index, RHITopLevelAccelerationStructure *as) override;
 
 	void update();
 

@@ -211,6 +211,7 @@ void ShadowRenderer::addRayTracedShadowPasses(FrameGraph & fg, Ref<RayTracingSce
 		{
 			glm::vec4 dir_light_direction;
 			uint32_t depth_texture_id;
+			uint32_t output_texture_id;
 		} ubo_light;
 
 		auto lights = Scene::getCurrentScene()->getEntitiesWith<LightComponent>();
@@ -232,11 +233,9 @@ void ShadowRenderer::addRayTracedShadowPasses(FrameGraph & fg, Ref<RayTracingSce
 		ubo_light.depth_texture_id = resources.getBindlessId(GFXRID(GBufferDepth));
 
 		auto ray_traced_lighting = visiblity;
+		ubo_light.output_texture_id = ray_traced_lighting->getUnorderedAccessView()->getBindlessIndex();
 
 		gDynamicRHI->setConstantBufferData(1, &ubo_light, sizeof(LightUBO));
-
-		gDynamicRHI->setUAVTexture(0, ray_traced_lighting);
-		gDynamicRHI->setAccelerationStructure(2, rt_scene->getTopLevelAS());
 
 		cmd_list->dispatchRays(Renderer::getViewportSize().x, Renderer::getViewportSize().y, 1);
 
