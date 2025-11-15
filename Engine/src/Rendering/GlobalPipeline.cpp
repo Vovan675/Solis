@@ -79,6 +79,15 @@ void GlobalPipeline::setupRayTracing(const wchar_t* shader_path)
 	setClosestHitShader(gDynamicRHI->createShader(shader_path, CLOSEST_HIT_SHADER));
 }
 
+void GlobalPipeline::setupRayTracing(const wchar_t *shader_path, eastl::vector<eastl::pair<const char *, const char *>> defines)
+{
+	reset();
+	current_description.pipeline_type = PipelineType::RayTracing;
+	setRayGenerationShader(gDynamicRHI->createShader(shader_path, RAY_GENERATION_SHADER, "RayGen", defines));
+	setMissShader(gDynamicRHI->createShader(shader_path, MISS_SHADER, "Miss", defines));
+	setClosestHitShader(gDynamicRHI->createShader(shader_path, CLOSEST_HIT_SHADER, "ClosestHit", defines));
+}
+
 void GlobalPipeline::setupRayTracing(RHIShaderRef ray_gen, RHIShaderRef miss, RHIShaderRef closest_hit)
 {
 	reset();

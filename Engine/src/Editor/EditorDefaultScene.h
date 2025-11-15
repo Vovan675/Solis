@@ -18,6 +18,7 @@ public:
 		//auto model = AssetManager::getModelAsset("assets/cube.fbx");
 		//auto model = AssetManager::getModelAsset("assets/game/map.fbx");
 		auto model = AssetManager::getModelAsset("assets/sponza/sponza.obj");
+		//auto model = AssetManager::getModelAsset("assets/big_city_2/scene.gltf");
 		//auto model = AssetManager::getModelAsset("assets/new_sponza/NewSponza_Main_Yup_002.fbx");
 		//auto model = AssetManager::getModelAsset("assets/bistro/BistroExterior.fbx");
 		//auto model = AssetManager::getModelAsset("assets/hideout/source/FullSceneSubstance.fbx");

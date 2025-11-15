@@ -31,6 +31,7 @@ public:
 	void setRenderTargets(RHICommandList* cmd_list);
 
 	void setupRayTracing(const wchar_t* shader_path);
+	void setupRayTracing(const wchar_t* shader_path, eastl::vector<eastl::pair<const char *, const char *>> defines);
 	void setupRayTracing(RHIShaderRef ray_gen, RHIShaderRef miss, RHIShaderRef closest_hit);
 	void setupComputePipeline(RHIShaderRef compute_shader);
 	void setupGraphicsPipeline(RHIShaderRef vertex_shader, RHIShaderRef fragment_shader,

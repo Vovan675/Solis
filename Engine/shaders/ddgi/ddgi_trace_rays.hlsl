@@ -42,9 +42,10 @@ void RayGen()
 
 	StructuredBuffer<DDGIVolume> volumes = ResourceDescriptorHeap[ddgi_volume_buffer_id];
 	DDGIVolume volume = volumes[0];
-	
-	uint3 probe_coords = GetProbeCoords(volume, probe_index);
-	float3 probe_position = GetProbeWorldPosition(volume, probe_coords);
+
+	uint cascade = GetProbeCascade(volume, probe_index);
+	uint3 probe_coords = GetProbeGridCoords(volume, probe_index);
+	float3 probe_position = GetProbeWorldPosition(volume, probe_coords, cascade);
 	float3 ray_direction = GetProbeRayDirection(ray_index, volume);
 
 	#if USE_FIXED_RAYS
@@ -109,12 +110,13 @@ void RayGen()
 		float3 diffuse = saturate(dot(normal, volume.sun_dir.xyz)) * LambertDiffuse(albedo);
 		radiance = diffuse * visibility * volume.sun_color.rgb;
 		//radiance = albedo;
+		//radiance = visibility;
 
 		float volume_weight = GetVolumeWeight(position, volume);
 		if (volume_weight > 0.0f)
 		{
 			float3 surface_bias = GetSurfaceBias(normal, ray.Direction);
-			float3 irradiance = SampleIrradiance(position, normal, surface_bias, volume);
+			float3 irradiance = SampleIrradiance(position, normal, surface_bias, volume, cascade);
 			radiance += (min(albedo, 0.9f) / PI) * irradiance * volume_weight;
 		}
 		//radiance = position;

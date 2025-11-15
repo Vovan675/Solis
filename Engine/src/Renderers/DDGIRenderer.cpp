@@ -4,6 +4,12 @@
 #include <imgui.h>
 #include <random>
 
+static uint32_t cascade_size_xz = 16;
+static uint32_t cascade_size_y = 8;
+static uint32_t cascades_count = 4;
+
+// Cascades have same size, so we can calculate cascade index easily
+
 // 16x16 pixels for one probe
 static int distance_probe_texels = 14;
 // 8x8 pixels for one probe
@@ -13,20 +19,22 @@ DDGIRenderer::DDGIRenderer()
 {
 	// Dense
 	volume.origin = {0.0f, 0.5f, -2.0f};
-	volume.size = {8, 4, 6};
+	//volume.size = {8, 4, 6};
 	volume.spacing = {1, 1, 1};
 	volume.rays_per_probe = 128;
 
 	// Less dense
 	volume.origin = {-5.5f, 0.5f, -3.5f};
-	volume.size = {8, 4, 6};
+	//volume.size = {8, 4, 6};
 	volume.spacing = {2, 2, 2};
 	volume.rays_per_probe = 128;
 
 	volume.origin = {-14.0f, 0.0f, -6.0f};
-	volume.size = {28, 24, 24};
-	volume.spacing = {1, 0.5, 0.5};
-	volume.rays_per_probe = 128;
+	volume.origin = {-10.0f, 10.0f, -4.4f};
+	volume.size = {cascade_size_xz, cascade_size_y, cascade_size_xz, cascade_size_xz * cascade_size_xz * cascade_size_y};
+	volume.spacing = {0.5, 1.0, 0.5};
+	volume.rays_per_probe = distance_probe_texels * distance_probe_texels;
+	volume.cascades_count = cascades_count;
 
 	BufferDescription desc;
 	desc.size = sizeof(volume);
@@ -55,12 +63,13 @@ void DDGIRenderer::addPasses(FrameGraph & fg, Ref<RayTracingScene> rt_scene)
 		TextureDescription desc;
 		desc.width = depth_width;
 		desc.height = depth_height;
+		desc.array_levels = cascades_count;
 		desc.format = FORMAT_R16G16_SFLOAT;
 		desc.usage_flags = TEXTURE_USAGE_STORAGE;
 		distance_atlas_texture = gDynamicRHI->createTexture(desc);
 		distance_atlas_texture->fill();
 
-		volume.distance_altas_tex_id = distance_atlas_texture->getShaderResourceView()->getBindlessIndex();
+		volume.distance_atlas_tex_id = distance_atlas_texture->getShaderResourceView()->getBindlessIndex();
 	}
 
 	int irradiance_width = (irradiance_probe_texels + border_size * 2) * volume.size.x * layers;
@@ -70,12 +79,13 @@ void DDGIRenderer::addPasses(FrameGraph & fg, Ref<RayTracingScene> rt_scene)
 		TextureDescription desc;
 		desc.width = irradiance_width;
 		desc.height = irradiance_height;
+		desc.array_levels = cascades_count;
 		desc.format = FORMAT_R16G16B16A16_SFLOAT;
 		desc.usage_flags = TEXTURE_USAGE_STORAGE;
 		irradiance_atlas_texture = gDynamicRHI->createTexture(desc);
 		irradiance_atlas_texture->fill();
 
-		volume.irradiance_altas_tex_id = irradiance_atlas_texture->getShaderResourceView()->getBindlessIndex();
+		volume.irradiance_atlas_tex_id = irradiance_atlas_texture->getShaderResourceView()->getBindlessIndex();
 	}
 
 	int metadata_width = volume.size.x * layers;
@@ -85,12 +95,13 @@ void DDGIRenderer::addPasses(FrameGraph & fg, Ref<RayTracingScene> rt_scene)
 		TextureDescription desc;
 		desc.width = metadata_width;
 		desc.height = metadata_height;
+		desc.array_levels = cascades_count;
 		desc.format = FORMAT_R16G16B16A16_SFLOAT;
 		desc.usage_flags = TEXTURE_USAGE_STORAGE;
 		metadata_atlas_texture = gDynamicRHI->createTexture(desc);
 		metadata_atlas_texture->fill();
 
-		volume.metadata_altas_tex_id = metadata_atlas_texture->getShaderResourceView()->getBindlessIndex();
+		volume.metadata_atlas_tex_id = metadata_atlas_texture->getShaderResourceView()->getBindlessIndex();
 	}
 
 	int ray_data_size = sizeof(glm::vec4) * volume.rays_per_probe * volume.getProbesCount();
@@ -112,8 +123,8 @@ void DDGIRenderer::addPasses(FrameGraph & fg, Ref<RayTracingScene> rt_scene)
 	fg.importTexture(GFXRID(DDGIMetadata), metadata_atlas_texture);
 
 	// Generate random rotation for ray directions
-	std::default_random_engine generator(0);
-	std::uniform_real_distribution<float> dist(0.0f, 1.0f);
+	static std::default_random_engine generator(time(0));
+	static std::uniform_real_distribution<float> dist(0.0f, 1.0f);
 	
 	glm::vec3 random_vector(
 		2.0f * dist(generator) - 1.0f,
@@ -125,6 +136,15 @@ void DDGIRenderer::addPasses(FrameGraph & fg, Ref<RayTracingScene> rt_scene)
 
 	volume.random_vector = random_vector;
 	volume.random_angle = random_angle;
+
+	glm::vec3 center = volume.origin;
+	for (int i = 0; i < volume.cascades_count; i++)
+	{
+		volume.cascades[i].spacing = glm::vec4(volume.spacing * float(i + 1), 0.0f);
+
+		glm::vec3 volume_size = glm::vec3(glm::vec4(volume.size) * volume.cascades[i].spacing);
+		volume.cascades[i].min = glm::vec4(center - volume_size / 2.0f, 0.0f);
+	}
 
 	auto lights = Scene::getCurrentScene()->getEntitiesWith<LightComponent>().each();
 	for (auto &&[entity, light_component]: lights)
@@ -151,8 +171,8 @@ void DDGIRenderer::addPasses(FrameGraph & fg, Ref<RayTracingScene> rt_scene)
 	prev_use_relocation = use_relocation;
 
 	static bool prev_use_classification = false;
-	if (use_classification != prev_use_classification)
-		addResetClassificationPass(fg);
+	//if (use_classification != prev_use_classification)
+	//	addResetClassificationPass(fg);
 	prev_use_classification = use_classification;
 
 	addTraceRaysPass(fg, rt_scene);
@@ -160,6 +180,7 @@ void DDGIRenderer::addPasses(FrameGraph & fg, Ref<RayTracingScene> rt_scene)
 
 	if (use_relocation)
 		addRelocationPass(fg);
+	return;
 	if (use_classification)
 		addClassificationPass(fg);
 }
@@ -199,7 +220,7 @@ void DDGIRenderer::addVisualizePass(FrameGraph &fg)
 		cmd_list->drawIndexedInstanced(sphere_mesh->indices.size(), volume.getProbesCount(), 0, 0, 0);
 
 		cmd_list->resetRenderTargets();
-		gDynamicRHI->waitGPU();
+		//gDynamicRHI->waitGPU();
 	});
 }
 
@@ -213,9 +234,25 @@ void DDGIRenderer::renderImgui()
 
 		ImGui::Checkbox("Use Relocation", &use_relocation);
 		ImGui::Checkbox("Use Classification", &use_classification);
-		char* items[] = { "Irradiance", "Distance", "State", "State Not Disabled" };
-		ImGui::Combo("Preview Combo", &visualization_settings.mode, items, _countof(items));
+		char* items[] = { "Irradiance", "Distance", "State", "State Not Disabled", "Cascades" };
+		ImGui::Combo("Vis Mode", &visualization_settings.mode, items, _countof(items));
+		ImGui::Checkbox("Use Fixed Rays", &use_fixed_rays);
+		ImGui::Checkbox("Trace Random Direction", &trace_random_direction);
 	}
+}
+
+eastl::vector<eastl::pair<const char *, const char *>> DDGIRenderer::calculateDefines(eastl::vector<eastl::pair<const char *, const char *>> additional)
+{
+	eastl::vector<eastl::pair<const char *, const char *>> defines;
+	for (auto &define : additional)
+		defines.emplace_back(define);
+
+	if (use_fixed_rays)
+		defines.push_back({"USE_FIXED_RAYS", "1"});
+
+	if (trace_random_direction)
+		defines.push_back({"TRACE_RANDOM_DIRECTION", "1"});
+	return defines;
 }
 
 void DDGIRenderer::addTraceRaysPass(FrameGraph &fg, Ref<RayTracingScene> rt_scene)
@@ -230,7 +267,7 @@ void DDGIRenderer::addTraceRaysPass(FrameGraph &fg, Ref<RayTracingScene> rt_scen
 	},
 	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		gGlobalPipeline->setupRayTracing(L"shaders/ddgi/ddgi_trace_rays.hlsl");
+		gGlobalPipeline->setupRayTracing(L"shaders/ddgi/ddgi_trace_rays.hlsl", calculateDefines());
 		gGlobalPipeline->flushAndBind(cmd_list);
 
 		struct Constants
@@ -257,14 +294,14 @@ void DDGIRenderer::addUpdatePass(FrameGraph & fg)
 	},
 	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/ddgi/ddgi_update_probe.hlsl", COMPUTE_SHADER, "CSMain", {{"NUM_TEXELS", "8"}, {"IRRADIANCE", "1"}}));
+		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/ddgi/ddgi_update_probe.hlsl", COMPUTE_SHADER, "CSMain", calculateDefines({{"NUM_TEXELS", "8"}, {"IRRADIANCE", "1"}})));
 		gGlobalPipeline->flushAndBind(cmd_list);
 
 		uint32_t irradiance_uav_id = resources.getTexture(GFXRID(DDGIIrradiance))->getUnorderedAccessView()->getBindlessIndex();
 		gDynamicRHI->setConstantBufferData(1, &irradiance_uav_id, sizeof(uint32_t));
 
 		// XZ plane, Y layer
-		cmd_list->dispatch(volume.size.x, volume.size.z, volume.size.y);
+		cmd_list->dispatch(volume.size.x, volume.size.z, volume.size.y * volume.cascades_count);
 		gDynamicRHI->waitGPU();
 	});
 
@@ -277,14 +314,14 @@ void DDGIRenderer::addUpdatePass(FrameGraph & fg)
 	},
 	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/ddgi/ddgi_update_probe.hlsl", COMPUTE_SHADER, "CSMain", {{"NUM_TEXELS", "16"}}));
+		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/ddgi/ddgi_update_probe.hlsl", COMPUTE_SHADER, "CSMain", calculateDefines({{"NUM_TEXELS", "16"}})));
 		gGlobalPipeline->flushAndBind(cmd_list);
 
 		uint32_t distance_uav_id = resources.getTexture(GFXRID(DDGIDistance))->getUnorderedAccessView()->getBindlessIndex();
 		gDynamicRHI->setConstantBufferData(1, &distance_uav_id, sizeof(uint32_t));
 
 		// XZ plane, Y layer
-		cmd_list->dispatch(volume.size.x, volume.size.z, volume.size.y);
+		cmd_list->dispatch(volume.size.x, volume.size.z, volume.size.y * volume.cascades_count);
 		gDynamicRHI->waitGPU();
 	});
 }
@@ -298,7 +335,7 @@ void DDGIRenderer::addRelocationPass(FrameGraph & fg)
 	},
 	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/ddgi/ddgi_relocation.hlsl", COMPUTE_SHADER, "CS_Relocate"));
+		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/ddgi/ddgi_relocation.hlsl", COMPUTE_SHADER, "CS_Relocate", calculateDefines()));
 		gGlobalPipeline->flushAndBind(cmd_list);
 
 		uint32_t metadata_uav_id = resources.getTexture(GFXRID(DDGIMetadata))->getUnorderedAccessView()->getBindlessIndex();
@@ -320,7 +357,7 @@ void DDGIRenderer::addResetRelocationPass(FrameGraph & fg)
 	},
 	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/ddgi/ddgi_relocation.hlsl", COMPUTE_SHADER, "CS_ResetRelocation"));
+		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/ddgi/ddgi_relocation.hlsl", COMPUTE_SHADER, "CS_ResetRelocation", calculateDefines()));
 		gGlobalPipeline->flushAndBind(cmd_list);
 
 		uint32_t metadata_uav_id = resources.getTexture(GFXRID(DDGIMetadata))->getUnorderedAccessView()->getBindlessIndex();
@@ -342,7 +379,7 @@ void DDGIRenderer::addClassificationPass(FrameGraph &fg)
 	},
 	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/ddgi/ddgi_classification.hlsl", COMPUTE_SHADER, "CS_Classification"));
+		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/ddgi/ddgi_classification.hlsl", COMPUTE_SHADER, "CS_Classification", calculateDefines()));
 		gGlobalPipeline->flushAndBind(cmd_list);
 
 		uint32_t metadata_uav_id = resources.getTexture(GFXRID(DDGIMetadata))->getUnorderedAccessView()->getBindlessIndex();
@@ -364,7 +401,7 @@ void DDGIRenderer::addResetClassificationPass(FrameGraph & fg)
 	},
 	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/ddgi/ddgi_classification.hlsl", COMPUTE_SHADER, "CS_ResetClassification"));
+		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/ddgi/ddgi_classification.hlsl", COMPUTE_SHADER, "CS_ResetClassification", calculateDefines()));
 		gGlobalPipeline->flushAndBind(cmd_list);
 
 		uint32_t metadata_uav_id = resources.getTexture(GFXRID(DDGIMetadata))->getUnorderedAccessView()->getBindlessIndex();

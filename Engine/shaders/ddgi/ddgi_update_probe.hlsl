@@ -12,10 +12,10 @@ cbuffer Constants : register(b1)
 
 #ifdef IRRADIANCE
 	[[vk::image_format("rgba16f")]]
-	static RWTexture2D<float4> output_atlas = ResourceDescriptorHeap[output_atlas_tex_id];
+	static RWTexture2DArray<float4> output_atlas = ResourceDescriptorHeap[output_atlas_tex_id];
 #else
 	[[vk::image_format("rg16f")]]
-	static RWTexture2D<float2> output_atlas = ResourceDescriptorHeap[output_atlas_tex_id];
+	static RWTexture2DArray<float2> output_atlas = ResourceDescriptorHeap[output_atlas_tex_id];
 #endif
 
 struct CSInput
@@ -27,9 +27,9 @@ struct CSInput
 };
 
 // Copy border texels for correctly working hardware bilinear filtering (wrapping)
-void WriteOctahedronBorder(uint2 texel_coord, uint2 oct_texel)
+void WriteOctahedronBorder(uint3 texel_coord, uint2 oct_texel)
 {
-	uint2 source_coord = texel_coord.xy;
+	uint3 source_coord = texel_coord;
 
 	bool is_left_or_right = oct_texel.x == 0 || oct_texel.x == NUM_TEXELS - 1;
 	bool is_top_or_bottom = oct_texel.y == 0 || oct_texel.y == NUM_TEXELS - 1;
@@ -49,19 +49,21 @@ void WriteOctahedronBorder(uint2 texel_coord, uint2 oct_texel)
 		source_coord.x += NUM_TEXELS - 1 - oct_texel.x;
 	}
 
-	output_atlas[texel_coord.xy] = output_atlas[source_coord.xy];
+	output_atlas[texel_coord] = output_atlas[source_coord];
 }
 
-// xzy order (xz plane, y is layer)
+// xzy order (xz plane, y layer * (size_y * cascade))
 [numthreads(NUM_TEXELS, NUM_TEXELS, 1)]
 void CSMain(CSInput input)
 {
 	uint3 probe_coord = input.group_id.xzy;
-	uint probe_id = GetProbeIndex(volume, probe_coord);
+	probe_coord.y = probe_coord.y % volume.size.y;
+	uint cascade = input.group_id.z / volume.size.y;
+	uint probe_id = GetProbeIndex(volume, probe_coord, cascade);
 
 	uint layer = probe_coord.y;
 	uint2 layer_offset = uint2(layer * NUM_TEXELS * uint(volume.size.x), 0);
-	uint2 texel_coord = input.dispatch_thread_id.xy + layer_offset;
+	uint3 texel_coord = uint3(input.dispatch_thread_id.xy + layer_offset, cascade);
 	
 	float2 oct_coord = GetNormalizedOctahedralCoordinates(texel_coord.xy, NUM_TEXELS);
 	float3 texel_direction = GetOctahedralDirection(oct_coord);
@@ -108,7 +110,7 @@ void CSMain(CSInput input)
 		irradiance_average /= max(weight_sum, 1e-9f);
 		irradiance_average = pow(irradiance_average, 1.0 / IRRADIANCE_ENCODE_GAMMA);
 
-		float3 prev = output_atlas[texel_coord.xy].rgb;
+		float3 prev = output_atlas[texel_coord].rgb;
 		float blend_factor = DEFAULT_BLEND_FACTOR;
 		
 		// If was cleared, override previous value
@@ -117,7 +119,9 @@ void CSMain(CSInput input)
 		float blend_weight = saturate(1.0f - blend_factor);
 
 		float3 result = lerp(prev, irradiance_average, blend_weight);
-		output_atlas[texel_coord.xy] = float4(result, 1);
+		output_atlas[texel_coord] = float4(result, 1);
+		//output_atlas[texel_coord] = float4(pow(cascade / 5.0f, 2.0), 0, 0, 1);
+		//output_atlas[texel_coord] = float4(probe_coord / 16.0f, 1);
 	#else
 		float2 distance_average = float2(0, 0);
 		float weight_sum = 0;
@@ -141,9 +145,9 @@ void CSMain(CSInput input)
 		float blend_factor = DEFAULT_BLEND_FACTOR;
 		float blend_weight = saturate(1.0f - blend_factor);
 
-		float2 prev = output_atlas[texel_coord.xy];
+		float2 prev = output_atlas[texel_coord];
 		float2 result = lerp(prev, distance_average, blend_weight);
-		output_atlas[texel_coord.xy] = result;
+		output_atlas[texel_coord] = result;
 	#endif
 
     AllMemoryBarrierWithGroupSync();

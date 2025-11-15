@@ -1,9 +1,14 @@
+struct DDGICascade
+{
+	float4 min;
+	float4 spacing;
+};
+
 struct DDGIVolume
 {
 	float3 origin;
 	float pad0;
-	int3 size;
-	float pad1;
+	int4 size; // cascade size (xyz), probes in cascade (w)
 	float3 spacing;
 	float pad2;
 	float4 sun_dir;
@@ -13,11 +18,14 @@ struct DDGIVolume
 	float random_angle;
 	float use_relocation;
 	float use_classification;
+	uint cascades_count;
+	DDGICascade cascades[5];
 	uint rays_per_probe;
 	uint ray_data_buffer_id;
 	uint distance_atlas_tex_id;
 	uint irradiance_atlas_tex_id;
 	uint metadata_atlas_tex_id;
+	float3 pad4;
 };
 
 #define DISTANCE_TEXELS 16
@@ -31,7 +39,7 @@ struct DDGIVolume
 
 // Fixed rays are used for probe relocation/classification, for avoiding random and unstable results.
 // These rays are NOT used in blending
-#define USE_FIXED_RAYS 1
+//#define USE_FIXED_RAYS 1
 #define NUM_FIXED_RAYS 32
 
 // States for probes
@@ -45,7 +53,7 @@ struct DDGIVolume
 
 uint GetProbeCount(DDGIVolume volume)
 {
-	return uint(volume.size.x) * uint(volume.size.y) * uint(volume.size.z);
+	return uint(volume.size.x) * uint(volume.size.y) * uint(volume.size.z) * uint(volume.cascades_count);
 }
 
 uint GetProbesPerLayer(DDGIVolume volume)
@@ -58,18 +66,26 @@ uint GetRayDataIndex(uint probe_id, uint ray_index, DDGIVolume volume)
 	return probe_id * volume.rays_per_probe + ray_index;
 }
 
-uint3 GetProbeCoords(DDGIVolume volume, uint probe_id)
+uint GetProbeCascade(DDGIVolume volume, uint probe_id)
 {
+	return probe_id / volume.size.w;
+}
+
+// Returns local coords in cascade
+uint3 GetProbeGridCoords(DDGIVolume volume, uint probe_id)
+{
+	uint local_probe_id = probe_id % volume.size.w;
 	uint3 coord;
-	coord.x = probe_id % uint(volume.size.x);
-	coord.y = probe_id / (uint(volume.size.x) * uint(volume.size.z));
-	coord.z = (probe_id / uint(volume.size.x)) % uint(volume.size.z);
+	coord.x = local_probe_id % uint(volume.size.x);
+	coord.y = local_probe_id / (uint(volume.size.x) * uint(volume.size.z));
+	coord.z = (local_probe_id / uint(volume.size.x)) % uint(volume.size.z);
 	return coord;
 }
 
-uint GetProbeIndex(DDGIVolume volume, uint3 coords)
+uint GetProbeIndex(DDGIVolume volume, uint3 coords, uint cascade)
 {
-	return coords.x + coords.z * uint(volume.size.x) + coords.y * GetProbesPerLayer(volume);
+	uint cascade_offset = volume.size.w * cascade;
+	return coords.x + coords.z * uint(volume.size.x) + coords.y * GetProbesPerLayer(volume) + cascade_offset;
 }
 
 uint2 GetProbeStartTexelCoords(DDGIVolume volume, uint3 probe_coords)
@@ -78,23 +94,24 @@ uint2 GetProbeStartTexelCoords(DDGIVolume volume, uint3 probe_coords)
 	return uint2(probe_coords.x + layer_offset, probe_coords.z);
 }
 
-float3 GetProbeWorldBasePosition(DDGIVolume volume, uint3 probe_coords)
+float3 GetProbeWorldBasePosition(DDGIVolume volume, uint3 probe_coords, uint cascade)
 {
-	return volume.origin + probe_coords * volume.spacing;
+	DDGICascade casc = volume.cascades[cascade];
+	return casc.min.xyz + probe_coords * casc.spacing.xyz;
 }
 
-float3 GetProbeRelocationOffset(DDGIVolume volume, uint3 probe_coords)
+float3 GetProbeRelocationOffset(DDGIVolume volume, uint3 probe_coords, uint cascade)
 {
 	uint2 texel_coord = GetProbeStartTexelCoords(volume, probe_coords);
-	Texture2D<float4> metadata_atlas = ResourceDescriptorHeap[volume.metadata_atlas_tex_id];
-	return metadata_atlas.Load(uint3(texel_coord.xy, 0)).xyz * volume.spacing;
+	Texture2DArray<float4> metadata_atlas = ResourceDescriptorHeap[volume.metadata_atlas_tex_id];
+	return metadata_atlas.Load(uint4(texel_coord.xy, cascade, 0)).xyz * volume.spacing;
 }
 
 // Returns world space offset
-float3 GetProbeRelocationOffset(DDGIVolume volume, uint3 probe_coords, RWTexture2D<float4> metadata_atlas)
+float3 GetProbeRelocationOffset(DDGIVolume volume, uint3 probe_coords, uint cascade, RWTexture2DArray<float4> metadata_atlas)
 {
 	uint2 texel_coord = GetProbeStartTexelCoords(volume, probe_coords);
-	return metadata_atlas[texel_coord].xyz * volume.spacing;
+	return metadata_atlas[uint3(texel_coord, cascade)].xyz * volume.spacing;
 }
 
 uint GetProbeState(DDGIVolume volume, uint3 probe_coords)
@@ -113,12 +130,12 @@ bool IsProbeDisabled(DDGIVolume volume, uint3 probe_coords)
 	return state == STATE_DISABLED;
 }
 
-float3 GetProbeWorldPosition(DDGIVolume volume, uint3 probe_coords)
+float3 GetProbeWorldPosition(DDGIVolume volume, uint3 probe_coords, uint cascade)
 {
-	float3 base_position = GetProbeWorldBasePosition(volume, probe_coords);
+	float3 base_position = GetProbeWorldBasePosition(volume, probe_coords, cascade);
 	if (volume.use_relocation)
 	{
-		float3 relocation_offset = GetProbeRelocationOffset(volume, probe_coords);
+		float3 relocation_offset = GetProbeRelocationOffset(volume, probe_coords, cascade);
 		base_position += relocation_offset;
 	}
 	return base_position;
@@ -228,17 +245,25 @@ float3 GetProbeRayDirection(uint ray_index, DDGIVolume volume)
 
 	float3 rotation = SphericalFibonacci(ray, num_rays);
 
+
+
 	if (is_fixed_ray)
 		return normalize(rotation);
 
-	float3x3 random_rotation = AngleAxis3x3(volume.random_angle, volume.random_vector);
-	return normalize(mul(rotation, random_rotation));
+	#ifdef TRACE_RANDOM_DIRECTION
+		float3x3 random_rotation = AngleAxis3x3(volume.random_angle, volume.random_vector);
+		return normalize(mul(rotation, random_rotation));
+	#else
+		return normalize(rotation);
+	#endif
+
 }
 
 float GetVolumeWeight(float3 world_position, DDGIVolume volume)
 {
-	float3 size = (volume.size - 1) * volume.spacing;
-	float3 volume_center = volume.origin + size * 0.5;
+	DDGICascade last_cascade = volume.cascades[volume.cascades_count - 1];
+	float3 size = (volume.size.xyz - 1) * last_cascade.spacing.xyz;
+	float3 volume_center = last_cascade.min.xyz + size * 0.5;
 	float3 relative_position = world_position - volume_center;
 
 	float3 delta = abs(relative_position) - size * 0.5f;
@@ -246,9 +271,9 @@ float GetVolumeWeight(float3 world_position, DDGIVolume volume)
 		return 1.0f;
 
 	float weight = 1.0f;
-	weight *= 1.0f - saturate(delta.x / volume.spacing.x);
-	weight *= 1.0f - saturate(delta.y / volume.spacing.y);
-	weight *= 1.0f - saturate(delta.z / volume.spacing.z);
+	weight *= 1.0f - saturate(delta.x / last_cascade.spacing.x);
+	weight *= 1.0f - saturate(delta.y / last_cascade.spacing.y);
+	weight *= 1.0f - saturate(delta.z / last_cascade.spacing.z);
 	return weight;
 }
 
@@ -273,8 +298,10 @@ float3 GetSurfaceBias(float3 surface_normal, float3 camera_direction)
 	return (surface_normal * 0.1) + (-camera_direction * 0.3);
 }
 
-float3 SampleIrradiance(float3 world_position, float3 world_normal, float3 surface_bias, DDGIVolume volume)
+float3 SampleIrradiance(float3 world_position, float3 world_normal, float3 surface_bias, DDGIVolume volume, uint cascade_id)
 {
+	//return 1;
+	DDGICascade cascade = volume.cascades[cascade_id];
 	float3 original_world_position = world_position;
 
 	world_position += surface_bias;
@@ -282,36 +309,35 @@ float3 SampleIrradiance(float3 world_position, float3 world_normal, float3 surfa
 	float3 sum_irradiance = 0;
 	float sum_weight = 0;
 
-	float3 relative_position = world_position - volume.origin;
-	int3 base_probe_coords = int3(relative_position / volume.spacing);
+	float3 relative_position = world_position - cascade.min.xyz;
+	int3 base_probe_coords = int3(relative_position / cascade.spacing.xyz);
 	//base_probe_coords = (volume.size - 1) * 0.5;
-	base_probe_coords = clamp(base_probe_coords, int3(0, 0, 0), volume.size - 1);
+	base_probe_coords = clamp(base_probe_coords, int3(0, 0, 0), volume.size.xyz - 1);
 	
-	float3 base_probe_world_position = GetProbeWorldBasePosition(volume, base_probe_coords);
-	
+	float3 base_probe_world_position = GetProbeWorldBasePosition(volume, base_probe_coords, cascade_id);
 	// Alpha is how far from the floor(currentVertex) position. on [0, 1] for each axis.
-	float3 alpha = saturate((world_position - base_probe_world_position) / volume.spacing);
+	float3 alpha = saturate((world_position - base_probe_world_position) / cascade.spacing.xyz);
 
 	for (int i = 0; i < 8; i++)
 	{
 		int3 offset = int3(i, i >> 1, i >> 2) & int3(1, 1, 1);
 		
-		int3 probe_coords = clamp(base_probe_coords + offset, int3(0, 0, 0), volume.size - 1);
+		int3 probe_coords = clamp(base_probe_coords + offset, int3(0, 0, 0), volume.size.xyz - 1);
 
 		if (IsProbeDisabled(volume, probe_coords))
 			continue;
 
 		float2 probe_uv_irradiance = GetProbeUV(volume, probe_coords, world_normal, IRRADIANCE_TEXELS);
-		float3 biased_to_probe_direction = normalize(GetProbeWorldPosition(volume, probe_coords) - world_position);
+		float3 biased_to_probe_direction = normalize(GetProbeWorldPosition(volume, probe_coords, cascade_id) - world_position);
 		float2 probe_uv_distance = GetProbeUV(volume, probe_coords, -biased_to_probe_direction, DISTANCE_TEXELS);
 
-		Texture2D irradiance_atlas = ResourceDescriptorHeap[volume.irradiance_atlas_tex_id];
-		float4 irradiance = irradiance_atlas.SampleLevel(linear_clamp_sampler, probe_uv_irradiance, 0);
+		Texture2DArray irradiance_atlas = ResourceDescriptorHeap[volume.irradiance_atlas_tex_id];
+		float4 irradiance = irradiance_atlas.SampleLevel(linear_clamp_sampler, float3(probe_uv_irradiance, cascade_id), 0);
         // Decode the tone curve, but leave a gamma = 2 curve to approximate sRGB blending
         float exponent = IRRADIANCE_ENCODE_GAMMA * 0.5f;
         irradiance = pow(irradiance, exponent);
 
-		float3 probe_direction = normalize(GetProbeWorldPosition(volume, probe_coords) - original_world_position);
+		float3 probe_direction = normalize(GetProbeWorldPosition(volume, probe_coords, cascade_id) - original_world_position);
 		
 		#if 0
 			// This creates a sharp cutoff at the edge, visible when classification is used and probes are disabled
@@ -327,14 +353,14 @@ float3 SampleIrradiance(float3 world_position, float3 world_normal, float3 surfa
 			float weight = (wrapShading * wrapShading);
 		#endif
 
-		Texture2D distance_atlas = ResourceDescriptorHeap[volume.distance_atlas_tex_id];
+		Texture2DArray distance_atlas = ResourceDescriptorHeap[volume.distance_atlas_tex_id];
 		// Sample the probe's distance texture to get the mean distance to nearby surfaces
-		float2 filteredDistance = 2.f * distance_atlas.SampleLevel(linear_clamp_sampler, probe_uv_distance, 0).rg;
+		float2 filteredDistance = 2.f * distance_atlas.SampleLevel(linear_clamp_sampler, float3(probe_uv_distance, cascade_id), 0).rg;
 
 		// Find the variance of the mean distance
 		float variance = abs((filteredDistance.x * filteredDistance.x) - filteredDistance.y);
 
-		float probe_distance = length(GetProbeWorldPosition(volume, probe_coords) - world_position);
+		float probe_distance = length(GetProbeWorldPosition(volume, probe_coords, cascade_id) - world_position);
 		// Occlusion test
 		float chebyshevWeight = 1.f;
 		if(probe_distance > filteredDistance.x) // occluded

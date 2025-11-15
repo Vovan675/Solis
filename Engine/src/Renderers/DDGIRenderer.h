@@ -6,10 +6,16 @@
 class DDGIRenderer
 {
 public:
+	struct DDGICascadeGPU
+	{
+		glm::vec4 min;
+		glm::vec4 spacing;
+	};
+
 	struct DDGIVolumeGPU
 	{
 		glm::vec3 origin;
-		glm::ivec3 size;
+		glm::ivec4 size;
 		glm::vec3 spacing;
 		glm::vec3 sun_dir;
 		glm::vec4 sun_color;
@@ -17,12 +23,14 @@ public:
 		float random_angle;
 		float use_relocation;
 		float use_classification;
+		uint32_t cascades_count;
+		DDGICascadeGPU cascades[5];
 		uint32_t rays_per_probe;
 		uint32_t ray_data_buffer_id;
-		uint32_t distance_altas_tex_id;
-		uint32_t irradiance_altas_tex_id;
-		uint32_t metadata_altas_tex_id;
-		uint32_t getProbesCount() const { return size.x * size.y * size.z; }
+		uint32_t distance_atlas_tex_id;
+		uint32_t irradiance_atlas_tex_id;
+		uint32_t metadata_atlas_tex_id;
+		uint32_t getProbesCount() const { return size.x * size.y * size.z * cascades_count; }
 	};
 
 	DDGIRenderer();
@@ -34,6 +42,8 @@ public:
 	DDGIVolumeGPU getVolume() const { return volume; }
 	uint32_t getVolumeBufferId() const { return volume_buffer->getShaderResourceView()->getBindlessIndex(); }
 private:
+	eastl::vector<eastl::pair<const char *, const char *>> calculateDefines(eastl::vector<eastl::pair<const char *, const char *>> additional = {});
+
 	void addTraceRaysPass(FrameGraph &fg, Ref<RayTracingScene> rt_scene);
 	void addUpdatePass(FrameGraph &fg);
 	void addRelocationPass(FrameGraph &fg);
@@ -49,6 +59,9 @@ private:
 		// 0 - irradiance, 1 - distance, 2 - state, 3 - state not disabled
 		int mode = 0;
 	} visualization_settings;
+
+	bool use_fixed_rays = false;
+	bool trace_random_direction = true;
 
 	DDGIVolumeGPU volume;
 	RHIBufferRef volume_buffer;

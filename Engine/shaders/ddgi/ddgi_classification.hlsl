@@ -29,7 +29,7 @@ void CS_ResetClassification(CSInput input)
 
 	if (probe_id >= num_probes) return;
 
-	uint3 probe_coord = GetProbeCoords(volume, probe_id);
+	uint3 probe_coord = GetProbeGridCoords(volume, probe_id);
 	uint2 texel_coord = GetProbeStartTexelCoords(volume, probe_coord);
 	output_atlas[texel_coord.xy].a = STATE_ENABLED;
 }
@@ -60,7 +60,7 @@ void CS_Classification(CSInput input)
 		}
 	}
 
-	uint3 probe_coord = GetProbeCoords(volume, probe_id);
+	uint3 probe_coord = GetProbeGridCoords(volume, probe_id);
 	uint2 texel_coord = GetProbeStartTexelCoords(volume, probe_coord);
 
 	// Disable probes if they have more than % backfaces

@@ -82,7 +82,7 @@ PSOutput PSMain(VSInput input)
 	float3 ibl = diffuse + specular;
 
 
-	output.ambient = float4(ibl * 0.1, 1.0);
+	output.ambient = float4(ibl * 0.1 * 0, 1.0);
 
 	if (ddgi_volume_buffer_id > 0)
 	{
@@ -93,8 +93,23 @@ PSOutput PSMain(VSInput input)
 		{
 			float3 surface_bias = GetSurfaceBias(normal, -v);
 			//output.ambient = float4(volume_weight, 0, 0, 1.0);
-			float3 irradiance = SampleIrradiance(world_pos, normal, surface_bias, volume);
+
+			uint cascade_index = -1;
+
+			for (int i = 0; i < volume.cascades_count; i++)
+			{
+				DDGICascade cascade = volume.cascades[i];
+				float3 cascade_max = cascade.min.xyz + volume.size.xyz * cascade.spacing.xyz;
+				if (all(world_pos > cascade.min.xyz) && all(world_pos < cascade_max)) {
+					cascade_index = i;
+					break;
+				}
+			}
+
+			//cascade_index = 3;
+			float3 irradiance = SampleIrradiance(world_pos, normal, surface_bias, volume, cascade_index);
 			output.ambient = float4(albedo.rgb / PI * irradiance * volume_weight, 1.0);
+			//output.ambient = float4(cascade_index / 5.0, 0, 0, 1);
 			//output.ambient = float4(irradiance, 1.0);
 		}
 	}

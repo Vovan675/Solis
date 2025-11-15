@@ -124,6 +124,7 @@ AssetType AssetManager::getAssetTypeFromExtension(const eastl::string &extension
 		{".dds", ASSET_TYPE_TEXTURE},
 		{".png", ASSET_TYPE_TEXTURE},
 		{".jpg", ASSET_TYPE_TEXTURE},
+		{".jpeg", ASSET_TYPE_TEXTURE},
 		{".fbx", ASSET_TYPE_MODEL},
 		{".obj", ASSET_TYPE_MODEL},
 	};

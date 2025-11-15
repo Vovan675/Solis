@@ -78,8 +78,8 @@ DynamicRHI::CompileShaderResult DynamicRHI::compile_shader(eastl::wstring path, 
 		path.c_str(),            // Optional shader_blob source file name for error reporting
 		// and for PIX shader_blob source view.  
 		L"-E", entry_point_wstr.c_str(),              // Entry point.
-		L"-Zs",                      // Enable debug information (slim format)
-		//L"-Zi",
+		//L"-Zs",                      // Enable debug information (slim format)
+		L"-Zi",
 		//L"-Qsource_in_debug_module", 
 		//L"-Qstrip_reflect",          // Strip reflection into a separate blob. 
 	};

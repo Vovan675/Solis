@@ -36,6 +36,7 @@ PSOutput PSMain(VSInput input)
     float3 indirect_ambient = SampleTexture(indirect_ambient_tex_id, input.uv).rgb;
     float3 indirect_specular = SampleTexture(indirect_specular_tex_id, input.uv).rgb;
     output.color = float4(light_diffuse + light_specular + indirect_ambient + indirect_specular, 1.0f);
+    //output.color = float4(indirect_ambient + indirect_specular, 1.0f);
 
     return output;
 }

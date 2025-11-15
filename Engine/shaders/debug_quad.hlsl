@@ -26,6 +26,48 @@ cbuffer UBO : register(b0)
 	uint ddgi_metadata_tex_id;
 };
 
+void ComputePreviewSize(float2 tex_size, float screen_aspect, float scale, float max_h, out float2 size)
+{
+    float aspect = tex_size.x / tex_size.y;
+    float h = screen_aspect / aspect * scale;
+    float w = scale;
+
+    if (h > max_h) {
+        w *= max_h / h;
+        h = max_h;
+    }
+
+	size.x = w;
+	size.y = h;
+}
+
+bool DrawPreview(float2 uv, float2 pos, float2 size, int tex_id, int layer, out float4 color)
+{
+	color = 0;
+
+	float2 uv0 = pos;
+    float2 uv1 = pos + size;
+
+    if (uv.x < uv0.x || uv.x > uv1.x ||
+        uv.y < uv0.y || uv.y > uv1.y)
+        return false;
+
+    float2 tuv = float2(
+        (uv.x - uv0.x) / size.x,
+        (uv.y - uv0.y) / size.y
+    );
+
+    if (layer < 0)
+    {
+        color = SampleTexture(tex_id, tuv, point_clamp_sampler);
+    }
+    else
+    {
+        color = SampleTextureArray(tex_id, float3(tuv, layer), point_clamp_sampler);
+    }
+	return true;
+}
+
 PSOutput PSMain(VSInput input)
 {
 	PSOutput output;
@@ -110,43 +152,65 @@ PSOutput PSMain(VSInput input)
 
 			const float scale = 1.0f;
 			const float offset = 0.02f;
-			const float max_height = 0.4f;
+			const float max_height = 0.1f;
 			float screen_aspect = swapchain_size.x / float(swapchain_size.y);
 			float y_pos = 0.0f;
+			float max_cascade = 6;
 
-			Texture2D dist_tex = ResourceDescriptorHeap[ddgi_distance_tex_id];
-			int2 dist_dim;
-			dist_tex.GetDimensions(dist_dim.x, dist_dim.y);
-			float dist_aspect = float(dist_dim.x) / float(dist_dim.y);
-			float dist_h = screen_aspect / dist_aspect * scale;
-			float dist_w = scale;
-			if (dist_h > max_height) {
-				dist_w *= max_height / dist_h;
-				dist_h = max_height;
-			}
-			if (uv.x <= dist_w && uv.y <= dist_h) {
-				float2 dist_uv = float2(uv.x / dist_w, uv.y / dist_h);
-				float2 dist = SampleTexture(ddgi_distance_tex_id, dist_uv, point_clamp_sampler).rg;
-				value = float4(dist.x, dist.y, 0, 1);
-			}
+			Texture2DArray dist_tex = ResourceDescriptorHeap[ddgi_distance_tex_id];
+			int3 dist_dim;
+			dist_tex.GetDimensions(dist_dim.x, dist_dim.y, dist_dim.z);
 
-			Texture2D irr_tex = ResourceDescriptorHeap[ddgi_irradiance_tex_id];
-			int2 irr_dim;
-			irr_tex.GetDimensions(irr_dim.x, irr_dim.y);
-			float irr_aspect = float(irr_dim.x) / float(irr_dim.y);
-			float irr_h = screen_aspect / irr_aspect * scale;
-			float irr_w = scale;
-			if (irr_h > max_height) {
-				irr_w *= max_height / irr_h;
-				irr_h = max_height;
-			}
-			y_pos = dist_h + offset;
-			if (uv.x <= irr_w && uv.y >= y_pos && uv.y <= y_pos + irr_h) {
-				float2 irr_uv = float2(uv.x / irr_w, (uv.y - y_pos) / irr_h);
-				float4 irr = SampleTexture(ddgi_irradiance_tex_id, irr_uv, point_clamp_sampler);
-				value = float4(irr.rgb, 1.0f);
-			}
+			float2 size;
+			ComputePreviewSize(dist_dim.xy, screen_aspect, scale, max_height, size);
 
+			float4 preview_color;
+
+			for (int i = 0; i < min(max_cascade, dist_dim.z); i++)
+			{
+				if (DrawPreview(uv, float2(0, y_pos), size, ddgi_distance_tex_id, i, preview_color))
+				{
+					value = float4(preview_color.rg, 0, 1);
+					//value = float4(1, 0, 0, 1);
+				}
+				y_pos += size.y + offset;
+			}
+			y_pos += 0.03;
+
+			Texture2DArray irr_tex = ResourceDescriptorHeap[ddgi_irradiance_tex_id];
+			int3 irr_dim;
+			irr_tex.GetDimensions(irr_dim.x, irr_dim.y, irr_dim.z);
+
+			ComputePreviewSize(irr_dim.xy, screen_aspect, scale, max_height, size);
+
+			for (int i = 0; i < min(max_cascade, irr_dim.z); i++)
+			{
+				if (DrawPreview(uv, float2(0, y_pos), size, ddgi_irradiance_tex_id, i, preview_color))
+				{
+					value = float4(preview_color.rgb, 1);
+					//value = float4(0, 1, 0, 1);
+				}
+				y_pos += size.y + offset;
+			}
+			y_pos += 0.03;
+
+			Texture2DArray meta_tex = ResourceDescriptorHeap[ddgi_metadata_tex_id];
+			int3 meta_dim;
+			irr_tex.GetDimensions(meta_dim.x, meta_dim.y, meta_dim.z);
+
+			ComputePreviewSize(meta_dim.xy, screen_aspect, scale, max_height, size);
+
+			for (int i = 0; i < min(max_cascade, meta_dim.z); i++)
+			{
+				if (DrawPreview(uv, float2(0, y_pos), size, ddgi_metadata_tex_id, i, preview_color))
+				{
+					value = float4(preview_color.rgb, 1);
+				}
+				y_pos += size.y + offset;
+			}
+			y_pos += 0.03;
+
+			/*
 			Texture2D meta_tex = ResourceDescriptorHeap[ddgi_metadata_tex_id];
 			int2 meta_dim;
 			meta_tex.GetDimensions(meta_dim.x, meta_dim.y);
@@ -163,6 +227,7 @@ PSOutput PSMain(VSInput input)
 				float4 meta = SampleTexture(ddgi_metadata_tex_id, meta_uv, point_clamp_sampler);
 				value = float4(meta.rgba);
 			}
+				*/
 			break;
 	}
 

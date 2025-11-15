@@ -11,7 +11,7 @@ cbuffer Constants : register(b1)
 };
 
 [[vk::image_format("rgba16f")]]
-static RWTexture2D<float4> output_atlas = ResourceDescriptorHeap[output_atlas_tex_id];
+static RWTexture2DArray<float4> output_atlas = ResourceDescriptorHeap[output_atlas_tex_id];
 
 struct CSInput
 {
@@ -26,12 +26,13 @@ void CS_ResetRelocation(CSInput input)
 {
 	uint probe_id = input.dispatch_thread_id.x;
 	uint num_probes = GetProbeCount(volume);
+	uint cascade = GetProbeCascade(volume, probe_id);
 
 	if (probe_id >= num_probes) return;
 
-	uint3 probe_coord = GetProbeCoords(volume, probe_id);
+	uint3 probe_coord = GetProbeGridCoords(volume, probe_id);
 	uint2 texel_coord = GetProbeStartTexelCoords(volume, probe_coord);
-	output_atlas[texel_coord.xy].xyz = float3(0, 0, 0);
+	output_atlas[uint3(texel_coord.xy, cascade)].xyz = float3(0, 0, 0);
 }
 
 [numthreads(32, 1, 1)]
@@ -39,6 +40,7 @@ void CS_Relocate(CSInput input)
 {
 	uint probe_id = input.dispatch_thread_id.x;
 	uint num_probes = GetProbeCount(volume);
+	uint cascade = GetProbeCascade(volume, probe_id);
 
 	if (probe_id >= num_probes) return;
 
@@ -87,8 +89,8 @@ void CS_Relocate(CSInput input)
 		}
 	}
 
-	uint3 probe_coord = GetProbeCoords(volume, probe_id);
-	float3 offset = GetProbeRelocationOffset(volume, probe_coord, output_atlas);
+	uint3 probe_coord = GetProbeGridCoords(volume, probe_id);
+	float3 offset = GetProbeRelocationOffset(volume, probe_coord, cascade, output_atlas);
 
 	float minimum_front_face_distance = 0.35;
 	float maximum_possible_offset = 0.45 * max(max(volume.spacing.x, volume.spacing.y), volume.spacing.z);
@@ -135,5 +137,5 @@ void CS_Relocate(CSInput input)
 	}
 
 	uint2 texel_coord = GetProbeStartTexelCoords(volume, probe_coord);
-	output_atlas[texel_coord.xy].xyz = float3(offset / volume.spacing);
+	output_atlas[uint3(texel_coord.xy, cascade)].xyz = float3(offset / volume.spacing);
 }

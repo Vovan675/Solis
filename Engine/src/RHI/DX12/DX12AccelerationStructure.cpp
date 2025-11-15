@@ -160,6 +160,8 @@ void DX12TopLevelAccelerationStructure::build(bool update, const eastl::vector<R
 	srv_desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 	srv_desc.RaytracingAccelerationStructure.Location = buffer->getGPUAddress();
 
+	if (shader_resource_view.isValid())
+		native_rhi->cbv_srv_uav_staging_heap->release(shader_resource_view);
 	shader_resource_view = native_rhi->cbv_srv_uav_staging_heap->allocate();
 	native_rhi->device->CreateShaderResourceView(nullptr, &srv_desc, shader_resource_view.getCpuHandle());
 
