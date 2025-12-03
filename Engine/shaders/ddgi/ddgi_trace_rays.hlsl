@@ -3,6 +3,9 @@
 #include "../shading.h"
 #include "ddgi_common.hlsl"
 
+// Always trace infinite rays, as last cascade
+#define USE_INFINITE_RAYS 1
+
 cbuffer Constants : register(b3)
 {
 	uint output_buffer_id;
@@ -34,37 +37,44 @@ bool TraceShadowRay(RaytracingAccelerationStructure tlas, float3 origin, float3 
 	return shadow_payload.hit;
 }
 
+// 400 rays traced, and info saved as ray_data
+// Then it will be used to generate distance/irradiance atlases
+
 [shader("raygeneration")]
 void RayGen()
 {
 	uint ray_index = DispatchRaysIndex().x;
 	uint probe_index = DispatchRaysIndex().y;
 
+
+
 	StructuredBuffer<DDGIVolume> volumes = ResourceDescriptorHeap[ddgi_volume_buffer_id];
 	DDGIVolume volume = volumes[0];
 
-	uint cascade = GetProbeCascade(volume, probe_index);
+	uint cascade_id = GetProbeCascade(volume, probe_index);
+	DDGICascade cascade = volume.cascades[cascade_id];
 	uint3 probe_coords = GetProbeGridCoords(volume, probe_index);
-	float3 probe_position = GetProbeWorldPosition(volume, probe_coords, cascade);
+	float3 probe_position = GetProbeWorldPosition(volume, probe_coords, cascade_id);
 	float3 ray_direction = GetProbeRayDirection(ray_index, volume);
 
-	#if USE_FIXED_RAYS
-	if (volume.use_classification && ray_index >= NUM_FIXED_RAYS)
-	#else
-	if (volume.use_classification)
-	#endif
-	{
-		if (IsProbeDisabled(volume, probe_coords))
-			return;
-	}
-
 	RaytracingAccelerationStructure tlas = ResourceDescriptorHeap[tlas_id];
+
+	float ray_distance = 10000.0f;
+
+	#if USE_INFINITE_RAYS == 0
+		bool is_not_last_cascade = cascade_id < (volume.cascades_count - 1);
+		if (is_not_last_cascade)
+		{
+			float next_cascade_spacing = max(cascade.spacing.x, max(cascade.spacing.y, cascade.spacing.z)) * 2.0f;
+			ray_distance = next_cascade_spacing * 2.0f;
+		}
+	#endif
 
 	RayDesc ray;
 	ray.Origin = probe_position;
 	ray.Direction = ray_direction;
 	ray.TMin = 0.0;
-	ray.TMax = 1000.0;
+	ray.TMax = ray_distance;
 
 	RayPayload payload;
 	payload.hit = false;
@@ -77,9 +87,20 @@ void RayGen()
 
 	if (!payload.hit)
 	{
-		TextureCube environment_tex = ResourceDescriptorHeap[environment_tex_id];
-		float3 environment = environment_tex.SampleLevel(linear_clamp_sampler, ray_direction, 0).rgb;
-		ray_data[ray_data_index] = float4(saturate(environment), 10000);
+		#if USE_INFINITE_RAYS == 0
+			if (is_not_last_cascade)
+			{
+				float3 position = ray.Origin + ray.Direction * ray.TMax;
+				float3 normal = ray.Direction;
+				float3 irradiance = SampleIrradiance(position, normal, float3(0, 0, 0), volume, cascade_id + 1);
+				ray_data[ray_data_index] = float4(irradiance / PI, ray.TMax);
+			} else
+		#endif
+		{
+			TextureCube environment_tex = ResourceDescriptorHeap[environment_tex_id];
+			float3 environment = environment_tex.SampleLevel(linear_clamp_sampler, ray_direction, 0).rgb;
+			ray_data[ray_data_index] = float4(saturate(environment), 1e27f);
+		}
 		return;
 	}
 
@@ -115,8 +136,8 @@ void RayGen()
 		float volume_weight = GetVolumeWeight(position, volume);
 		if (volume_weight > 0.0f)
 		{
-			float3 surface_bias = GetSurfaceBias(normal, ray.Direction);
-			float3 irradiance = SampleIrradiance(position, normal, surface_bias, volume, cascade);
+			float3 surface_bias = GetSurfaceBias(normal, ray.Origin, position, volume, cascade_id);
+			float3 irradiance = SampleIrradiance(position, normal, surface_bias, volume, cascade_id);
 			radiance += (min(albedo, 0.9f) / PI) * irradiance * volume_weight;
 		}
 		//radiance = position;

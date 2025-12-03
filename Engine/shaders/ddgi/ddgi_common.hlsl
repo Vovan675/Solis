@@ -28,14 +28,16 @@ struct DDGIVolume
 	float3 pad4;
 };
 
-#define DISTANCE_TEXELS 16
-#define DISTANCE_INTERIOR_TEXELS 14
+#define DISTANCE_TEXELS 12
+#define DISTANCE_INTERIOR_TEXELS 10
 
 #define IRRADIANCE_TEXELS 8
 #define IRRADIANCE_INTERIOR_TEXELS 6
 
-#define IRRADIANCE_ENCODE_GAMMA 5.0
+#define IRRADIANCE_ENCODE_GAMMA 1.5
 #define BACKFACE_DISTANCE_SCALE 0.2
+
+#define SRGB_BLENDING 1
 
 // Fixed rays are used for probe relocation/classification, for avoiding random and unstable results.
 // These rays are NOT used in blending
@@ -49,7 +51,7 @@ struct DDGIVolume
 #define BACKFACE_THRESHOLD_UPDATE 0.15f
 #define BACKFACE_THRESHOLD_CLASSIFICATION 0.25f
 #define DEFAULT_BLEND_FACTOR 0.97f
-#define DISTANCE_WEIGHT_POWER 50.0f
+#define DISTANCE_WEIGHT_POWER 25.0f
 
 uint GetProbeCount(DDGIVolume volume)
 {
@@ -104,29 +106,31 @@ float3 GetProbeRelocationOffset(DDGIVolume volume, uint3 probe_coords, uint casc
 {
 	uint2 texel_coord = GetProbeStartTexelCoords(volume, probe_coords);
 	Texture2DArray<float4> metadata_atlas = ResourceDescriptorHeap[volume.metadata_atlas_tex_id];
-	return metadata_atlas.Load(uint4(texel_coord.xy, cascade, 0)).xyz * volume.spacing;
+	DDGICascade casc = volume.cascades[cascade];
+	return metadata_atlas.Load(uint4(texel_coord.xy, cascade, 0)).xyz * casc.spacing.xyz;
 }
 
 // Returns world space offset
 float3 GetProbeRelocationOffset(DDGIVolume volume, uint3 probe_coords, uint cascade, RWTexture2DArray<float4> metadata_atlas)
 {
 	uint2 texel_coord = GetProbeStartTexelCoords(volume, probe_coords);
-	return metadata_atlas[uint3(texel_coord, cascade)].xyz * volume.spacing;
+	DDGICascade casc = volume.cascades[cascade];
+	return metadata_atlas[uint3(texel_coord, cascade)].xyz * casc.spacing.xyz;
 }
 
-uint GetProbeState(DDGIVolume volume, uint3 probe_coords)
+uint GetProbeState(DDGIVolume volume, uint3 probe_coords, uint cascade)
 {
 	uint2 texel_coord = GetProbeStartTexelCoords(volume, probe_coords);
-	Texture2D<float4> metadata_atlas = ResourceDescriptorHeap[volume.metadata_atlas_tex_id];
-	return metadata_atlas[texel_coord].a;
+	Texture2DArray<float4> metadata_atlas = ResourceDescriptorHeap[volume.metadata_atlas_tex_id];
+	return metadata_atlas.Load(uint4(texel_coord.xy, cascade, 0)).a;
 }
 
-bool IsProbeDisabled(DDGIVolume volume, uint3 probe_coords)
+bool IsProbeDisabled(DDGIVolume volume, uint3 probe_coords, uint cascade)
 {
 	if (!volume.use_classification)
 		return false;
 	
-	uint state = GetProbeState(volume, probe_coords);
+	uint state = GetProbeState(volume, probe_coords, cascade);
 	return state == STATE_DISABLED;
 }
 
@@ -200,63 +204,16 @@ float2 GetOctahedralCoordinates(float3 direction)
 	return uv;
 }
 
-float3 SphericalFibonacci(float sample_index, float num_samples)
-{
-	const float b = (sqrt(5.f) * 0.5f + 0.5f) - 1.f;
-	float phi = PI2 * frac(sample_index * b);
-	float cos_theta = 1.f - (2.f * sample_index + 1.f) * (1.f / num_samples);
-	float sin_theta = sqrt(saturate(1.f - (cos_theta * cos_theta)));
-
-	return float3((cos(phi) * sin_theta), (sin(phi) * sin_theta), cos_theta);
-}
-
-float3x3 AngleAxis3x3(float angle, float3 axis)
-{
-	// Rotation with angle (in radians) and axis
-	float c, s;
-	sincos(angle, s, c);
-
-	float t = 1.0f - c;
-	float x = axis.x;
-	float y = axis.y;
-	float z = axis.z;
-
-	return float3x3(
-		t * x * x + c,      t * x * y - s * z,  t * x * z + s * y,
-		t * x * y + s * z,  t * y * y + c,      t * y * z - s * x,
-		t * x * z - s * y,  t * y * z + s * x,  t * z * z + c
-	);
-}
+// Tracing result is 20x20 pixels
+#define TRACE_TEXELS 20
 
 float3 GetProbeRayDirection(uint ray_index, DDGIVolume volume)
 {
-	bool is_fixed_ray = false;
-	int ray = ray_index;
-	int num_rays = volume.rays_per_probe;
+	uint2 ray_texel = uint2(ray_index % TRACE_TEXELS, ray_index / TRACE_TEXELS);
 
-	#if USE_FIXED_RAYS
-		if (volume.use_relocation || volume.use_classification)
-		{
-			is_fixed_ray = ray_index < NUM_FIXED_RAYS;
-			ray = is_fixed_ray ? ray_index : ray_index - NUM_FIXED_RAYS;
-			num_rays = is_fixed_ray ? NUM_FIXED_RAYS : volume.rays_per_probe - NUM_FIXED_RAYS;
-		}
-	#endif
-
-	float3 rotation = SphericalFibonacci(ray, num_rays);
-
-
-
-	if (is_fixed_ray)
-		return normalize(rotation);
-
-	#ifdef TRACE_RANDOM_DIRECTION
-		float3x3 random_rotation = AngleAxis3x3(volume.random_angle, volume.random_vector);
-		return normalize(mul(rotation, random_rotation));
-	#else
-		return normalize(rotation);
-	#endif
-
+	float2 oct_coord = GetNormalizedOctahedralCoordinates(ray_texel.xy, TRACE_TEXELS);
+	float3 texel_direction = GetOctahedralDirection(oct_coord);
+	return normalize(texel_direction);
 }
 
 float GetVolumeWeight(float3 world_position, DDGIVolume volume)
@@ -293,14 +250,41 @@ float2 GetProbeUV(DDGIVolume volume, uint3 probe_coords, float3 direction, int t
 	return start_uv;
 }
 
-float3 GetSurfaceBias(float3 surface_normal, float3 camera_direction)
+bool GetCascadeForPosition(DDGIVolume volume, out DDGICascade cascade, out uint cascade_index, float3 world_pos)
 {
-	return (surface_normal * 0.1) + (-camera_direction * 0.3);
+	// Find minimum cascade where position is inside
+	for (int i = 0; i < volume.cascades_count; i++)
+	{
+		cascade = volume.cascades[i];
+		float3 cascade_max = cascade.min.xyz + volume.size.xyz * cascade.spacing.xyz;
+		if (all(world_pos > cascade.min.xyz) && all(world_pos < cascade_max))
+		{
+			cascade_index = i;
+			return true;
+		}
+	}
+
+	// If no cascade found return false and last cascade
+	cascade_index = volume.cascades_count - 1;
+	cascade = volume.cascades[cascade_index];
+	return false;
+}
+
+float3 GetSurfaceBias(float3 surface_normal, float3 camera_position, float3 sample_position, DDGIVolume volume, uint cascade_id)
+{
+	DDGICascade cascade = volume.cascades[cascade_id];
+	float BIAS_FACTOR = 0.25f;
+    float NORMAL_TO_VIEW_WEIGHT = 0.3f;
+    float origin_to_sample_dst = length(camera_position - sample_position);
+	float spacing = max(cascade.spacing.x, max(cascade.spacing.y, cascade.spacing.z));
+    float sample_offset = min(spacing * BIAS_FACTOR, origin_to_sample_dst * 0.5f);
+    float3 sample_to_origin = normalize(camera_position - sample_position);
+    return lerp(sample_to_origin, surface_normal, NORMAL_TO_VIEW_WEIGHT) * sample_offset;
+	//return (surface_normal * 0.1) + (-camera_direction * 0.3);
 }
 
 float3 SampleIrradiance(float3 world_position, float3 world_normal, float3 surface_bias, DDGIVolume volume, uint cascade_id)
 {
-	//return 1;
 	DDGICascade cascade = volume.cascades[cascade_id];
 	float3 original_world_position = world_position;
 
@@ -324,18 +308,22 @@ float3 SampleIrradiance(float3 world_position, float3 world_normal, float3 surfa
 		
 		int3 probe_coords = clamp(base_probe_coords + offset, int3(0, 0, 0), volume.size.xyz - 1);
 
-		if (IsProbeDisabled(volume, probe_coords))
+		if (IsProbeDisabled(volume, probe_coords, cascade_id))
 			continue;
 
 		float2 probe_uv_irradiance = GetProbeUV(volume, probe_coords, world_normal, IRRADIANCE_TEXELS);
-		float3 biased_to_probe_direction = normalize(GetProbeWorldPosition(volume, probe_coords, cascade_id) - world_position);
+		float3 biased_to_probe = GetProbeWorldPosition(volume, probe_coords, cascade_id) - world_position;
+		float3 biased_to_probe_direction = normalize(biased_to_probe);
 		float2 probe_uv_distance = GetProbeUV(volume, probe_coords, -biased_to_probe_direction, DISTANCE_TEXELS);
 
 		Texture2DArray irradiance_atlas = ResourceDescriptorHeap[volume.irradiance_atlas_tex_id];
 		float4 irradiance = irradiance_atlas.SampleLevel(linear_clamp_sampler, float3(probe_uv_irradiance, cascade_id), 0);
-        // Decode the tone curve, but leave a gamma = 2 curve to approximate sRGB blending
-        float exponent = IRRADIANCE_ENCODE_GAMMA * 0.5f;
-        irradiance = pow(irradiance, exponent);
+
+		#if SRGB_BLENDING
+			// Decode the tone curve, but leave a gamma = 2 curve to approximate sRGB blending
+			float exponent = IRRADIANCE_ENCODE_GAMMA * 0.5f;
+			irradiance = pow(irradiance, exponent);
+		#endif
 
 		float3 probe_direction = normalize(GetProbeWorldPosition(volume, probe_coords, cascade_id) - original_world_position);
 		
@@ -354,36 +342,38 @@ float3 SampleIrradiance(float3 world_position, float3 world_normal, float3 surfa
 		#endif
 
 		Texture2DArray distance_atlas = ResourceDescriptorHeap[volume.distance_atlas_tex_id];
+
 		// Sample the probe's distance texture to get the mean distance to nearby surfaces
-		float2 filteredDistance = 2.f * distance_atlas.SampleLevel(linear_clamp_sampler, float3(probe_uv_distance, cascade_id), 0).rg;
+		float2 filtered_distance = distance_atlas.SampleLevel(linear_clamp_sampler, float3(probe_uv_distance, cascade_id), 0).rg;
 
 		// Find the variance of the mean distance
-		float variance = abs((filteredDistance.x * filteredDistance.x) - filteredDistance.y);
+		float variance = abs((filtered_distance.x * filtered_distance.x) - filtered_distance.y);
 
-		float probe_distance = length(GetProbeWorldPosition(volume, probe_coords, cascade_id) - world_position);
+		float biased_to_probe_distance = length(biased_to_probe);
 		// Occlusion test
-		float chebyshevWeight = 1.f;
-		if(probe_distance > filteredDistance.x) // occluded
+		float chebyshev_weight = 1.f;
+		if(biased_to_probe_distance > filtered_distance.x) // occluded
 		{
 			// v must be greater than 0, which is guaranteed by the if condition above.
-			float v = probe_distance - filteredDistance.x;
-			chebyshevWeight = variance / (variance + (v * v));
+			float v = biased_to_probe_distance - filtered_distance.x;
+			chebyshev_weight = variance / (variance + (v * v));
 
 			// Increase the contrast in the weight
-			chebyshevWeight = max((chebyshevWeight * chebyshevWeight * chebyshevWeight), 0.f);
+			chebyshev_weight = max((chebyshev_weight * chebyshev_weight * chebyshev_weight), 0.f);
 		}
 
 		// Avoid visibility weights ever going all the way to zero because
 		// when *no* probe has visibility we need a fallback value
-		weight *= max(0.05f, chebyshevWeight);
+		weight *= max(0.05f, chebyshev_weight);
 
 		// Avoid a weight of zero
-		weight = max(0.000001f, weight);
+		weight = max(1e-6f, weight);
 
-		const float crushThreshold = 0.2f;
-		if (weight < crushThreshold)
+		// Crush tiny weights
+		const float crush_threshold = 0.2f;
+		if (weight < crush_threshold)
 		{
-			weight *= (weight * weight) * (1.f / (crushThreshold * crushThreshold));
+			weight *= (weight * weight) * (1.f / (crush_threshold * crush_threshold));
 		}
 
 		float3 trilinear = max(0.001f, lerp(1.0 - alpha, alpha, offset));
@@ -395,8 +385,10 @@ float3 SampleIrradiance(float3 world_position, float3 world_normal, float3 surfa
 
 	if(sum_weight == 0.0f) return 0.0f;
 
-	sum_irradiance *= (1.0f / sum_weight);
-	sum_irradiance *= sum_irradiance;
-	sum_irradiance *= PI;
+	sum_irradiance /= sum_weight;
+	#if SRGB_BLENDING
+		sum_irradiance *= sum_irradiance;
+	#endif
+	sum_irradiance *= PI2;  // Multiply by the area of the integration domain (hemisphere) for Monte Carlo
 	return sum_irradiance;
 }

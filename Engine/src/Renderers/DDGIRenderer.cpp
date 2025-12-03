@@ -4,16 +4,24 @@
 #include <imgui.h>
 #include <random>
 
+//static uint32_t cascade_size_xz = 16;
+//static uint32_t cascade_size_y = 8;
+//static uint32_t cascades_count = 4;
+
 static uint32_t cascade_size_xz = 16;
 static uint32_t cascade_size_y = 8;
 static uint32_t cascades_count = 4;
 
 // Cascades have same size, so we can calculate cascade index easily
 
-// 16x16 pixels for one probe
-static int distance_probe_texels = 14;
+// 12x12 pixels for one probe (should be enough, AC shadows uses this)
+static int distance_probe_texels = 10;
+
 // 8x8 pixels for one probe
 static int irradiance_probe_texels = 6;
+
+// TODO: snowdrop also stores less blurred version of irradiance (aka light cache) and uses it on ray miss when tracing
+static int radiance_probe_texels = 14;
 
 DDGIRenderer::DDGIRenderer()
 {
@@ -31,9 +39,11 @@ DDGIRenderer::DDGIRenderer()
 
 	volume.origin = {-14.0f, 0.0f, -6.0f};
 	volume.origin = {-10.0f, 10.0f, -4.4f};
+	volume.origin = {0.0f, 5.0f, 0.0f};
 	volume.size = {cascade_size_xz, cascade_size_y, cascade_size_xz, cascade_size_xz * cascade_size_xz * cascade_size_y};
 	volume.spacing = {0.5, 1.0, 0.5};
-	volume.rays_per_probe = distance_probe_texels * distance_probe_texels;
+	//volume.spacing = {1.0, 2.0, 1.0};
+	volume.rays_per_probe = 20 * 20;
 	volume.cascades_count = cascades_count;
 
 	BufferDescription desc;
@@ -314,7 +324,7 @@ void DDGIRenderer::addUpdatePass(FrameGraph & fg)
 	},
 	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/ddgi/ddgi_update_probe.hlsl", COMPUTE_SHADER, "CSMain", calculateDefines({{"NUM_TEXELS", "16"}})));
+		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/ddgi/ddgi_update_probe.hlsl", COMPUTE_SHADER, "CSMain", calculateDefines({{"NUM_TEXELS", "12"}})));
 		gGlobalPipeline->flushAndBind(cmd_list);
 
 		uint32_t distance_uav_id = resources.getTexture(GFXRID(DDGIDistance))->getUnorderedAccessView()->getBindlessIndex();

@@ -45,6 +45,7 @@ public:
 	uint32_t getWidth(int mip = 0) const { return description.width >> mip; }
 	uint32_t getHeight(int mip = 0) const { return description.height >> mip; }
 	uint32_t getMipLevels() const { return description.mip_levels; }
+	uint32_t getArrayLevels() const { return description.array_levels; }
 	Format getFormat() const { return description.format; }
 
 	virtual void transitLayout(RHICommandList *cmd_list, TextureLayoutType new_layout_type, int mip = -1) {}

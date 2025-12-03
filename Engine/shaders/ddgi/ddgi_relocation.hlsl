@@ -40,16 +40,18 @@ void CS_Relocate(CSInput input)
 {
 	uint probe_id = input.dispatch_thread_id.x;
 	uint num_probes = GetProbeCount(volume);
-	uint cascade = GetProbeCascade(volume, probe_id);
+	uint cascade_id = GetProbeCascade(volume, probe_id);
 
 	if (probe_id >= num_probes) return;
+
+	DDGICascade cascade = volume.cascades[cascade_id];
 
 	int backface_count = 0;
 	int closest_back_face_index = -1;
 	int closest_front_face_index = -1;
 	int farthest_front_face_index = -1;
-	float closest_back_face_distance = 1000000.0;
-	float closest_front_face_distance = 1000000.0;
+	float closest_back_face_distance = 1e27f;
+	float closest_front_face_distance = 1e27f;
 	float farthest_front_face_distance = 0.0;
 
 	uint rays_count = volume.rays_per_probe;
@@ -89,19 +91,23 @@ void CS_Relocate(CSInput input)
 		}
 	}
 
+
 	uint3 probe_coord = GetProbeGridCoords(volume, probe_id);
-	float3 offset = GetProbeRelocationOffset(volume, probe_coord, cascade, output_atlas);
+	uint2 texel_coord = GetProbeStartTexelCoords(volume, probe_coord);
+	float3 offset = GetProbeRelocationOffset(volume, probe_coord, cascade_id, output_atlas);
+	uint prev_state = output_atlas[uint3(texel_coord.xy, cascade_id)].w;
+	prev_state = STATE_ENABLED;
 
 	float minimum_front_face_distance = 0.35;
-	float maximum_possible_offset = 0.45 * max(max(volume.spacing.x, volume.spacing.y), volume.spacing.z);
+	float maximum_possible_offset = 0.45 * max(max(cascade.spacing.x, cascade.spacing.y), cascade.spacing.z);
 
 	float3 new_offset = 1000;
 	// If there's a close backface AND you see more than % backfaces, assume you're inside something.
-	if (closest_back_face_index != -1 && (float(backface_count) / float(rays_count)) > BACKFACE_THRESHOLD_CLASSIFICATION) {
+	bool is_too_much_backfaces = (float(backface_count) / float(rays_count)) > BACKFACE_THRESHOLD_CLASSIFICATION;
+	if (closest_back_face_index != -1 && is_too_much_backfaces) {
 		float3 closest_back_face_direction = normalize(GetProbeRayDirection(closest_back_face_index, volume));
 		
 		float move_distance = closest_back_face_distance + minimum_front_face_distance * 0.1;
-
 		new_offset = offset + closest_back_face_direction * move_distance;
 	} else if (closest_front_face_index == -1 && closest_back_face_distance > maximum_possible_offset)
 	{
@@ -128,14 +134,20 @@ void CS_Relocate(CSInput input)
 		new_offset = offset + move_back_direction * move_distance;
 	}
 
+
 	// Maximum offset is 45% of the spacing
 	float max_offset = 0.45;
-	float3 new_offset_norm = new_offset / volume.spacing;
+	float3 new_offset_norm = new_offset / cascade.spacing.xyz;
 	if (length(new_offset_norm) < max_offset)
 	{
 		offset = new_offset;
 	}
+	
+	if (length(offset) == 0 && is_too_much_backfaces)
+	{
+		prev_state = STATE_DISABLED;
+	}
 
-	uint2 texel_coord = GetProbeStartTexelCoords(volume, probe_coord);
-	output_atlas[uint3(texel_coord.xy, cascade)].xyz = float3(offset / volume.spacing);
+	output_atlas[uint3(texel_coord.xy, cascade_id)].xyz = float3(offset / cascade.spacing.xyz);
+	output_atlas[uint3(texel_coord.xy, cascade_id)].w = prev_state;
 }

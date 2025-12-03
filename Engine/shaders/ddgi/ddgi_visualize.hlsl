@@ -63,7 +63,7 @@ float4 PSMain(VertexOutput IN) : SV_TARGET {
 		return float4(distance.rrr / 20.0f, 1.0);
 	} else if (mode == 2 || mode == 3)
 	{
-		uint state = GetProbeState(volume, probe_coords);
+		uint state = GetProbeState(volume, probe_coords, IN.probe_cascade);
 		
 		if (mode == 3 && state == STATE_DISABLED)
 		{

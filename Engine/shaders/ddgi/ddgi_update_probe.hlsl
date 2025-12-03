@@ -58,17 +58,18 @@ void CSMain(CSInput input)
 {
 	uint3 probe_coord = input.group_id.xzy;
 	probe_coord.y = probe_coord.y % volume.size.y;
-	uint cascade = input.group_id.z / volume.size.y;
-	uint probe_id = GetProbeIndex(volume, probe_coord, cascade);
+	uint cascade_id = input.group_id.z / volume.size.y;
+	DDGICascade cascade = volume.cascades[cascade_id];
+	uint probe_id = GetProbeIndex(volume, probe_coord, cascade_id);
 
 	uint layer = probe_coord.y;
 	uint2 layer_offset = uint2(layer * NUM_TEXELS * uint(volume.size.x), 0);
-	uint3 texel_coord = uint3(input.dispatch_thread_id.xy + layer_offset, cascade);
+	uint3 texel_coord = uint3(input.dispatch_thread_id.xy + layer_offset, cascade_id);
 	
 	float2 oct_coord = GetNormalizedOctahedralCoordinates(texel_coord.xy, NUM_TEXELS);
 	float3 texel_direction = GetOctahedralDirection(oct_coord);
 
-	if (IsProbeDisabled(volume, probe_coord))
+	if (IsProbeDisabled(volume, probe_coord, cascade_id))
 		return;
 
 	uint ray_index = 0;
@@ -107,8 +108,11 @@ void CSMain(CSInput input)
 			weight_sum += weight;
 		}
 
-		irradiance_average /= max(weight_sum, 1e-9f);
-		irradiance_average = pow(irradiance_average, 1.0 / IRRADIANCE_ENCODE_GAMMA);
+		// Normalize irradiance. To match the Monte Carlo Estimator of Irradiance. We have cosine weighted thats why factor of 2.0.
+		irradiance_average /= (2.0 * max(weight_sum, 1e-9f));
+		#if SRGB_BLENDING
+			irradiance_average = pow(irradiance_average, 1.0 / IRRADIANCE_ENCODE_GAMMA);
+		#endif
 
 		float3 prev = output_atlas[texel_coord].rgb;
 		float blend_factor = DEFAULT_BLEND_FACTOR;
@@ -130,13 +134,18 @@ void CSMain(CSInput input)
 		for (; ray_index < volume.rays_per_probe; ray_index++)
 		{
 			uint ray_data_index = GetRayDataIndex(probe_id, ray_index, volume);
-			float4 ray_data = ray_data_buffer[ray_data_index];
+			float ray_distance = ray_data_buffer[ray_data_index].a;
 
 			float3 ray_direction = GetProbeRayDirection(ray_index, volume);
 			float weight = saturate(dot(ray_direction, texel_direction));
+			// Weight Sharpness
 			weight = pow(weight, DISTANCE_WEIGHT_POWER);
 			
-			distance_average += float2(abs(ray_data.a), ray_data.a * ray_data.a) * weight;
+			float max_ray_distance = length(cascade.spacing.xyz) * 1.5; 
+
+			ray_distance = min(abs(ray_distance), max_ray_distance);
+
+			distance_average += float2(abs(ray_distance), ray_distance * ray_distance) * weight;
 			weight_sum += weight;
 		}
 

@@ -91,24 +91,45 @@ PSOutput PSMain(VSInput input)
 		float volume_weight = GetVolumeWeight(world_pos, volume);
 		if (volume_weight > 0.0f)
 		{
-			float3 surface_bias = GetSurfaceBias(normal, -v);
 			//output.ambient = float4(volume_weight, 0, 0, 1.0);
 
-			uint cascade_index = -1;
+			DDGICascade cascade;
+			uint cascade_index;
+			GetCascadeForPosition(volume, cascade, cascade_index, world_pos);
 
-			for (int i = 0; i < volume.cascades_count; i++)
-			{
-				DDGICascade cascade = volume.cascades[i];
-				float3 cascade_max = cascade.min.xyz + volume.size.xyz * cascade.spacing.xyz;
-				if (all(world_pos > cascade.min.xyz) && all(world_pos < cascade_max)) {
-					cascade_index = i;
-					break;
-				}
-			}
+			float3 cascade_spacing = cascade.spacing.xyz;
+			float3 cascade_extent = volume.size.xyz * (cascade_spacing * 0.5);
+			float3 cascade_center = cascade.min.xyz + cascade_extent;
+			
+			float view_distance = length(camera_position.xyz - world_pos);
+			float cascade_blend_smooth = frac(max(view_distance - cascade_extent.x, 0) / cascade_spacing.x) * 0.1;
+			float3 cascade_blend_point = world_pos - cascade_center - cascade_blend_smooth * cascade_spacing;
+			
+			const float blend_size = 0.5f;
+			float fade_distance = cascade_spacing.x * blend_size;
+			
+			float3 extent_minus_blend_point = cascade_extent - abs(cascade_blend_point);
+			float cascade_weight = saturate(min(extent_minus_blend_point.x, min(extent_minus_blend_point.y, extent_minus_blend_point.z)) / fade_distance);
 
-			//cascade_index = 3;
+			#define USE_CASCADES_BLENDING 1
+
+			float3 surface_bias = GetSurfaceBias(normal, camera_position.xyz, world_pos, volume, cascade_index);
 			float3 irradiance = SampleIrradiance(world_pos, normal, surface_bias, volume, cascade_index);
-			output.ambient = float4(albedo.rgb / PI * irradiance * volume_weight, 1.0);
+
+			#if USE_CASCADES_BLENDING == 1
+				irradiance *= cascade_weight;
+
+				// If not last cascade and blending needed
+				if (cascade_index < volume.cascades_count && cascade_weight < 0.99f)
+				{
+					cascade_index++;
+					float3 surface_bias = GetSurfaceBias(normal, camera_position.xyz, world_pos, volume, cascade_index);
+					irradiance += SampleIrradiance(world_pos, normal, surface_bias, volume, cascade_index) * (1.0f - cascade_weight);
+				}
+			#endif
+
+			output.ambient = float4((albedo.rgb / PI) * irradiance * volume_weight, 1.0);
+			//output.ambient = float4(cascade_weight, 0, 0, 1.0);
 			//output.ambient = float4(cascade_index / 5.0, 0, 0, 1);
 			//output.ambient = float4(irradiance, 1.0);
 		}
