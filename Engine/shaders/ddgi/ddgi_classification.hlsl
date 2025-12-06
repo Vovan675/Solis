@@ -4,6 +4,7 @@
 
 static StructuredBuffer<DDGIVolume> volumes = ResourceDescriptorHeap[ddgi_volume_buffer_id];
 static DDGIVolume volume = volumes[0];
+static StructuredBuffer<uint> probes_to_update = ResourceDescriptorHeap[volume.probes_to_update_buffer_ids];
 
 cbuffer Constants : register(b1)
 {
@@ -11,7 +12,7 @@ cbuffer Constants : register(b1)
 };
 
 [[vk::image_format("rgba16f")]]
-static RWTexture2D<float4> output_atlas = ResourceDescriptorHeap[output_atlas_tex_id];
+static RWTexture2DArray<float4> output_atlas = ResourceDescriptorHeap[output_atlas_tex_id];
 
 struct CSInput
 {
@@ -25,22 +26,20 @@ struct CSInput
 void CS_ResetClassification(CSInput input)
 {
 	uint probe_id = input.dispatch_thread_id.x;
-	uint num_probes = GetProbeCount(volume);
-
-	if (probe_id >= num_probes) return;
+	uint cascade_id = GetProbeCascade(volume, probe_id);
 
 	uint3 probe_coord = GetProbeGridCoords(volume, probe_id);
 	uint2 texel_coord = GetProbeStartTexelCoords(volume, probe_coord);
-	output_atlas[texel_coord.xy].a = STATE_ENABLED;
+	output_atlas[uint3(texel_coord.xy, cascade_id)].a = STATE_ENABLED;
 }
 
 [numthreads(32, 1, 1)]
 void CS_Classification(CSInput input)
 {
-	uint probe_id = input.dispatch_thread_id.x;
-	uint num_probes = GetProbeCount(volume);
+	uint probe_id = probes_to_update[input.dispatch_thread_id.x];
+	uint cascade_id = GetProbeCascade(volume, probe_id);
 
-	if (probe_id >= num_probes) return;
+	DDGICascade cascade = volume.cascades[cascade_id];
 
 	int backface_count = 0;
 	uint rays_count = volume.rays_per_probe;
@@ -61,16 +60,16 @@ void CS_Classification(CSInput input)
 	}
 
 	uint3 probe_coord = GetProbeGridCoords(volume, probe_id);
-	uint2 texel_coord = GetProbeStartTexelCoords(volume, probe_coord);
+	uint3 texel_coord = uint3(GetProbeStartTexelCoords(volume, probe_coord), cascade_id);
 
 	// Disable probes if they have more than % backfaces
 	if ((float(backface_count) / float(rays_count)) > BACKFACE_THRESHOLD_CLASSIFICATION)
 	{
-		output_atlas[texel_coord.xy].a = STATE_DISABLED;
+		output_atlas[texel_coord].a = STATE_DISABLED;
 		return;
 	}
 
-	float3 probe_world_position = GetProbeWorldPosition(volume, probe_coord);
+	float3 probe_world_position = GetProbeWorldPosition(volume, probe_coord, cascade_id);
 
 	// Enable probe if there is any nearby geometry in its voxel
 	for (uint ray_index = 0; ray_index < rays_count; ray_index++)
@@ -89,9 +88,9 @@ void CS_Classification(CSInput input)
 		float3 y_normal = float3(0, ray_direction.y / max(abs(ray_direction.y), 0.000001f), 0);
 		float3 z_normal = float3(0, 0, ray_direction.z / max(abs(ray_direction.z), 0.000001f));
 
-		float3 x_plane = probe_world_position + x_normal * volume.spacing.x;
-		float3 y_plane = probe_world_position + y_normal * volume.spacing.y;
-		float3 z_plane = probe_world_position + z_normal * volume.spacing.z;
+		float3 x_plane = probe_world_position + x_normal * cascade.spacing.x;
+		float3 y_plane = probe_world_position + y_normal * cascade.spacing.y;
+		float3 z_plane = probe_world_position + z_normal * cascade.spacing.z;
 
 		float3 distances =
 		{
@@ -108,10 +107,10 @@ void CS_Classification(CSInput input)
 
 		if (ray_distance <= max_distance)
 		{
-			output_atlas[texel_coord.xy].a = STATE_ENABLED;
+			output_atlas[texel_coord].a = STATE_ENABLED;
 			return;
 		}
 	}
 
-	output_atlas[texel_coord.xy].a = STATE_DISABLED;
+	output_atlas[texel_coord].a = STATE_DISABLED;
 }

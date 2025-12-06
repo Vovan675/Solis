@@ -44,16 +44,16 @@ bool TraceShadowRay(RaytracingAccelerationStructure tlas, float3 origin, float3 
 void RayGen()
 {
 	uint ray_index = DispatchRaysIndex().x;
-	uint probe_index = DispatchRaysIndex().y;
-
-
 
 	StructuredBuffer<DDGIVolume> volumes = ResourceDescriptorHeap[ddgi_volume_buffer_id];
 	DDGIVolume volume = volumes[0];
 
-	uint cascade_id = GetProbeCascade(volume, probe_index);
+	StructuredBuffer<uint> probes_to_update = ResourceDescriptorHeap[volume.probes_to_update_buffer_ids];
+	uint probe_id = probes_to_update[DispatchRaysIndex().y];
+
+	uint cascade_id = GetProbeCascade(volume, probe_id);
 	DDGICascade cascade = volume.cascades[cascade_id];
-	uint3 probe_coords = GetProbeGridCoords(volume, probe_index);
+	uint3 probe_coords = GetProbeGridCoords(volume, probe_id);
 	float3 probe_position = GetProbeWorldPosition(volume, probe_coords, cascade_id);
 	float3 ray_direction = GetProbeRayDirection(ray_index, volume);
 
@@ -81,7 +81,7 @@ void RayGen()
 	
 	TraceRay(tlas, RAY_FLAG_NONE, 0xff, 0, 0, 0, ray, payload);
 	
-	uint ray_data_index = GetRayDataIndex(probe_index, ray_index, volume);
+	uint ray_data_index = GetRayDataIndex(probe_id, ray_index, volume);
 
 	RWStructuredBuffer<float4> ray_data = ResourceDescriptorHeap[output_buffer_id];
 

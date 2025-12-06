@@ -3,6 +3,7 @@
 #include "Rendering/Model.h"
 #include <imgui.h>
 #include <random>
+#include "Utils/Math.h"
 
 //static uint32_t cascade_size_xz = 16;
 //static uint32_t cascade_size_y = 8;
@@ -47,6 +48,14 @@ DDGIRenderer::DDGIRenderer()
 	volume.cascades_count = cascades_count;
 
 	BufferDescription desc;
+	desc.size = sizeof(uint32_t) * volume.getProbesCount();
+	desc.usage = BufferUsage::SHADER_READ_BUFFER;
+	desc.use_staging_buffer = false;
+	desc.storage_stride = sizeof(uint32_t);
+	probes_to_update_buffer = gDynamicRHI->createBuffer(desc);
+	probes_to_update_buffer->setDebugName("DDGI Update Buffer");
+	volume.probes_to_update_buffer_id = probes_to_update_buffer->getShaderResourceView()->getBindlessIndex();
+
 	desc.size = sizeof(volume);
 	desc.usage = BufferUsage::SHADER_READ_BUFFER;
 	desc.use_staging_buffer = false;
@@ -175,22 +184,28 @@ void DDGIRenderer::addPasses(FrameGraph & fg, Ref<RayTracingScene> rt_scene)
 
 	volume_buffer->fill(&volume);
 
+	if (!Math::isPowerOfTwo(probes_per_frame))
+	{
+		CORE_ERROR("DDGIRenderer::addPasses() skipped because probes_per_frame must be power of two!");
+		return;
+	}
+
 	static bool prev_use_relocation = false;
 	if (use_relocation != prev_use_relocation)
 		addResetRelocationPass(fg);
 	prev_use_relocation = use_relocation;
 
 	static bool prev_use_classification = false;
-	//if (use_classification != prev_use_classification)
-	//	addResetClassificationPass(fg);
+	if (use_classification != prev_use_classification)
+		addResetClassificationPass(fg);
 	prev_use_classification = use_classification;
 
+	update_probes();
 	addTraceRaysPass(fg, rt_scene);
 	addUpdatePass(fg);
 
 	if (use_relocation)
 		addRelocationPass(fg);
-	return;
 	if (use_classification)
 		addClassificationPass(fg);
 }
@@ -242,6 +257,8 @@ void DDGIRenderer::renderImgui()
 		ImGui::DragInt3("Size", volume.size.data.data, 1.0f, 1, 10);
 		ImGui::DragFloat3("Spacing", volume.spacing.data.data, 0.05f, 0.05, 5);
 
+		ImGui::InputInt("Probes Per Frame", (int*)&probes_per_frame, 1, 128, ImGuiInputTextFlags_EnterReturnsTrue);
+
 		ImGui::Checkbox("Use Relocation", &use_relocation);
 		ImGui::Checkbox("Use Classification", &use_classification);
 		char* items[] = { "Irradiance", "Distance", "State", "State Not Disabled", "Cascades" };
@@ -263,6 +280,35 @@ eastl::vector<eastl::pair<const char *, const char *>> DDGIRenderer::calculateDe
 	if (trace_random_direction)
 		defines.push_back({"TRACE_RANDOM_DIRECTION", "1"});
 	return defines;
+}
+
+void DDGIRenderer::update_probes()
+{
+	probes_to_update.clear();
+
+	bool update_all = false;
+	if (update_all)
+	{
+		for (int i = 0; i < volume.getProbesCount(); i++)
+			probes_to_update.push_back(i);
+	} else
+	{
+		uint32_t budget_per_cascade = probes_per_frame / volume.cascades_count;
+
+		for (int c = 0; c < volume.cascades_count; c++)
+		{
+			uint32_t cascade_offset = c * volume.size.w;
+
+			uint32_t cascade_budget = std::min((uint32_t)volume.size.w, budget_per_cascade);
+
+			for (int p = 0; p < cascade_budget; p++)
+				probes_to_update.push_back((p + cascades_update[c].last_local_index) % volume.size.w + cascade_offset);
+			cascades_update[c].last_local_index = (cascade_budget + cascades_update[c].last_local_index) % volume.size.w;
+		}
+	}
+	ENGINE_ASSERT(Math::isPowerOfTwo(probes_to_update.size()));
+
+	probes_to_update_buffer->fill(probes_to_update.data());	
 }
 
 void DDGIRenderer::addTraceRaysPass(FrameGraph &fg, Ref<RayTracingScene> rt_scene)
@@ -289,7 +335,7 @@ void DDGIRenderer::addTraceRaysPass(FrameGraph &fg, Ref<RayTracingScene> rt_scen
 		constants.environment_tex_id = resources.getBindlessId(GFXRID(Sky));
 		gDynamicRHI->setConstantBufferData(3, &constants, sizeof(constants));
 
-		cmd_list->dispatchRays(volume.rays_per_probe, volume.getProbesCount(), 1);
+		cmd_list->dispatchRays(volume.rays_per_probe, probes_to_update.size(), 1);
 	});
 }
 
@@ -310,8 +356,7 @@ void DDGIRenderer::addUpdatePass(FrameGraph & fg)
 		uint32_t irradiance_uav_id = resources.getTexture(GFXRID(DDGIIrradiance))->getUnorderedAccessView()->getBindlessIndex();
 		gDynamicRHI->setConstantBufferData(1, &irradiance_uav_id, sizeof(uint32_t));
 
-		// XZ plane, Y layer
-		cmd_list->dispatch(volume.size.x, volume.size.z, volume.size.y * volume.cascades_count);
+		cmd_list->dispatch(probes_to_update.size(), 1, 1);
 		gDynamicRHI->waitGPU();
 	});
 
@@ -330,8 +375,7 @@ void DDGIRenderer::addUpdatePass(FrameGraph & fg)
 		uint32_t distance_uav_id = resources.getTexture(GFXRID(DDGIDistance))->getUnorderedAccessView()->getBindlessIndex();
 		gDynamicRHI->setConstantBufferData(1, &distance_uav_id, sizeof(uint32_t));
 
-		// XZ plane, Y layer
-		cmd_list->dispatch(volume.size.x, volume.size.z, volume.size.y * volume.cascades_count);
+		cmd_list->dispatch(probes_to_update.size(), 1, 1);
 		gDynamicRHI->waitGPU();
 	});
 }
@@ -351,8 +395,7 @@ void DDGIRenderer::addRelocationPass(FrameGraph & fg)
 		uint32_t metadata_uav_id = resources.getTexture(GFXRID(DDGIMetadata))->getUnorderedAccessView()->getBindlessIndex();
 		gDynamicRHI->setConstantBufferData(1, &metadata_uav_id, sizeof(uint32_t));
 
-		uint32_t probes_count = volume.getProbesCount();
-		uint32_t num_groups = ceil(probes_count / 32.0f);
+		uint32_t num_groups = ceil(probes_to_update.size() / 32.0f);
 		cmd_list->dispatch(num_groups, 1, 1);
 		gDynamicRHI->waitGPU();
 	});
@@ -373,8 +416,7 @@ void DDGIRenderer::addResetRelocationPass(FrameGraph & fg)
 		uint32_t metadata_uav_id = resources.getTexture(GFXRID(DDGIMetadata))->getUnorderedAccessView()->getBindlessIndex();
 		gDynamicRHI->setConstantBufferData(1, &metadata_uav_id, sizeof(uint32_t));
 
-		uint32_t probes_count = volume.getProbesCount();
-		uint32_t num_groups = ceil(probes_count / 32.0f);
+		uint32_t num_groups = ceil(volume.getProbesCount() / 32.0f);
 		cmd_list->dispatch(num_groups, 1, 1);
 		gDynamicRHI->waitGPU();
 	});
@@ -395,8 +437,7 @@ void DDGIRenderer::addClassificationPass(FrameGraph &fg)
 		uint32_t metadata_uav_id = resources.getTexture(GFXRID(DDGIMetadata))->getUnorderedAccessView()->getBindlessIndex();
 		gDynamicRHI->setConstantBufferData(1, &metadata_uav_id, sizeof(uint32_t));
 
-		uint32_t probes_count = volume.getProbesCount();
-		uint32_t num_groups = ceil(probes_count / 32.0f);
+		uint32_t num_groups = ceil(probes_to_update.size() / 32.0f);
 		cmd_list->dispatch(num_groups, 1, 1);
 		gDynamicRHI->waitGPU();
 	});
@@ -417,8 +458,7 @@ void DDGIRenderer::addResetClassificationPass(FrameGraph & fg)
 		uint32_t metadata_uav_id = resources.getTexture(GFXRID(DDGIMetadata))->getUnorderedAccessView()->getBindlessIndex();
 		gDynamicRHI->setConstantBufferData(1, &metadata_uav_id, sizeof(uint32_t));
 
-		uint32_t probes_count = volume.getProbesCount();
-		uint32_t num_groups = ceil(probes_count / 32.0f);
+		uint32_t num_groups = ceil(volume.getProbesCount() / 32.0f);
 		cmd_list->dispatch(num_groups, 1, 1);
 		gDynamicRHI->waitGPU();
 	});

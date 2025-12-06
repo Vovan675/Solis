@@ -29,3 +29,8 @@ uint64_t Math::roundUp(uint64_t size, uint64_t granularity)
 	const auto divUp = (size + granularity - 1) / granularity;
 	return divUp * granularity;
 }
+
+bool Math::isPowerOfTwo(uint32_t x)
+{
+	return x && !(x & (x - 1));
+}

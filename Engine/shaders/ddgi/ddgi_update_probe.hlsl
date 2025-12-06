@@ -4,6 +4,7 @@
 
 static StructuredBuffer<DDGIVolume> volumes = ResourceDescriptorHeap[ddgi_volume_buffer_id];
 static DDGIVolume volume = volumes[0];
+static StructuredBuffer<uint> probes_to_update = ResourceDescriptorHeap[volume.probes_to_update_buffer_ids];
 
 cbuffer Constants : register(b1)
 {
@@ -52,20 +53,18 @@ void WriteOctahedronBorder(uint3 texel_coord, uint2 oct_texel)
 	output_atlas[texel_coord] = output_atlas[source_coord];
 }
 
-// xzy order (xz plane, y layer * (size_y * cascade))
 [numthreads(NUM_TEXELS, NUM_TEXELS, 1)]
 void CSMain(CSInput input)
 {
-	uint3 probe_coord = input.group_id.xzy;
-	probe_coord.y = probe_coord.y % volume.size.y;
-	uint cascade_id = input.group_id.z / volume.size.y;
-	DDGICascade cascade = volume.cascades[cascade_id];
-	uint probe_id = GetProbeIndex(volume, probe_coord, cascade_id);
+	uint probe_id = probes_to_update[input.group_id.x];
 
-	uint layer = probe_coord.y;
-	uint2 layer_offset = uint2(layer * NUM_TEXELS * uint(volume.size.x), 0);
-	uint3 texel_coord = uint3(input.dispatch_thread_id.xy + layer_offset, cascade_id);
-	
+	uint3 probe_coord = GetProbeGridCoords(volume, probe_id);
+	uint cascade_id = GetProbeCascade(volume, probe_id);
+
+	DDGICascade cascade = volume.cascades[cascade_id];
+
+	uint3 texel_coord = GetProbeTexelCoords(volume, probe_coord, cascade_id, NUM_TEXELS, input.group_thread_id.xy);
+
 	float2 oct_coord = GetNormalizedOctahedralCoordinates(texel_coord.xy, NUM_TEXELS);
 	float3 texel_direction = GetOctahedralDirection(oct_coord);
 

@@ -8,4 +8,6 @@ namespace Math
 
 	uint32_t divideRoundUp(uint32_t nominator, uint32_t denominator);
 	uint64_t roundUp(uint64_t size, uint64_t granularity);
+
+	bool isPowerOfTwo(uint32_t x);
 }

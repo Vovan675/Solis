@@ -4,6 +4,7 @@
 
 static StructuredBuffer<DDGIVolume> volumes = ResourceDescriptorHeap[ddgi_volume_buffer_id];
 static DDGIVolume volume = volumes[0];
+static StructuredBuffer<uint> probes_to_update = ResourceDescriptorHeap[volume.probes_to_update_buffer_ids];
 
 cbuffer Constants : register(b1)
 {
@@ -25,24 +26,18 @@ struct CSInput
 void CS_ResetRelocation(CSInput input)
 {
 	uint probe_id = input.dispatch_thread_id.x;
-	uint num_probes = GetProbeCount(volume);
-	uint cascade = GetProbeCascade(volume, probe_id);
-
-	if (probe_id >= num_probes) return;
+	uint cascade_id = GetProbeCascade(volume, probe_id);
 
 	uint3 probe_coord = GetProbeGridCoords(volume, probe_id);
 	uint2 texel_coord = GetProbeStartTexelCoords(volume, probe_coord);
-	output_atlas[uint3(texel_coord.xy, cascade)].xyz = float3(0, 0, 0);
+	output_atlas[uint3(texel_coord.xy, cascade_id)].xyz = float3(0, 0, 0);
 }
 
 [numthreads(32, 1, 1)]
 void CS_Relocate(CSInput input)
 {
-	uint probe_id = input.dispatch_thread_id.x;
-	uint num_probes = GetProbeCount(volume);
+	uint probe_id = probes_to_update[input.dispatch_thread_id.x];
 	uint cascade_id = GetProbeCascade(volume, probe_id);
-
-	if (probe_id >= num_probes) return;
 
 	DDGICascade cascade = volume.cascades[cascade_id];
 
@@ -93,9 +88,9 @@ void CS_Relocate(CSInput input)
 
 
 	uint3 probe_coord = GetProbeGridCoords(volume, probe_id);
-	uint2 texel_coord = GetProbeStartTexelCoords(volume, probe_coord);
+	uint3 texel_coord = uint3(GetProbeStartTexelCoords(volume, probe_coord), cascade_id);
 	float3 offset = GetProbeRelocationOffset(volume, probe_coord, cascade_id, output_atlas);
-	uint prev_state = output_atlas[uint3(texel_coord.xy, cascade_id)].w;
+	uint prev_state = output_atlas[texel_coord].w;
 	prev_state = STATE_ENABLED;
 
 	float minimum_front_face_distance = 0.35;
@@ -148,6 +143,6 @@ void CS_Relocate(CSInput input)
 		prev_state = STATE_DISABLED;
 	}
 
-	output_atlas[uint3(texel_coord.xy, cascade_id)].xyz = float3(offset / cascade.spacing.xyz);
-	output_atlas[uint3(texel_coord.xy, cascade_id)].w = prev_state;
+	output_atlas[texel_coord].xyz = float3(offset / cascade.spacing.xyz);
+	output_atlas[texel_coord].w = prev_state;
 }

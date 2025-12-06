@@ -26,6 +26,7 @@ public:
 		uint32_t cascades_count;
 		DDGICascadeGPU cascades[5];
 		uint32_t rays_per_probe;
+		uint32_t probes_to_update_buffer_id;
 		uint32_t ray_data_buffer_id;
 		uint32_t distance_atlas_tex_id;
 		uint32_t irradiance_atlas_tex_id;
@@ -43,6 +44,8 @@ public:
 	uint32_t getVolumeBufferId() const { return volume_buffer->getShaderResourceView()->getBindlessIndex(); }
 private:
 	eastl::vector<eastl::pair<const char *, const char *>> calculateDefines(eastl::vector<eastl::pair<const char *, const char *>> additional = {});
+
+	void update_probes();
 
 	void addTraceRaysPass(FrameGraph &fg, Ref<RayTracingScene> rt_scene);
 	void addUpdatePass(FrameGraph &fg);
@@ -63,8 +66,19 @@ private:
 	bool use_fixed_rays = false;
 	bool trace_random_direction = true;
 
+	uint32_t probes_per_frame = 1024;
+
 	DDGIVolumeGPU volume;
 	RHIBufferRef volume_buffer;
+
+	eastl::vector<uint32_t> probes_to_update;
+	RHIBufferRef probes_to_update_buffer;
+
+	struct CascadeUpdateData
+	{
+		uint32_t last_local_index = 0;
+	};
+	eastl::vector<CascadeUpdateData> cascades_update {5};
 
 	RHIBufferRef ray_data_buffer;
 	RHITextureRef distance_atlas_texture;

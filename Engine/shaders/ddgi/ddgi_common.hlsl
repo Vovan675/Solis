@@ -21,11 +21,12 @@ struct DDGIVolume
 	uint cascades_count;
 	DDGICascade cascades[5];
 	uint rays_per_probe;
+	uint probes_to_update_buffer_ids;
 	uint ray_data_buffer_id;
 	uint distance_atlas_tex_id;
 	uint irradiance_atlas_tex_id;
 	uint metadata_atlas_tex_id;
-	float3 pad4;
+	float2 pad4;
 };
 
 #define DISTANCE_TEXELS 12
@@ -94,6 +95,11 @@ uint2 GetProbeStartTexelCoords(DDGIVolume volume, uint3 probe_coords)
 {
 	float layer_offset = volume.size.x * probe_coords.y;
 	return uint2(probe_coords.x + layer_offset, probe_coords.z);
+}
+
+uint3 GetProbeTexelCoords(DDGIVolume volume, uint3 probe_coords, uint cascade, uint num_texels, uint2 texel_offset)
+{
+	return uint3(GetProbeStartTexelCoords(volume, probe_coords) * num_texels + texel_offset, cascade);
 }
 
 float3 GetProbeWorldBasePosition(DDGIVolume volume, uint3 probe_coords, uint cascade)
