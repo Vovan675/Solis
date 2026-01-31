@@ -256,7 +256,7 @@ void VulkanDynamicRHI::prepareRenderCall()
 
 	bool is_something_changed = pso_changed || is_buffers_dirty;
 
-	VkDescriptorSet current_set;
+	VkDescriptorSet current_set = nullptr;
 
 	size_t descriptor_hash = native_pso->getHash();
 	hash_combine(descriptor_hash, frame_in_flight);
@@ -275,7 +275,7 @@ void VulkanDynamicRHI::prepareRenderCall()
 		all_descriptors.current_offset++;
 	} else
 	{
-		current_set = *all_descriptors.descriptors.end();
+		current_set = all_descriptors.descriptors[all_descriptors.descriptors.size() - 1];
 	}
 
 

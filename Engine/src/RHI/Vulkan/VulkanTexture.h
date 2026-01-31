@@ -104,6 +104,11 @@ protected:
 			case TEXTURE_LAYOUT_PRESENT:
 				return VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 				break;
+			case TEXTURE_LAYOUT_UAV:
+				return VK_IMAGE_LAYOUT_GENERAL;
+				break;
+			default:
+				ENGINE_ASSERT(false);
 		}
 	}
 

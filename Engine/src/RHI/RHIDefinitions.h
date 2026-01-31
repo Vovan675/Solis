@@ -33,6 +33,8 @@ enum class ResourceState
 
 	VERTEX_BUFFER = 1 << 7,
 	INDEX_BUFFER = 1 << 8,
+	INDIRECT_ARGS = 1 << 9,
+	SHADER_READ = 1 << 10,
 };
 ALLOW_ENUM_BITS(ResourceState)
 
@@ -45,9 +47,11 @@ enum class BufferUsage
 	SHADER_READ_BUFFER = 1 << 3, // Read-only Storage Buffer (SRV)
 	SHADER_WRITE_BUFFER = 1 << 4, // Read/Write Storage Buffer (UAV)
 	SCRATCH_BUFFER = 1 << 5, // Scratch Buffer for acceleration structures
-	ACCELERATION_STRUCTURE_BUILD_INPUT_BUFFER = 1 << 6,
-	ACCELERATION_STRUCTURE_STORAGE_BUFFER = 1 << 7,
-	SHADER_BINGING_TABLE_BUFFER = 1 << 8,
+	INDIRECT_ARGS_BUFFER = 1 << 6,
+	ACCELERATION_STRUCTURE_BUILD_INPUT_BUFFER = 1 << 7,
+	ACCELERATION_STRUCTURE_STORAGE_BUFFER = 1 << 8,
+	SHADER_BINGING_TABLE_BUFFER = 1 << 9,
+	STAGING_BUFFER = 1 << 10,
 };
 ALLOW_ENUM_BITS(BufferUsage)
 
@@ -164,7 +168,7 @@ inline uint32_t getFormatSize(Format format)
 		case FORMAT_R32_UINT:
 		case FORMAT_R32_SFLOAT: return 4;
 		case FORMAT_R32G32_SFLOAT: return 8;
-		case FORMAT_R32G32B32_SFLOAT: return 16;
+		case FORMAT_R32G32B32_SFLOAT: return 12;
 		case FORMAT_R32G32B32A32_SFLOAT: return 16;
 
 		// depth stencil
@@ -232,6 +236,7 @@ struct TextureDescription
 	Filter filtering = FILTER_LINEAR;
 	bool anisotropy = false;
 	bool use_comparison_less = false;
+	float depth_clear_value = 0.0f; // 0.0 for reverse-Z (GBuffer), 1.0 for standard Z (shadows)
 
 	size_t getHash() const
 	{

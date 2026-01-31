@@ -55,7 +55,7 @@ void DX12Texture::fill()
 	{
 		if (isDepthTexture())
 		{
-			clear_value.DepthStencil.Depth = 1.0f;
+			clear_value.DepthStencil.Depth = description.depth_clear_value;
 			clear_value.DepthStencil.Stencil = 0.0f;
 		} else
 		{
@@ -201,8 +201,19 @@ void DX12Texture::loadEquirectangularCubemap(const char *path)
 
 void DX12Texture::transitLayout(RHICommandList *cmd_list, TextureLayoutType new_layout_type, int mip)
 {
+	DX12CommandList *native_cmd_list = (DX12CommandList *)cmd_list;
 	if (current_layout == new_layout_type)
+	{
+		if (new_layout_type == TextureLayoutType::TEXTURE_LAYOUT_UAV)
+		{
+			D3D12_RESOURCE_BARRIER barrier{};
+			barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
+			barrier.UAV.pResource = resource->resource;
+
+			native_cmd_list->cmd_list->ResourceBarrier(1, &barrier);
+		}
 		return;
+	}
 
 	D3D12_RESOURCE_BARRIER barrier;
 	barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
@@ -212,7 +223,6 @@ void DX12Texture::transitLayout(RHICommandList *cmd_list, TextureLayoutType new_
 	barrier.Transition.StateAfter = get_native_layout(new_layout_type);
 	barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
 
-	DX12CommandList *native_cmd_list = (DX12CommandList *)cmd_list;
 	native_cmd_list->cmd_list->ResourceBarrier(1, &barrier);
 
 	current_layout = new_layout_type;

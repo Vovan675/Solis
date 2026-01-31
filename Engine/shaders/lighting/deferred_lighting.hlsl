@@ -18,8 +18,8 @@ struct VSOutput
 
 cbuffer UBO : register(b0)
 {
-	matrix model;
-	matrix light_matrix[4];
+	float4x4 model;
+	float4x4 light_matrix[4];
 	float4 cascade_splits;
 };
 

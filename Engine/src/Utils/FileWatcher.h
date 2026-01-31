@@ -29,6 +29,12 @@ public:
 	template <typename F>
 	void checkUpdates(F callback_function)
 	{
+		auto time_point = std::chrono::steady_clock::now();
+
+		if (std::chrono::duration<double, std::milli>(time_point - last_time_point).count() < 300)
+			return;
+		last_time_point = time_point;
+
 		eastl::vector<eastl::wstring> files;
 		for (auto &[file, time]: files_times)
 		{
@@ -48,4 +54,5 @@ public:
 
 private:
 	eastl::unordered_map<eastl::wstring, std::filesystem::file_time_type> files_times;
+	std::chrono::steady_clock::time_point last_time_point = std::chrono::steady_clock::now();
 };

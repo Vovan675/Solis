@@ -9,11 +9,11 @@ namespace Engine
 {
 	struct Vertex
 	{
-		glm::vec3 pos;
-		glm::vec3 normal;
-		glm::vec3 tangent;
-		glm::vec2 uv;
-		glm::vec3 color;
+		glm::highp_vec3 pos;
+		glm::highp_vec3 normal;
+		glm::highp_vec3 tangent;
+		glm::highp_vec2 uv;
+		glm::highp_vec3 color;
 
 		static VertexInputsDescription GetVertexInputsDescription()
 		{
@@ -34,6 +34,9 @@ namespace Engine
 		size_t id = 0;
 		eastl::vector<Vertex> vertices;
 		eastl::vector<uint32_t> indices;
+
+		uint64_t global_vertex_buffer_offset = 0;
+		uint64_t global_index_buffer_offset = 0;
 
 		RHIBufferRef vertexBuffer;
 		RHIBufferRef indexBuffer;

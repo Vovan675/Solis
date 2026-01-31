@@ -11,7 +11,7 @@ class ShadowRenderer
 public:
 	ShadowRenderer();
 
-	void addShadowMapPasses(FrameGraph &fg, const eastl::vector<RenderBatch> &batches);
+	void addShadowMapPasses(FrameGraph &fg, uint32_t max_draw_calls_count, RHIBufferRef instances_pass_masks_gpu);
 	void addRayTracedShadowPasses(FrameGraph &fg, Ref<RayTracingScene> rt_scene);
 
 	// TODO: remove from it, do itsomehow else
@@ -22,7 +22,18 @@ public:
 private:
 	void update_cascades(LightComponent &light, glm::vec3 light_dir, Camera *camera);
 
+	struct DrawCallsArguments
+	{
+		RHIBufferRef draw_indexed_args_gpu;
+		RHIBufferRef draw_indexed_count_gpu;
+		RHIBufferRef draw_calls_instances_gpu;
+	};
+
+	DrawCallsArguments &create_draw_calls(FrameGraph &fg, uint32_t max_draw_calls_count, RHIBufferRef instances_pass_masks_gpu, uint32_t pass_mask, glm::float4x4 view_projection);
+
 private:
+	DrawCallsArguments arguments;
+
 	RHIShaderRef shadows_vertex_shader;
 	RHIShaderRef shadows_fragment_shader_point;
 	RHIShaderRef shadows_fragment_shader_directional;

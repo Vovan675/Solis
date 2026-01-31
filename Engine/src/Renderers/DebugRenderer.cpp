@@ -3,31 +3,22 @@
 #include "RHI/BindlessResources.h"
 #include "Rendering/Renderer.h"
 #include "Core/Variables.h"
+#include "Rendering/ShaderStructs.h"
+
+#define MAX_NUM_LINES 731072
 
 DebugRenderer::DebugRenderer()
 {
 	vertex_shader_lines = gDynamicRHI->createShader(L"shaders/debug_lines.hlsl", VERTEX_SHADER);
 	fragment_shader_lines = gDynamicRHI->createShader(L"shaders/debug_lines.hlsl", FRAGMENT_SHADER);
 
-	const size_t count = 1024;
-	uint32_t indices[2048];
-	for (size_t i = 0; i < 2048; i++)
-	{
-		indices[i] = i;
-	}
+	vertex_shader_gpu_lines = gDynamicRHI->createShader(L"shaders/debug_lines.hlsl", VERTEX_SHADER, "VSGpuLines");
 
 	BufferDescription desc;
-	desc.size = sizeof(uint32_t) * 2048;
-	desc.use_staging_buffer = true;
-	desc.usage = BufferUsage::INDEX_BUFFER;
 
-	lines_index_buffer = gDynamicRHI->createBuffer(desc);
-	lines_index_buffer->fill(indices);
-	lines_index_buffer->setDebugName("Lines Index Buffer");
-
-	vertices = new LineVertex[2048];
+	vertices = new LineVertex[MAX_NUM_LINES];
 	
-	desc.size = sizeof(LineVertex) * 2048;
+	desc.size = sizeof(LineVertex) * MAX_NUM_LINES;
 	desc.storage_stride = sizeof(LineVertex);
 	desc.use_staging_buffer = false;
 	desc.usage = BufferUsage::VERTEX_BUFFER;
@@ -35,6 +26,20 @@ DebugRenderer::DebugRenderer()
 	lines_vertex_buffer = gDynamicRHI->createBuffer(desc);
 	lines_vertex_buffer->map((void **)&vertices);
 	lines_vertex_buffer->setDebugName("Lines Vertex Buffer");
+
+	desc.size = sizeof(uint32_t) + sizeof(LineVertex) * MAX_NUM_LINES;
+	desc.storage_stride = sizeof(uint32_t);
+	desc.use_staging_buffer = true;
+	desc.usage = BufferUsage::SHADER_WRITE_BUFFER;
+	lines_gpu_buffer = gDynamicRHI->createBuffer(desc);
+	lines_gpu_buffer->setDebugName("Lines GPU Vertex Buffer");
+
+	desc.size = sizeof(DrawIndirect);
+	desc.storage_stride = sizeof(DrawIndirect);
+	desc.use_staging_buffer = true;
+	desc.usage = BufferUsage::INDIRECT_ARGS_BUFFER | BufferUsage::SHADER_WRITE_BUFFER;
+	lines_draw_args_buffer = gDynamicRHI->createBuffer(desc);
+	lines_draw_args_buffer->setDebugName("Lines GPU Draw Args Buffer");
 }
 
 DebugRenderer::~DebugRenderer()
@@ -109,7 +114,7 @@ void DebugRenderer::addBoundBox(BoundBox bbox)
 	addLine(glm::vec3(bbox.min.x, bbox.min.y, bbox.max.z), glm::vec3(bbox.min.x, bbox.max.y, bbox.max.z));
 }
 
-void DebugRenderer::addFrustum(glm::mat4 frustum)
+void DebugRenderer::addFrustum(glm::mat4 frustum, glm::vec3 color)
 {
 	if (!isEnabled()) return;
 	eastl::array<glm::vec3, 8> corners
@@ -126,20 +131,48 @@ void DebugRenderer::addFrustum(glm::mat4 frustum)
 		corners[i] = glm::vec3(current) / current.w;
 	}
 
-	addLine(corners[0], corners[1]);
-	addLine(corners[1], corners[2]);
-	addLine(corners[2], corners[3]);
-	addLine(corners[3], corners[0]);
+	addLine(corners[0], corners[1], color);
+	addLine(corners[1], corners[2], color);
+	addLine(corners[2], corners[3], color);
+	addLine(corners[3], corners[0], color);
 
-	addLine(corners[4], corners[5]);
-	addLine(corners[5], corners[6]);
-	addLine(corners[6], corners[7]);
-	addLine(corners[7], corners[4]);
+	addLine(corners[4], corners[5], color);
+	addLine(corners[5], corners[6], color);
+	addLine(corners[6], corners[7], color);
+	addLine(corners[7], corners[4], color);
 
-	addLine(corners[0], corners[4]);
-	addLine(corners[1], corners[5]);
-	addLine(corners[2], corners[6]);
-	addLine(corners[3], corners[7]);
+	addLine(corners[0], corners[4], color);
+	addLine(corners[1], corners[5], color);
+	addLine(corners[2], corners[6], color);
+	addLine(corners[3], corners[7], color);
+}
+
+void DebugRenderer::addSphere(glm::vec3 center, float radius, int segments)
+{
+	if (!isEnabled()) return;
+	if (segments < 3) segments = 3;
+	
+	addCirlce(center, glm::vec3(0, 0, 1), radius, segments);
+	addCirlce(center, glm::vec3(0, 1, 0), radius, segments);
+	addCirlce(center, glm::vec3(1, 0, 0), radius, segments);
+	
+	glm::vec3 diagonal_normal = glm::normalize(glm::vec3(1, 1, 0));
+	if (glm::length(diagonal_normal) > 0.001f)
+	{
+		addCirlce(center, diagonal_normal, radius, segments);
+	}
+	
+	diagonal_normal = glm::normalize(glm::vec3(1, 0, 1));
+	if (glm::length(diagonal_normal) > 0.001f)
+	{
+		addCirlce(center, diagonal_normal, radius, segments);
+	}
+	
+	diagonal_normal = glm::normalize(glm::vec3(0, 1, 1));
+	if (glm::length(diagonal_normal) > 0.001f)
+	{
+		addCirlce(center, diagonal_normal, radius, segments);
+	}
 }
 
 eastl::vector<glm::vec3> DebugRenderer::addCirlce(glm::vec3 center, glm::vec3 normal, float radius, int segments)
@@ -232,6 +265,8 @@ void DebugRenderer::addTextureDebugPass(FrameGraph &fg)
 			builder.readTexture(GFXRID(DDGIIrradiance));
 		if (builder.isTextureCreated(GFXRID(DDGIMetadata)))
 			builder.readTexture(GFXRID(DDGIMetadata));
+		if (builder.isTextureCreated(GFXRID(HiZ)))
+			builder.readTexture(GFXRID(HiZ));
 		builder.readTexture(GFXRID(FinalNoPostTexture));
 		if (ray_tracing_shadows_data)
 			builder.read(ray_tracing_shadows_data->visibility);
@@ -260,6 +295,11 @@ void DebugRenderer::addTextureDebugPass(FrameGraph &fg)
 
 		if (ray_tracing_shadows_data)
 			ubo.light_diffuse_id = resources.getBindlessId(ray_tracing_shadows_data->visibility);
+
+		if (resources.has(GFXRID(HiZ)))
+			ubo.hiz_tex_id = resources.getBindlessId(GFXRID(HiZ));
+		else
+			ubo.hiz_tex_id = 0;
 
 		auto &p = gGlobalPipeline;
 		p->bindScreenQuadPipeline(cmd_list, gDynamicRHI->createShader(L"shaders/debug_quad.hlsl", FRAGMENT_SHADER));
@@ -298,8 +338,58 @@ void DebugRenderer::addVisualizerPass(FrameGraph & fg)
 		p->flushAndBind(cmd_list);
 
 		cmd_list->setVertexBuffer(lines_vertex_buffer, 0, sizeof(LineVertex));
-		cmd_list->setIndexBuffer(lines_index_buffer, 0, IndexFormat::UINT32);
-		cmd_list->drawIndexedInstanced(lines_index_count, 1, 0, 0, 0);
+		cmd_list->drawInstanced(lines_index_count, 1, 0, 0);
+		cmd_list->resetRenderTargets();
+
+		lines_index_count = 0;
+	});
+
+
+	fg.addCallbackPass<EmptyData>("Create Debug DrawCalls Pass",
+	[&](RenderPassBuilder &builder, EmptyData &data)
+	{
+		builder.setSideEffect(true);
+	},
+	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
+	{
+		lines_gpu_buffer->transitState(ResourceState::UAV);
+		lines_draw_args_buffer->transitState(ResourceState::UAV);
+
+		struct Constants
+		{
+			uint32_t lines_draw_args_buffer_id;
+		} constants;
+		constants.lines_draw_args_buffer_id = lines_draw_args_buffer->getUnorderedAccessView()->getBindlessIndex();
+
+		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/debug_lines.hlsl", COMPUTE_SHADER, "CSGenerateDrawCalls"));
+		gGlobalPipeline->flushAndBind(cmd_list);
+
+		gDynamicRHI->setConstantBufferData(0, &constants, sizeof(constants));
+		cmd_list->dispatch(1, 1, 1);
+	});
+
+	fg.addCallbackPass<EmptyData>("Debug GPU Visualizer Pass",
+	[&](RenderPassBuilder &builder, EmptyData &data)
+	{
+		builder.writeTexture(GFXRID(FinalTexture));
+		builder.setSideEffect(true);
+	},
+	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
+	{
+		auto final = resources.getTexture(GFXRID(FinalTexture));
+
+		lines_gpu_buffer->transitState(ResourceState::UAV);
+		lines_draw_args_buffer->transitState(ResourceState::INDIRECT_ARGS);
+
+		cmd_list->setRenderTargets({final}, nullptr, -1, 0, false);
+
+		auto &p = gGlobalPipeline;
+		p->setupGraphicsPipeline(cmd_list, vertex_shader_gpu_lines, fragment_shader_lines,
+								 {}, false, false, CULL_MODE_NONE);
+		p->setPrimitiveTopology(TOPOLOGY_LINE_LIST);
+		p->flushAndBind(cmd_list);
+
+		cmd_list->drawIndirect(lines_draw_args_buffer, 1);
 		cmd_list->resetRenderTargets();
 
 		lines_index_count = 0;

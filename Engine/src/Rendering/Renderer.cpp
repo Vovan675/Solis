@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "Renderer.h"
+#include "GlobalBufferCache.h"
 #include "RHI/BindlessResources.h"
 
 
@@ -44,12 +45,14 @@ void Renderer::updateDefaultUniforms(float delta_time)
 	default_uniforms.iview = glm::inverse(camera->getView());
 	default_uniforms.projection = camera->getProj();
 	default_uniforms.iprojection = glm::inverse(camera->getProj());
+	default_uniforms.view_projection = camera->getProj() * camera->getView();
 	default_uniforms.camera_position = glm::vec4(camera->getPosition(), 1.0);
 	default_uniforms.swapchain_size = glm::vec4(Renderer::getViewportSize(), 1.0f / glm::vec2(Renderer::getViewportSize()));
 	default_uniforms.z_near = camera->getNear();
 	default_uniforms.z_far = camera->getFar();
 	default_uniforms.time += delta_time;
 	default_uniforms.frame = (uint32_t)gDynamicRHI->getFrame();
+	default_uniforms.global_vertex_buffer_id = GlobalBufferCache::getGlobalVertexBuffer()->getShaderResourceView()->getBindlessIndex();
 }
 
 const Renderer::DefaultUniforms Renderer::getDefaultUniforms()

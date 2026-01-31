@@ -17,6 +17,7 @@
 #include <EASTL/sort.h>
 #include <EASTL/map.h>
 #include <EASTL/fixed_vector.h>
+#include <EASTL/fixed_map.h>
 #include <EASTL/vector.h>
 #include <EASTL/unordered_map.h>
 #include <EASTL/unordered_set.h>

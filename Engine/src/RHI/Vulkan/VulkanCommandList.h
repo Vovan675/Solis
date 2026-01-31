@@ -29,7 +29,7 @@ public:
 		is_open = false;
 	}
 
-	void setRenderTargets(const eastl::vector<RHITexture *> &color_attachments, RHITexture *depth_attachment, int layer, int mip, bool clear) override;
+	void setRenderTargets(const eastl::vector<RHITexture *> &color_attachments, RHITexture *depth_attachment, int layer, int mip, bool clear, float depth_clear_value = 0.0f) override;
 
 	void resetRenderTargets() override
 	{
@@ -44,7 +44,7 @@ public:
 
 	void setPipeline(RHIPipeline *pipeline) override;
 
-	void setVertexBuffer(RHIBuffer *buffer, uint32_t offset, uint32_t stride) override;
+	void setVertexBuffer(RHIBuffer *buffer, uint32_t offset, uint32_t stride, uint32_t slot) override;
 
 	void setIndexBuffer(RHIBuffer *buffer, uint32_t offset, IndexFormat format = IndexFormat::UINT32) override;
 
@@ -59,6 +59,11 @@ public:
 		gDynamicRHI->prepareRenderCall();
 		vkCmdDraw(cmd_buffer, vertex_count_per_instance, instance_count, firstVertex, firstInstance);
 	}
+
+	void drawIndexedIndirect(RHIBuffer *args_buffer, uint32_t max_draw_count, RHIBuffer *count_buffer) override;
+	void drawIndexedIndirect(RHIBuffer *args_buffer, uint32_t draw_count) override;
+	void drawIndirect(RHIBuffer *args_buffer, uint32_t max_draw_count, RHIBuffer *count_buffer) override;
+	void drawIndirect(RHIBuffer *args_buffer, uint32_t draw_count) override;
 
 	void dispatch(uint32_t group_x, uint32_t group_y, uint32_t group_z) override
 	{

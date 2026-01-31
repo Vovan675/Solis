@@ -24,6 +24,9 @@ cbuffer UBO : register(b0)
 	uint ddgi_distance_tex_id;
 	uint ddgi_irradiance_tex_id;
 	uint ddgi_metadata_tex_id;
+	uint hiz_tex_id;
+	uint debug_tex_srv_id;
+	uint overdraw_tex_srv_id;
 };
 
 void ComputePreviewSize(float2 tex_size, float screen_aspect, float scale, float max_h, out float2 size)
@@ -148,6 +151,7 @@ PSOutput PSMain(VSInput input)
 			value = float4(ssao, ssao, ssao, 1.0f);
 			break;
 		case 13:
+		{
 			value = composite_final;
 
 			const float scale = 1.0f;
@@ -228,7 +232,35 @@ PSOutput PSMain(VSInput input)
 				value = float4(meta.rgba);
 			}
 				*/
-			break;
+		}
+		break;
+		case 14:
+		{
+			Texture2D tex = ResourceDescriptorHeap[hiz_tex_id];
+			uint width, height, mip_count;
+			tex.GetDimensions(0, width, height, mip_count);
+			uint level = abs(sin(time)) * mip_count;
+			level = 4;
+			float3 hiz = tex.SampleLevel(point_wrap_sampler, uv, level).rrr;
+			value = float4(hiz, 1);
+		}
+		break;
+		case 15:
+		{
+			Texture2D tex = ResourceDescriptorHeap[debug_tex_srv_id];
+			float3 v = tex.Sample(point_wrap_sampler, uv).rgb;
+			//value = float4(v, 1);
+			value = float4(v, 1) + 0.01 * albedo;
+		}
+		break;
+		case 16:
+		{
+			Texture2D tex = ResourceDescriptorHeap[overdraw_tex_srv_id];
+			uint v = tex.Sample(point_wrap_sampler, uv).r;
+			//value = float4(v, 1);
+			value = float4(v / 10.0f, 0, 0, 1);
+		}
+		break;
 	}
 
 	output.color = float4(LinearToSRGB(value.rgba).rgb, 1.0f);

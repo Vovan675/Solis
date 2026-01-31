@@ -67,7 +67,7 @@ public:
 		PROFILE_CPU_FUNCTION();
 		orientation = glm::quat(glm::vec3(pitch, yaw, 0));
 		view = glm::inverse(glm::translate(glm::mat4(1.0f), position) * glm::toMat4(orientation));
-		proj = glm::perspective(glm::radians(fov), aspect, near_plane, far_plane);
+		proj = glm::perspective(glm::radians(fov), aspect, far_plane, near_plane); // Swapped intentionally, Inverse-Z
 	}
 
 	float getSpeed() const { return speed; }
@@ -124,6 +124,6 @@ private:
 	glm::vec2 prev_mouse_pos;
 
 	float near_plane = 0.1f;
-	float far_plane = 200.0f;
+	float far_plane = 10000.0f;
 	float speed = 10.0f;
 };

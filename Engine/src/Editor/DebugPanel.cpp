@@ -33,7 +33,7 @@ void DebugPanel::renderImGui(EditorContext &context)
 	if (render_debug_rendering)
 	{
 		int mode = render_debug_rendering_mode;
-		char* items[] = { "All", "Final Composite", "Albedo", "Metalness", "Roughness", "Specular", "Normal", "Depth", "Position", "Light Diffuse", "Light Specular", "BRDF LUT", "SSAO", "DDGI" };
+		char* items[] = { "All", "Final Composite", "Albedo", "Metalness", "Roughness", "Specular", "Normal", "Depth", "Position", "Light Diffuse", "Light Specular", "BRDF LUT", "SSAO", "DDGI", "HiZ", "Debug Texture", "Overdraw" };
 		if (ImGui::BeginCombo("Preview Combo", items[mode]))
 		{
 			for (int n = 0; n < IM_ARRAYSIZE(items); n++)

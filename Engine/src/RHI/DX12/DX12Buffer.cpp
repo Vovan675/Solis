@@ -12,6 +12,7 @@ static D3D12_RESOURCE_STATES toDX12ResourceState(ResourceState state)
 	if (hasAnyFlags(state, ResourceState::UAV)) result |= D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
 	if (hasAnyFlags(state, ResourceState::VERTEX_BUFFER)) result |= D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER;
 	if (hasAnyFlags(state, ResourceState::INDEX_BUFFER)) result |= D3D12_RESOURCE_STATE_INDEX_BUFFER;
+	if (hasAnyFlags(state, ResourceState::INDIRECT_ARGS)) result |= D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT;
 	return result;
 }
 
@@ -30,9 +31,11 @@ DX12Buffer::DX12Buffer(BufferDescription description) : RHIBuffer(description)
 
 	if (hasAnyFlags(description.usage, BufferUsage::ACCELERATION_STRUCTURE_STORAGE_BUFFER))
 		resource_state = D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE;
+	else if (hasAnyFlags(description.usage, BufferUsage::ACCELERATION_STRUCTURE_STORAGE_BUFFER))
+		resource_state = D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT;
 
 	D3D12MA::ALLOCATION_DESC allocation_desc = {};
-	allocation_desc.HeapType = description.use_staging_buffer ? D3D12_HEAP_TYPE_DEFAULT : D3D12_HEAP_TYPE_UPLOAD;
+	allocation_desc.HeapType = description.use_staging_buffer && !hasAnyFlags(description.usage, BufferUsage::STAGING_BUFFER) ? D3D12_HEAP_TYPE_DEFAULT : D3D12_HEAP_TYPE_UPLOAD;
 
 	allocation = std::make_unique<DX12AllocationResource>();
 	resource = std::make_unique<DX12Resource>();
@@ -62,7 +65,7 @@ void DX12Buffer::fill(const void *sourceData)
 	auto *native_rhi = DX12Utils::getNativeRHI();
 	uint64_t buffer_size = description.size;
 
-	if (description.use_staging_buffer)
+	if (description.use_staging_buffer && !hasAnyFlags(description.usage, BufferUsage::STAGING_BUFFER))
 	{
 		ComPtr<ID3D12Resource> intermediate_resource;
 		native_rhi->device->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), D3D12_HEAP_FLAG_NONE, &CD3DX12_RESOURCE_DESC::Buffer(buffer_size),
@@ -139,31 +142,31 @@ RHIBufferView *DX12Buffer::getUnorderedAccessView()
 	return unordered_access_view;
 }
 
-void DX12Buffer::setState(ResourceState new_state)
+void DX12Buffer::transitState(ResourceState new_state)
 {
-	if (current_state == new_state && !hasAnyFlags(new_state, ResourceState::UAV))
+	DX12CommandList *native_cmd_list = (DX12CommandList *)gDynamicRHI->getCmdList();
+
+	if (current_state == new_state)
+	{
+		if (hasAnyFlags(new_state, ResourceState::UAV))
+		{
+			D3D12_RESOURCE_BARRIER barrier{};
+			barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
+			barrier.UAV.pResource = resource->resource;
+
+			native_cmd_list->cmd_list->ResourceBarrier(1, &barrier);
+		}
 		return;
-
-	if (current_state != new_state)
-	{
-		D3D12_RESOURCE_BARRIER barrier{};
-		barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-		barrier.Transition.pResource = resource->resource;
-		barrier.Transition.StateBefore = toDX12ResourceState(current_state);
-		barrier.Transition.StateAfter = toDX12ResourceState(new_state);
-		barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-
-		DX12CommandList *native_cmd_list = (DX12CommandList *)gDynamicRHI->getCmdList();
-		native_cmd_list->cmd_list->ResourceBarrier(1, &barrier);
-	} else if (hasAnyFlags(new_state, ResourceState::UAV))
-	{
-		D3D12_RESOURCE_BARRIER barrier{};
-		barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
-		barrier.UAV.pResource = resource->resource;
-
-		DX12CommandList *native_cmd_list = (DX12CommandList *)gDynamicRHI->getCmdList();
-		native_cmd_list->cmd_list->ResourceBarrier(1, &barrier);
 	}
+
+	D3D12_RESOURCE_BARRIER barrier{};
+	barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+	barrier.Transition.pResource = resource->resource;
+	barrier.Transition.StateBefore = toDX12ResourceState(current_state);
+	barrier.Transition.StateAfter = toDX12ResourceState(new_state);
+	barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+
+	native_cmd_list->cmd_list->ResourceBarrier(1, &barrier);
 
 	current_state = new_state;
 }

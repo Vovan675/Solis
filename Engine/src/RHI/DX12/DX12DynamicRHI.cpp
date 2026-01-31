@@ -97,6 +97,22 @@ void DX12DynamicRHI::init()
 	bindless_resources->init();
 
 	tracy_ctx = TracyD3D12Context(device.Get(), cmd_queue->cmd_queue.Get());
+
+	D3D12_INDIRECT_ARGUMENT_DESC indirect_arguments[1];
+	indirect_arguments[0].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW_INDEXED;
+
+	D3D12_COMMAND_SIGNATURE_DESC command_signature_desc{};
+	command_signature_desc.ByteStride = sizeof(D3D12_DRAW_INDEXED_ARGUMENTS);
+	command_signature_desc.NumArgumentDescs = 1;
+	command_signature_desc.pArgumentDescs = indirect_arguments;
+	device->CreateCommandSignature(&command_signature_desc, nullptr, IID_PPV_ARGS(&draw_indexed_command_signature));
+
+	indirect_arguments[0].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW;
+
+	command_signature_desc.ByteStride = sizeof(D3D12_DRAW_ARGUMENTS);
+	command_signature_desc.NumArgumentDescs = 1;
+	command_signature_desc.pArgumentDescs = indirect_arguments;
+	device->CreateCommandSignature(&command_signature_desc, nullptr, IID_PPV_ARGS(&draw_command_signature));
 }
 
 void DX12DynamicRHI::shutdown()

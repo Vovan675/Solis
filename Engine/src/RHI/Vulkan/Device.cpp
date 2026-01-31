@@ -143,6 +143,7 @@ void Device::CreateLogicalDevice()
 	
 	VkPhysicalDeviceVulkan12Features features12{};
 	features12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
+	features12.drawIndirectCount = true;
 	features12.bufferDeviceAddress = true;
 	features12.descriptorIndexing = true;
 	features12.descriptorBindingPartiallyBound = true;
@@ -164,6 +165,7 @@ void Device::CreateLogicalDevice()
 
 	VkPhysicalDeviceFeatures2 enabledFeatures{};
 	enabledFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+	enabledFeatures.features.drawIndirectFirstInstance = true;
 	enabledFeatures.features.samplerAnisotropy = true;
 	enabledFeatures.pNext = &features13;
 	info.pNext = &enabledFeatures;

@@ -168,7 +168,7 @@ void DX12Pipeline::create(const PipelineDescription &description)
 		uint32_t offset = 0;
 		for (auto &input : description.vertex_inputs_descriptions.inputs)
 		{
-			input_layout.push_back({input.semantic_name, input.semantic_index, DX12Utils::getNativeFormat(input.format), 0, offset, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0});
+			input_layout.push_back({input.semantic_name, 0, DX12Utils::getNativeFormat(input.format), input.vertex_buffer_slot, offset, input.per_instance ? D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA : D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0});
 			offset += Math::alignedSize(getFormatSize(input.format), 16);
 		}
 
@@ -205,7 +205,7 @@ void DX12Pipeline::create(const PipelineDescription &description)
 		D3D12_DEPTH_STENCIL_DESC depth_stencil_desc = {};
 		depth_stencil_desc.DepthEnable = description.use_depth_test;
 		depth_stencil_desc.DepthWriteMask = description.use_depth_write ? D3D12_DEPTH_WRITE_MASK_ALL : D3D12_DEPTH_WRITE_MASK_ZERO;
-		depth_stencil_desc.DepthFunc = D3D12_COMPARISON_FUNC_LESS;
+		depth_stencil_desc.DepthFunc = depth_comparison_func;
 		depth_stencil_desc.StencilEnable = false;
 		depth_stencil_desc.StencilReadMask = D3D12_DEFAULT_STENCIL_READ_MASK;
 		depth_stencil_desc.StencilWriteMask = D3D12_DEFAULT_STENCIL_WRITE_MASK;

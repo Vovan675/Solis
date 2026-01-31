@@ -28,7 +28,7 @@ PSOutput PSMain(VSInput input)
     
     float depth = SampleTexture(depth_tex_id, input.uv).r;
 
-    //if (depth == 1.0f)
+    //if (depth == 0.0f)
     //    discard;
 
     float3 normal = normalize(SampleTexture(normal_tex_id, input.uv).rgb * 2.0f - 1.0f);

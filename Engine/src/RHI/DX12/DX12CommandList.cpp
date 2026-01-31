@@ -8,7 +8,7 @@
 #include <WinPixEventRuntime/pix3.h>
 #include "Utils/Math.h"
 
-void DX12CommandList::setRenderTargets(const eastl::vector<RHITexture *> &color_attachments, RHITexture *depth_attachment, int layer, int mip, bool clear)
+void DX12CommandList::setRenderTargets(const eastl::vector<RHITexture *> &color_attachments, RHITexture *depth_attachment, int layer, int mip, bool clear, float depth_clear_value)
 {
 	D3D12_VIEWPORT viewport;
 	D3D12_RECT surface_rect;
@@ -55,7 +55,7 @@ void DX12CommandList::setRenderTargets(const eastl::vector<RHITexture *> &color_
 		depth_stencil = view->getDescriptor().getCpuHandle();
 
 		if (clear)
-			cmd_list->ClearDepthStencilView(depth_stencil, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
+			cmd_list->ClearDepthStencilView(depth_stencil, D3D12_CLEAR_FLAG_DEPTH, depth_clear_value, 0, 0, nullptr);
 	}
 
 	cmd_list->RSSetViewports(1, &viewport);
@@ -96,21 +96,21 @@ void DX12CommandList::setPipeline(RHIPipeline *pipeline)
 	current_pipeline = pipeline;
 }
 
-void DX12CommandList::setVertexBuffer(RHIBuffer *buffer, uint32_t offset, uint32_t stride)
+void DX12CommandList::setVertexBuffer(RHIBuffer *buffer, uint32_t offset, uint32_t stride, uint32_t slot)
 {
 	DX12Buffer *native_buffer = static_cast<DX12Buffer *>(buffer);
-	native_buffer->setState(ResourceState::VERTEX_BUFFER);
+	native_buffer->transitState(ResourceState::VERTEX_BUFFER);
 	D3D12_VERTEX_BUFFER_VIEW view;
 	view.BufferLocation = native_buffer->getGPUAddress() + offset;
 	view.SizeInBytes = buffer->getSize() - offset;
 	view.StrideInBytes = stride;
-	cmd_list->IASetVertexBuffers(0, 1, &view);
+	cmd_list->IASetVertexBuffers(slot, 1, &view);
 }
 
 void DX12CommandList::setIndexBuffer(RHIBuffer *buffer, uint32_t offset, IndexFormat format)
 {
 	DX12Buffer *native_buffer = static_cast<DX12Buffer *>(buffer);
-	native_buffer->setState(ResourceState::INDEX_BUFFER);
+	native_buffer->transitState(ResourceState::INDEX_BUFFER);
 	D3D12_INDEX_BUFFER_VIEW view;
 	view.BufferLocation = native_buffer->getGPUAddress() + offset;
 	view.SizeInBytes = buffer->getSize() - offset;
@@ -124,6 +124,44 @@ void DX12CommandList::setIndexBuffer(RHIBuffer *buffer, uint32_t offset, IndexFo
 			break;
 	}
 	cmd_list->IASetIndexBuffer(&view);
+}
+
+void DX12CommandList::drawIndexedIndirect(RHIBuffer *args_buffer, uint32_t max_draw_count, RHIBuffer *count_buffer)
+{
+	gDynamicRHI->prepareRenderCall();
+
+	DX12Buffer *native_args_buffer = static_cast<DX12Buffer *>(args_buffer);
+	DX12Buffer *native_count_buffer = static_cast<DX12Buffer *>(count_buffer);
+
+	cmd_list->ExecuteIndirect(DX12Utils::getNativeRHI()->draw_indexed_command_signature, max_draw_count, native_args_buffer->getResource(), 0, native_count_buffer->getResource(), 0);
+}
+
+void DX12CommandList::drawIndexedIndirect(RHIBuffer *args_buffer, uint32_t draw_count)
+{
+	gDynamicRHI->prepareRenderCall();
+
+	DX12Buffer *native_args_buffer = static_cast<DX12Buffer *>(args_buffer);
+
+	cmd_list->ExecuteIndirect(DX12Utils::getNativeRHI()->draw_indexed_command_signature, draw_count, native_args_buffer->getResource(), 0, nullptr, 0);
+}
+
+void DX12CommandList::drawIndirect(RHIBuffer *args_buffer, uint32_t max_draw_count, RHIBuffer *count_buffer)
+{
+	gDynamicRHI->prepareRenderCall();
+
+	DX12Buffer *native_args_buffer = static_cast<DX12Buffer *>(args_buffer);
+	DX12Buffer *native_count_buffer = static_cast<DX12Buffer *>(count_buffer);
+
+	cmd_list->ExecuteIndirect(DX12Utils::getNativeRHI()->draw_command_signature, max_draw_count, native_args_buffer->getResource(), 0, native_count_buffer->getResource(), 0);
+}
+
+void DX12CommandList::drawIndirect(RHIBuffer * args_buffer, uint32_t draw_count)
+{
+	gDynamicRHI->prepareRenderCall();
+
+	DX12Buffer *native_args_buffer = static_cast<DX12Buffer *>(args_buffer);
+
+	cmd_list->ExecuteIndirect(DX12Utils::getNativeRHI()->draw_command_signature, draw_count, native_args_buffer->getResource(), 0, nullptr, 0);
 }
 
 void DX12CommandList::dispatchRays(uint32_t width, uint32_t height, uint32_t depth)
@@ -144,6 +182,9 @@ void DX12CommandList::copyBuffer(RHIBuffer *src, RHIBuffer *dest, uint64_t src_o
 {
 	DX12Buffer *native_src_buffer = (DX12Buffer *)src;
 	DX12Buffer *native_dst_buffer = (DX12Buffer *)dest;
+
+	native_src_buffer->transitState(ResourceState::COPY_SRC);
+	native_dst_buffer->transitState(ResourceState::COPY_DST);
 
 	cmd_list->CopyBufferRegion(native_dst_buffer->getResource(), dest_offset, native_src_buffer->getResource(), src_offset, size);
 }

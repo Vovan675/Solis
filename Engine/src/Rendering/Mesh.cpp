@@ -6,6 +6,7 @@
 #include "assimp/postprocess.h"
 
 #include "RHI/DynamicRHI.h"
+#include "GlobalBufferCache.h"
 
 namespace Engine
 {
@@ -71,5 +72,8 @@ namespace Engine
 		indexBuffer = gDynamicRHI->createBuffer(indexDesc);
 		indexBuffer->fill(indices.data());
 		indexBuffer->setDebugName("Index Buffer");
+
+		global_vertex_buffer_offset = GlobalBufferCache::addVertexBufferData(vertices.data(), vertices.size());
+		global_index_buffer_offset = GlobalBufferCache::addIndexBufferData(indices.data(), indices.size());
 	}
 }

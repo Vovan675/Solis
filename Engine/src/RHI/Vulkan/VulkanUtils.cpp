@@ -59,6 +59,8 @@ void VulkanUtils::cmdImageMemoryBarrier(VkCommandBuffer cmd_buffer, VkPipelineSt
 	image_memory_barrier.dstAccessMask = dst_access_mask; // operations that must wait for the barrier to be is crossed - example: read
 	image_memory_barrier.oldLayout = old_layout;
 	image_memory_barrier.newLayout = new_layout;
+	image_memory_barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	image_memory_barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 	image_memory_barrier.image = image;
 	image_memory_barrier.subresourceRange.aspectMask = aspect_mask;
 	image_memory_barrier.subresourceRange.baseMipLevel = base_level;

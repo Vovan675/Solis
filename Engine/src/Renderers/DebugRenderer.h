@@ -25,6 +25,9 @@ public:
 		uint32_t ddgi_distance_tex_id = 0;
 		uint32_t ddgi_irradiance_tex_id = 0;
 		uint32_t ddgi_metadata_tex_id = 0;
+		uint32_t hiz_tex_id = 0;
+		uint32_t debug_tex_id = 0;
+		uint32_t overdraw_tex_id = 0;
 	} ubo;
 
 	DebugRenderer();
@@ -32,19 +35,28 @@ public:
 
 	bool isEnabled() const;
 
+	RHIBufferRef getLinesGpuBuffer() { return lines_gpu_buffer; }
+
 	void addPasses(FrameGraph &fg);
 
-	void addLine(glm::vec3 p0, glm::vec3 p1)
+	void addLine(glm::vec3 p0, glm::vec3 p1, glm::vec3 color = glm::vec3(0, 0, 0))
 	{
 		if (!isEnabled()) return;
-		vertices[lines_index_count].pos = p0;
-		vertices[lines_index_count + 1].pos = p1;
+
+		LineVertex &vertex_0 = vertices[lines_index_count];
+		LineVertex &vertex_1 = vertices[lines_index_count + 1];
+		vertex_0.pos = glm::vec4(p0, 0.0);
+		vertex_0.color = color;
+
+		vertex_1.pos = glm::vec4(p1, 0.0);
+		vertex_1.color = color;
 		lines_index_count += 2;
 	}
 
 	void addBox(glm::vec3 half_extents, glm::mat4 transform);
 	void addBoundBox(BoundBox bbox);
-	void addFrustum(glm::mat4 frustum);
+	void addFrustum(glm::mat4 frustum, glm::vec3 color);
+	void addSphere(glm::vec3 center, float radius, int segments = 32);
 
 	eastl::vector<glm::vec3> addCirlce(glm::vec3 center, glm::vec3 normal, float radius, int segments);
 	void addArrow(glm::vec3 p0, glm::vec3 p1, float arrow_size);
@@ -55,14 +67,18 @@ private:
 	RHIShaderRef vertex_shader_lines;
 	RHIShaderRef fragment_shader_lines;
 
+	RHIShaderRef vertex_shader_gpu_lines;
+
 	struct LineVertex
 	{
-		glm::vec3 pos;
+		glm::vec4 pos;
 		glm::vec3 color;
 	};
 	LineVertex *vertices;
-	RHIBufferRef lines_index_buffer;
 	RHIBufferRef lines_vertex_buffer;
+
+	RHIBufferRef lines_gpu_buffer;
+	RHIBufferRef lines_draw_args_buffer;
 
 	int lines_index_count = 0;
 };

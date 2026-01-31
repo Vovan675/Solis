@@ -12,6 +12,8 @@ struct EmptyData {};
 #define GBufferDepth
 #define GBufferShading
 
+#define HiZ
+
 #define SSAONoiseTexture
 #define SSAORaw
 #define SSAOBlurred

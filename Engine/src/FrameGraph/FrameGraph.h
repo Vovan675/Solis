@@ -395,6 +395,13 @@ public:
 		return resource_id;
 	}
 
+	FrameGraphTextureId createTexture(GraphicsResourceName name, TextureDescription desc)
+	{
+		FrameGraphTextureId resource_id = frameGraph.createTextureResource(name, desc, true);
+		renderpass_node.creates.emplace_back(resource_id);
+		return resource_id;
+	}
+
 	TextureDescription getTextureDescription(GraphicsResourceName name)
 	{
 		return frameGraph.getTextureDescription(name);

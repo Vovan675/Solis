@@ -3,6 +3,7 @@
 #include "RHI/RHITexture.h"
 #include "RHI/RHIShader.h"
 #include "RHI/RHIBuffer.h"
+#include "ShaderStructs.h"
 #include "Rendering/Material.h"
 #include "RHI/BindlessResources.h"
 #include "Utils/Camera.h"
@@ -21,17 +22,6 @@ struct RendererDebugInfo
 	size_t descriptor_bindings_count = 0;
 	size_t descriptors_max_offset = 0;
 	size_t drawcalls = 0;
-};
-
-struct RenderBatch
-{
-	Engine::Mesh *mesh;
-	Ref<Material> material;
-	uint32_t instance_id;
-	glm::mat4 world_transform;
-	glm::mat4 iworld_transform;
-	BoundBox world_bound_box;
-	bool camera_visible;
 };
 
 class Renderer
@@ -54,6 +44,7 @@ public:
 
 	// Default Uniforms
 	static void setCamera(Camera *camera) { Renderer::camera = camera; }
+	static Camera *getCamera() { return camera; }
 	static void updateDefaultUniforms(float delta_time);
 	static const DefaultUniforms getDefaultUniforms();
 
@@ -73,17 +64,20 @@ private:
 		glm::mat4 iview;
 		glm::mat4 projection;
 		glm::mat4 iprojection;
+		glm::mat4 view_projection;
 		glm::vec4 camera_position;
 		glm::vec4 swapchain_size;
 		float z_near = 0;
 		float z_far = 0;
 		float time = 0;
 		uint32_t frame = 0;
+		uint32_t global_vertex_buffer_id;
 		uint32_t materials_buffer_id;
 		uint32_t instances_buffer_id;
 		uint32_t meshes_buffer_id;
 		uint32_t tlas_id = 0;
 		uint32_t ddgi_volume_buffer_id = 0;
+		uint32_t lines_gpu_buffer_id = 0;
 	};
 	static DefaultUniforms default_uniforms;
 	static Camera *camera;

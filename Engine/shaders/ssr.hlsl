@@ -101,7 +101,7 @@ float3 CalculateSSR(float2 uv)
 	//original *= 0;
 
 	float scene_depth = SampleTexture(depth_tex_id, uv, point_clamp_sampler).r;
-	if (scene_depth == 1.0)
+	if (scene_depth == 0.0)
 		return original;
 
 	float3 packed_normal = SampleTexture(normal_tex_id, uv, point_clamp_sampler).rgb;

@@ -24,6 +24,8 @@ public:
 		return resource->resource->GetGPUVirtualAddress();
 	}
 
+	void transitState(ResourceState new_state) override;
+
 	RHIBufferView *getShaderResourceView() override;
 	RHIBufferView *getUnorderedAccessView() override;
 
@@ -31,7 +33,6 @@ public:
 	ID3D12Resource *getResource() const { return resource->resource; }
 	D3D12MA::Allocation *getAllocation() const { return allocation->resource; }
 
-	void setState(ResourceState new_state);
 private:
 	std::unique_ptr<DX12Resource> resource;
 	std::unique_ptr<DX12AllocationResource> allocation;

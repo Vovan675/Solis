@@ -154,6 +154,7 @@ struct LightComponent
 			description.is_cube = true;
 			description.mip_levels = 1;
 			description.filtering = FILTER_NEAREST;
+			description.depth_clear_value = 1.0f;
 			shadow_map = gDynamicRHI->createTexture(description);
 			shadow_map->fill();
 			shadow_map->setDebugName("Cube Shadow Map");
@@ -169,6 +170,8 @@ struct LightComponent
 			description.array_levels = 4;
 			description.filtering = FILTER_LINEAR;
 			description.sampler_mode = SAMPLER_MODE_CLAMP_TO_EDGE;
+			description.use_comparison_less = true;
+			description.depth_clear_value = 1.0f;
 			shadow_map = gDynamicRHI->createTexture(description);
 			shadow_map->fill();
 			shadow_map->setDebugName("Cascaded Shadow Map");
@@ -182,6 +185,8 @@ struct LightComponent
 	float shadow_map_size = 4096;
 
 	RHITextureRef shadow_map = nullptr;
+
+	glm::mat4 getCascadeViewProj(int cascade) { return cascades[cascade].viewProjMatrix; }
 
 private:
 	LIGHT_TYPE type = LIGHT_TYPE_POINT;

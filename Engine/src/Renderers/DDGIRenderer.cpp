@@ -72,6 +72,9 @@ DDGIRenderer::DDGIRenderer()
 
 void DDGIRenderer::addPasses(FrameGraph & fg, Ref<RayTracingScene> rt_scene)
 {
+	if (!engine_ray_tracing)
+		return;
+
 	int border_size = 1;
 	int layers = volume.size.y;
 	int depth_width = (distance_probe_texels + border_size * 2) * volume.size.x * layers;
@@ -212,7 +215,7 @@ void DDGIRenderer::addPasses(FrameGraph & fg, Ref<RayTracingScene> rt_scene)
 
 void DDGIRenderer::addVisualizePass(FrameGraph &fg)
 {
-	if (!render_ddgi_visualize)
+	if (!engine_ray_tracing || !render_ddgi_visualize)
 		return;
 
 	fg.addCallbackPass<EmptyData>("DDGI Visualize Pass",
@@ -235,7 +238,7 @@ void DDGIRenderer::addVisualizePass(FrameGraph &fg)
 
 		gGlobalPipeline->setupGraphicsPipeline(cmd_list, visualize_vertex_shader, visualize_fragment_shader, Engine::Vertex::GetVertexInputsDescription());
 		gGlobalPipeline->setDepthWrite(true);
-		gGlobalPipeline->setDepthFunc(COMPARE_FUNC_LESS_EQUAL);
+		gGlobalPipeline->setDepthFunc(COMPARE_FUNC_GREATER_EQUAL);
 		gGlobalPipeline->flushAndBind(cmd_list);
 
 		gDynamicRHI->setConstantBufferData(1, &visualization_settings, sizeof(visualization_settings));

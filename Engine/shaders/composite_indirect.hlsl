@@ -34,7 +34,7 @@ PSOutput PSMain(VSInput input)
 	PSOutput output;
 
 	float depth = SampleTexture(depth_tex_id, input.uv).r;
-	if (depth == 1.0)
+	if (depth == 0.0)
 		discard;
 
 	float4 albedo = SampleTexture(albedo_tex_id, input.uv);
@@ -82,7 +82,7 @@ PSOutput PSMain(VSInput input)
 	float3 ibl = diffuse + specular;
 
 
-	output.ambient = float4(ibl * 0.1 * 0, 1.0);
+	output.ambient = float4(ibl * 0.1, 1.0);
 
 	if (ddgi_volume_buffer_id > 0)
 	{

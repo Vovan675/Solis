@@ -199,6 +199,9 @@ public:
 
 	uint32_t image_index;
 
+	ID3D12CommandSignature *draw_indexed_command_signature;
+	ID3D12CommandSignature *draw_command_signature;
+
 	void beginFrame() override;
 	void endFrame() override;
 };

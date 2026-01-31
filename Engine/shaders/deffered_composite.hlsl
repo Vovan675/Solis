@@ -27,7 +27,7 @@ PSOutput PSMain(VSInput input)
     PSOutput output;
 
     float depth = SampleTexture(depth_tex_id, input.uv).r;
-    if (depth == 1.0)
+    if (depth == 0.0)
         discard;
 
     float3 light_diffuse = SampleTexture(lighting_diffuse_tex_id, input.uv).rgb;

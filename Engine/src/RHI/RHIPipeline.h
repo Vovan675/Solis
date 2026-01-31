@@ -74,8 +74,9 @@ struct VertexInputsDescription
 	struct VertexInput
 	{
 		const char *semantic_name;
-		uint32_t semantic_index;
+		uint32_t vertex_buffer_slot;
 		Format format;
+		bool per_instance = false;
 	};
 
 	eastl::vector<VertexInput> inputs;
@@ -85,7 +86,7 @@ struct VertexInputsDescription
 		size_t hash = 0;
 		for (const auto &input : inputs)
 		{
-			hash_combine(hash, input.semantic_index);
+			hash_combine(hash, input.vertex_buffer_slot);
 			hash_combine(hash, input.format);
 		}
 		return hash;
@@ -104,7 +105,7 @@ struct PipelineDescription
 	Format depth_format = FORMAT_UNDEFINED;
 	bool use_depth_test = true;
 	bool use_depth_write = true;
-	CompareFunc depth_compare_func = COMPARE_FUNC_LESS;
+	CompareFunc depth_compare_func = COMPARE_FUNC_GREATER;
 	bool use_blending = false;
 	Blend src_color_blend = BLEND_SRC_ALPHA;
 	Blend dst_color_blend = BLEND_ONE_MINUS_SRC_ALPHA;
@@ -157,6 +158,12 @@ struct PipelineDescription
 		hash_combine(hash, use_depth_write);
 		hash_combine(hash, depth_compare_func);
 		hash_combine(hash, use_blending);
+		hash_combine(hash, src_color_blend);
+		hash_combine(hash, dst_color_blend);
+		hash_combine(hash, color_blend_op);
+		hash_combine(hash, src_alpha_blend);
+		hash_combine(hash, dst_alpha_blend);
+		hash_combine(hash, alpha_blend_op);
 		hash_combine(hash, cull_mode);
 		hash_combine(hash, primitive_topology);
 		hash_combine(hash, (int)pipeline_type);

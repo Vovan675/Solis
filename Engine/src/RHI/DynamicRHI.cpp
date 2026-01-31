@@ -80,6 +80,7 @@ DynamicRHI::CompileShaderResult DynamicRHI::compile_shader(eastl::wstring path, 
 		L"-E", entry_point_wstr.c_str(),              // Entry point.
 		//L"-Zs",                      // Enable debug information (slim format)
 		L"-Zi",
+		L"-Qembed_debug"
 		//L"-Qsource_in_debug_module", 
 		//L"-Qstrip_reflect",          // Strip reflection into a separate blob. 
 	};

@@ -14,6 +14,8 @@ extern AutoConVarBool render_ddgi_visualize;
 extern AutoConVarBool render_debug_rendering;
 extern AutoConVarInt render_debug_rendering_mode;
 extern AutoConVarBool render_first_frame;
+extern AutoConVarBool render_culling_hiz_debug;
+extern AutoConVarBool render_freeze_culling;
 extern AutoConVarBool render_shadows;
 extern AutoConVarBool render_ray_traced_shadows;
 extern AutoConVarBool render_ssao;

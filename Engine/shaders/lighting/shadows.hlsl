@@ -2,7 +2,9 @@
 
 struct VS_INPUT
 {
+    uint instance_id_start : INSTANCE_ID;
     uint vertex_id : SV_VertexID;
+    uint instance_id : SV_InstanceID;
 };
 
 struct VS_OUTPUT
@@ -11,23 +13,20 @@ struct VS_OUTPUT
     float4 worldPos : TEXCOORD0;
 };
 
-cbuffer PushConstants : register(b2)
-{
-	uint instance_id;
-};
-
 cbuffer UBO : register(b1)
 {
-    matrix light_space_matrix;
+    float4x4 light_space_matrix;
     float4 light_pos;
     float shadow_z_far;
 };
 
+static ByteAddressBuffer vertex_buffer = ResourceDescriptorHeap[global_vertex_buffer_id];
+
 VS_OUTPUT VSMain(VS_INPUT input)
 {
-    Instance instance = GetInstance(instance_id);
+    Instance instance = GetInstance(input.instance_id_start);
     Mesh mesh = GetMesh(instance.mesh_id);
-    float3 vertex_pos = GetMeshVertexData<float3>(mesh.vertex_buffer_id, mesh.positions_offset, input.vertex_id, mesh.vertex_stride);
+    float3 vertex_pos = GetMeshVertexData<float3>(vertex_buffer, mesh.positions_offset, input.vertex_id, mesh.vertex_stride);
 
     VS_OUTPUT output;
     output.outPos = mul(light_space_matrix, mul(instance.world_transform, float4(vertex_pos, 1.0)));

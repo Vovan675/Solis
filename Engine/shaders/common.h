@@ -24,17 +24,37 @@ cbuffer FrameConstants : register(b32) {
 	float4x4 iview;
 	float4x4 projection;
 	float4x4 iprojection;
+	float4x4 view_projection;
 	float4 camera_position;
 	float4 swapchain_size; // (width, height, 1/width, 1/height)
 	float z_near;
 	float z_far;
 	float time;
 	uint frame;
+	uint global_vertex_buffer_id;
 	uint materials_buffer_id;
 	uint instances_buffer_id;
 	uint meshes_buffer_id;
 	uint tlas_id;
 	uint ddgi_volume_buffer_id;
+	uint lines_gpu_buffer_id;
+};
+
+struct DrawIndexedIndirect
+{
+	uint index_count_per_instance;
+	uint instance_count;
+	uint start_index_location;
+	uint base_vertex_location;
+	uint start_instance_location;
+};
+
+struct DrawIndirect
+{
+	uint vertex_count_per_instance;
+	uint instance_count;
+	uint first_vertex;
+	uint first_instance;
 };
 
 struct Material
@@ -51,8 +71,13 @@ struct Material
 
 struct Instance
 {
-	matrix world_transform;
-	matrix iworld_transform;
+	float4x4 world_transform;
+	float4x4 iworld_transform;
+
+	float4 bound_sphere;
+	float4 bound_center;
+	float4 bound_extent;
+
 	uint mesh_id;
 	uint material_id;
 	uint pad[2];
@@ -68,6 +93,8 @@ struct Mesh
 	uint tangents_offset;
 	uint uvs_offset;
 	uint colors_offset;
+	uint index_offset;
+	uint indices_count;
 };
 
 Material GetMaterial(uint index)
@@ -92,6 +119,12 @@ template<typename T>
 T GetMeshVertexData(uint buffer_index, uint buffer_offset, uint vertex_id, uint vertex_stride)
 {
 	ByteAddressBuffer buffer = ResourceDescriptorHeap[buffer_index];
+	return buffer.Load<T>(vertex_stride * vertex_id + buffer_offset);
+}
+
+template<typename T>
+T GetMeshVertexData(ByteAddressBuffer buffer, uint buffer_offset, uint vertex_id, uint vertex_stride)
+{
 	return buffer.Load<T>(vertex_stride * vertex_id + buffer_offset);
 }
 
@@ -141,6 +174,40 @@ VertexData GetVertexData(Mesh mesh, uint primitive_id, float2 bary)
 	vertex.normal = Interpolate(normal_1, normal_2, normal_3, bary);
 	vertex.uv = Interpolate(uv_1, uv_2, uv_3, bary);
 	return vertex;
+}
+
+struct GpuLine {
+    float4 position;
+    float3 color;
+};
+
+void addLine(float3 p0, float3 p1, float3 color, bool screen_space = false)
+{
+    RWByteAddressBuffer gpu_lines = ResourceDescriptorHeap[lines_gpu_buffer_id];
+
+    uint index;
+    gpu_lines.InterlockedAdd(0, 2, index);
+
+	//if (index > 30000)
+	//	return;
+    GpuLine vertex_1;
+    GpuLine vertex_2;
+    
+    vertex_1.position = float4(p0, screen_space);
+    vertex_1.color = color;
+
+    vertex_2.position = float4(p1, screen_space);
+    vertex_2.color = color;
+    gpu_lines.Store(4 + index * 2 * sizeof(GpuLine), vertex_1);
+    gpu_lines.Store(4 + (index * 2 + 1) * sizeof(GpuLine), vertex_2);
+}
+
+void addScreenQuad(float2 p0, float2 p1, float3 color)
+{
+	addLine(float3(p0.x, p0.y, 0), float3(p1.x, p0.y, 0), color, true);
+	addLine(float3(p0.x, p1.y, 0), float3(p1.x, p1.y, 0), color, true);
+	addLine(float3(p0.x, p0.y, 0), float3(p0.x, p1.y, 0), color, true);
+	addLine(float3(p1.x, p0.y, 0), float3(p1.x, p1.y, 0), color, true);
 }
 
 // Must match in code

@@ -214,13 +214,15 @@ void VulkanBindlessResources::init()
 	};
 	extended_info.pBindingFlags = binding_flags.data();
 	
-	eastl::array<VkDescriptorType, 4> mutable_descriptor_types
+	eastl::fixed_vector<VkDescriptorType, 16> mutable_descriptor_types
 	{
 		VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
 		VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-		VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-		VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR
+		VK_DESCRIPTOR_TYPE_STORAGE_IMAGE
 	};
+
+	if (engine_ray_tracing)
+		mutable_descriptor_types.push_back(VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR);
 
 	VkMutableDescriptorTypeListEXT mutable_descriptor_type_list{};
 	mutable_descriptor_type_list.descriptorTypeCount = mutable_descriptor_types.size();
@@ -350,7 +352,7 @@ uint32_t VulkanBindlessResources::addSampler(const TextureDescription &descripti
 	samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
 	samplerInfo.magFilter = filter;
 	samplerInfo.minFilter = filter;
-	samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+	samplerInfo.mipmapMode = description.filtering == FILTER_LINEAR ? VK_SAMPLER_MIPMAP_MODE_LINEAR : VK_SAMPLER_MIPMAP_MODE_NEAREST;
 	samplerInfo.addressModeU = sampler_mode;
 	samplerInfo.addressModeV = sampler_mode;
 	samplerInfo.addressModeW = sampler_mode;
@@ -368,10 +370,9 @@ uint32_t VulkanBindlessResources::addSampler(const TextureDescription &descripti
 	samplerInfo.anisotropyEnable = description.anisotropy;
 	samplerInfo.maxAnisotropy = description.anisotropy ? VulkanUtils::getNativeRHI()->device->physicalProperties.properties.limits.maxSamplerAnisotropy : 1.0f;
 	samplerInfo.unnormalizedCoordinates = VK_FALSE;
-	samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
 	samplerInfo.mipLodBias = 0.0f;
 	samplerInfo.minLod = 0;
-	samplerInfo.maxLod = description.mip_levels;
+	samplerInfo.maxLod = VK_LOD_CLAMP_NONE;
 
 	VkSamplerResource *sampler = new VkSamplerResource();
 	CHECK_ERROR(vkCreateSampler(VulkanUtils::getNativeRHI()->device->logicalHandle, &samplerInfo, nullptr, &sampler->resource));
@@ -544,7 +545,7 @@ uint32_t DX12BindlessResources::addSampler(const TextureDescription &description
 		else if (description.filtering == FILTER_NEAREST)
 			filter = D3D12_FILTER_COMPARISON_MIN_MAG_MIP_POINT;
 		sampler_desc.Filter = filter;
-		sampler_desc.ComparisonFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL; // For shadows hardware comparison
+		sampler_desc.ComparisonFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL; // For shadows - standard approach (regular Z)
 	}
 
 	rhi->device->CreateSampler(&sampler_desc, sampler_view.getCpuHandle());

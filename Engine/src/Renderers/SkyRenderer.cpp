@@ -98,7 +98,7 @@ void SkyRenderer::addCompositePasses(FrameGraph &fg)
 											   Engine::Vertex::GetVertexInputsDescription(),
 											   false, true, CULL_MODE_FRONT);
 		gGlobalPipeline->setDepthWrite(false);
-		gGlobalPipeline->setDepthFunc(COMPARE_FUNC_LESS_EQUAL);
+		gGlobalPipeline->setDepthFunc(COMPARE_FUNC_GREATER_EQUAL);
 		gGlobalPipeline->flushAndBind(cmd_list);
 
 	

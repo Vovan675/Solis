@@ -3,6 +3,7 @@
 #include "Application.h"
 #include "Core/Variables.h"
 #include "Rendering/Renderer.h"
+#include "Rendering/GlobalBufferCache.h"
 #include "Assets/AssetManager.h"
 #include "Scene/Scene.h"
 #include "GLFW/glfw3native.h"
@@ -83,8 +84,6 @@ Application::Application(int argc, char *argv[])
 		}
 	}
 
-	AssetManager::init();
-
 	if (gapi == GRAPHICS_API_VULKAN)
 		gDynamicRHI = new VulkanDynamicRHI();
 	else
@@ -96,6 +95,8 @@ Application::Application(int argc, char *argv[])
 
 	gDynamicRHI->init();
 	gDynamicRHI->createSwapchain(window);
+
+	AssetManager::init();
 
 	Renderer::init();
 
@@ -212,6 +213,7 @@ void Application::cleanup()
 
 	gDynamicRHI->waitGPU();
 
+	GlobalBufferCache::shutdown();
 	AssetManager::shutdown();
 	TransientResources::cleanup();
 	ImGuiWrapper::shutdown();

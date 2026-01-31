@@ -126,7 +126,7 @@ public:
 			case FORMAT_R32_UINT:
 			case FORMAT_R32_SFLOAT: return 4;
 			case FORMAT_R32G32_SFLOAT: return 8;
-			case FORMAT_R32G32B32_SFLOAT: return 16;
+			case FORMAT_R32G32B32_SFLOAT: return 12;
 			case FORMAT_R32G32B32A32_SFLOAT: return 16;
 
 			// depth stencil

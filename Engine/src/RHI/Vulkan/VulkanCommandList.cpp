@@ -21,7 +21,7 @@ VulkanCommandList::VulkanCommandList()
 	vkAllocateCommandBuffers(device, &alloc_info, &cmd_buffer);
 }
 
-void VulkanCommandList::setRenderTargets(const eastl::vector<RHITexture *> &color_attachments, RHITexture *depth_attachment, int layer, int mip, bool clear)
+void VulkanCommandList::setRenderTargets(const eastl::vector<RHITexture *> &color_attachments, RHITexture *depth_attachment, int layer, int mip, bool clear, float depth_clear_value)
 {
 	PROFILE_CPU_FUNCTION();
 	VkExtent2D extent;
@@ -48,7 +48,7 @@ void VulkanCommandList::setRenderTargets(const eastl::vector<RHITexture *> &colo
 
 		VkRenderingAttachmentInfo info{};
 		info.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-		info.imageView = ((VulkanTextureView *)texture->getRenderTargetView(mip))->getImageView();
+		info.imageView = ((VulkanTextureView *)texture->getRenderTargetView(mip, layer))->getImageView();
 		info.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL;
 		info.loadOp = clear ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
 		info.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -64,11 +64,11 @@ void VulkanCommandList::setRenderTargets(const eastl::vector<RHITexture *> &colo
 		VulkanTexture *texture = (VulkanTexture *)depth_attachment;
 
 		depth_stencil_attachment_info.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-		depth_stencil_attachment_info.imageView = ((VulkanTextureView *)texture->getRenderTargetView(mip))->getImageView();
+		depth_stencil_attachment_info.imageView = ((VulkanTextureView *)texture->getRenderTargetView(mip, layer))->getImageView();
 		depth_stencil_attachment_info.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 		depth_stencil_attachment_info.loadOp = clear ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
 		depth_stencil_attachment_info.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-		depth_stencil_attachment_info.clearValue.depthStencil.depth = 1.0f;
+		depth_stencil_attachment_info.clearValue.depthStencil.depth = depth_clear_value;
 		depth_stencil_attachment_info.clearValue.depthStencil.stencil = 0.0f;
 		rendering_info.pDepthAttachment = &depth_stencil_attachment_info;
 	}
@@ -107,19 +107,21 @@ void VulkanCommandList::setPipeline(RHIPipeline *pipeline)
 	current_pipeline = pipeline;
 }
 
-void VulkanCommandList::setVertexBuffer(RHIBuffer *buffer, uint32_t offset, uint32_t stride)
+void VulkanCommandList::setVertexBuffer(RHIBuffer *buffer, uint32_t offset, uint32_t stride, uint32_t slot)
 {
 	VulkanBuffer *native_buffer = static_cast<VulkanBuffer *>(buffer);
+	native_buffer->transitState(ResourceState::VERTEX_BUFFER);
 	VkBuffer buffers[] = {native_buffer->getBuffer()};
 	VkDeviceSize offsets[] = {offset};
 	VkDeviceSize sizes[] = {buffer->getSize() - offset};
 	VkDeviceSize strides[] = {stride};
-	vkCmdBindVertexBuffers2(cmd_buffer, 0, 1, buffers, offsets, sizes, strides);
+	vkCmdBindVertexBuffers2(cmd_buffer, slot, 1, buffers, offsets, sizes, strides);
 }
 
 void VulkanCommandList::setIndexBuffer(RHIBuffer *buffer, uint32_t offset, IndexFormat format)
 {
 	VulkanBuffer *native_buffer = static_cast<VulkanBuffer *>(buffer);
+	native_buffer->transitState(ResourceState::INDEX_BUFFER);
 	VkIndexType index_type = VK_INDEX_TYPE_UINT32;
 	switch (format)
 	{
@@ -131,6 +133,44 @@ void VulkanCommandList::setIndexBuffer(RHIBuffer *buffer, uint32_t offset, Index
 			break;
 	}
 	vkCmdBindIndexBuffer(cmd_buffer, native_buffer->getBuffer(), offset, index_type);
+}
+
+void VulkanCommandList::drawIndexedIndirect(RHIBuffer *args_buffer, uint32_t max_draw_count, RHIBuffer *count_buffer)
+{
+	gDynamicRHI->prepareRenderCall();
+
+	VulkanBuffer *native_args_buffer = static_cast<VulkanBuffer *>(args_buffer);
+	VulkanBuffer *native_count_buffer = static_cast<VulkanBuffer *>(count_buffer);
+
+	vkCmdDrawIndexedIndirectCount(cmd_buffer, native_args_buffer->getBuffer(), 0, native_count_buffer->getBuffer(), 0, max_draw_count, sizeof(VkDrawIndexedIndirectCommand));
+}
+
+void VulkanCommandList::drawIndexedIndirect(RHIBuffer *args_buffer, uint32_t draw_count)
+{
+	gDynamicRHI->prepareRenderCall();
+
+	VulkanBuffer *native_args_buffer = static_cast<VulkanBuffer *>(args_buffer);
+
+	vkCmdDrawIndexedIndirect(cmd_buffer, native_args_buffer->getBuffer(), 0, draw_count, sizeof(VkDrawIndexedIndirectCommand));
+}
+
+void VulkanCommandList::drawIndirect(RHIBuffer *args_buffer, uint32_t max_draw_count, RHIBuffer *count_buffer)
+{
+	gDynamicRHI->prepareRenderCall();
+
+	VulkanBuffer *native_args_buffer = static_cast<VulkanBuffer *>(args_buffer);
+	VulkanBuffer *native_count_buffer = static_cast<VulkanBuffer *>(count_buffer);
+
+	vkCmdDrawIndirectCount(cmd_buffer, native_args_buffer->getBuffer(), 0, native_count_buffer->getBuffer(), 0, max_draw_count, sizeof(VkDrawIndirectCommand));
+}
+
+void VulkanCommandList::drawIndirect(RHIBuffer * args_buffer, uint32_t draw_count)
+{
+	gDynamicRHI->prepareRenderCall();
+
+	VulkanBuffer *native_args_buffer = static_cast<VulkanBuffer *>(args_buffer);
+
+	vkCmdDrawIndirect(cmd_buffer, native_args_buffer->getBuffer(), 0, draw_count, sizeof(VkDrawIndirectCommand));
 }
 
 void VulkanCommandList::dispatchRays(uint32_t width, uint32_t height, uint32_t depth)
@@ -168,6 +208,9 @@ void VulkanCommandList::copyBuffer(RHIBuffer *src, RHIBuffer *dest, uint64_t src
 {
 	VulkanBuffer *native_src_buffer = (VulkanBuffer *)src;
 	VulkanBuffer *native_dst_buffer = (VulkanBuffer *)dest;
+
+	native_src_buffer->transitState(ResourceState::COPY_SRC);
+	native_dst_buffer->transitState(ResourceState::COPY_DST);
 
 	VkBufferCopy copyRegion{};
 	copyRegion.srcOffset = src_offset;

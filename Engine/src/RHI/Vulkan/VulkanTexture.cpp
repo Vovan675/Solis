@@ -178,7 +178,7 @@ void VulkanTexture::transitLayout(RHICommandList *cmd_list, TextureLayoutType ne
 	size_t end_index = mip == -1 ? description.mip_levels : start_index + 1;
 	for (size_t i = start_index; i < end_index; i++)
 	{
-		if (current_layouts[i] != new_layout_type)
+		if (current_layouts[i] != new_layout_type || new_layout_type == TextureLayoutType::TEXTURE_LAYOUT_UAV)
 		{
 			barriers_required = true;
 			difference_mip_index = i;
@@ -211,7 +211,7 @@ void VulkanTexture::transitLayout(RHICommandList *cmd_list, TextureLayoutType ne
 			if (isDepthTexture())
 			{
 				src_stage_mask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT;
-				src_access_mask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+				src_access_mask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 			} else
 			{
 				src_stage_mask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
@@ -239,6 +239,12 @@ void VulkanTexture::transitLayout(RHICommandList *cmd_list, TextureLayoutType ne
 			src_stage_mask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
 			src_access_mask = VK_ACCESS_2_NONE;
 			break;
+		case TEXTURE_LAYOUT_UAV:
+			src_stage_mask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+			src_access_mask = VK_ACCESS_2_SHADER_WRITE_BIT;
+			break;
+		default:
+			ENGINE_ASSERT(false);
 	}
 
 	switch (new_layout_type)
@@ -251,7 +257,7 @@ void VulkanTexture::transitLayout(RHICommandList *cmd_list, TextureLayoutType ne
 			if (isDepthTexture())
 			{
 				dst_stage_mask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT;
-				dst_access_mask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+				dst_access_mask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 			} else
 			{
 				dst_stage_mask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
@@ -279,6 +285,12 @@ void VulkanTexture::transitLayout(RHICommandList *cmd_list, TextureLayoutType ne
 			dst_stage_mask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
 			dst_access_mask = VK_ACCESS_2_NONE;
 			break;
+		case TEXTURE_LAYOUT_UAV:
+			dst_stage_mask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+			dst_access_mask = VK_ACCESS_2_SHADER_READ_BIT;
+			break;
+		default:
+			ENGINE_ASSERT(false);
 	}
 
 	int layer_count = description.is_cube ? 6 : description.array_levels;

@@ -21,7 +21,7 @@ VertexOutput VSMain(VertexInput IN) {
     
     // Transform position
     OUT.position = mul(projection, mul(view, float4(IN.position + camera_position.xyz, 1.0)));
-    OUT.position.z = OUT.position.w - Epsilon;
+    OUT.position.z = 0;
     OUT.dir = normalize(IN.position);
     return OUT;
 }

@@ -18,6 +18,8 @@ public:
 	virtual void setDebugName(const char *name) = 0;
 	virtual uint64_t getGPUAddress() const = 0;
 
+	virtual void transitState(ResourceState new_state) = 0;
+
 	virtual RHIBufferView *getShaderResourceView() = 0;
 	virtual RHIBufferView *getUnorderedAccessView() = 0;
 

@@ -28,6 +28,8 @@ void Model::cleanup()
 	meshes_id.clear();
 }
 
+static eastl::unordered_map<int, int> meshes;
+
 void Model::load(const char *path)
 {
 	auto runtime_path = std::filesystem::path(path);
@@ -51,6 +53,7 @@ void Model::load(const char *path)
 											 aiProcess_SortByPType |
 											 aiProcess_OptimizeMeshes |
 											 aiProcess_FlipUVs);
+	meshes.clear();
 	process_node(nullptr, scene->mRootNode, scene);
 	root_node->updateTransform();
 }
@@ -80,6 +83,9 @@ void Model::process_node(MeshNode *mesh_node, aiNode *node, const aiScene *scene
 		indices.clear();
 
 		int mesh_index = node->mMeshes[m];
+		if (meshes.contains(mesh_index))
+			int i = 0;
+		meshes[mesh_index]++;
 		aiMesh *mesh = scene->mMeshes[mesh_index];
 
 		for (int v = 0; v < mesh->mNumVertices; v++)

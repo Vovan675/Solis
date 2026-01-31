@@ -18,6 +18,8 @@ public:
 
 	uint64_t getGPUAddress() const override;
 
+	void transitState(ResourceState new_state) override;
+
 	RHIBufferView *getShaderResourceView() override;
 	RHIBufferView *getUnorderedAccessView() override;
 
@@ -29,6 +31,7 @@ private:
 	std::unique_ptr<VkBufferResource> buffer;
 	std::unique_ptr<VkAllocationResource> allocation;
 
+	ResourceState current_state = ResourceState::SHADER_RESOURCE;
 	Ref<VulkanBufferView> shader_resource_view;
 	Ref<VulkanBufferView> unordered_access_view;
 

@@ -16,6 +16,8 @@ VulkanBuffer::VulkanBuffer(BufferDescription description) : RHIBuffer(descriptio
 		usage_flags |= VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
 	if (hasAnyFlags(description.usage, (BufferUsage::SHADER_READ_BUFFER | BufferUsage::SHADER_WRITE_BUFFER | BufferUsage::SCRATCH_BUFFER)))
 		usage_flags |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+	if (hasAnyFlags(description.usage, BufferUsage::INDIRECT_ARGS_BUFFER))
+		usage_flags |= VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT;
 	if (hasAnyFlags(description.usage, BufferUsage::ACCELERATION_STRUCTURE_BUILD_INPUT_BUFFER))
 		usage_flags |= VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
 	if (hasAnyFlags(description.usage, BufferUsage::ACCELERATION_STRUCTURE_STORAGE_BUFFER))
@@ -25,7 +27,7 @@ VulkanBuffer::VulkanBuffer(BufferDescription description) : RHIBuffer(descriptio
 
 	VmaMemoryUsage memory_usage = VMA_MEMORY_USAGE_AUTO;
 	VmaAllocationCreateFlags flags = 0;
-	if (description.use_staging_buffer)
+	if (description.use_staging_buffer && !hasAnyFlags(description.usage, BufferUsage::STAGING_BUFFER))
 	{
 		memory_usage = VMA_MEMORY_USAGE_GPU_ONLY;
 	} else
@@ -56,7 +58,7 @@ void VulkanBuffer::fill(const void *sourceData)
 	auto native_rhi = VulkanUtils::getNativeRHI();
 	uint64_t buffer_size = description.size;
 
-	if (description.use_staging_buffer)
+	if (description.use_staging_buffer && !hasAnyFlags(description.usage, BufferUsage::STAGING_BUFFER))
 	{
 		// Staging buffer
 		BufferDescription staging_buffer_description;
@@ -118,6 +120,92 @@ uint64_t VulkanBuffer::getGPUAddress() const
 	bufferDeviceAI.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
 	bufferDeviceAI.buffer = buffer->resource;
 	return VulkanUtils::vkGetBufferDeviceAddressKHR(&bufferDeviceAI);
+}
+
+struct VulkanAccessInfo
+{
+	VkPipelineStageFlags stage;
+	VkAccessFlags access;
+};
+
+static VulkanAccessInfo toVulkanAccessInfo(ResourceState state)
+{
+	VulkanAccessInfo info{};
+	info.stage = 0;
+	info.access = 0;
+
+	if (hasAnyFlags(state, ResourceState::SHADER_RESOURCE)) 
+	{
+		info.stage |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+		info.access |= VK_ACCESS_SHADER_READ_BIT;
+	}
+	if (hasAnyFlags(state, ResourceState::COPY_SRC))
+	{
+		info.stage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+		info.access |= VK_ACCESS_TRANSFER_READ_BIT;
+	}
+	if (hasAnyFlags(state, ResourceState::COPY_DST)) 
+	{
+		info.stage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+		info.access |= VK_ACCESS_TRANSFER_WRITE_BIT;
+	}
+	if (hasAnyFlags(state, ResourceState::UAV))
+	{
+		info.stage |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+		info.access |= VK_ACCESS_SHADER_WRITE_BIT;
+	}
+	if (hasAnyFlags(state, ResourceState::VERTEX_BUFFER))
+	{
+		info.stage |= VK_PIPELINE_STAGE_VERTEX_INPUT_BIT;
+		info.access |= VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT;
+	}
+	if (hasAnyFlags(state, ResourceState::INDEX_BUFFER))
+	{
+		info.stage |= VK_PIPELINE_STAGE_VERTEX_INPUT_BIT;
+		info.access |= VK_ACCESS_INDEX_READ_BIT;
+	}
+	if (hasAnyFlags(state, ResourceState::INDIRECT_ARGS))
+	{
+		info.stage |= VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT;
+		info.access |= VK_ACCESS_INDIRECT_COMMAND_READ_BIT;
+	}
+	return info;
+}
+
+void VulkanBuffer::transitState(ResourceState new_state)
+{
+	VulkanCommandList *native_cmd_list = (VulkanCommandList *)gDynamicRHI->getCmdList();
+
+	auto writes = [](ResourceState state) { return hasAnyFlags(state, ResourceState::UAV); };
+
+	if (!writes(current_state) && !writes(new_state))
+	{
+		current_state = new_state;
+		return;
+	}
+
+	VulkanAccessInfo src = toVulkanAccessInfo(current_state);
+	VulkanAccessInfo dst = toVulkanAccessInfo(new_state);
+
+	VkBufferMemoryBarrier2 barrier{};
+	barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2;
+	barrier.srcStageMask = src.stage; // pipeline stage(s) that must be completed before the barrier is crossed
+	barrier.srcAccessMask = src.access; // operations that must complete before the barrier is crossed - example: write
+	barrier.dstStageMask = dst.stage; // pipeline stage(s) that must wait for the barrier to be crossed before beginning
+	barrier.dstAccessMask = dst.access; // operations that must wait for the barrier to be is crossed - example: read
+	barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	barrier.buffer = buffer->resource;
+	barrier.offset = 0;
+	barrier.size = VK_WHOLE_SIZE;
+
+	VkDependencyInfo dependency_info{};
+	dependency_info.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+	dependency_info.bufferMemoryBarrierCount = 1;
+	dependency_info.pBufferMemoryBarriers = &barrier;
+
+	vkCmdPipelineBarrier2(native_cmd_list->cmd_buffer, &dependency_info);	
+	current_state = new_state;
 }
 
 RHIBufferView *VulkanBuffer::getShaderResourceView()

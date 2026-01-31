@@ -35,7 +35,7 @@ void EditorApplication::init()
 	Renderer::setCamera(&context.editor_camera);
 
 	Scene::setCurrentScene(new Scene());
-	EditorDefaultScene::createScene();
+	EditorDefaultScene::createScene(&context.editor_camera);
 
 	scene_renderer = new SceneRenderer();
 

@@ -1,14 +1,11 @@
 #include "common.h"
 #include "bindless.h"
 
-cbuffer Constants : register(b1)
-{
-	uint instance_id;
-};
-
 struct VertexInput
 {
+    uint instance_id_start : INSTANCE_ID;
     uint vertex_id : SV_VertexID;
+    uint instance_id : SV_InstanceID;
 };
 
 struct PixelInput
@@ -18,25 +15,47 @@ struct PixelInput
     float3 worldNormal : TEXCOORD1;
     float2 uv : TEXCOORD2;
     float3x3 TBN : TEXCOORD4;
+    nointerpolation uint material_id : MATERIAL_ID;
 };
+
+struct MeshVertex
+{
+    float3 pos;
+    float3 normal;
+    float3 tangent;
+    float2 uv;
+};
+
+static ByteAddressBuffer vertex_buffer = ResourceDescriptorHeap[global_vertex_buffer_id];
 
 PixelInput VSMain(VertexInput IN)
 {
     PixelInput OUT;
 
-    Instance instance = GetInstance(instance_id);
-    Mesh mesh = GetMesh(instance.mesh_id);
-    float3 vertex_pos = GetMeshVertexData<float3>(mesh.vertex_buffer_id, mesh.positions_offset, IN.vertex_id, mesh.vertex_stride);
-    float3 vertex_normal = GetMeshVertexData<float3>(mesh.vertex_buffer_id, mesh.normals_offset, IN.vertex_id, mesh.vertex_stride);
-    float3 vertex_tangent = GetMeshVertexData<float3>(mesh.vertex_buffer_id, mesh.tangents_offset, IN.vertex_id, mesh.vertex_stride);
-    float2 vertex_uv = GetMeshVertexData<float2>(mesh.vertex_buffer_id, mesh.uvs_offset, IN.vertex_id, mesh.vertex_stride);
+    Instance instance = GetInstance(IN.instance_id_start);
+    OUT.material_id = instance.material_id;
 
+    Mesh mesh = GetMesh(instance.mesh_id);
+
+    #if 1
+        float3 vertex_pos = GetMeshVertexData<float3>(vertex_buffer, mesh.positions_offset, IN.vertex_id, mesh.vertex_stride);
+        float3 vertex_normal = GetMeshVertexData<float3>(vertex_buffer, mesh.normals_offset, IN.vertex_id, mesh.vertex_stride);
+        float3 vertex_tangent = GetMeshVertexData<float3>(vertex_buffer, mesh.tangents_offset, IN.vertex_id, mesh.vertex_stride);
+        float2 vertex_uv = GetMeshVertexData<float2>(vertex_buffer, mesh.uvs_offset, IN.vertex_id, mesh.vertex_stride);
+    #else
+        MeshVertex vertex = GetMeshVertexData<MeshVertex>(vertex_buffer, mesh.positions_offset, IN.vertex_id, mesh.vertex_stride);
+        float3 vertex_pos = vertex.pos.xyz;
+        float3 vertex_normal = vertex.normal.xyz;
+        float3 vertex_tangent = vertex.tangent.xyz;
+        float2 vertex_uv = vertex.uv;
+    #endif
     // Transform position to clip space
     float4 worldPosition = mul(instance.world_transform, float4(vertex_pos, 1.0));
-    OUT.position = mul(projection, mul(view, worldPosition));
+    OUT.position = mul(view_projection, worldPosition);
     
     // Pass through world position
     OUT.worldPos = worldPosition.xyz;
+
 
     // Transform normal to world space
     //float3x3 normalMatrix = (float3x3)transpose(instance.iworld_transform);
@@ -65,8 +84,7 @@ PixelOutput PSMain(PixelInput IN)
 {
     PixelOutput OUT;
     
-    Instance instance = GetInstance(instance_id);
-    Material material = GetMaterial(instance.material_id);
+    Material material = GetMaterial(IN.material_id);
 
     // Albedo color
     if (material.albedo_tex_id > 0) {
@@ -74,6 +92,7 @@ PixelOutput PSMain(PixelInput IN)
     } else {
         OUT.color = material.albedo;
     }
+        //OUT.color.rgb = 0.1;
 
     // Alpha discard
     if (OUT.color.a < 0.5) {

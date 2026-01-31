@@ -193,32 +193,48 @@ void VulkanPipeline::create(const PipelineDescription &description)
 
 		// Use vertices
 		bool use_vertex_inputs = !description.vertex_inputs_descriptions.inputs.empty();
-		VkVertexInputBindingDescription vertex_input_binding_description{};
+		eastl::fixed_vector<VkVertexInputBindingDescription, 16> vertex_input_binding_descriptions;
 		eastl::fixed_vector<VkVertexInputAttributeDescription, 16> vertex_input_attribute_descriptions;
 		if (use_vertex_inputs)
 		{
-			uint32_t offset = 0;
-			int location = 0;
-			for (auto &input : description.vertex_inputs_descriptions.inputs)
+			struct BindingState
 			{
+				uint32_t stride = 0;
+				VkVertexInputRate input_rate;
+			};
+
+
+			eastl::fixed_map<uint32_t, BindingState, 16> binding_states;
+			
+
+			int location = 0;
+			for (const auto &input : description.vertex_inputs_descriptions.inputs)
+			{
+				auto &state = binding_states[input.vertex_buffer_slot];
+
 				auto &attribute = vertex_input_attribute_descriptions.emplace_back();
-				attribute.binding = 0;
+				attribute.binding = input.vertex_buffer_slot;
 				attribute.location = location;
 				attribute.format = VulkanUtils::getNativeFormat(input.format);
-				attribute.offset = offset;
+				attribute.offset = state.stride;
 
-				offset += VulkanUtils::getFormatSize(input.format);
-				offset = Math::alignedSize(offset, 16);
+				uint32_t format_size = VulkanUtils::getFormatSize(input.format);
+				state.stride += format_size;
+				state.input_rate = input.per_instance ? VK_VERTEX_INPUT_RATE_INSTANCE : VK_VERTEX_INPUT_RATE_VERTEX;
 				location++;
 			}
 
+			eastl::fixed_vector<uint32_t, 16> bindings;
+			for (const auto &[binding, state] : binding_states)
+			{
+				VkVertexInputBindingDescription &desc = vertex_input_binding_descriptions.emplace_back();
+				desc.binding = binding;
+				desc.stride = state.stride;
+				desc.inputRate = state.input_rate;
+			}
 
-			vertex_input_binding_description.binding = 0;
-			vertex_input_binding_description.stride = offset;
-			vertex_input_binding_description.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-			vertex_input_info.vertexBindingDescriptionCount = 1;
-			vertex_input_info.pVertexBindingDescriptions = &vertex_input_binding_description;
+			vertex_input_info.vertexBindingDescriptionCount = vertex_input_binding_descriptions.size();
+			vertex_input_info.pVertexBindingDescriptions = vertex_input_binding_descriptions.data();
 			vertex_input_info.vertexAttributeDescriptionCount = vertex_input_attribute_descriptions.size();
 			vertex_input_info.pVertexAttributeDescriptions = vertex_input_attribute_descriptions.data();
 		} else

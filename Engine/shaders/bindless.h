@@ -24,5 +24,12 @@ float4 SampleTextureArray(uint index, float3 uvw, SamplerState sampler)
 float4 SampleTextureLevel(uint index, float2 uv, int lod)
 {
     Texture2D tex = ResourceDescriptorHeap[index];
-    return tex.SampleLevel(linear_wrap_sampler, uv, 0);
+    return tex.SampleLevel(linear_wrap_sampler, uv, lod);
+}
+
+
+float4 SampleTextureLevel(uint index, float2 uv, int lod, SamplerState sampler)
+{
+    Texture2D tex = ResourceDescriptorHeap[index];
+    return tex.SampleLevel(sampler, uv, lod);
 }
