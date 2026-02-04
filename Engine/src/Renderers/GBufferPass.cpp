@@ -13,38 +13,14 @@ GBufferPass::GBufferPass()
 	gbuffer_fragment_shader = gDynamicRHI->createShader(L"shaders/opaque.hlsl", FRAGMENT_SHADER);
 }
 
-void GBufferPass::addPass(FrameGraph &fg, uint32_t max_draw_calls_count, RHIBufferRef instances_pass_masks_gpu)
+void GBufferPass::addPass(FrameGraph &fg, uint32_t max_draw_calls_count)
 {
-	auto fill_buffer = [](RHIBufferRef &buffer, void *data, size_t count, size_t stride, const char *name, BufferUsage usage = BufferUsage::SHADER_READ_BUFFER, bool use_staging = false)
-	{
-		uint32_t buffer_size = count * stride;
-		if (!buffer || buffer->getSize() < buffer_size)
-		{
-			BufferDescription desc;
-			desc.size = buffer_size;
-			desc.usage = usage;
-			desc.use_staging_buffer = use_staging;
-			desc.storage_stride = stride;
-			buffer = gDynamicRHI->createBuffer(desc);
-			buffer->setDebugName(name);
-		}
-
-		if (data)
-			buffer->fill(data);
-	};
-
-	fill_buffer(draw_indexed_args_gpu, nullptr, max_draw_calls_count, sizeof(DrawIndexedIndirect), "Draw Indexed Args Buffer", BufferUsage::INDIRECT_ARGS_BUFFER | BufferUsage::SHADER_WRITE_BUFFER, true);
-	fill_buffer(draw_indexed_count_gpu, nullptr, 1, sizeof(uint32_t), "Draw Indexed Count Buffer", BufferUsage::INDIRECT_ARGS_BUFFER | BufferUsage::SHADER_WRITE_BUFFER, true);
-	fill_buffer(draw_calls_instances_gpu, nullptr, max_draw_calls_count, sizeof(uint32_t), "Indirect Instances Buffer", BufferUsage::VERTEX_BUFFER | BufferUsage::SHADER_WRITE_BUFFER, true);
-
-	fill_buffer(indirect_visibility_gpu, nullptr, max_draw_calls_count,  sizeof(uint32_t), "Indirect Visibility Buffer", BufferUsage::SHADER_WRITE_BUFFER, true);
-
 	// Render previously visible objects & frustum gpu_pass_cull them
-	gpu_pass_cull(fg, false, max_draw_calls_count, instances_pass_masks_gpu);
+	gpu_pass_cull(fg, false, max_draw_calls_count);
 	render_pass(fg, max_draw_calls_count);
 
-	fg.addCallbackPass<EmptyData>("HiZ Pass",
-	[&](RenderPassBuilder &builder, EmptyData &data)
+	fg.addCallbackPass("HiZ Pass",
+	[&](RenderPassBuilder &builder)
 	{
 		glm::ivec2 gbuffer_size = Renderer::getViewportSize();
 
@@ -57,11 +33,11 @@ void GBufferPass::addPass(FrameGraph &fg, uint32_t max_draw_calls_count, RHIBuff
 		desc.height = 1 << (mips.y - 1);
 
 		builder.createTexture(GFXRID(HiZ), desc);
-		builder.writeUAVTexture(GFXRID(HiZ), TEXTURE_RESOURCE_ACCESS_GENERAL);
+		builder.writeUAVTexture(GFXRID(HiZ));
 
 		builder.readTexture(GFXRID(GBufferDepth));
 	},
-	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
+	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
 		RHITexture *depth = resources.getTexture(GFXRID(GBufferDepth));
 		RHITexture *hiz = resources.getTexture(GFXRID(HiZ));
@@ -79,7 +55,7 @@ void GBufferPass::addPass(FrameGraph &fg, uint32_t max_draw_calls_count, RHIBuff
 		for (int mip = 0; mip < hiz->getMipLevels(); mip++)
 		{
 			if (mip == 0)
-				constants.depth_tex_id = resources.getBindlessId(GFXRID(GBufferDepth));
+				constants.depth_tex_id = resources.getReadTexture(GFXRID(GBufferDepth));
 			else
 			{
 				constants.depth_tex_id = hiz->getShaderResourceView(mip - 1)->getBindlessIndex();
@@ -98,47 +74,59 @@ void GBufferPass::addPass(FrameGraph &fg, uint32_t max_draw_calls_count, RHIBuff
 	// Render previously not visible objects & frustum, hiz gpu_pass_cull them
 	if (!render_freeze_culling)
 	{
-		gpu_pass_cull(fg, true, max_draw_calls_count, instances_pass_masks_gpu);
+		gpu_pass_cull(fg, true, max_draw_calls_count);
 		render_pass(fg, max_draw_calls_count);
 	}
 }
 
-void GBufferPass::gpu_pass_cull(FrameGraph &fg, bool is_late, uint32_t max_draw_calls_count, RHIBufferRef instances_pass_masks_gpu)
+void GBufferPass::gpu_pass_cull(FrameGraph &fg, bool is_late, uint32_t max_draw_calls_count)
 {
-	fg.addCallbackPass<EmptyData>("Create DrawCalls Pass",
-	[&](RenderPassBuilder &builder, EmptyData &data)
+	fg.addCallbackPass("Init DrawCalls Pass",
+	[&](RenderPassBuilder &builder)
 	{
-		builder.setSideEffect(true);
+		if (!is_late)
+		{
+			builder.createBuffer(GFXRID(DrawIndexedCount), sizeof(uint32_t), 1, BufferUsage::INDIRECT_ARGS_BUFFER | BufferUsage::SHADER_WRITE_BUFFER);
+		}
+
+		builder.writeBuffer(GFXRID(DrawIndexedCount));
+	},
+	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
+	{
+		struct Constants
+		{
+			uint32_t draw_calls_count_buffer_id;
+		} constants;
+		constants.draw_calls_count_buffer_id = resources.getReadWriteBuffer(GFXRID(DrawIndexedCount));
+
+		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/gpu_driven/init_draw_calls.hlsl", COMPUTE_SHADER));
+		gGlobalPipeline->flushAndBind(cmd_list);
+
+		gDynamicRHI->setConstantBufferData(0, &constants, sizeof(constants));
+		cmd_list->dispatch(1, 1, 1);
+	});
+
+	fg.addCallbackPass("Create DrawCalls Pass",
+	[&](RenderPassBuilder &builder)
+	{
+		if (!is_late)
+		{
+			builder.createBuffer(GFXRID(DrawIndexedArgs), sizeof(DrawIndexedIndirect), max_draw_calls_count, BufferUsage::INDIRECT_ARGS_BUFFER | BufferUsage::SHADER_WRITE_BUFFER);
+			builder.createBuffer(GFXRID(DrawCallsInstances), sizeof(uint32_t), max_draw_calls_count, BufferUsage::VERTEX_BUFFER | BufferUsage::SHADER_WRITE_BUFFER);
+			builder.createBuffer(GFXRID(IndirectVisibility), sizeof(uint32_t), max_draw_calls_count, BufferUsage::SHADER_WRITE_BUFFER);
+		}
+
+		builder.writeBuffer(GFXRID(DrawIndexedArgs));
+		builder.writeBuffer(GFXRID(DrawIndexedCount));
+		builder.writeBuffer(GFXRID(DrawCallsInstances));
+		builder.writeBuffer(GFXRID(IndirectVisibility));
+		builder.readBuffer(GFXRID(InstancesPassMask));
 
 		if (is_late)
 			builder.readTexture(GFXRID(HiZ));
 	},
-	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
+	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		draw_indexed_args_gpu->transitState(ResourceState::UAV);
-		draw_indexed_count_gpu->transitState(ResourceState::UAV);
-		draw_calls_instances_gpu->transitState(ResourceState::UAV);
-		indirect_visibility_gpu->transitState(ResourceState::UAV);
-
-		{
-			struct Constants
-			{
-				uint32_t draw_calls_count_buffer_id;
-			} constants;
-			constants.draw_calls_count_buffer_id = draw_indexed_count_gpu->getUnorderedAccessView()->getBindlessIndex();
-
-			gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/gpu_driven/init_draw_calls.hlsl", COMPUTE_SHADER));
-			gGlobalPipeline->flushAndBind(cmd_list);
-
-			gDynamicRHI->setConstantBufferData(0, &constants, sizeof(constants));
-			cmd_list->dispatch(1, 1, 1);
-		}
-
-		draw_indexed_args_gpu->transitState(ResourceState::UAV);
-		draw_indexed_count_gpu->transitState(ResourceState::UAV);
-		draw_calls_instances_gpu->transitState(ResourceState::UAV);
-		indirect_visibility_gpu->transitState(ResourceState::UAV);
-
 		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/gpu_driven/create_draw_calls.hlsl", COMPUTE_SHADER, "CSMain", 
 											  {{"IS_LATE", is_late ? "1" : "0"},
 											  {"FREEZE_CULLING", render_freeze_culling ? "1" : "0"},
@@ -163,11 +151,11 @@ void GBufferPass::gpu_pass_cull(FrameGraph &fg, bool is_late, uint32_t max_draw_
 		} constants;
 
 		constants.frustum_view_projection = Renderer::getCamera()->getProj() * Renderer::getCamera()->getView();
-		constants.draw_indexed_args_buffer_id = draw_indexed_args_gpu->getUnorderedAccessView()->getBindlessIndex();
-		constants.draw_indexed_count_buffer_id = draw_indexed_count_gpu->getUnorderedAccessView()->getBindlessIndex();
-		constants.draw_calls_indirect_instances_buffer_id = draw_calls_instances_gpu->getUnorderedAccessView()->getBindlessIndex();
-		constants.instances_visibility_buffer_id = indirect_visibility_gpu->getUnorderedAccessView()->getBindlessIndex();
-		constants.instances_pass_mask_buffer_id = instances_pass_masks_gpu->getUnorderedAccessView()->getBindlessIndex();
+		constants.draw_indexed_args_buffer_id = resources.getReadWriteBuffer(GFXRID(DrawIndexedArgs));
+		constants.draw_indexed_count_buffer_id = resources.getReadWriteBuffer(GFXRID(DrawIndexedCount));
+		constants.draw_calls_indirect_instances_buffer_id = resources.getReadWriteBuffer(GFXRID(DrawCallsInstances));
+		constants.instances_visibility_buffer_id = resources.getReadWriteBuffer(GFXRID(IndirectVisibility));
+		constants.instances_pass_mask_buffer_id = resources.getReadWriteBuffer(GFXRID(InstancesPassMask));
 		constants.instances_count = max_draw_calls_count;
 		if (is_late)
 		{
@@ -183,8 +171,6 @@ void GBufferPass::gpu_pass_cull(FrameGraph &fg, bool is_late, uint32_t max_draw_
 
 		int num_groups = ceil(constants.instances_count / 32.0f);
 		cmd_list->dispatch(num_groups, 1, 1);
-		instances_pass_masks_gpu->transitState(ResourceState::UAV);
-		indirect_visibility_gpu->transitState(ResourceState::UAV);
 	});
 }
 
@@ -192,10 +178,6 @@ void GBufferPass::render_pass(FrameGraph &fg, uint32_t max_draw_calls_count)
 {
 	struct GBufferData
 	{
-		FrameGraphTextureId albedo;
-		FrameGraphTextureId normal;
-		FrameGraphTextureId depth;
-		FrameGraphTextureId shading;
 		bool is_first_pass;
 	};
 
@@ -214,34 +196,35 @@ void GBufferPass::render_pass(FrameGraph &fg, uint32_t max_draw_calls_count)
 			builder.createTexture(GFXRID(GBufferDepth), gbuffer_size.x, gbuffer_size.y, FORMAT_D32S8);
 		}
 
-		data.albedo = builder.writeTexture(GFXRID(GBufferAlbedo));
-		data.normal = builder.writeTexture(GFXRID(GBufferNormal));
-		data.shading = builder.writeTexture(GFXRID(GBufferShading));
-		data.depth = builder.writeTexture(GFXRID(GBufferDepth));
+		builder.writeTexture(GFXRID(GBufferAlbedo));
+		builder.writeTexture(GFXRID(GBufferNormal));
+		builder.writeTexture(GFXRID(GBufferShading));
+		builder.writeTexture(GFXRID(GBufferDepth));
+
+		builder.readIndirectArgsBuffer(GFXRID(DrawIndexedArgs));
+		builder.readIndirectArgsBuffer(GFXRID(DrawIndexedCount));
+		builder.readVertexBuffer(GFXRID(DrawCallsInstances));
 	},
 	[=](const GBufferData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		auto albedo = resources.getTexture(data.albedo);
-		auto normal = resources.getTexture(data.normal);
-		auto depth = resources.getTexture(data.depth);
-		auto shading = resources.getTexture(data.shading);
+		auto albedo = resources.getTexture(GFXRID(GBufferAlbedo));
+		auto normal = resources.getTexture(GFXRID(GBufferNormal));
+		auto shading = resources.getTexture(GFXRID(GBufferShading));
+		auto depth = resources.getTexture(GFXRID(GBufferDepth));
 
 		// Render meshes into gbuffer
 		VertexInputsDescription inputs_desc;
 		inputs_desc.inputs.push_back({"INSTANCE_ID", 1, FORMAT_R32_UINT, true});
 
 		cmd_list->setVertexBuffer(GlobalBufferCache::getGlobalVertexBuffer(), 0, sizeof(Engine::Vertex), 0);
-		cmd_list->setVertexBuffer(draw_calls_instances_gpu, 0, sizeof(uint32_t), 1);
+		cmd_list->setVertexBuffer(resources.getBuffer(GFXRID(DrawCallsInstances)), 0, sizeof(uint32_t), 1);
 		cmd_list->setIndexBuffer(GlobalBufferCache::getGlobalIndexBuffer(), 0, IndexFormat::UINT32);
 		
-		draw_indexed_args_gpu->transitState(ResourceState::INDIRECT_ARGS);
-		draw_indexed_count_gpu->transitState(ResourceState::INDIRECT_ARGS);
-
 		cmd_list->setRenderTargets({albedo, normal, shading}, {depth}, 0, 0, data.is_first_pass);
 		gGlobalPipeline->setupGraphicsPipeline(cmd_list, gbuffer_vertex_shader, gbuffer_fragment_shader, inputs_desc, false, true, CULL_MODE_BACK);
 		gGlobalPipeline->flushAndBind(cmd_list);
 
-		cmd_list->drawIndexedIndirect(draw_indexed_args_gpu, max_draw_calls_count, draw_indexed_count_gpu);
+		cmd_list->drawIndexedIndirect(resources.getBuffer(GFXRID(DrawIndexedArgs)), max_draw_calls_count, resources.getBuffer(GFXRID(DrawIndexedCount)));
 
 		cmd_list->resetRenderTargets();
 	});

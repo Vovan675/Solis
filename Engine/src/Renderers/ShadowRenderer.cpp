@@ -37,16 +37,11 @@ ShadowRenderer::ShadowRenderer()
 	}
 }
 
-void ShadowRenderer::addShadowMapPasses(FrameGraph &fg, uint32_t max_draw_calls_count, RHIBufferRef instances_pass_masks_gpu)
+void ShadowRenderer::addShadowMapPasses(FrameGraph &fg, uint32_t max_draw_calls_count)
 {
 	auto light_entities_id = Scene::getCurrentScene()->getEntitiesWith<LightComponent>();
 
 	ShadowPasses &shadow_passes = fg.getBlackboard().add<ShadowPasses>();
-
-	struct ShadowPassData
-	{
-		FrameGraphTextureId shadow_map;
-	};
 
 	for (entt::entity light_entity_id : light_entities_id)
 	{
@@ -69,7 +64,8 @@ void ShadowRenderer::addShadowMapPasses(FrameGraph &fg, uint32_t max_draw_calls_
 			faces_transforms.push_back(glm::lookAtLH(position, position + glm::vec3(0, 0, -1), glm::vec3(0, 1, 0)));
 
 
-			FrameGraphTextureId shadow_map_resource = fg.importTexture(GraphicsResourceName((eastl::string("Shadow Map ") + eastl::to_string((uint32_t)light_entity_id)).c_str()), light.shadow_map);
+			GraphicsResourceName shadow_map_resource = GFXRID_ID(ShadowMap, (uint32_t)light_entity_id);
+			fg.importTexture(shadow_map_resource, light.shadow_map);
 
 			for (int face_ = 0; face_ < 6; face_++)
 			{
@@ -77,29 +73,30 @@ void ShadowRenderer::addShadowMapPasses(FrameGraph &fg, uint32_t max_draw_calls_
 
 				glm::mat4 light_projection = glm::perspectiveLH(glm::radians(90.0f), 1.0f, 0.05f, light.radius);
 				glm::mat4 light_view_projection = light_projection * faces_transforms[face];
-				DrawCallsArguments draw_calls_args = create_draw_calls(fg, max_draw_calls_count, instances_pass_masks_gpu, PASS_MASK_POINT_SHADOW, light_view_projection);
+				create_draw_calls(fg, max_draw_calls_count, PASS_MASK_POINT_SHADOW, light_view_projection);
 
-				fg.addCallbackPass<ShadowPassData>("Cube Shadow Map Pass",
-				[&](RenderPassBuilder &builder, ShadowPassData &data)
+				fg.addCallbackPass("Cube Shadow Map Pass",
+				[&](RenderPassBuilder &builder)
 				{
-					data.shadow_map = builder.writeTexture(shadow_map_resource);
+					builder.writeTexture(shadow_map_resource);
 					if (face == 0)
-						shadow_passes.shadow_maps.push_back(data.shadow_map);
+						shadow_passes.shadow_maps.push_back(shadow_map_resource);
+
+					builder.readIndirectArgsBuffer(GFXRID(DrawIndexedArgs));
+					builder.readIndirectArgsBuffer(GFXRID(DrawIndexedCount));
+					builder.readVertexBuffer(GFXRID(DrawCallsInstances));
 				},
-				[=](const ShadowPassData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
+				[=](const RenderPassResources &resources, RHICommandList *cmd_list)
 				{
 					// Render
-					auto shadow_map = resources.getTexture(data.shadow_map);
+					auto shadow_map = resources.getTexture(shadow_map_resource);
 
 					VertexInputsDescription inputs_desc;
 					inputs_desc.inputs.push_back({"INSTANCE_ID", 1, FORMAT_R32_UINT, true});
 
 					cmd_list->setVertexBuffer(GlobalBufferCache::getGlobalVertexBuffer(), 0, sizeof(Engine::Vertex), 0);
-					cmd_list->setVertexBuffer(draw_calls_args.draw_calls_instances_gpu, 0, sizeof(uint32_t), 1);
+					cmd_list->setVertexBuffer(resources.getBuffer(GFXRID(DrawCallsInstances)), 0, sizeof(uint32_t), 1);
 					cmd_list->setIndexBuffer(GlobalBufferCache::getGlobalIndexBuffer(), 0, IndexFormat::UINT32);
-
-					draw_calls_args.draw_indexed_args_gpu->transitState(ResourceState::INDIRECT_ARGS);
-					draw_calls_args.draw_indexed_count_gpu->transitState(ResourceState::INDIRECT_ARGS);
 
 					cmd_list->setRenderTargets({}, shadow_map, face, 0, true, 1.0f);
 					gGlobalPipeline->setupGraphicsPipeline(cmd_list, shadows_vertex_shader, shadows_fragment_shader_point, inputs_desc, false, true, CULL_MODE_FRONT);
@@ -113,42 +110,44 @@ void ShadowRenderer::addShadowMapPasses(FrameGraph &fg, uint32_t max_draw_calls_
 
 					gDynamicRHI->setConstantBufferData(1, &ubo, sizeof(EntityRenderer::ShadowUBO));
 
-					cmd_list->drawIndexedIndirect(draw_calls_args.draw_indexed_args_gpu, max_draw_calls_count, draw_calls_args.draw_indexed_count_gpu);
+					cmd_list->drawIndexedIndirect(resources.getBuffer(GFXRID(DrawIndexedArgs)), max_draw_calls_count, resources.getBuffer(GFXRID(DrawIndexedCount)));
 
 					cmd_list->resetRenderTargets();
 				});
 			}
 		} else
 		{
-			FrameGraphTextureId shadow_map_resource = fg.importTexture(GraphicsResourceName((eastl::string("Shadow Map ") + eastl::to_string((uint32_t)light_entity_id)).c_str()), light.shadow_map);
+			GraphicsResourceName shadow_map_resource = GFXRID_ID(ShadowMap, (uint32_t)light_entity_id);
+			fg.importTexture(shadow_map_resource, light.shadow_map);
 
 			for (int i_ = 0; i_ < SHADOW_MAP_CASCADE_COUNT; i_++)
 			{
 				int cascade = i_;
-				DrawCallsArguments draw_calls_args = create_draw_calls(fg, max_draw_calls_count, instances_pass_masks_gpu, PASS_MASK_DIRECTIONAL_SHADOW, light.cascades[cascade].viewProjMatrix);
+				create_draw_calls(fg, max_draw_calls_count, PASS_MASK_DIRECTIONAL_SHADOW, light.cascades[cascade].viewProjMatrix);
 
-				fg.addCallbackPass<ShadowPassData>("Cascaded Shadows Pass",
-				[&](RenderPassBuilder &builder, ShadowPassData &data)
+				fg.addCallbackPass("Cascaded Shadows Pass",
+				[&](RenderPassBuilder &builder)
 				{
-					data.shadow_map = builder.writeTexture(shadow_map_resource);
+					builder.writeTexture(shadow_map_resource);
 					if (cascade == 0)
-						shadow_passes.shadow_maps.push_back(data.shadow_map);
+						shadow_passes.shadow_maps.push_back(shadow_map_resource);
+
+					builder.readIndirectArgsBuffer(GFXRID(DrawIndexedArgs));
+					builder.readIndirectArgsBuffer(GFXRID(DrawIndexedCount));
+					builder.readVertexBuffer(GFXRID(DrawCallsInstances));
 				},
-				[=, &light](const ShadowPassData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
+				[=, &light](const RenderPassResources &resources, RHICommandList *cmd_list)
 				{
 					// Render
-					auto shadow_map = resources.getTexture(data.shadow_map);
+					auto shadow_map = resources.getTexture(shadow_map_resource);
 					glm::mat4 light_matrix = light.cascades[cascade].viewProjMatrix;
 
 					VertexInputsDescription inputs_desc;
 					inputs_desc.inputs.push_back({"INSTANCE_ID", 1, FORMAT_R32_UINT, true});
 
 					cmd_list->setVertexBuffer(GlobalBufferCache::getGlobalVertexBuffer(), 0, sizeof(Engine::Vertex), 0);
-					cmd_list->setVertexBuffer(draw_calls_args.draw_calls_instances_gpu, 0, sizeof(uint32_t), 1);
+					cmd_list->setVertexBuffer(resources.getBuffer(GFXRID(DrawCallsInstances)), 0, sizeof(uint32_t), 1);
 					cmd_list->setIndexBuffer(GlobalBufferCache::getGlobalIndexBuffer(), 0, IndexFormat::UINT32);
-
-					draw_calls_args.draw_indexed_args_gpu->transitState(ResourceState::INDIRECT_ARGS);
-					draw_calls_args.draw_indexed_count_gpu->transitState(ResourceState::INDIRECT_ARGS);
 
 					cmd_list->setRenderTargets({}, shadow_map, cascade, 0, true, 1.0f);
 					gGlobalPipeline->setupGraphicsPipeline(cmd_list, shadows_vertex_shader, shadows_fragment_shader_directional, inputs_desc, false, true, CULL_MODE_FRONT);
@@ -162,7 +161,7 @@ void ShadowRenderer::addShadowMapPasses(FrameGraph &fg, uint32_t max_draw_calls_
 
 					gDynamicRHI->setConstantBufferData(1, &ubo, sizeof(EntityRenderer::ShadowUBO));
 
-					cmd_list->drawIndexedIndirect(draw_calls_args.draw_indexed_args_gpu, max_draw_calls_count, draw_calls_args.draw_indexed_count_gpu);
+					cmd_list->drawIndexedIndirect(resources.getBuffer(GFXRID(DrawIndexedArgs)), max_draw_calls_count, resources.getBuffer(GFXRID(DrawIndexedCount)));
 
 					cmd_list->resetRenderTargets();
 				});
@@ -176,19 +175,17 @@ void ShadowRenderer::addRayTracedShadowPasses(FrameGraph & fg, Ref<RayTracingSce
 	if (!rt_scene || !rt_scene->getTopLevelAS())
 		return;
 
-	RayTracedShadowPass &shadow_pass = fg.getBlackboard().add<RayTracedShadowPass>();
-
-	shadow_pass = fg.addCallbackPass<RayTracedShadowPass>("Ray Traced Shadows Pass",
-	[&](RenderPassBuilder &builder, RayTracedShadowPass &data)
+	fg.addCallbackPass("Ray Traced Shadows Pass",
+	[&](RenderPassBuilder &builder)
 	{
-		data.visibility = builder.createTexture("Ray Traced Lighting Image", Renderer::getViewportWidth(), Renderer::getViewportHeight(), gDynamicRHI->getSwapchainTexture(0)->getDescription().format);
-		data.visibility = builder.writeUAVTexture(data.visibility, TEXTURE_RESOURCE_ACCESS_GENERAL); // was transfer
+		builder.createTexture(GFXRID(RayTracedVisibility), Renderer::getViewportWidth(), Renderer::getViewportHeight(), gDynamicRHI->getSwapchainTexture(0)->getDescription().format);
+		builder.writeUAVTexture(GFXRID(RayTracedVisibility)); // was transfer
 
 		builder.readTexture(GFXRID(GBufferDepth));
 	},
-	[=](const RayTracedShadowPass &data, const RenderPassResources &resources, RHICommandList *cmd_list)
+	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		auto visiblity = resources.getTexture(data.visibility);
+		auto visiblity = resources.getTexture(GFXRID(RayTracedVisibility));
 
 		gGlobalPipeline->setupRayTracing(raygen_shader, miss_shader, closest_hit_shader);
 		gGlobalPipeline->flushAndBind(cmd_list);
@@ -216,7 +213,7 @@ void ShadowRenderer::addRayTracedShadowPasses(FrameGraph & fg, Ref<RayTracingSce
 			}
 		}
 
-		ubo_light.depth_texture_id = resources.getBindlessId(GFXRID(GBufferDepth));
+		ubo_light.depth_texture_id = resources.getReadTexture(GFXRID(GBufferDepth));
 
 		auto ray_traced_lighting = visiblity;
 		ubo_light.output_texture_id = ray_traced_lighting->getUnorderedAccessView()->getBindlessIndex();
@@ -362,62 +359,40 @@ void ShadowRenderer::update_cascades(LightComponent &light, glm::vec3 light_dir,
 	}
 }
 
-ShadowRenderer::DrawCallsArguments &ShadowRenderer::create_draw_calls(FrameGraph &fg, uint32_t max_draw_calls_count, RHIBufferRef instances_pass_masks_gpu, uint32_t pass_mask, glm::float4x4 view_projection)
+void ShadowRenderer::create_draw_calls(FrameGraph &fg, uint32_t max_draw_calls_count, uint32_t pass_mask, glm::float4x4 view_projection)
 {
-	auto fill_buffer = [](RHIBufferRef &buffer, void *data, size_t count, size_t stride, const char *name, BufferUsage usage = BufferUsage::SHADER_READ_BUFFER, bool use_staging = false)
+	fg.addCallbackPass("Init DrawCalls Pass",
+	[&](RenderPassBuilder &builder)
 	{
-		uint32_t buffer_size = count * stride;
-		if (!buffer || buffer->getSize() < buffer_size)
-		{
-			BufferDescription desc;
-			desc.size = buffer_size;
-			desc.usage = usage;
-			desc.use_staging_buffer = use_staging;
-			desc.storage_stride = stride;
-			buffer = gDynamicRHI->createBuffer(desc);
-			buffer->setDebugName(name);
-		}
-
-		if (data)
-			buffer->fill(data);
-	};
-
-	fill_buffer(arguments.draw_indexed_args_gpu, nullptr, max_draw_calls_count, sizeof(DrawIndexedIndirect), "Draw Indexed Args", BufferUsage::INDIRECT_ARGS_BUFFER | BufferUsage::SHADER_WRITE_BUFFER, true);
-	fill_buffer(arguments.draw_indexed_count_gpu, nullptr, 1, sizeof(uint32_t), "Draw Indexed Count", BufferUsage::INDIRECT_ARGS_BUFFER | BufferUsage::SHADER_WRITE_BUFFER, true);
-	fill_buffer(arguments.draw_calls_instances_gpu, nullptr, max_draw_calls_count, sizeof(uint32_t), "Draw Calls Instances", BufferUsage::VERTEX_BUFFER | BufferUsage::SHADER_WRITE_BUFFER, true);
-
-	fg.addCallbackPass<EmptyData>("Create Draw Calls Pass (Shadows)",
-	[&](RenderPassBuilder &builder, EmptyData &data)
-	{
-		builder.setSideEffect(true);
+		builder.writeBuffer(GFXRID(DrawIndexedCount));
 	},
-	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
+	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		arguments.draw_indexed_args_gpu->transitState(ResourceState::UAV);
-		arguments.draw_indexed_count_gpu->transitState(ResourceState::UAV);
-		arguments.draw_calls_instances_gpu->transitState(ResourceState::UAV);
-		instances_pass_masks_gpu->transitState(ResourceState::UAV);
-
+		struct Constants
 		{
-			struct Constants
-			{
-				uint32_t draw_calls_count_buffer_id;
-			} constants;
-			constants.draw_calls_count_buffer_id = arguments.draw_indexed_count_gpu->getUnorderedAccessView()->getBindlessIndex();
+			uint32_t draw_calls_count_buffer_id;
+		} constants;
+		constants.draw_calls_count_buffer_id = resources.getReadWriteBuffer(GFXRID(DrawIndexedCount));
 
-			gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/gpu_driven/init_draw_calls.hlsl", COMPUTE_SHADER));
-			gGlobalPipeline->flushAndBind(cmd_list);
+		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/gpu_driven/init_draw_calls.hlsl", COMPUTE_SHADER));
+		gGlobalPipeline->flushAndBind(cmd_list);
 
-			gDynamicRHI->setConstantBufferData(0, &constants, sizeof(constants));
-			cmd_list->dispatch(1, 1, 1);
-		}
+		gDynamicRHI->setConstantBufferData(0, &constants, sizeof(constants));
+		cmd_list->dispatch(1, 1, 1);
+	});
 
-		arguments.draw_indexed_args_gpu->transitState(ResourceState::UAV);
-		arguments.draw_indexed_count_gpu->transitState(ResourceState::UAV);
-		arguments.draw_calls_instances_gpu->transitState(ResourceState::UAV);
-
-		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/gpu_driven/create_draw_calls_shadows.hlsl", COMPUTE_SHADER, "CSMain", {{"IS_ORTHO_FRUSTUM", instances_pass_masks_gpu == PASS_MASK_DIRECTIONAL_SHADOW ? "1" : "0"}}));
-
+	fg.addCallbackPass("Create Draw Calls Pass (Shadows)",
+	[&](RenderPassBuilder &builder)
+	{
+		builder.writeBuffer(GFXRID(DrawIndexedArgs));
+		builder.writeBuffer(GFXRID(DrawIndexedCount));
+		builder.writeBuffer(GFXRID(DrawCallsInstances));
+		builder.writeBuffer(GFXRID(IndirectVisibility));
+		builder.readBuffer(GFXRID(InstancesPassMask));
+	},
+	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
+	{
+		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/gpu_driven/create_draw_calls_shadows.hlsl", COMPUTE_SHADER, "CSMain", {{"IS_ORTHO_FRUSTUM", pass_mask == PASS_MASK_DIRECTIONAL_SHADOW ? "1" : "0"}}));
 
 		gGlobalPipeline->flushAndBind(cmd_list);
 
@@ -434,10 +409,10 @@ ShadowRenderer::DrawCallsArguments &ShadowRenderer::create_draw_calls(FrameGraph
 		} constants;
 
 		constants.frustum_view_projection = view_projection;
-		constants.draw_indexed_args_buffer_id = arguments.draw_indexed_args_gpu->getUnorderedAccessView()->getBindlessIndex();
-		constants.draw_indexed_count_buffer_id = arguments.draw_indexed_count_gpu->getUnorderedAccessView()->getBindlessIndex();
-		constants.draw_calls_indirect_instances_buffer_id = arguments.draw_calls_instances_gpu->getUnorderedAccessView()->getBindlessIndex();
-		constants.instances_pass_mask_buffer_id = instances_pass_masks_gpu->getUnorderedAccessView()->getBindlessIndex();
+		constants.draw_indexed_args_buffer_id = resources.getReadWriteBuffer(GFXRID(DrawIndexedArgs));
+		constants.draw_indexed_count_buffer_id = resources.getReadWriteBuffer(GFXRID(DrawIndexedCount));
+		constants.draw_calls_indirect_instances_buffer_id = resources.getReadWriteBuffer(GFXRID(DrawCallsInstances));
+		constants.instances_pass_mask_buffer_id = resources.getReadWriteBuffer(GFXRID(InstancesPassMask));
 		constants.instances_count = max_draw_calls_count;
 		constants.current_pass_mask = pass_mask;
 
@@ -445,8 +420,5 @@ ShadowRenderer::DrawCallsArguments &ShadowRenderer::create_draw_calls(FrameGraph
 
 		int num_groups = ceil(constants.instances_count / 32.0f);
 		cmd_list->dispatch(num_groups, 1, 1);
-		instances_pass_masks_gpu->transitState(ResourceState::UAV);
 	});
-
-	return arguments;
 }

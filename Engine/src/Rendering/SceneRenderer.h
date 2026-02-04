@@ -56,7 +56,6 @@ public:
 	RHIBufferRef materials_gpu;
 	RHIBufferRef meshes_gpu;
 	RHIBufferRef instances_gpu;
-	RHIBufferRef instances_pass_masks_gpu;
 
 	uint32_t indirect_draw_calls_max_count;
 

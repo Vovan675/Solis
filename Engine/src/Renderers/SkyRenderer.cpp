@@ -35,12 +35,12 @@ void SkyRenderer::addProceduralPasses(FrameGraph &fg)
 		return;
 	prev_uniform = procedural_uniforms;
 
-	fg.addCallbackPass<EmptyData>("Sky Procedural Pass",
-	[&](RenderPassBuilder &builder, EmptyData &data)
+	fg.addCallbackPass("Sky Procedural Pass",
+	[&](RenderPassBuilder &builder)
 	{
 		builder.writeTexture(GFXRID(Sky));
 	},
-	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
+	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
 		auto sky = resources.getTexture(GFXRID(Sky));
 
@@ -76,15 +76,15 @@ void SkyRenderer::addCompositePasses(FrameGraph &fg)
 		
 
 	is_force_dirty = false;
-	fg.addCallbackPass<EmptyData>("Sky Pass",
-	[&](RenderPassBuilder &builder, EmptyData &data)
+	fg.addCallbackPass("Sky Pass",
+	[&](RenderPassBuilder &builder)
 	{
 		builder.setSideEffect(true); // TODO: remove
 		builder.writeTexture(GFXRID(FinalNoPostTexture));
 		builder.readTexture(GFXRID(Sky));
 		builder.readDepthTexture(GFXRID(GBufferDepth));
 	},
-	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
+	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
 		// Render
 		auto composite = resources.getTexture(GFXRID(FinalNoPostTexture));
@@ -107,7 +107,7 @@ void SkyRenderer::addCompositePasses(FrameGraph &fg)
 		{
 			uint32_t cubemap_tex_id;
 		} constants;
-		constants.cubemap_tex_id = resources.getBindlessId(GFXRID(Sky));
+		constants.cubemap_tex_id = resources.getReadTexture(GFXRID(Sky));
 		gDynamicRHI->setConstantBufferData(0, &constants, sizeof(Constants));
 
 		cmd_list->setVertexBuffer(mesh->vertexBuffer, 0, sizeof(Engine::Vertex));

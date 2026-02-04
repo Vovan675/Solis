@@ -26,6 +26,8 @@ public:
 
 	void transitState(ResourceState new_state) override;
 
+	bool isValid() const override { return resource != nullptr; }
+
 	RHIBufferView *getShaderResourceView() override;
 	RHIBufferView *getUnorderedAccessView() override;
 

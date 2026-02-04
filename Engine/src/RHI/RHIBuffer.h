@@ -12,6 +12,7 @@ public:
 	virtual void map(void **data) = 0;
 	virtual void unmap() = 0;
 
+	const BufferDescription &getDescription() const { return description; }
 	uint64_t getSize() const { return description.size; }
 	BufferUsage getUsage() const { return description.usage; }
 	uint32_t getStride() const { return description.storage_stride; }
@@ -19,6 +20,8 @@ public:
 	virtual uint64_t getGPUAddress() const = 0;
 
 	virtual void transitState(ResourceState new_state) = 0;
+
+	virtual bool isValid() const { return true; }
 
 	virtual RHIBufferView *getShaderResourceView() = 0;
 	virtual RHIBufferView *getUnorderedAccessView() = 0;

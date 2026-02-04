@@ -70,8 +70,8 @@ void PostProcessingRenderer::addFilmPass(FrameGraph &fg)
 
 	struct PassData
 	{
-		FrameGraphTextureId input;
-		FrameGraphTextureId output;
+		GraphicsResourceName input;
+		GraphicsResourceName output;
 	};
 
 	fg.addCallbackPass<PassData>("Film Pass",
@@ -82,8 +82,11 @@ void PostProcessingRenderer::addFilmPass(FrameGraph &fg)
 			auto &output_desc = builder.getTextureDescription(last_output);
 			builder.createTexture(GFXRID(FilmPassOutput), output_desc.width, output_desc.height, output_desc.format);
 		}
-		data.output = builder.writeTexture(output);
-		data.input = builder.readTexture(last_output);
+		builder.writeTexture(output);
+		builder.readTexture(last_output);
+
+		data.output = output;
+		data.input = last_output;
 	},
 	[=](const PassData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
@@ -94,7 +97,7 @@ void PostProcessingRenderer::addFilmPass(FrameGraph &fg)
 		// PSO
 		gGlobalPipeline->bindScreenQuadPipeline(cmd_list, gDynamicRHI->createShader(L"shaders/film.hlsl", FRAGMENT_SHADER));
 
-		film_ubo.composite_final_tex_id = resources.getBindlessId(data.input);
+		film_ubo.composite_final_tex_id = resources.getReadTexture(data.input);
 
 		gDynamicRHI->setConstantBufferData(0, &film_ubo, sizeof(FilmUBO));
 
@@ -104,18 +107,19 @@ void PostProcessingRenderer::addFilmPass(FrameGraph &fg)
 	});
 
 	last_output = GFXRID(FilmPassOutput);
+	last_output = GraphicsResourceName("FilmPassOutput", crc::crc32("FilmPassOutput"));
 }
 
 void PostProcessingRenderer::addFxaaPass(FrameGraph &fg)
 {
-	fg.addCallbackPass<EmptyData>("FXAA Pass",
-	[&](RenderPassBuilder &builder, EmptyData &data)
+	fg.addCallbackPass("FXAA Pass",
+	[&](RenderPassBuilder &builder)
 	{
 		builder.writeTexture(GFXRID(FinalTexture));
 
 		builder.readTexture(last_output);
 	},
-	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
+	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
 		// Render
 		auto final = resources.getTexture(GFXRID(FinalTexture));
@@ -129,7 +133,7 @@ void PostProcessingRenderer::addFxaaPass(FrameGraph &fg)
 		{
 			uint32_t composite_final_tex_id = 0;
 		} fxaa_ubo;
-		fxaa_ubo.composite_final_tex_id = resources.getBindlessId(last_output);
+		fxaa_ubo.composite_final_tex_id = resources.getReadTexture(last_output);
 
 		gDynamicRHI->setConstantBufferData(0, &fxaa_ubo, sizeof(UBO));
 

@@ -212,14 +212,14 @@ void EditorApplication::recordCommands(RHICommandList *cmd_list)
 	frameGraph.importTexture(GFXRID(FinalTexture), viewport_panel.viewport_texture);
 	frameGraph.importTexture(GFXRID(BackbufferTexture), gDynamicRHI->getCurrentSwapchainTexture());
 
-	frameGraph.addCallbackPass<EmptyData>("ImGui Pass",
-	[&](RenderPassBuilder &builder, EmptyData &data)
+	frameGraph.addCallbackPass("ImGui Pass",
+	[&](RenderPassBuilder &builder)
 	{
 		builder.readTexture(GFXRID(FinalTexture));
-		builder.writeTexture(GFXRID(BackbufferTexture), RenderPassNode::RESOURCE_ACCESS_IGNORE_FLAG);
+		builder.writeTexture(GFXRID(BackbufferTexture));
 		builder.setSideEffect(true);
 	},
-	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
+	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
 		auto final = resources.getTexture(GFXRID(FinalTexture));
 		auto backbuffer = resources.getTexture(GFXRID(BackbufferTexture));

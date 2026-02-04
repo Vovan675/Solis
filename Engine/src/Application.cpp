@@ -81,6 +81,14 @@ Application::Application(int argc, char *argv[])
 				engine_rhi_validation = std::stoi(enabled.c_str());
 				i++;
 			}
+		} else if (arg == "-rhi_validation_break")
+		{
+			if (i + 1 < argc)
+			{
+				eastl::string enabled = argv[i + 1];
+				engine_rhi_validation_break = std::stoi(enabled.c_str());
+				i++;
+			}
 		}
 	}
 

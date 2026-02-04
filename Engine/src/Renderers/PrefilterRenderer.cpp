@@ -24,20 +24,20 @@ PrefilterRenderer::PrefilterRenderer(): RendererBase()
 
 void PrefilterRenderer::addPass(FrameGraph &fg, uint32_t samples_count)
 {
-	fg.addCallbackPass<EmptyData>("IBL Prefilter Pass",
-	[&](RenderPassBuilder &builder, EmptyData &data)
+	fg.addCallbackPass("IBL Prefilter Pass",
+	[&](RenderPassBuilder &builder)
 	{
-		builder.writeTexture(GFXRID(IBLPrefilter), TEXTURE_RESOURCE_ACCESS_GENERAL);
+		builder.writeUAVTexture(GFXRID(IBLPrefilter));
 		builder.readTexture(GFXRID(Sky));
 	},
-	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
+	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
 		auto prefilter = resources.getTexture(GFXRID(IBLPrefilter));
 		auto sky = resources.getTexture(GFXRID(Sky));
 
 		const int MIP_COUNT = 5;
 
-		constants_frag.input_tex_id = resources.getBindlessId(GFXRID(Sky));
+		constants_frag.input_tex_id = resources.getReadTexture(GFXRID(Sky));
 		constants_frag.mip_count = MIP_COUNT;
 		constants_frag.samples_count = samples_count;
 

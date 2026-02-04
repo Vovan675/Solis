@@ -23,7 +23,7 @@ static RWStructuredBuffer<DrawIndexedIndirect> draw_indexed_args = ResourceDescr
 static RWStructuredBuffer<uint> draw_indexed_count  = ResourceDescriptorHeap[draw_indexed_count_buffer_id];
 static RWStructuredBuffer<uint> indirect_instances  = ResourceDescriptorHeap[draw_calls_indirect_instances_buffer_id];
 static RWByteAddressBuffer visibility_buffer = ResourceDescriptorHeap[instances_visibility_buffer_id];
-static RWByteAddressBuffer pass_mask_buffer = ResourceDescriptorHeap[instances_pass_mask_buffer_id];
+static ByteAddressBuffer pass_mask_buffer = ResourceDescriptorHeap[instances_pass_mask_buffer_id];
 
 [numthreads(32, 1, 1)]
 void CSMain(uint3 dispatchID : SV_DispatchThreadID)

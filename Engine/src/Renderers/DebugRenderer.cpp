@@ -244,9 +244,8 @@ void DebugRenderer::addArrow(glm::vec3 p0, glm::vec3 p1, float arrow_size)
 
 void DebugRenderer::addTextureDebugPass(FrameGraph &fg)
 {
-	auto *ray_tracing_shadows_data = fg.getBlackboard().tryGet<RayTracedShadowPass>();
-	fg.addCallbackPass<EmptyData>("Debug Pass",
-	[&](RenderPassBuilder &builder, EmptyData &data)
+	fg.addCallbackPass("Debug Pass",
+	[&](RenderPassBuilder &builder)
 	{
 		builder.writeTexture(GFXRID(FinalTexture));
 
@@ -268,36 +267,36 @@ void DebugRenderer::addTextureDebugPass(FrameGraph &fg)
 		if (builder.isTextureCreated(GFXRID(HiZ)))
 			builder.readTexture(GFXRID(HiZ));
 		builder.readTexture(GFXRID(FinalNoPostTexture));
-		if (ray_tracing_shadows_data)
-			builder.read(ray_tracing_shadows_data->visibility);
+		if (builder.isTextureCreated(GFXRID(RayTracedVisibility)))
+			builder.readTexture(GFXRID(RayTracedVisibility));
 	},
-	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
+	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
 		auto final = resources.getTexture(GFXRID(FinalTexture));
 
 		cmd_list->setRenderTargets({final}, nullptr, -1, 0, true);
 
-		ubo.albedo_tex_id = resources.getBindlessId(GFXRID(GBufferAlbedo));
-		ubo.shading_tex_id = resources.getBindlessId(GFXRID(GBufferShading));
-		ubo.normal_tex_id = resources.getBindlessId(GFXRID(GBufferNormal));
-		ubo.depth_tex_id = resources.getBindlessId(GFXRID(GBufferDepth));
-		ubo.light_diffuse_id = resources.getBindlessId(GFXRID(DiffuseLight));
-		ubo.light_specular_id = resources.getBindlessId(GFXRID(SpecularLight));
-		ubo.brdf_lut_id = resources.getBindlessId(GFXRID(LutBRDF));
+		ubo.albedo_tex_id = resources.getReadTexture(GFXRID(GBufferAlbedo));
+		ubo.shading_tex_id = resources.getReadTexture(GFXRID(GBufferShading));
+		ubo.normal_tex_id = resources.getReadTexture(GFXRID(GBufferNormal));
+		ubo.depth_tex_id = resources.getReadTexture(GFXRID(GBufferDepth));
+		ubo.light_diffuse_id = resources.getReadTexture(GFXRID(DiffuseLight));
+		ubo.light_specular_id = resources.getReadTexture(GFXRID(SpecularLight));
+		ubo.brdf_lut_id = resources.getReadTexture(GFXRID(LutBRDF));
 		if (resources.has(GFXRID(SSAOBlurred)))
-			ubo.ssao_id = resources.getBindlessId(GFXRID(SSAOBlurred));
+			ubo.ssao_id = resources.getReadTexture(GFXRID(SSAOBlurred));
 		else
 			ubo.ssao_id = 0;
-		ubo.ddgi_distance_tex_id = resources.has(GFXRID(DDGIDistance)) ? resources.getBindlessId(GFXRID(DDGIDistance)) : 0;
-		ubo.ddgi_irradiance_tex_id = resources.has(GFXRID(DDGIIrradiance)) ? resources.getBindlessId(GFXRID(DDGIIrradiance)) : 0;
-		ubo.ddgi_metadata_tex_id = resources.has(GFXRID(DDGIMetadata)) ? resources.getBindlessId(GFXRID(DDGIMetadata)) : 0;
-		ubo.composite_final_tex_id = resources.getBindlessId(GFXRID(FinalNoPostTexture));
+		ubo.ddgi_distance_tex_id = resources.has(GFXRID(DDGIDistance)) ? resources.getReadTexture(GFXRID(DDGIDistance)) : 0;
+		ubo.ddgi_irradiance_tex_id = resources.has(GFXRID(DDGIIrradiance)) ? resources.getReadTexture(GFXRID(DDGIIrradiance)) : 0;
+		ubo.ddgi_metadata_tex_id = resources.has(GFXRID(DDGIMetadata)) ? resources.getReadTexture(GFXRID(DDGIMetadata)) : 0;
+		ubo.composite_final_tex_id = resources.getReadTexture(GFXRID(FinalNoPostTexture));
 
-		if (ray_tracing_shadows_data)
-			ubo.light_diffuse_id = resources.getBindlessId(ray_tracing_shadows_data->visibility);
+		if (resources.has(GFXRID(RayTracedVisibility)))
+			ubo.light_diffuse_id = resources.getReadTexture(GFXRID(RayTracedVisibility));
 
 		if (resources.has(GFXRID(HiZ)))
-			ubo.hiz_tex_id = resources.getBindlessId(GFXRID(HiZ));
+			ubo.hiz_tex_id = resources.getReadTexture(GFXRID(HiZ));
 		else
 			ubo.hiz_tex_id = 0;
 
@@ -316,13 +315,13 @@ void DebugRenderer::addTextureDebugPass(FrameGraph &fg)
 
 void DebugRenderer::addVisualizerPass(FrameGraph & fg)
 {
-	fg.addCallbackPass<EmptyData>("Debug Visualizer Pass",
-	[&](RenderPassBuilder &builder, EmptyData &data)
+	fg.addCallbackPass("Debug Visualizer Pass",
+	[&](RenderPassBuilder &builder)
 	{
 		builder.writeTexture(GFXRID(FinalTexture));
 		builder.setSideEffect(true);
 	},
-	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
+	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
 		auto final = resources.getTexture(GFXRID(FinalTexture));
 
@@ -345,12 +344,12 @@ void DebugRenderer::addVisualizerPass(FrameGraph & fg)
 	});
 
 
-	fg.addCallbackPass<EmptyData>("Create Debug DrawCalls Pass",
-	[&](RenderPassBuilder &builder, EmptyData &data)
+	fg.addCallbackPass("Create Debug DrawCalls Pass",
+	[&](RenderPassBuilder &builder)
 	{
 		builder.setSideEffect(true);
 	},
-	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
+	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
 		lines_gpu_buffer->transitState(ResourceState::UAV);
 		lines_draw_args_buffer->transitState(ResourceState::UAV);
@@ -368,13 +367,13 @@ void DebugRenderer::addVisualizerPass(FrameGraph & fg)
 		cmd_list->dispatch(1, 1, 1);
 	});
 
-	fg.addCallbackPass<EmptyData>("Debug GPU Visualizer Pass",
-	[&](RenderPassBuilder &builder, EmptyData &data)
+	fg.addCallbackPass("Debug GPU Visualizer Pass",
+	[&](RenderPassBuilder &builder)
 	{
 		builder.writeTexture(GFXRID(FinalTexture));
 		builder.setSideEffect(true);
 	},
-	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
+	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
 		auto final = resources.getTexture(GFXRID(FinalTexture));
 

@@ -33,19 +33,16 @@ void PathTracingRenderer::addPass(FrameGraph &fg, Ref<RayTracingScene> rt_scene)
 		accumulation_frame = 0;
 	render_path_tracing_first_frame = false;
 
-	fg.addCallbackPass<EmptyData>("Path Tracing Pass",
-	[&](RenderPassBuilder &builder, EmptyData &data)
+	fg.addCallbackPass("Path Tracing Pass",
+	[&](RenderPassBuilder &builder)
 	{
 		builder.createTexture(GFXRID(FinalNoPostTexture), Renderer::getViewportWidth(), Renderer::getViewportHeight(), FORMAT_R16G16B16A16_UNORM);
-		builder.writeUAVTexture(GFXRID(FinalNoPostTexture), TEXTURE_RESOURCE_ACCESS_GENERAL);
-		builder.writeUAVTexture(GFXRID(PathTraceAccumulation), TEXTURE_RESOURCE_ACCESS_GENERAL);
+		builder.writeUAVTexture(GFXRID(FinalNoPostTexture));
+		builder.writeUAVTexture(GFXRID(PathTraceAccumulation));
 		builder.readTexture(GFXRID(Sky));
 	},
-	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
+	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		auto output = resources.getTexture(GFXRID(FinalNoPostTexture));
-		auto accumulation = resources.getTexture(GFXRID(PathTraceAccumulation));
-
 		gGlobalPipeline->setupRayTracing(L"shaders/rt/path_tracing.hlsl");
 		gGlobalPipeline->flushAndBind(cmd_list);
 
@@ -59,9 +56,9 @@ void PathTracingRenderer::addPass(FrameGraph &fg, Ref<RayTracingScene> rt_scene)
 			uint32_t accumulation_tex_id;
 		} light;
 		light.accumulation_frame = accumulation_frame;
-		light.environment_tex_id = resources.getBindlessId(GFXRID(Sky));
-		light.output_tex_id = output->getUnorderedAccessView()->getBindlessIndex();
-		light.accumulation_tex_id = accumulation->getUnorderedAccessView()->getBindlessIndex();
+		light.environment_tex_id = resources.getReadTexture(GFXRID(Sky));
+		light.output_tex_id = resources.getReadWriteTexture(GFXRID(FinalNoPostTexture));
+		light.accumulation_tex_id = resources.getReadWriteTexture(GFXRID(PathTraceAccumulation));
 
 		auto lights = Scene::getCurrentScene()->getEntitiesWith<LightComponent>().each();
 		for (auto &&[entity, light_component]: lights)

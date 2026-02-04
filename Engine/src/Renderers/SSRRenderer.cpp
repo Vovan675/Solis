@@ -6,8 +6,8 @@
 
 void SSRRenderer::addPasses(FrameGraph &fg)
 {
-	fg.addCallbackPass<EmptyData>("SSR Pass",
-	[&](RenderPassBuilder &builder, EmptyData &data)
+	fg.addCallbackPass("SSR Pass",
+	[&](RenderPassBuilder &builder)
 	{
 		builder.createTexture(GFXRID(SSR), Renderer::getViewportWidth(), Renderer::getViewportHeight(), FORMAT_R16G16B16A16_UNORM);
 		builder.writeTexture(GFXRID(SSR));
@@ -17,7 +17,7 @@ void SSRRenderer::addPasses(FrameGraph &fg)
 		builder.readTexture(GFXRID(GBufferShading));
 		builder.readTexture(GFXRID(GBufferDepth));
 	},
-	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
+	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
 		auto ssr = resources.getTexture(GFXRID(SSR));
 
@@ -28,10 +28,10 @@ void SSRRenderer::addPasses(FrameGraph &fg)
 			uint32_t shading_tex_id = 0;
 			uint32_t depth_tex_id = 0;
 		} ubo;
-		ubo.color_tex_id = resources.getBindlessId(GFXRID(FinalNoPostTexture));
-		ubo.normal_tex_id = resources.getBindlessId(GFXRID(GBufferNormal));
-		ubo.shading_tex_id = resources.getBindlessId(GFXRID(GBufferShading));
-		ubo.depth_tex_id = resources.getBindlessId(GFXRID(GBufferDepth));
+		ubo.color_tex_id = resources.getReadTexture(GFXRID(FinalNoPostTexture));
+		ubo.normal_tex_id = resources.getReadTexture(GFXRID(GBufferNormal));
+		ubo.shading_tex_id = resources.getReadTexture(GFXRID(GBufferShading));
+		ubo.depth_tex_id = resources.getReadTexture(GFXRID(GBufferDepth));
 
 		cmd_list->setRenderTargets({ssr}, nullptr, -1, 0, true);
 

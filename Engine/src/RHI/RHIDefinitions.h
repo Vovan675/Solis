@@ -25,16 +25,17 @@ enum class ResourceState
 	UNDEFINED = 0,
 	COMMON = 1 << 0,
 	RENDER_TARGET = 1 << 1,
-	SHADER_RESOURCE = 1 << 2,
-	COPY_SRC = 1 << 3,
-	COPY_DST = 1 << 4,
-	UAV = 1 << 5,
-	PRESENT = 1 << 6,
+	DEPTH_READ = 1 << 2,
+	SHADER_RESOURCE = 1 << 3,
+	COPY_SRC = 1 << 4,
+	COPY_DST = 1 << 5,
+	UAV = 1 << 6,
+	PRESENT = 1 << 7,
 
-	VERTEX_BUFFER = 1 << 7,
-	INDEX_BUFFER = 1 << 8,
-	INDIRECT_ARGS = 1 << 9,
-	SHADER_READ = 1 << 10,
+	VERTEX_BUFFER = 1 << 8,
+	INDEX_BUFFER = 1 << 9,
+	INDIRECT_ARGS = 1 << 10,
+	SHADER_READ = 1 << 11,
 };
 ALLOW_ENUM_BITS(ResourceState)
 
@@ -85,6 +86,18 @@ struct BufferDescription
 
 	uint32_t storage_stride; // storage_stride = 4 for raw access. Stride is more tied to data, thats why it is here instead of BufferView
 	bool use_staging_buffer; // Use separate buffer for filling data (if true then only GPU memory is used)
+
+	size_t getHash() const
+	{
+		size_t hash = 0;
+		Engine::Math::hash_combine(hash, size);
+		Engine::Math::hash_combine(hash, usage);
+		Engine::Math::hash_combine(hash, alignment);
+		Engine::Math::hash_combine(hash, storage_stride);
+		Engine::Math::hash_combine(hash, use_staging_buffer);
+
+		return hash;
+	}
 };
 
 enum Filter

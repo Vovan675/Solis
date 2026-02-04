@@ -300,12 +300,6 @@ void RenderTargetsDemo::render(RHICommandList *cmd_list)
 }
 
 
-struct RenderData
-{
-	FrameGraphTextureId result;
-	FrameGraphTextureId depth;
-};
-
 // Use framegraph for rendering
 void RenderTargetsDemo::renderFrameGraph(RHICommandList *cmd_list)
 {
@@ -331,25 +325,23 @@ void RenderTargetsDemo::renderFrameGraph(RHICommandList *cmd_list)
 		gDynamicRHI->setConstantBufferDataPerFrame(32, &frame_uniforms, sizeof(frame_uniforms));
 	}
 
-	auto &render_data = fg.getBlackboard().add<RenderData>();
-
-	render_data = fg.addCallbackPass<RenderData>("First Pass",
-	[&](RenderPassBuilder &builder, RenderData &data)
+	fg.addCallbackPass("First Pass",
+	[&](RenderPassBuilder &builder)
 	{
 		builder.setSideEffect(true); // Don't cull
 
 		// Result
-		data.result = builder.createTexture("Result Image", swapchain_texture->getWidth(), swapchain_texture->getHeight(), FORMAT_R8G8B8A8_UNORM);
-		data.result = builder.writeTexture(data.result);
+		builder.createTexture(GFXRID(Result), swapchain_texture->getWidth(), swapchain_texture->getHeight(), FORMAT_R8G8B8A8_UNORM);
+		builder.writeTexture(GFXRID(Result));
 
 		// Depth-Stencil
-		data.depth = builder.createTexture("Depth Image", swapchain_texture->getWidth(), swapchain_texture->getHeight(), FORMAT_D32S8);
-		data.depth = builder.writeTexture(data.depth);
+		builder.createTexture(GFXRID(GBufferDepth), swapchain_texture->getWidth(), swapchain_texture->getHeight(), FORMAT_D32S8);
+		builder.writeTexture(GFXRID(GBufferDepth));
 	},
-	[=](const RenderData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
+	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		auto result = resources.getTexture(data.result);
-		auto depth = resources.getTexture(data.depth);
+		auto result = resources.getTexture(GFXRID(Result));
+		auto depth = resources.getTexture(GFXRID(Result));
 
 		cmd_list->setRenderTargets({result}, {depth}, 0, 0, true);
 
@@ -391,18 +383,18 @@ void RenderTargetsDemo::renderFrameGraph(RHICommandList *cmd_list)
 	});
 
 
-	fg.addCallbackPass<RenderData>("Final Pass",
-	[&](RenderPassBuilder &builder, RenderData &data)
+	fg.addCallbackPass("Final Pass",
+	[&](RenderPassBuilder &builder)
 	{
 		builder.setSideEffect(true); // Don't cull
 
 		// Depth-Stencil
-		builder.read(render_data.result);
+		builder.readTexture(GFXRID(Result));
 	},
-	[=](const RenderData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
+	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
 		// Render
-		auto result = resources.getTexture(render_data.result);
+		auto result = resources.getTexture(GFXRID(Result));
 		
 		// Render result texture to swap chain
 

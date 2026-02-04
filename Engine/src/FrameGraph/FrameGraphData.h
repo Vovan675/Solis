@@ -5,7 +5,12 @@
 #define FinalTexture
 #define BackbufferTexture
 
-struct EmptyData {};
+#define InstancesPassMask
+
+#define DrawIndexedArgs
+#define DrawIndexedCount
+#define DrawCallsInstances
+#define IndirectVisibility
 
 #define GBufferAlbedo
 #define GBufferNormal
@@ -33,18 +38,15 @@ struct EmptyData {};
 #define IBLIrradiance
 #define IBLPrefilter
 
+#define RayTracedVisibility
+
 #define PathTraceAccumulation
 
 #define DDGIDistance
 #define DDGIIrradiance
 #define DDGIMetadata
 
-struct RayTracedShadowPass
-{
-	FrameGraphTextureId visibility;
-};
-
 struct ShadowPasses
 {
-	eastl::vector<FrameGraphTextureId> shadow_maps;
+	eastl::vector<GraphicsResourceName> shadow_maps;
 };

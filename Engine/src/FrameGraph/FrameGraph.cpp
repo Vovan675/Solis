@@ -7,18 +7,30 @@ void FrameGraph::compile()
 	for (auto &pass : renderpass_nodes)
 	{
 		// All resources that written by it, are references it
-		pass.ref_count = pass.writes.size();
+		pass.ref_count = pass.texture_writes.size() + pass.buffer_writes.size() ;
 		
 		// All resources that are read, has +1 references to them
-		for (auto &read_access : pass.reads)
+		for (auto &read_access : pass.texture_reads)
 		{
-			FrameGraphTexture *read_resource = getFrameGraphTexture(read_access.resource);
+			FrameGraphTexture *read_resource = getFrameGraphTexture(read_access);
 			read_resource->ref_count++;
 		}
 
-		for (auto &write_access : pass.writes)
+		for (auto &write_access : pass.texture_writes)
 		{
-			FrameGraphTexture *write_resource = getFrameGraphTexture(write_access.resource);
+			FrameGraphTexture *write_resource = getFrameGraphTexture(write_access);
+			write_resource->producer = &pass;
+		}
+		
+		for (auto &read_access : pass.buffer_reads)
+		{
+			FrameGraphBuffer *read_resource = getFrameGraphBuffer(read_access);
+			read_resource->ref_count++;
+		}
+
+		for (auto &write_access : pass.buffer_writes)
+		{
+			FrameGraphBuffer *write_resource = getFrameGraphBuffer(write_access);
 			write_resource->producer = &pass;
 		}
 	}
@@ -44,9 +56,9 @@ void FrameGraph::compile()
 		producer->ref_count--;
 		if (producer->getRefCount() == 0)
 		{
-			for (auto &read_access : producer->reads)
+			for (auto &read_access : producer->texture_reads)
 			{
-				FrameGraphTexture *read_resource = getFrameGraphTexture(read_access.resource);
+				FrameGraphTexture *read_resource = getFrameGraphTexture(read_access);
 				read_resource->ref_count--;
 
 				if (read_resource->ref_count == 0)
@@ -61,14 +73,23 @@ void FrameGraph::compile()
 		if (pass.ref_count == 0 && !pass.has_side_effect)
 			continue;
 
-		for (auto &id : pass.creates)
+		for (auto &id : pass.texture_creates)
 			getFrameGraphTexture(id)->producer = &pass;
 
-		for (auto &access : pass.reads)
-			getFrameGraphTexture(access.resource)->last_consumer = &pass;
+		for (auto &access : pass.texture_reads)
+			getFrameGraphTexture(access)->last_consumer = &pass;
 
-		for (auto &access : pass.writes)
-			getFrameGraphTexture(access.resource)->last_consumer = &pass;
+		for (auto &access : pass.texture_writes)
+			getFrameGraphTexture(access)->last_consumer = &pass;
+
+		for (auto &id : pass.buffer_creates)
+			getFrameGraphBuffer(id)->producer = &pass;
+
+		for (auto &access : pass.buffer_reads)
+			getFrameGraphBuffer(access)->last_consumer = &pass;
+
+		for (auto &access : pass.buffer_writes)
+			getFrameGraphBuffer(access)->last_consumer = &pass;
 	}
 }
 
@@ -82,18 +103,31 @@ void FrameGraph::execute(RHICommandList *cmd_list)
 		PROFILE_CPU_SCOPE_VAR(pass.getName().c_str());
 		PROFILE_GPU_SCOPE_VAR(cmd_list, pass.getName().c_str());
 
-		for (const auto &id : pass.creates)
+		for (const auto &id : pass.texture_creates)
 			getFrameGraphTexture(id)->create();
-
-		for (const auto &access : pass.reads)
+		for (const auto &id : pass.texture_reads)
 		{
-			if ((access.flags & RenderPassNode::RESOURCE_ACCESS_IGNORE_FLAG) == 0)
-				getFrameGraphTexture(access.resource)->preRead(cmd_list, access.flags);
+			ResourceState usage = pass.texture_usage.at(id);
+			getFrameGraphTexture(id)->preRead(cmd_list, usage);
 		}
-		for (const auto &access : pass.writes)
+		for (const auto &id : pass.texture_writes)
 		{
-			if ((access.flags & RenderPassNode::RESOURCE_ACCESS_IGNORE_FLAG) == 0)
-				getFrameGraphTexture(access.resource)->preWrite(cmd_list, access.flags);
+			ResourceState usage = pass.texture_usage.at(id);
+			getFrameGraphTexture(id)->preWrite(cmd_list, usage);
+		}
+
+		for (const auto &id : pass.buffer_creates)
+			getFrameGraphBuffer(id)->create();
+
+		for (const auto &id : pass.buffer_reads)
+		{
+			ResourceState usage = pass.buffer_usage.at(id);
+			getFrameGraphBuffer(id)->preRead(cmd_list, usage);
+		}
+		for (const auto &id : pass.buffer_writes)
+		{
+			ResourceState usage = pass.buffer_usage.at(id);
+			getFrameGraphBuffer(id)->preWrite(cmd_list, usage);
 		}
 
 		{	
@@ -104,6 +138,12 @@ void FrameGraph::execute(RHICommandList *cmd_list)
 		for (auto &entry: all_textures)
 		{
 			if (entry.last_consumer == &pass && entry.is_transient)
+				entry.destroy();
+		}
+
+		for (auto &entry: all_buffers)
+		{
+			if ((entry.last_consumer == &pass) && entry.is_transient)
 				entry.destroy();
 		}
 	}

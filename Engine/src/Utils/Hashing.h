@@ -43,4 +43,10 @@ namespace crc
     {
         return crc32_impl(data, length);
     }
+
+    template <uint32_t len>
+    static constexpr uint32_t crc32(const char (&data)[len])
+    {
+        return crc32_impl((uint8_t *)data, len);
+    }
 }

@@ -51,7 +51,19 @@ void DX12DynamicRHI::init()
 
 	#ifdef ENABLE_RHI_VALIDATION
 	if (engine_rhi_validation)
+	{
 		device->QueryInterface(IID_PPV_ARGS(&debug_device));
+		
+		if (engine_rhi_validation_break)
+		{
+			ComPtr<ID3D12InfoQueue> info_queue;
+			device->QueryInterface(IID_PPV_ARGS(&info_queue));
+
+			info_queue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_ERROR, TRUE);
+			info_queue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_CORRUPTION, TRUE);
+			info_queue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_WARNING, TRUE);
+		}
+	}
 	#endif
 
 	// Allocator

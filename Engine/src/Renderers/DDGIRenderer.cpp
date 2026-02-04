@@ -218,8 +218,8 @@ void DDGIRenderer::addVisualizePass(FrameGraph &fg)
 	if (!engine_ray_tracing || !render_ddgi_visualize)
 		return;
 
-	fg.addCallbackPass<EmptyData>("DDGI Visualize Pass",
-	[&](RenderPassBuilder &builder, EmptyData &data)
+	fg.addCallbackPass("DDGI Visualize Pass",
+	[&](RenderPassBuilder &builder)
 	{
 		builder.writeTexture(GFXRID(FinalNoPostTexture));
 		builder.writeTexture(GFXRID(GBufferDepth));
@@ -229,7 +229,7 @@ void DDGIRenderer::addVisualizePass(FrameGraph &fg)
 		if (use_relocation || use_classification)
 			builder.readTexture(GFXRID(DDGIMetadata));
 	},
-	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
+	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
 		auto final = resources.getTexture(GFXRID(FinalNoPostTexture));
 		auto depth = resources.getTexture(GFXRID(GBufferDepth));
@@ -316,15 +316,15 @@ void DDGIRenderer::update_probes()
 
 void DDGIRenderer::addTraceRaysPass(FrameGraph &fg, Ref<RayTracingScene> rt_scene)
 {
-	fg.addCallbackPass<EmptyData>("DDGI Trace Rays Pass",
-	[&](RenderPassBuilder &builder, EmptyData &data)
+	fg.addCallbackPass("DDGI Trace Rays Pass",
+	[&](RenderPassBuilder &builder)
 	{
 		builder.setSideEffect(true);
 		builder.readTexture(GFXRID(Sky));
 		if (use_relocation || use_classification)
 			builder.readTexture(GFXRID(DDGIMetadata));
 	},
-	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
+	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
 		gGlobalPipeline->setupRayTracing(L"shaders/ddgi/ddgi_trace_rays.hlsl", calculateDefines());
 		gGlobalPipeline->flushAndBind(cmd_list);
@@ -335,7 +335,7 @@ void DDGIRenderer::addTraceRaysPass(FrameGraph &fg, Ref<RayTracingScene> rt_scen
 			uint32_t environment_tex_id;
 		} constants;
 		constants.output_buffer_id = ray_data_buffer->getUnorderedAccessView()->getBindlessIndex();
-		constants.environment_tex_id = resources.getBindlessId(GFXRID(Sky));
+		constants.environment_tex_id = resources.getReadTexture(GFXRID(Sky));
 		gDynamicRHI->setConstantBufferData(3, &constants, sizeof(constants));
 
 		cmd_list->dispatchRays(volume.rays_per_probe, probes_to_update.size(), 1);
@@ -344,38 +344,38 @@ void DDGIRenderer::addTraceRaysPass(FrameGraph &fg, Ref<RayTracingScene> rt_scen
 
 void DDGIRenderer::addUpdatePass(FrameGraph & fg)
 {
-	fg.addCallbackPass<EmptyData>("DDGI Update Irradiances Pass",
-	[&](RenderPassBuilder &builder, EmptyData &data)
+	fg.addCallbackPass("DDGI Update Irradiances Pass",
+	[&](RenderPassBuilder &builder)
 	{
-		builder.writeUAVTexture(GFXRID(DDGIIrradiance), TEXTURE_RESOURCE_ACCESS_GENERAL);
+		builder.writeUAVTexture(GFXRID(DDGIIrradiance));
 		if (use_relocation || use_classification)
 			builder.readTexture(GFXRID(DDGIMetadata));
 	},
-	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
+	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
 		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/ddgi/ddgi_update_probe.hlsl", COMPUTE_SHADER, "CSMain", calculateDefines({{"NUM_TEXELS", "8"}, {"IRRADIANCE", "1"}})));
 		gGlobalPipeline->flushAndBind(cmd_list);
 
-		uint32_t irradiance_uav_id = resources.getTexture(GFXRID(DDGIIrradiance))->getUnorderedAccessView()->getBindlessIndex();
+		uint32_t irradiance_uav_id = resources.getReadWriteTexture(GFXRID(DDGIIrradiance));
 		gDynamicRHI->setConstantBufferData(1, &irradiance_uav_id, sizeof(uint32_t));
 
 		cmd_list->dispatch(probes_to_update.size(), 1, 1);
 		gDynamicRHI->waitGPU();
 	});
 
-	fg.addCallbackPass<EmptyData>("DDGI Update Distances Pass",
-	[&](RenderPassBuilder &builder, EmptyData &data)
+	fg.addCallbackPass("DDGI Update Distances Pass",
+	[&](RenderPassBuilder &builder)
 	{
-		builder.writeUAVTexture(GFXRID(DDGIDistance), TEXTURE_RESOURCE_ACCESS_GENERAL);
+		builder.writeUAVTexture(GFXRID(DDGIDistance));
 		if (use_relocation || use_classification)
 			builder.readTexture(GFXRID(DDGIMetadata));
 	},
-	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
+	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
 		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/ddgi/ddgi_update_probe.hlsl", COMPUTE_SHADER, "CSMain", calculateDefines({{"NUM_TEXELS", "12"}})));
 		gGlobalPipeline->flushAndBind(cmd_list);
 
-		uint32_t distance_uav_id = resources.getTexture(GFXRID(DDGIDistance))->getUnorderedAccessView()->getBindlessIndex();
+		uint32_t distance_uav_id = resources.getReadWriteTexture(GFXRID(DDGIDistance));
 		gDynamicRHI->setConstantBufferData(1, &distance_uav_id, sizeof(uint32_t));
 
 		cmd_list->dispatch(probes_to_update.size(), 1, 1);
@@ -385,17 +385,17 @@ void DDGIRenderer::addUpdatePass(FrameGraph & fg)
 
 void DDGIRenderer::addRelocationPass(FrameGraph & fg)
 {
-	fg.addCallbackPass<EmptyData>("DDGI Relocation Pass",
-	[&](RenderPassBuilder &builder, EmptyData &data)
+	fg.addCallbackPass("DDGI Relocation Pass",
+	[&](RenderPassBuilder &builder)
 	{
-		builder.writeUAVTexture(GFXRID(DDGIMetadata), TEXTURE_RESOURCE_ACCESS_GENERAL);
+		builder.writeUAVTexture(GFXRID(DDGIMetadata));
 	},
-	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
+	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
 		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/ddgi/ddgi_relocation.hlsl", COMPUTE_SHADER, "CS_Relocate", calculateDefines()));
 		gGlobalPipeline->flushAndBind(cmd_list);
 
-		uint32_t metadata_uav_id = resources.getTexture(GFXRID(DDGIMetadata))->getUnorderedAccessView()->getBindlessIndex();
+		uint32_t metadata_uav_id = resources.getReadWriteTexture(GFXRID(DDGIMetadata));
 		gDynamicRHI->setConstantBufferData(1, &metadata_uav_id, sizeof(uint32_t));
 
 		uint32_t num_groups = ceil(probes_to_update.size() / 32.0f);
@@ -406,17 +406,17 @@ void DDGIRenderer::addRelocationPass(FrameGraph & fg)
 
 void DDGIRenderer::addResetRelocationPass(FrameGraph & fg)
 {
-	fg.addCallbackPass<EmptyData>("DDGI Reset Relocation Pass",
-	[&](RenderPassBuilder &builder, EmptyData &data)
+	fg.addCallbackPass("DDGI Reset Relocation Pass",
+	[&](RenderPassBuilder &builder)
 	{
-		builder.writeUAVTexture(GFXRID(DDGIMetadata), TEXTURE_RESOURCE_ACCESS_GENERAL);
+		builder.writeUAVTexture(GFXRID(DDGIMetadata));
 	},
-	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
+	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
 		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/ddgi/ddgi_relocation.hlsl", COMPUTE_SHADER, "CS_ResetRelocation", calculateDefines()));
 		gGlobalPipeline->flushAndBind(cmd_list);
 
-		uint32_t metadata_uav_id = resources.getTexture(GFXRID(DDGIMetadata))->getUnorderedAccessView()->getBindlessIndex();
+		uint32_t metadata_uav_id = resources.getReadWriteTexture(GFXRID(DDGIMetadata));
 		gDynamicRHI->setConstantBufferData(1, &metadata_uav_id, sizeof(uint32_t));
 
 		uint32_t num_groups = ceil(volume.getProbesCount() / 32.0f);
@@ -427,17 +427,17 @@ void DDGIRenderer::addResetRelocationPass(FrameGraph & fg)
 
 void DDGIRenderer::addClassificationPass(FrameGraph &fg)
 {
-	fg.addCallbackPass<EmptyData>("DDGI Classification Pass",
-	[&](RenderPassBuilder &builder, EmptyData &data)
+	fg.addCallbackPass("DDGI Classification Pass",
+	[&](RenderPassBuilder &builder)
 	{
-		builder.writeUAVTexture(GFXRID(DDGIMetadata), TEXTURE_RESOURCE_ACCESS_GENERAL);
+		builder.writeUAVTexture(GFXRID(DDGIMetadata));
 	},
-	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
+	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
 		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/ddgi/ddgi_classification.hlsl", COMPUTE_SHADER, "CS_Classification", calculateDefines()));
 		gGlobalPipeline->flushAndBind(cmd_list);
 
-		uint32_t metadata_uav_id = resources.getTexture(GFXRID(DDGIMetadata))->getUnorderedAccessView()->getBindlessIndex();
+		uint32_t metadata_uav_id = resources.getReadWriteTexture(GFXRID(DDGIMetadata));
 		gDynamicRHI->setConstantBufferData(1, &metadata_uav_id, sizeof(uint32_t));
 
 		uint32_t num_groups = ceil(probes_to_update.size() / 32.0f);
@@ -448,17 +448,17 @@ void DDGIRenderer::addClassificationPass(FrameGraph &fg)
 
 void DDGIRenderer::addResetClassificationPass(FrameGraph & fg)
 {
-	fg.addCallbackPass<EmptyData>("DDGI Reset Classification Pass",
-	[&](RenderPassBuilder &builder, EmptyData &data)
+	fg.addCallbackPass("DDGI Reset Classification Pass",
+	[&](RenderPassBuilder &builder)
 	{
-		builder.writeUAVTexture(GFXRID(DDGIMetadata), TEXTURE_RESOURCE_ACCESS_GENERAL);
+		builder.writeUAVTexture(GFXRID(DDGIMetadata));
 	},
-	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
+	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
 		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/ddgi/ddgi_classification.hlsl", COMPUTE_SHADER, "CS_ResetClassification", calculateDefines()));
 		gGlobalPipeline->flushAndBind(cmd_list);
 
-		uint32_t metadata_uav_id = resources.getTexture(GFXRID(DDGIMetadata))->getUnorderedAccessView()->getBindlessIndex();
+		uint32_t metadata_uav_id = resources.getReadWriteTexture(GFXRID(DDGIMetadata));
 		gDynamicRHI->setConstantBufferData(1, &metadata_uav_id, sizeof(uint32_t));
 
 		uint32_t num_groups = ceil(volume.getProbesCount() / 32.0f);

@@ -17,7 +17,7 @@ cbuffer Uniforms : register(b0)
 static RWStructuredBuffer<DrawIndexedIndirect> draw_indexed_args = ResourceDescriptorHeap[draw_indexed_args_buffer_id];
 static RWStructuredBuffer<uint> draw_indexed_count  = ResourceDescriptorHeap[draw_indexed_count_buffer_id];
 static RWStructuredBuffer<uint> indirect_instances  = ResourceDescriptorHeap[draw_calls_indirect_instances_buffer_id];
-static RWByteAddressBuffer pass_mask_buffer = ResourceDescriptorHeap[instances_pass_mask_buffer_id];
+static ByteAddressBuffer pass_mask_buffer = ResourceDescriptorHeap[instances_pass_mask_buffer_id];
 
 /*
 bool isSphereInFrustum(float3 center, float radius)

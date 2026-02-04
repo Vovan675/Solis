@@ -74,7 +74,13 @@ std::ostream &operator <<(std::ostream &os, const Graph &graph)
 
 static std::string get_key(const FrameGraphTexture *texture)
 {
-	auto key = "Resource" + std::to_string(texture->resource_id) + "_" + std::to_string(texture->version);
+	auto key = "Resource_Texture_" + std::to_string(texture->resource_id) + "_" + std::to_string(texture->version);
+	return key;
+}
+
+static std::string get_key(const FrameGraphBuffer *buffer)
+{
+	auto key = "Resource_Buffer_" + std::to_string(buffer->resource_id) + "_" + std::to_string(buffer->version);
 	return key;
 }
 
@@ -102,6 +108,17 @@ void GraphViz::createGraph(std::ostream &os, FrameGraph &fg)
 		graph.nodes.emplace_back(Node{node_key, title.str(), "", color, false});
 	};
 
+	auto addBufferNode = [&graph](FrameGraphBuffer *buffer)
+	{
+		auto node_key = get_key(buffer);
+		const char *color = "skyblue";
+
+		std::ostringstream title;
+		title << "{" << buffer->name.c_str() << " (" << buffer->version << ")} | {Refs: " << buffer->ref_count << "<BR/>Index: " << buffer->resource_id << "<BR/>" << buffer->toString().c_str() << "}";
+
+		graph.nodes.emplace_back(Node{node_key, title.str(), "", color, false});
+	};
+
 	for (const auto &pass : fg.renderpass_nodes)
 	{
 		auto pass_key = get_key(pass);
@@ -113,36 +130,66 @@ void GraphViz::createGraph(std::ostream &os, FrameGraph &fg)
 
 		std::string cluster_name;
 		// if big cluster, then name it
-		if (pass.getCreates().size() > 1)
+		if ((pass.getTextureWrites().size() + pass.getBufferWrites().size()) > 1)
 		{
 			cluster_name = pass.getName().c_str();
 			cluster_name = std::regex_replace(cluster_name, std::regex("\\Pass"), "");
 		}
 
 		// Add edges
-		for (const auto &read : pass.getReads())
+
+		// Textures
 		{
-			FrameGraphTexture *resource = fg.getFrameGraphTexture(read.resource);
-			addTextureNode(resource);
-			auto &edge = graph.edges.emplace_back(Edge{get_key(resource), {pass_key}});
+			for (const auto &read : pass.getTextureReads())
+			{
+				FrameGraphTexture *resource = fg.getFrameGraphTexture(read);
+				addTextureNode(resource);
+				auto &edge = graph.edges.emplace_back(Edge{get_key(resource), {pass_key}});
+			}
+
+			auto &edge = graph.edges.emplace_back(Edge{pass_key, {}, edge_color});
+			for (const auto &write : pass.getTextureWrites())
+			{
+				FrameGraphTexture *resource = fg.getFrameGraphTexture(write);
+				// If someone other than creator texture_writes to resource, then resource version is up
+				if (!pass.isCreating(write)) resource->version++;
+				addTextureNode(resource);
+				edge.ends.emplace_back(get_key(resource));
+			}
 		}
 
-		auto &edge = graph.edges.emplace_back(Edge{pass_key, {}, edge_color});
-		for (const auto &write : pass.getWrites())
+		// Buffers
 		{
-			FrameGraphTexture *resource = fg.getFrameGraphTexture(write.resource);
-			// If someone other than creator writes to resource, then resource version is up
-			if (!pass.isCreating(write.resource)) resource->version++;
-			addTextureNode(resource);
-			edge.ends.emplace_back(get_key(resource));
+			for (const auto &read : pass.getBufferReads())
+			{
+				FrameGraphBuffer *resource = fg.getFrameGraphBuffer(read);
+				addBufferNode(resource);
+				auto &edge = graph.edges.emplace_back(Edge{get_key(resource), {pass_key}});
+			}
+
+			auto &edge = graph.edges.emplace_back(Edge{pass_key, {}, edge_color});
+			for (const auto &write : pass.getBufferWrites())
+			{
+				FrameGraphBuffer *resource = fg.getFrameGraphBuffer(write);
+				// If someone other than creator texture_writes to resource, then resource version is up
+				if (!pass.isCreating(write)) resource->version++;
+				addBufferNode(resource);
+				edge.ends.emplace_back(get_key(resource));
+			}
 		}
 
 		auto &new_node = graph.nodes.emplace_back(Node{pass_key, title.str(), cluster_name, node_color});
 
 		// Cluster producer with its resources (for example GBuffer with all its outputs)
-		for (const auto &create : pass.getCreates())
+		for (const auto &write : pass.getTextureWrites())
 		{
-			FrameGraphTexture *resource_node = fg.getFrameGraphTexture(create);
+			FrameGraphTexture *resource_node = fg.getFrameGraphTexture(write);
+			new_node.cluster_keys.emplace_back(get_key(resource_node));
+		}
+
+		for (const auto &write : pass.getBufferWrites())
+		{
+			FrameGraphBuffer *resource_node = fg.getFrameGraphBuffer(write);
 			new_node.cluster_keys.emplace_back(get_key(resource_node));
 		}
 	}

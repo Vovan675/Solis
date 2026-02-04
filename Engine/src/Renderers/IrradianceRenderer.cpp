@@ -24,13 +24,13 @@ IrradianceRenderer::IrradianceRenderer(): RendererBase()
 
 void IrradianceRenderer::addPass(FrameGraph &fg, uint32_t samples_count)
 {
-	fg.addCallbackPass<EmptyData>("IBL Irradiance Pass",
-	[&](RenderPassBuilder &builder, EmptyData &data)
+	fg.addCallbackPass("IBL Irradiance Pass",
+	[&](RenderPassBuilder &builder)
 	{
-		builder.writeTexture(GFXRID(IBLIrradiance), TEXTURE_RESOURCE_ACCESS_GENERAL);
+		builder.writeUAVTexture(GFXRID(IBLIrradiance));
 		builder.readTexture(GFXRID(Sky));
 	},
-	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
+	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
 		auto irradiance = resources.getTexture(GFXRID(IBLIrradiance));
 		auto sky = resources.getTexture(GFXRID(Sky));
@@ -45,7 +45,7 @@ void IrradianceRenderer::addPass(FrameGraph &fg, uint32_t samples_count)
 			uint32_t output_tex_id;
 			uint32_t samples_count;
 		} constants;
-		constants.input_tex_id = resources.getBindlessId(GFXRID(Sky));
+		constants.input_tex_id = resources.getReadTexture(GFXRID(Sky));
 		constants.output_tex_id = irradiance->getUnorderedAccessView()->getBindlessIndex();
 		constants.samples_count = samples_count;
 

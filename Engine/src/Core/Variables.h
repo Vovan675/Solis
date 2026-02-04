@@ -3,6 +3,7 @@
 
 // Startup variables
 extern AutoConVarBool engine_rhi_validation;
+extern AutoConVarBool engine_rhi_validation_break;
 extern AutoConVarBool engine_ray_tracing;
 
 // Runtime variables

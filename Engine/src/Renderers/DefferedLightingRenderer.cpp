@@ -28,11 +28,10 @@ void DefferedLightingRenderer::renderLights(FrameGraph &fg)
 		FrameGraphTextureId shading;
 	};
 
-	auto *ray_traced_shadow_data = fg.getBlackboard().tryGet<RayTracedShadowPass>();
 	auto *shadow_passes_data = fg.getBlackboard().tryGet<ShadowPasses>();
 
-	fg.addCallbackPass<EmptyData>("Deffered Lighting Pass",
-	[&](RenderPassBuilder &builder, EmptyData &data)
+	fg.addCallbackPass("Deffered Lighting Pass",
+	[&](RenderPassBuilder &builder)
 	{
 		builder.createTexture(GFXRID(DiffuseLight), Renderer::getViewportWidth(), Renderer::getViewportHeight(), FORMAT_R11G11B10_UFLOAT);
 		builder.writeTexture(GFXRID(DiffuseLight));
@@ -48,30 +47,30 @@ void DefferedLightingRenderer::renderLights(FrameGraph &fg)
 		if (shadow_passes_data)
 		{
 			for (auto &map : shadow_passes_data->shadow_maps)
-				builder.read(map);
+				builder.readTexture(map);
 		}
 
-		if (engine_ray_tracing && render_ray_traced_shadows && render_shadows && ray_traced_shadow_data)
+		if (engine_ray_tracing && render_ray_traced_shadows && render_shadows && builder.isTextureCreated(GFXRID(RayTracedVisibility)))
 		{
-			builder.read(ray_traced_shadow_data->visibility);
+			builder.readTexture(GFXRID(RayTracedVisibility));
 		}
 	},
-	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
+	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
 		auto diffuse = resources.getTexture(GFXRID(DiffuseLight));
 		auto specular = resources.getTexture(GFXRID(SpecularLight));
 
 		cmd_list->setRenderTargets({diffuse, specular}, nullptr, -1, 0, true);
 
-		ubo.albedo_tex_id = resources.getBindlessId(GFXRID(GBufferAlbedo));
-		ubo.normal_tex_id = resources.getBindlessId(GFXRID(GBufferNormal));
-		ubo.depth_tex_id = resources.getBindlessId(GFXRID(GBufferDepth));
-		ubo.shading_tex_id = resources.getBindlessId(GFXRID(GBufferShading));
+		ubo.albedo_tex_id = resources.getReadTexture(GFXRID(GBufferAlbedo));
+		ubo.normal_tex_id = resources.getReadTexture(GFXRID(GBufferNormal));
+		ubo.depth_tex_id = resources.getReadTexture(GFXRID(GBufferDepth));
+		ubo.shading_tex_id = resources.getReadTexture(GFXRID(GBufferShading));
 
 		// Render Lights radiance
 		auto &p = gGlobalPipeline;
 
-		if (engine_ray_tracing && render_ray_traced_shadows && render_shadows && ray_traced_shadow_data)
+		if (engine_ray_tracing && render_ray_traced_shadows && render_shadows && resources.has(GFXRID(RayTracedVisibility)))
 		{
 			auto entities_id = Scene::getCurrentScene()->getEntitiesWith<LightComponent>();
 			LightComponent *light_component = nullptr;
@@ -108,7 +107,7 @@ void DefferedLightingRenderer::renderLights(FrameGraph &fg)
 				constants.light_range_square = pow(light_component->radius, 2);
 				constants.light_intensity = light_component->intensity;
 				constants.z_far = light_component->radius;
-				constants.shadow_map_tex_id = resources.getBindlessId(ray_traced_shadow_data->visibility);
+				constants.shadow_map_tex_id = resources.getReadTexture(GFXRID(RayTracedVisibility));
 
 				gDynamicRHI->setConstantBufferData(0, &ubo_sphere, sizeof(ubo_sphere));
 				gDynamicRHI->setConstantBufferData(1, &ubo, sizeof(ubo));

@@ -84,10 +84,9 @@ void SceneRenderer::render(Camera *camera, RHITextureRef result_texture)
 
 void SceneRenderer::render_deferred(Camera *camera, FrameGraph &frame_graph)
 {
-	if (!render_freeze_culling)
-		gpu_frame_cull(frame_graph);
+	gpu_frame_cull(frame_graph);
 
-	gbuffer_pass.addPass(frame_graph, indirect_draw_calls_max_count, instances_pass_masks_gpu);
+	gbuffer_pass.addPass(frame_graph, indirect_draw_calls_max_count);
 
 	if (render_ssao)
 		ssao_renderer.addPasses(frame_graph);
@@ -102,7 +101,7 @@ void SceneRenderer::render_deferred(Camera *camera, FrameGraph &frame_graph)
 			if (render_ray_traced_shadows && engine_ray_tracing)
 				shadow_renderer.addRayTracedShadowPasses(frame_graph, rt_scene);
 			else
-				shadow_renderer.addShadowMapPasses(frame_graph, indirect_draw_calls_max_count, instances_pass_masks_gpu);
+				shadow_renderer.addShadowMapPasses(frame_graph, indirect_draw_calls_max_count);
 		}
 	}
 
@@ -332,8 +331,6 @@ void SceneRenderer::update(Camera *camera)
 		fill_buffer(materials_gpu, materials.data(), materials.size(), sizeof(MaterialGPU), "Materials Buffer");
 		fill_buffer(instances_gpu, instances.data(), instances.size(), sizeof(InstanceGPU), "Instances Buffer");
 		fill_buffer(meshes_gpu, meshes.data(), meshes.size(), sizeof(MeshGPU), "Meshes Buffer");
-		
-		fill_buffer(instances_pass_masks_gpu, nullptr, instances.size(), sizeof(uint32_t), "Instances Pass Mask Buffer", BufferUsage::SHADER_WRITE_BUFFER, true);
 	}
 
 	auto uniforms = Renderer::getDefaultUniforms();
@@ -349,15 +346,18 @@ void SceneRenderer::update(Camera *camera)
 void SceneRenderer::gpu_frame_cull(FrameGraph &frame_graph)
 {
 	// Cull Instances
-	frame_graph.addCallbackPass<EmptyData>("GPU Frame Cull Pass",
-	[&](RenderPassBuilder &builder, EmptyData &data)
+	frame_graph.addCallbackPass("GPU Frame Cull Pass",
+	[&](RenderPassBuilder &builder)
 	{
-		builder.setSideEffect(true);
+		builder.createBuffer(GFXRID(InstancesPassMask), sizeof(uint32_t), indirect_draw_calls_max_count, BufferUsage::SHADER_WRITE_BUFFER);
+		builder.writeBuffer(GFXRID(InstancesPassMask));
 	},
-	[=](const EmptyData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
+	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
+		if (render_freeze_culling)
+			return;
+
 		frustums_gpu->transitState(ResourceState::SHADER_RESOURCE);
-		instances_pass_masks_gpu->transitState(ResourceState::UAV);
 
 		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/gpu_driven/frame_culling.hlsl", COMPUTE_SHADER, "CS_CullInstances"));
 		gGlobalPipeline->flushAndBind(cmd_list);
@@ -373,12 +373,11 @@ void SceneRenderer::gpu_frame_cull(FrameGraph &frame_graph)
 		constants.frustums_buffer_id = frustums_gpu->getShaderResourceView()->getBindlessIndex();
 		constants.frustums_count = frustums.size();
 		constants.instances_count = instances.size();
-		constants.instances_pass_mask_buffer_id = instances_pass_masks_gpu->getUnorderedAccessView()->getBindlessIndex();
+		constants.instances_pass_mask_buffer_id = resources.getReadWriteBuffer(GFXRID(InstancesPassMask));
 
 		gDynamicRHI->setConstantBufferData(0, &constants, sizeof(constants));
 
 		int num_groups = ceil(constants.instances_count / 32.0f);
 		cmd_list->dispatch(num_groups, 1, 1);
-		instances_pass_masks_gpu->transitState(ResourceState::UAV);
 	});
 }
