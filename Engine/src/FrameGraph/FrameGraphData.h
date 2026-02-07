@@ -7,10 +7,18 @@
 
 #define InstancesPassMask
 
+#define VisibleInstances
+#define VisibleInstancesCount
+#define VisibleMeshlets
+#define VisibleMeshletsCount
+
+#define DispatchMeshIndirectArgs
+#define DispatchMeshletIndirectArgs
 #define DrawIndexedArgs
 #define DrawIndexedCount
 #define DrawCallsInstances
 #define IndirectVisibility
+#define MeshletVisibility
 
 #define GBufferAlbedo
 #define GBufferNormal

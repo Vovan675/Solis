@@ -104,6 +104,12 @@ DynamicRHI::CompileShaderResult DynamicRHI::compile_shader(eastl::wstring path, 
 	} else if (type == CLOSEST_HIT_SHADER)
 	{
 		args.push_back(L"lib_6_6");
+	} else if (type == TASK_SHADER)
+	{
+		args.push_back(L"as_6_6");
+	} else if (type == MESH_SHADER)
+	{
+		args.push_back(L"ms_6_6");
 	}
 
 	args.push_back(DXC_ARG_PACK_MATRIX_COLUMN_MAJOR);

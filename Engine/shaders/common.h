@@ -32,9 +32,12 @@ cbuffer FrameConstants : register(b32) {
 	float time;
 	uint frame;
 	uint global_vertex_buffer_id;
+	uint global_meshlets_vertex_buffer_id;
+	uint global_meshlets_triangles_buffer_id;
 	uint materials_buffer_id;
 	uint instances_buffer_id;
 	uint meshes_buffer_id;
+	uint meshlets_buffer_id;
 	uint tlas_id;
 	uint ddgi_volume_buffer_id;
 	uint lines_gpu_buffer_id;
@@ -55,6 +58,11 @@ struct DrawIndirect
 	uint instance_count;
 	uint first_vertex;
 	uint first_instance;
+};
+
+struct DispatchIndirect
+{
+	uint3 group;
 };
 
 struct Material
@@ -95,6 +103,31 @@ struct Mesh
 	uint colors_offset;
 	uint index_offset;
 	uint indices_count;
+
+	uint meshlet_vertex_offset;
+	uint meshlet_triangle_offset;
+
+	uint meshlet_offset;
+	uint meshlet_count;
+};
+
+struct MeshletTriangle
+{
+	uint v0 : 10;
+	uint v1 : 10;
+	uint v2 : 10;
+	uint : 2;
+};
+
+struct Meshlet
+{
+	float4 center;
+	float4 extent;
+
+	uint vertex_offset;
+	uint vertex_count;
+	uint triangle_offset;
+	uint triangle_count;
 };
 
 Material GetMaterial(uint index)
@@ -113,6 +146,12 @@ Mesh GetMesh(uint index)
 {
 	StructuredBuffer<Mesh> meshes = ResourceDescriptorHeap[meshes_buffer_id];
 	return meshes[index];
+}
+
+Meshlet GetMeshlet(uint index)
+{
+	StructuredBuffer<Meshlet> meshlets = ResourceDescriptorHeap[meshlets_buffer_id];
+	return meshlets[index];
 }
 
 template<typename T>
@@ -208,6 +247,26 @@ void addScreenQuad(float2 p0, float2 p1, float3 color)
 	addLine(float3(p0.x, p1.y, 0), float3(p1.x, p1.y, 0), color, true);
 	addLine(float3(p0.x, p0.y, 0), float3(p0.x, p1.y, 0), color, true);
 	addLine(float3(p1.x, p0.y, 0), float3(p1.x, p1.y, 0), color, true);
+}
+
+void addBoundBox(float3 min, float3 max, float3 color)
+{
+	addLine(min, float3(max.x, min.y, min.z), color);
+	addLine(min, float3(min.x, max.y, min.z), color);
+	addLine(min, float3(min.x, min.y, max.z), color);
+
+	addLine(max, float3(min.x, max.y, max.z), color);
+	addLine(max, float3(max.x, min.y, max.z), color);
+	addLine(max, float3(max.x, max.y, min.z), color);
+
+	addLine(float3(min.x, max.y, min.z), float3(min.x, max.y, max.z), color);
+	addLine(float3(min.x, max.y, min.z), float3(max.x, max.y, min.z), color);
+
+	addLine(float3(max.x, max.y, min.z), float3(max.x, min.y, min.z), color);
+	addLine(float3(max.x, min.y, min.z), float3(max.x, min.y, max.z), color);
+
+	addLine(float3(min.x, min.y, max.z), float3(max.x, min.y, max.z), color);
+	addLine(float3(min.x, min.y, max.z), float3(min.x, max.y, max.z), color);
 }
 
 // Must match in code

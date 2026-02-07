@@ -75,5 +75,11 @@ namespace Engine
 
 		global_vertex_buffer_offset = GlobalBufferCache::addVertexBufferData(vertices.data(), vertices.size());
 		global_index_buffer_offset = GlobalBufferCache::addIndexBufferData(indices.data(), indices.size());
+
+		if (!meshlets.empty())
+		{
+			global_meshlet_vertex_offset = GlobalBufferCache::addMeshletVertexData(meshlet_vertices.data(), meshlet_vertices.size());
+			global_meshlet_triangle_offset = GlobalBufferCache::addMeshletTriangleData(meshlet_triangles.data(), meshlet_triangles.size());
+		}
 	}
 }

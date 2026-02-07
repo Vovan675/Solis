@@ -154,6 +154,7 @@ void SceneRenderer::update(Camera *camera)
 		frustums.clear();
 		materials.clear();
 		meshes.clear();
+		meshlets.clear();
 		instances.clear();
 		instances_pass_masks.clear();
 
@@ -303,6 +304,19 @@ void SceneRenderer::update(Camera *camera)
 			mesh_gpu.colors_offset = mesh->global_vertex_buffer_offset;
 			mesh_gpu.indices_count = mesh->indices.size();
 			mesh_gpu.index_offset = mesh->global_index_buffer_offset;
+
+			mesh_gpu.meshlet_offset = meshlets.size();
+			mesh_gpu.meshlet_count = mesh->meshlets.size();
+
+			mesh_gpu.meshlet_vertex_offset = mesh->global_meshlet_vertex_offset;
+			mesh_gpu.meshlet_triangle_offset = mesh->global_meshlet_triangle_offset;
+
+			for (int i = 0; i < mesh->meshlets.size(); i++)
+			{
+				auto &meshlet = meshlets.emplace_back(mesh->meshlets[i]);
+				meshlet.vertex_offset += mesh->global_meshlet_vertex_offset;
+				meshlet.triangle_offset += mesh->global_meshlet_triangle_offset;
+			}
 		}
 
 		indirect_draw_calls_max_count = instances.size();
@@ -331,12 +345,14 @@ void SceneRenderer::update(Camera *camera)
 		fill_buffer(materials_gpu, materials.data(), materials.size(), sizeof(MaterialGPU), "Materials Buffer");
 		fill_buffer(instances_gpu, instances.data(), instances.size(), sizeof(InstanceGPU), "Instances Buffer");
 		fill_buffer(meshes_gpu, meshes.data(), meshes.size(), sizeof(MeshGPU), "Meshes Buffer");
+		fill_buffer(meshlets_gpu, meshlets.data(), meshlets.size(), sizeof(Meshlet), "Meshlets Buffer");
 	}
 
 	auto uniforms = Renderer::getDefaultUniforms();
 	uniforms.materials_buffer_id = materials_gpu->getShaderResourceView()->getBindlessIndex();
 	uniforms.instances_buffer_id = instances_gpu->getShaderResourceView()->getBindlessIndex();
 	uniforms.meshes_buffer_id = meshes_gpu->getShaderResourceView()->getBindlessIndex();
+	uniforms.meshlets_buffer_id = meshlets_gpu->getShaderResourceView()->getBindlessIndex();
 	uniforms.tlas_id = engine_ray_tracing ? rt_scene->getTopLevelAS()->getBindlessId() : 0;
 	uniforms.ddgi_volume_buffer_id = render_ddgi ? ddgi_renderer.getVolumeBufferId() : 0;
 	uniforms.lines_gpu_buffer_id = debug_renderer.getLinesGpuBuffer()->getUnorderedAccessView()->getBindlessIndex();

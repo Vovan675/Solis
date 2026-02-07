@@ -1,0 +1,6 @@
+{
+    "files.associations": {
+        "*.hlsl": "cpp"
+    },
+    "C_Cpp.dimInactiveRegions": false
+}

@@ -311,6 +311,7 @@ const AssetMetadata &AssetManager::importAsset(const std::filesystem::path &path
 void AssetManager::reloadAssets(const std::filesystem::path &path)
 {
 	// Go through all files and import them as assets
+	return;
 	for (auto entry : std::filesystem::directory_iterator(path))
 	{
 		if (entry.is_directory())

@@ -26,6 +26,8 @@ void VulkanUtils::init()
 	p_vkCreateRayTracingPipelinesKHR = reinterpret_cast<PFN_vkCreateRayTracingPipelinesKHR>(vkGetDeviceProcAddr(device, "vkCreateRayTracingPipelinesKHR"));
 
 	p_vkCmdTraceRaysKHR = reinterpret_cast<PFN_vkCmdTraceRaysKHR>(vkGetDeviceProcAddr(device, "vkCmdTraceRaysKHR"));
+	p_vkCmdDrawMeshTasksKHR = reinterpret_cast<PFN_vkCmdDrawMeshTasksEXT>(vkGetDeviceProcAddr(device, "vkCmdDrawMeshTasksEXT"));
+	p_vkCmdDrawMeshTasksIndirectKHR = reinterpret_cast<PFN_vkCmdDrawMeshTasksIndirectEXT>(vkGetDeviceProcAddr(device, "vkCmdDrawMeshTasksIndirectEXT"));
 }
 
 VulkanDynamicRHI *VulkanUtils::getNativeRHI() { return (VulkanDynamicRHI *)gDynamicRHI; }
@@ -153,4 +155,14 @@ VkResult VulkanUtils::vkCreateRayTracingPipelinesKHR(VkDeferredOperationKHR defe
 void VulkanUtils::vkCmdTraceRaysKHR(VkCommandBuffer commandBuffer, const VkStridedDeviceAddressRegionKHR *pRaygenShaderBindingTable, const VkStridedDeviceAddressRegionKHR *pMissShaderBindingTable, const VkStridedDeviceAddressRegionKHR *pHitShaderBindingTable, const VkStridedDeviceAddressRegionKHR *pCallableShaderBindingTable, uint32_t width, uint32_t height, uint32_t depth)
 {
 	p_vkCmdTraceRaysKHR(commandBuffer, pRaygenShaderBindingTable, pMissShaderBindingTable, pHitShaderBindingTable, pCallableShaderBindingTable, width, height, depth);
+}
+
+void VulkanUtils::vkCmdDrawMeshTasks(VkCommandBuffer commandBuffer, uint32_t group_x, uint32_t group_y, uint32_t group_z)
+{
+	p_vkCmdDrawMeshTasksKHR(commandBuffer, group_x, group_y, group_z);
+}
+
+void VulkanUtils::vkCmdDrawMeshTasksIndirect(VkCommandBuffer commandBuffer, VkBuffer buffer, VkDeviceSize offset, uint32_t drawCount, uint32_t stride)
+{
+	p_vkCmdDrawMeshTasksIndirectKHR(commandBuffer, buffer, offset, drawCount, stride);
 }

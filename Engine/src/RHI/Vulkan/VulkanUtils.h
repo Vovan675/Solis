@@ -203,6 +203,19 @@ public:
 		uint32_t width,
 		uint32_t height,
 		uint32_t depth);
+
+	static void vkCmdDrawMeshTasks(
+		VkCommandBuffer commandBuffer,
+		uint32_t group_x,
+		uint32_t group_y,
+		uint32_t group_z);
+
+	static void vkCmdDrawMeshTasksIndirect(
+		VkCommandBuffer commandBuffer,
+		VkBuffer buffer,
+		VkDeviceSize offset,
+		uint32_t drawCount,
+		uint32_t stride);
 	
 private:
 	friend class VulkanDynamicRHI;
@@ -226,4 +239,6 @@ private:
 	inline static PFN_vkCreateRayTracingPipelinesKHR p_vkCreateRayTracingPipelinesKHR;
 
 	inline static PFN_vkCmdTraceRaysKHR p_vkCmdTraceRaysKHR;
+	inline static PFN_vkCmdDrawMeshTasksEXT p_vkCmdDrawMeshTasksKHR;
+	inline static PFN_vkCmdDrawMeshTasksIndirectEXT p_vkCmdDrawMeshTasksIndirectKHR;
 };

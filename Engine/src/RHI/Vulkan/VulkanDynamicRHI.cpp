@@ -167,6 +167,10 @@ RHIShaderRef VulkanDynamicRHI::createShader(eastl::wstring path, ShaderType type
 			entry_point = "Miss";
 		else if (type == CLOSEST_HIT_SHADER)
 			entry_point = "ClosestHit";
+		else if (type == TASK_SHADER)
+			entry_point = "TSMain";
+		else if (type == MESH_SHADER)
+			entry_point = "MSMain";
 	}
 
 	size_t cache_hash = 0;
@@ -408,6 +412,11 @@ void VulkanDynamicRHI::beginFrame()
 
 	VulkanCommandList *native_cmd_list = (VulkanCommandList *)gDynamicRHI->getCmdList();
 	TracyVkCollect(VulkanUtils::getNativeRHI()->tracy_ctx, native_cmd_list->cmd_buffer);
+
+	// Begin statistics query
+	VkQueryPool stats_pool = device->pipeline_statistics_query_pools[frame_in_flight];
+	vkCmdResetQueryPool(native_cmd_list->cmd_buffer, stats_pool, 0, 1);
+	vkCmdBeginQuery(native_cmd_list->cmd_buffer, stats_pool, 0, 0);
 }
 
 void VulkanDynamicRHI::endFrame()
@@ -416,6 +425,10 @@ void VulkanDynamicRHI::endFrame()
 	// Update bindless
 	bindless_resources->updateSets();
 	VulkanCommandList *native_cmd_list = cmd_lists[frame_in_flight];
+
+	// End statistics query
+	VkQueryPool stats_pool = device->pipeline_statistics_query_pools[frame_in_flight];
+	vkCmdEndQuery(native_cmd_list->cmd_buffer, stats_pool, 0);
 
 	gDynamicRHI->getCmdList()->close();
 
@@ -477,6 +490,25 @@ void VulkanDynamicRHI::endFrame()
 		// Wait when queue for next frame is completed (device -> host sync)
 		cmd_queue->fence = in_flight_fences[frame_in_flight];
 		cmd_queue->wait(0);
+	}
+
+	if (frame >= MAX_FRAMES_IN_FLIGHT)
+	{
+		VkQueryPool prev_stats_pool = device->pipeline_statistics_query_pools[frame_in_flight];
+		uint64_t query_results[8];
+		VkResult result_query = vkGetQueryPoolResults(device->logicalHandle, prev_stats_pool, 0, 1, sizeof(query_results), query_results, sizeof(uint64_t), VK_QUERY_RESULT_64_BIT);
+
+		if (result_query == VK_SUCCESS)
+		{
+			gpu_statistics.input_assembly_vertices = query_results[0];
+			gpu_statistics.input_assembly_primitives = query_results[1];
+			gpu_statistics.vertex_shader_invocations = query_results[2];
+			gpu_statistics.clipping_invocations = query_results[3];
+			gpu_statistics.clipping_primitives = query_results[4];
+			gpu_statistics.fragment_shader_invocations = query_results[5];
+			gpu_statistics.compute_shader_invocations = query_results[6];
+			gpu_statistics.mesh_shader_invocations = query_results[7];
+		}
 	}
 
 	release_gpu_resources(frame);

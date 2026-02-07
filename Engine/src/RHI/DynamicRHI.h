@@ -31,6 +31,20 @@ public:
 	int getFrameInFlight() const { return frame_in_flight; }
 	uint64_t getFrame() const { return frame; }
 
+	struct GPUStatistics
+	{
+		uint64_t input_assembly_vertices = 0;
+		uint64_t input_assembly_primitives = 0;
+		uint64_t vertex_shader_invocations = 0;
+		uint64_t clipping_invocations = 0;
+		uint64_t clipping_primitives = 0;
+		uint64_t fragment_shader_invocations = 0;
+		uint64_t compute_shader_invocations = 0;
+		uint64_t mesh_shader_invocations = 0;
+	};
+
+	virtual const GPUStatistics& getGPUStatistics() const { return gpu_statistics; }
+
 	virtual RHISwapchainRef createSwapchain(GLFWwindow *window) = 0;
 	virtual void resizeSwapchain(int width, int height) {};
 	virtual RHIShaderRef createShader(eastl::wstring path, ShaderType type, eastl::string entry_point = "") = 0;
@@ -97,6 +111,8 @@ protected:
 	GraphicsAPI graphics_api = GRAPHICS_API_NONE;
 	int frame_in_flight = 0;
 	uint64_t frame = 0;
+
+	GPUStatistics gpu_statistics;
 
 	static eastl::unordered_map<size_t, RHIShaderRef> cached_shaders;
 

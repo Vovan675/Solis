@@ -31,7 +31,10 @@ public:
 
 
 	virtual void dispatch(uint32_t group_x, uint32_t group_y, uint32_t group_z) = 0;
+	virtual void dispatchIndirect(RHIBuffer *args_buffer, uint32_t dispatch_count) = 0;
 	virtual void dispatchRays(uint32_t width, uint32_t height, uint32_t depth) = 0;
+	virtual void dispatchMesh(uint32_t group_x, uint32_t group_y, uint32_t group_z) = 0;
+	virtual void dispatchMeshIndirect(RHIBuffer *args_buffer, uint32_t draw_count) = 0;
 
 	virtual void copyBuffer(RHIBuffer *src, RHIBuffer *dest, uint64_t src_offset, uint64_t dest_offset, uint64_t size) = 0;
 

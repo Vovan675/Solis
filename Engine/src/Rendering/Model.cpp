@@ -4,6 +4,7 @@
 #include "Math/EngineMath.h"
 #include "Assets/AssetManager.h"
 #include "Scene/Components.h"
+#include "meshoptimizer.h"
 
 static glm::mat4 convertAssimpMat4(const aiMatrix4x4 &m)
 {
@@ -34,7 +35,7 @@ void Model::load(const char *path)
 {
 	auto runtime_path = std::filesystem::path(path);
 
-	if (AssetManager::isRuntimeExists(path))
+	if (AssetManager::isRuntimeExists(path) && false)
 	{
 		runtime_path = AssetManager::getRuntimeAssetPath(path).string();
 		loadFile(runtime_path.string().c_str());
@@ -135,7 +136,71 @@ void Model::process_node(MeshNode *mesh_node, aiNode *node, const aiScene *scene
 		}
 
 		Ref<Engine::Mesh> engine_mesh = new Engine::Mesh();
+
+		{
+			const size_t max_vertices = 64;
+			const size_t max_triangles = 126;
+			const float cone_weight = 0.0f;
+
+			size_t max_meshlets = meshopt_buildMeshletsBound(indices.size(), max_vertices, max_triangles);
+			std::vector<meshopt_Meshlet> meshlets(max_meshlets);
+			engine_mesh->meshlet_vertices.resize(indices.size());
+			std::vector<unsigned char> meshlet_triangles(indices.size());
+
+			size_t meshlet_count = meshopt_buildMeshlets(meshlets.data(), engine_mesh->meshlet_vertices.data(), meshlet_triangles.data(), indices.data(), indices.size(), &vertices[0].pos.x, vertices.size(), sizeof(Engine::Vertex), max_vertices, max_triangles, cone_weight);
+
+			const meshopt_Meshlet& last = meshlets[meshlet_count - 1];
+
+			engine_mesh->meshlet_vertices.resize(last.vertex_offset + last.vertex_count);
+			engine_mesh->meshlets.resize(meshlet_count);
+
+			size_t total_triangle_indices = last.triangle_offset + last.triangle_count * 3;
+			engine_mesh->meshlet_triangles.resize(total_triangle_indices);
+			for (size_t i = 0; i < total_triangle_indices; i++)
+			{
+				engine_mesh->meshlet_triangles[i] = meshlet_triangles[i];
+			}
+			/*
+			for (size_t i = 0; i < total_triangle_indices / 3; i++)
+			{
+				MeshletTriangle &t = engine_mesh->meshlet_triangles[i];
+				t.v0 = meshlet_triangles[i];
+				t.v1 = meshlet_triangles[i + 1];
+				t.v2 = meshlet_triangles[i + 2];
+			}
+			*/
+
+			for (size_t i = 0; i < meshlet_count; i++)
+			{
+				meshopt_Meshlet &meshlet = meshlets[i];
+
+				meshopt_Bounds bounds = meshopt_computeMeshletBounds(&engine_mesh->meshlet_vertices[meshlet.vertex_offset], &meshlet_triangles[meshlet.triangle_offset], meshlet.triangle_count, (const float *)&vertices[0].pos.x, vertices.size(), sizeof(Engine::Vertex));
+
+				Meshlet &m = engine_mesh->meshlets[i];
+				//m.center = {bounds.center[0], bounds.center[1], bounds.center[2]};
+				//m.radius = bounds.radius;
+				m.vertex_offset = meshlet.vertex_offset;
+				m.vertex_count = meshlet.vertex_count;
+				m.triangle_offset = meshlet.triangle_offset;
+				m.triangle_count = meshlet.triangle_count;
+
+				glm::vec3 min = glm::vec3(FLT_MAX, FLT_MAX, FLT_MAX);
+				glm::vec3 max = glm::vec3(-FLT_MAX, -FLT_MAX, -FLT_MAX);
+				for (size_t j = 0; j < m.triangle_count * 3; j++)
+				{
+					uint32_t local_vertex_index = engine_mesh->meshlet_triangles[m.triangle_offset + j];
+					uint32_t vertex_id = engine_mesh->meshlet_vertices[m.vertex_offset + local_vertex_index];
+					glm::vec3 vertex_pos = vertices[vertex_id].pos;
+					max = glm::max(max, vertex_pos);
+					min = glm::min(min, vertex_pos);
+				}
+
+				m.center = (min + max) / 2.0f;
+				m.extent = (max - min) / 2.0f;
+			}
+		}
 		engine_mesh->setData(vertices, indices);
+
 		mesh_node->meshes.push_back(engine_mesh);
 
 		{

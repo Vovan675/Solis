@@ -49,12 +49,14 @@ public:
 	eastl::vector<FrustumDataGPU> frustums;
 	eastl::vector<MaterialGPU> materials;
 	eastl::vector<MeshGPU> meshes;
+	eastl::vector<Meshlet> meshlets;
 	eastl::vector<InstanceGPU> instances; // All that passed cpu coarse culling and can be rendered
 	eastl::vector<uint32_t> instances_pass_masks; // Instance pass mask, every bit indicates at which pass (frustum) this instance is visible
 
 	RHIBufferRef frustums_gpu;
 	RHIBufferRef materials_gpu;
 	RHIBufferRef meshes_gpu;
+	RHIBufferRef meshlets_gpu;
 	RHIBufferRef instances_gpu;
 
 	uint32_t indirect_draw_calls_max_count;

@@ -32,9 +32,13 @@ void VulkanPipeline::create(const PipelineDescription &description)
 		shaders.push_back(static_cast<VulkanShader *>(description.ray_generation_shader.getReference()));
 		shaders.push_back(static_cast<VulkanShader *>(description.miss_shader.getReference()));
 		shaders.push_back(static_cast<VulkanShader *>(description.closest_hit_shader.getReference()));
-	} else
+	} else if (description.pipeline_type == PipelineType::Graphics)
 	{
 		shaders.push_back(static_cast<VulkanShader *>(description.vertex_shader.getReference()));
+		shaders.push_back(static_cast<VulkanShader *>(description.fragment_shader.getReference()));
+	} else if (description.pipeline_type == PipelineType::Mesh)
+	{
+		shaders.push_back(static_cast<VulkanShader *>(description.mesh_shader.getReference()));
 		shaders.push_back(static_cast<VulkanShader *>(description.fragment_shader.getReference()));
 	}
 
@@ -171,13 +175,10 @@ void VulkanPipeline::create(const PipelineDescription &description)
 		hit_sbt->fill(shader_handle_storage.data() + handle_size_aligned * 2);
 	} else
 	{
+		bool is_graphics_pipeline = description.pipeline_type == PipelineType::Graphics;
 
 		// Shaders state
-		VkPipelineShaderStageCreateInfo vs_stage_info{};
-		vs_stage_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-		vs_stage_info.stage = VK_SHADER_STAGE_VERTEX_BIT;
-		vs_stage_info.module = static_cast<VulkanShader *>(description.vertex_shader.getReference())->handle;
-		vs_stage_info.pName = description.vertex_shader->getEntry().c_str();
+
 
 		VkPipelineShaderStageCreateInfo fs_stage_info{};
 		fs_stage_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -185,7 +186,26 @@ void VulkanPipeline::create(const PipelineDescription &description)
 		fs_stage_info.module = static_cast<VulkanShader *>(description.fragment_shader.getReference())->handle;
 		fs_stage_info.pName = description.fragment_shader->getEntry().c_str();
 
-		VkPipelineShaderStageCreateInfo stages_info[] = {vs_stage_info, fs_stage_info};
+		eastl::fixed_vector<VkPipelineShaderStageCreateInfo, 3> stages_info;
+		stages_info.push_back(fs_stage_info);
+		
+		if (is_graphics_pipeline)
+		{
+			VkPipelineShaderStageCreateInfo vs_stage_info{};
+			vs_stage_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+			vs_stage_info.stage = VK_SHADER_STAGE_VERTEX_BIT;
+			vs_stage_info.module = static_cast<VulkanShader *>(description.vertex_shader.getReference())->handle;
+			vs_stage_info.pName = description.vertex_shader->getEntry().c_str();
+			stages_info.push_back(vs_stage_info);
+		} else
+		{
+			VkPipelineShaderStageCreateInfo ms_stage_info{};
+			ms_stage_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+			ms_stage_info.stage = VK_SHADER_STAGE_MESH_BIT_EXT;
+			ms_stage_info.module = static_cast<VulkanShader *>(description.mesh_shader.getReference())->handle;
+			ms_stage_info.pName = description.mesh_shader->getEntry().c_str();
+			stages_info.push_back(ms_stage_info);
+		}
 
 		// Vertex input state
 		VkPipelineVertexInputStateCreateInfo vertex_input_info{};
@@ -412,10 +432,13 @@ void VulkanPipeline::create(const PipelineDescription &description)
 		VkGraphicsPipelineCreateInfo pipeline_info{};
 		pipeline_info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
 		pipeline_info.pNext = &pipeline_rendering_info;
-		pipeline_info.stageCount = 2;
-		pipeline_info.pStages = stages_info;
-		pipeline_info.pVertexInputState = &vertex_input_info;
-		pipeline_info.pInputAssemblyState = &input_assembly_info;
+		pipeline_info.stageCount = stages_info.size();
+		pipeline_info.pStages = stages_info.data();
+		if (is_graphics_pipeline)
+		{
+			pipeline_info.pVertexInputState = &vertex_input_info;
+			pipeline_info.pInputAssemblyState = &input_assembly_info;
+		}
 		pipeline_info.pViewportState = &viewport_info;
 		pipeline_info.pRasterizationState = &rasterizer_info;
 		pipeline_info.pMultisampleState = &multisampling_info;

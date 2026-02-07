@@ -26,6 +26,7 @@ IncludeDir["Vulkan"] = "%{VULKAN_SDK}/include"
 IncludeDir["DirectX"] = "vendor/directx/include"
 IncludeDir["SpdLog"] = "vendor/SpdLog/include"
 IncludeDir["Assimp"] = "vendor/Assimp/include"
+IncludeDir["Meshoptimizer"] = "vendor/meshoptimizer/src"
 IncludeDir["STB_IMAGE"] = "vendor/stb"
 IncludeDir["ImGui"] = "vendor/imgui"
 IncludeDir["ImGuizmo"] = "vendor/imguizmo"
@@ -45,6 +46,7 @@ group "Dependencies"
 include "vendor/EASTL"
 include "vendor/GLFW"
 include "vendor/Assimp"
+include "vendor/premake/premake-meshoptimizer.lua"
 include "vendor/ImGui"
 include "vendor/ImGuizmo"
 include "vendor/yaml-cpp"
@@ -96,6 +98,7 @@ project "Engine"
 		"%{IncludeDir.DirectX}",
 		"%{IncludeDir.SpdLog}",
 		"%{IncludeDir.Assimp}",
+		"%{IncludeDir.Meshoptimizer}",
 		"%{IncludeDir.STB_IMAGE}",
 		"%{IncludeDir.ImGui}",
 		"%{IncludeDir.ImGuizmo}",
@@ -127,6 +130,7 @@ project "Engine"
 		"d3dcompiler.lib",
 		"dxcompiler.lib",
 		"Assimp",
+		"Meshoptimizer",
 		"ImGui",
 		"ImGuizmo",
 		"YamlCpp",

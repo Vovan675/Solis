@@ -66,7 +66,8 @@ enum class PipelineType
 {
 	Graphics,
 	Compute,
-	RayTracing
+	RayTracing,
+	Mesh
 };
 
 struct VertexInputsDescription
@@ -126,6 +127,9 @@ struct PipelineDescription
 	RHIShaderRef miss_shader;
 	RHIShaderRef closest_hit_shader;
 
+	// Mesh Shader Pipeline
+	RHIShaderRef mesh_shader;
+
 	size_t getHash() const
 	{
 		size_t hash = 0;
@@ -141,6 +145,8 @@ struct PipelineDescription
 			hash_combine(hash, miss_shader->getHash());
 		if (closest_hit_shader)
 			hash_combine(hash, closest_hit_shader->getHash());
+		if (mesh_shader)
+			hash_combine(hash, mesh_shader->getHash());
 
 		hash_combine(hash, vertex_inputs_descriptions.getHash());
 		for (const auto &color_format : color_formats)

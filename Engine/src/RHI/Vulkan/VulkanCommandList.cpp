@@ -173,6 +173,15 @@ void VulkanCommandList::drawIndirect(RHIBuffer * args_buffer, uint32_t draw_coun
 	vkCmdDrawIndirect(cmd_buffer, native_args_buffer->getBuffer(), 0, draw_count, sizeof(VkDrawIndirectCommand));
 }
 
+void VulkanCommandList::dispatchIndirect(RHIBuffer *args_buffer, uint32_t dispatch_count)
+{
+	gDynamicRHI->prepareRenderCall();
+	VulkanBuffer *native_args_buffer = static_cast<VulkanBuffer *>(args_buffer);
+
+	for (uint32_t i = 0; i < dispatch_count; i++)
+		vkCmdDispatchIndirect(cmd_buffer, native_args_buffer->getBuffer(), i * sizeof(VkDispatchIndirectCommand));
+}
+
 void VulkanCommandList::dispatchRays(uint32_t width, uint32_t height, uint32_t depth)
 {
 	gDynamicRHI->prepareRenderCall();
@@ -202,6 +211,21 @@ void VulkanCommandList::dispatchRays(uint32_t width, uint32_t height, uint32_t d
 	VkStridedDeviceAddressRegionKHR callableShaderSbtEntry{};
 
 	VulkanUtils::vkCmdTraceRaysKHR(cmd_buffer, &raygenShaderSbtEntry, &missShaderSbtEntry, &hitShaderSbtEntry, &callableShaderSbtEntry, width, height, depth);
+}
+
+void VulkanCommandList::dispatchMesh(uint32_t group_x, uint32_t group_y, uint32_t group_z)
+{
+	gDynamicRHI->prepareRenderCall();
+	VulkanUtils::vkCmdDrawMeshTasks(cmd_buffer, group_x, group_y, group_z);
+}
+
+void VulkanCommandList::dispatchMeshIndirect(RHIBuffer *args_buffer, uint32_t draw_count)
+{
+	gDynamicRHI->prepareRenderCall();
+	
+	VulkanBuffer *native_args_buffer = static_cast<VulkanBuffer *>(args_buffer);
+
+	VulkanUtils::vkCmdDrawMeshTasksIndirect(cmd_buffer, native_args_buffer->getBuffer(), 0, draw_count, sizeof(VkDispatchIndirectCommand));
 }
 
 void VulkanCommandList::copyBuffer(RHIBuffer *src, RHIBuffer *dest, uint64_t src_offset, uint64_t dest_offset, uint64_t size)

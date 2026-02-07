@@ -127,6 +127,18 @@ void GlobalPipeline::setupGraphicsPipeline(RHICommandList* cmd_list,
 						  vertex_inputs, use_blending, depth_test, cull_mode);
 }
 
+void GlobalPipeline::setupMeshPipeline(RHICommandList *cmd_list, RHIShaderRef mesh_shader, RHIShaderRef fragment_shader, bool use_blending, bool depth_test, CullMode cull_mode)
+{
+	reset();
+	current_description.pipeline_type = PipelineType::Mesh;
+	setMeshShader(mesh_shader);
+	setFragmentShader(fragment_shader);
+	setRenderTargets(cmd_list->getCurrentRenderTargets());
+	setUseBlending(use_blending);
+	setDepthTest(depth_test);
+	setCullMode(cull_mode);
+}
+
 void GlobalPipeline::setupComputePipeline(RHIShaderRef compute_shader)
 {
 	reset();

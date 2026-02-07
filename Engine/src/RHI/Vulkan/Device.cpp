@@ -8,11 +8,12 @@ static eastl::vector<const char*> s_ValidationLayers = {
 		"VK_LAYER_KHRONOS_validation"
 };
 
-Device::Device(const VkInstance& instance) 
+Device::Device(const VkInstance& instance)
 	: m_InstanceHandle(instance)
 {
 	query_pools.resize(MAX_FRAMES_IN_FLIGHT);
 	time_stamps.resize(MAX_FRAMES_IN_FLIGHT);
+	pipeline_statistics_query_pools.resize(MAX_FRAMES_IN_FLIGHT);
 
 	CreatePhysicalDevice();
 	CreateLogicalDevice();
@@ -22,6 +23,8 @@ Device::~Device()
 {
 	for (size_t i = 0; i < query_pools.size(); i++)
 		vkDestroyQueryPool(logicalHandle, query_pools[i], nullptr);
+	for (size_t i = 0; i < pipeline_statistics_query_pools.size(); i++)
+		vkDestroyQueryPool(logicalHandle, pipeline_statistics_query_pools[i], nullptr);
 	vkDestroyDevice(logicalHandle, nullptr);
 }
 
@@ -117,6 +120,7 @@ void Device::CreateLogicalDevice()
 		extensions.push_back(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
 		extensions.push_back(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME);
 	}
+	extensions.push_back(VK_EXT_MESH_SHADER_EXTENSION_NAME);
 
 	info.enabledExtensionCount = extensions.size();
 	info.ppEnabledExtensionNames = extensions.data();
@@ -140,7 +144,14 @@ void Device::CreateLogicalDevice()
 	mutable_descriptor_type_features.mutableDescriptorType = true;
 	if (engine_ray_tracing)
 		mutable_descriptor_type_features.pNext = &acceleration_structure_features;
-	
+
+	VkPhysicalDeviceMeshShaderFeaturesEXT mesh_shader_features{};
+	mesh_shader_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT;
+	mesh_shader_features.taskShader = true;
+	mesh_shader_features.meshShader = true;
+	mesh_shader_features.meshShaderQueries = true;
+	mesh_shader_features.pNext = &mutable_descriptor_type_features;
+
 	VkPhysicalDeviceVulkan12Features features12{};
 	features12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
 	features12.drawIndirectCount = true;
@@ -153,7 +164,8 @@ void Device::CreateLogicalDevice()
 	features12.runtimeDescriptorArray = true; // for GL_EXT_nonuniform_qualifier extension
 	features12.shaderSampledImageArrayNonUniformIndexing = true;
 	features12.hostQueryReset = true;
-	features12.pNext = &mutable_descriptor_type_features;
+	features12.scalarBlockLayout = true; // alignment for storage buffers like DX12
+	features12.pNext = &mesh_shader_features;
 
 	// Enable dynamic rendering
 	VkPhysicalDeviceVulkan13Features features13{};
@@ -167,6 +179,7 @@ void Device::CreateLogicalDevice()
 	enabledFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
 	enabledFeatures.features.drawIndirectFirstInstance = true;
 	enabledFeatures.features.samplerAnisotropy = true;
+	enabledFeatures.features.pipelineStatisticsQuery = true;
 	enabledFeatures.pNext = &features13;
 	info.pNext = &enabledFeatures;
 
@@ -185,5 +198,25 @@ void Device::CreateLogicalDevice()
 		query_pool_info.queryCount = time_stamps[i].size();
 		vkCreateQueryPool(logicalHandle, &query_pool_info, nullptr, &query_pools[i]);
 		time_stamps[i].fill(0);
+	}
+
+	// Create statistics query pools
+	for (size_t i = 0; i < pipeline_statistics_query_pools.size(); i++)
+	{
+		VkQueryPoolCreateInfo query_pool_info{};
+		query_pool_info.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
+		query_pool_info.queryType = VK_QUERY_TYPE_PIPELINE_STATISTICS;
+		query_pool_info.queryCount = 1;
+		query_pool_info.pipelineStatistics =
+			VK_QUERY_PIPELINE_STATISTIC_INPUT_ASSEMBLY_VERTICES_BIT |
+			VK_QUERY_PIPELINE_STATISTIC_INPUT_ASSEMBLY_PRIMITIVES_BIT |
+			VK_QUERY_PIPELINE_STATISTIC_VERTEX_SHADER_INVOCATIONS_BIT |
+			VK_QUERY_PIPELINE_STATISTIC_CLIPPING_INVOCATIONS_BIT |
+			VK_QUERY_PIPELINE_STATISTIC_CLIPPING_PRIMITIVES_BIT |
+			VK_QUERY_PIPELINE_STATISTIC_FRAGMENT_SHADER_INVOCATIONS_BIT |
+			VK_QUERY_PIPELINE_STATISTIC_COMPUTE_SHADER_INVOCATIONS_BIT |
+			VK_QUERY_PIPELINE_STATISTIC_MESH_SHADER_INVOCATIONS_BIT_EXT;
+		vkCreateQueryPool(logicalHandle, &query_pool_info, nullptr, &pipeline_statistics_query_pools[i]);
+		vkResetQueryPool(logicalHandle, pipeline_statistics_query_pools[i], 0, 1);
 	}
 }

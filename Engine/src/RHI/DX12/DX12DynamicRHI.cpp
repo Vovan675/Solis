@@ -111,20 +111,61 @@ void DX12DynamicRHI::init()
 	tracy_ctx = TracyD3D12Context(device.Get(), cmd_queue->cmd_queue.Get());
 
 	D3D12_INDIRECT_ARGUMENT_DESC indirect_arguments[1];
-	indirect_arguments[0].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW_INDEXED;
-
 	D3D12_COMMAND_SIGNATURE_DESC command_signature_desc{};
+
+	indirect_arguments[0].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW_INDEXED;
 	command_signature_desc.ByteStride = sizeof(D3D12_DRAW_INDEXED_ARGUMENTS);
 	command_signature_desc.NumArgumentDescs = 1;
 	command_signature_desc.pArgumentDescs = indirect_arguments;
 	device->CreateCommandSignature(&command_signature_desc, nullptr, IID_PPV_ARGS(&draw_indexed_command_signature));
 
 	indirect_arguments[0].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW;
-
 	command_signature_desc.ByteStride = sizeof(D3D12_DRAW_ARGUMENTS);
 	command_signature_desc.NumArgumentDescs = 1;
 	command_signature_desc.pArgumentDescs = indirect_arguments;
 	device->CreateCommandSignature(&command_signature_desc, nullptr, IID_PPV_ARGS(&draw_command_signature));
+
+	indirect_arguments[0].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH;
+	command_signature_desc.ByteStride = sizeof(D3D12_DISPATCH_ARGUMENTS);
+	command_signature_desc.NumArgumentDescs = 1;
+	command_signature_desc.pArgumentDescs = indirect_arguments;
+	device->CreateCommandSignature(&command_signature_desc, nullptr, IID_PPV_ARGS(&dispatch_command_signature));
+
+	indirect_arguments[0].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH_MESH;
+	command_signature_desc.ByteStride = sizeof(D3D12_DISPATCH_MESH_ARGUMENTS);
+	command_signature_desc.NumArgumentDescs = 1;
+	command_signature_desc.pArgumentDescs = indirect_arguments;
+	device->CreateCommandSignature(&command_signature_desc, nullptr, IID_PPV_ARGS(&dispatch_mesh_command_signature));
+
+	// Create pipeline statistics
+	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+	{
+		D3D12_QUERY_HEAP_DESC query_heap_desc{};
+		query_heap_desc.Type = D3D12_QUERY_HEAP_TYPE_PIPELINE_STATISTICS1;
+		query_heap_desc.Count = 1;
+		device->CreateQueryHeap(&query_heap_desc, IID_PPV_ARGS(&pipeline_statistics_queries[i].query_heap));
+
+		D3D12_HEAP_PROPERTIES heap_props{};
+		heap_props.Type = D3D12_HEAP_TYPE_READBACK;
+
+		D3D12_RESOURCE_DESC resource_desc{};
+		resource_desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+		resource_desc.Width = sizeof(D3D12_QUERY_DATA_PIPELINE_STATISTICS1);
+		resource_desc.Height = 1;
+		resource_desc.DepthOrArraySize = 1;
+		resource_desc.MipLevels = 1;
+		resource_desc.SampleDesc.Count = 1;
+		resource_desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+
+		device->CreateCommittedResource(
+			&heap_props,
+			D3D12_HEAP_FLAG_NONE,
+			&resource_desc,
+			D3D12_RESOURCE_STATE_COPY_DEST,
+			nullptr,
+			IID_PPV_ARGS(&pipeline_statistics_queries[i].readback_buffer)
+		);
+	}
 }
 
 void DX12DynamicRHI::shutdown()
@@ -227,6 +268,10 @@ RHIShaderRef DX12DynamicRHI::createShader(eastl::wstring path, ShaderType type, 
 			entry_point = "Miss";
 		else if (type == CLOSEST_HIT_SHADER)
 			entry_point = "ClosestHit";
+		else if (type == TASK_SHADER)
+			entry_point = "TSMain";
+		else if (type == MESH_SHADER)
+			entry_point = "MSMain";
 	}
 
 	size_t cache_hash = 0;
@@ -396,11 +441,17 @@ void DX12DynamicRHI::beginFrame()
 	cmd_lists[frame_in_flight]->cmd_list->SetDescriptorHeaps(_countof(heaps), heaps); // do it when open cmd list?
 	cbv_srv_uav_heap->releaseFrame(fenceValues[frame_in_flight]);
 	cbv_srv_uav_additional_heap->releaseFrame(fenceValues[frame_in_flight]);
+
+	cmd_lists[frame_in_flight]->cmd_list->BeginQuery(pipeline_statistics_queries[frame_in_flight].query_heap.Get(), D3D12_QUERY_TYPE_PIPELINE_STATISTICS1, 0);
 }
 
 void DX12DynamicRHI::endFrame()
 {
 	PROFILE_CPU_FUNCTION();
+
+	cmd_lists[frame_in_flight]->cmd_list->EndQuery(pipeline_statistics_queries[frame_in_flight].query_heap.Get(), D3D12_QUERY_TYPE_PIPELINE_STATISTICS1, 0);
+	cmd_lists[frame_in_flight]->cmd_list->ResolveQueryData(pipeline_statistics_queries[frame_in_flight].query_heap.Get(), D3D12_QUERY_TYPE_PIPELINE_STATISTICS1, 0, 1, pipeline_statistics_queries[frame_in_flight].readback_buffer.Get(), 0);
+
 	gDynamicRHI->getCmdList()->close();
 
 	cmd_queue->execute(cmd_lists[frame_in_flight]);
@@ -418,6 +469,26 @@ void DX12DynamicRHI::endFrame()
 		PROFILE_CPU_SCOPE("Wait in flight fence");
 		const UINT64 prev_fence_value = fenceValues[frame_in_flight];
 		cmd_queue->wait(prev_fence_value);
+	}
+
+	// Read pipeline statistics
+	D3D12_QUERY_DATA_PIPELINE_STATISTICS1 stats;
+	D3D12_RANGE read_range = { 0, sizeof(D3D12_QUERY_DATA_PIPELINE_STATISTICS1) };
+	void* mapped_data = nullptr;
+	if (SUCCEEDED(pipeline_statistics_queries[frame_in_flight].readback_buffer->Map(0, &read_range, &mapped_data)))
+	{
+		memcpy(&stats, mapped_data, sizeof(D3D12_QUERY_DATA_PIPELINE_STATISTICS1));
+		D3D12_RANGE write_range = { 0, 0 };
+		pipeline_statistics_queries[frame_in_flight].readback_buffer->Unmap(0, &write_range);
+
+		gpu_statistics.input_assembly_vertices = stats.IAVertices;
+		gpu_statistics.input_assembly_primitives = stats.IAPrimitives;
+		gpu_statistics.vertex_shader_invocations = stats.VSInvocations;
+		gpu_statistics.clipping_invocations = stats.CInvocations;
+		gpu_statistics.clipping_primitives = stats.CPrimitives;
+		gpu_statistics.fragment_shader_invocations = stats.PSInvocations;
+		gpu_statistics.compute_shader_invocations = stats.CSInvocations;
+		gpu_statistics.mesh_shader_invocations = stats.MSInvocations;
 	}
 
 	// Set the fence value for the next frame.

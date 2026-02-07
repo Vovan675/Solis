@@ -152,7 +152,7 @@ static VulkanAccessInfo toVulkanAccessInfo(ResourceState state)
 	if (hasAnyFlags(state, ResourceState::UAV))
 	{
 		info.stage |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
-		info.access |= VK_ACCESS_SHADER_WRITE_BIT;
+		info.access |= VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
 	}
 	if (hasAnyFlags(state, ResourceState::VERTEX_BUFFER))
 	{

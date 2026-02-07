@@ -201,6 +201,16 @@ public:
 
 	ID3D12CommandSignature *draw_indexed_command_signature;
 	ID3D12CommandSignature *draw_command_signature;
+	ID3D12CommandSignature *dispatch_command_signature;
+	ID3D12CommandSignature *dispatch_mesh_command_signature;
+
+	// Pipeline statistics
+	struct PipelineStatisticsQueryData
+	{
+		ComPtr<ID3D12QueryHeap> query_heap;
+		ComPtr<ID3D12Resource> readback_buffer;
+	};
+	eastl::array<PipelineStatisticsQueryData, MAX_FRAMES_IN_FLIGHT> pipeline_statistics_queries;
 
 	void beginFrame() override;
 	void endFrame() override;

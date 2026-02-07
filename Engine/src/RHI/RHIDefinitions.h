@@ -9,7 +9,7 @@ static const int MAX_COLOR_ATTACHMENTS = 8;
 
 enum ShaderType
 {
-	// Default pipeline
+	// Graphics pipeline
 	VERTEX_SHADER,
 	FRAGMENT_SHADER,
 	// Compute pipeline
@@ -18,6 +18,9 @@ enum ShaderType
 	RAY_GENERATION_SHADER,
 	MISS_SHADER,
 	CLOSEST_HIT_SHADER,
+	// Mesh Pipeline
+	TASK_SHADER,
+	MESH_SHADER,
 };
 
 enum class ResourceState

@@ -42,6 +42,31 @@ struct MeshGPU
 	uint32_t colors_offset;
 	uint32_t index_offset;
 	uint32_t indices_count;
+
+	uint32_t meshlet_vertex_offset;
+	uint32_t meshlet_triangle_offset;
+
+	uint32_t meshlet_offset;
+	uint32_t meshlet_count;
+};
+
+struct MeshletTriangle
+{
+	uint32_t v0 : 10;
+	uint32_t v1 : 10;
+	uint32_t v2 : 10;
+	uint32_t : 2;
+};
+
+struct alignas(16) Meshlet
+{
+	glm::vec3 center;
+	glm::vec3 extent;
+
+	uint32_t vertex_offset;
+	uint32_t vertex_count; // typically 64
+	uint32_t triangle_offset;
+	uint32_t triangle_count; // typically 124
 };
 
 struct FrustumDataGPU
@@ -67,4 +92,11 @@ struct DrawIndirect
 	uint32_t instance_count;
 	uint32_t first_vertex;
 	uint32_t first_instance;
+};
+
+struct DispatchIndirect
+{
+	uint32_t group_x;
+	uint32_t group_y;
+	uint32_t group_z;
 };

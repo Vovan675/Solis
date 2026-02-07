@@ -25,10 +25,11 @@ public:
 			LOTS_OF_DUPLICATES,
 			LOTS_OF_DUPLICATES_HARD,
 			SIMPLE,
-			CULLING
+			CULLING,
+			MESHLET
 		} scene;
 
-		scene = LOTS_OF_DUPLICATES;
+		scene = MESHLET;
 
 		if (scene == SPONZA)
 		{
@@ -87,7 +88,15 @@ public:
 					cube.getTransform().setPosition(glm::vec3(x * 0.5f, y * 0.5f, -5));
 				}
 			}
-		}
+		} else if (scene == MESHLET)
+		{
+			//auto model = AssetManager::getModelAsset("assets/meshlet/napoleon.OBJ");
+			auto model = AssetManager::getModelAsset("assets/meshlet/monkey_subdiv_4.fbx");
+			Entity entity = model->createEntity(model);
+			entity.getTransform().setLocalScale(glm::vec3(0.01));
+			entity.getTransform().setLocalRotationEuler(glm::radians(glm::vec3(-90.0f, 0.0f, 0.0f)));
+			camera->setPosition(glm::vec3(0, 0, 4));
+		} 
 
 		//return;
 		//Scene::getCurrentScene()->loadFile("assets/demo_scene.scene");

@@ -1,5 +1,11 @@
 #pragma once
 
+struct MeshletCandidate
+{
+	uint instance_id;
+	uint meshlet_id;
+};
+
 void transformBoundBox(inout float3 bound_center, inout float3 bound_extent, float4x4 world_transform)
 {
 	float3 translation = transpose(world_transform)[3].xyz;

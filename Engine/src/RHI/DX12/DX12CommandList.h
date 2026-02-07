@@ -73,7 +73,16 @@ public:
 		cmd_list->Dispatch(group_x, group_y, group_z);
 	}
 
+	void dispatchIndirect(RHIBuffer *args_buffer, uint32_t dispatch_count) override;
+
 	void dispatchRays(uint32_t width, uint32_t height, uint32_t depth) override;
+
+	void dispatchMesh(uint32_t group_x, uint32_t group_y, uint32_t group_z) override
+	{
+		gDynamicRHI->prepareRenderCall();
+		cmd_list->DispatchMesh(group_x, group_y, group_z);
+	}
+	void dispatchMeshIndirect(RHIBuffer *args_buffer, uint32_t draw_count) override;
 
 	void copyBuffer(RHIBuffer *src, RHIBuffer *dest, uint64_t src_offset, uint64_t dest_offset, uint64_t size) override;
 
@@ -83,7 +92,7 @@ public:
 	bool is_open = false;
 
 	ComPtr<ID3D12CommandAllocator> cmd_allocator;
-	ComPtr<ID3D12GraphicsCommandList4> cmd_list;
+	ComPtr<ID3D12GraphicsCommandList6> cmd_list;
 	RHIPipeline *current_pipeline;
 	eastl::vector<RHITexture *> current_render_targets;
 

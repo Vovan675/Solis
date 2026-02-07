@@ -30,6 +30,8 @@ public:
 	void setRenderTargets(eastl::vector<RHITexture *> attachments);
 	void setRenderTargets(RHICommandList* cmd_list);
 
+	void setMeshShader(RHIShaderRef shader) { current_description.mesh_shader = shader; }
+
 	void setupRayTracing(const wchar_t* shader_path);
 	void setupRayTracing(const wchar_t* shader_path, eastl::vector<eastl::pair<const char *, const char *>> defines);
 	void setupRayTracing(RHIShaderRef ray_gen, RHIShaderRef miss, RHIShaderRef closest_hit);
@@ -46,6 +48,11 @@ public:
 							   bool use_blending = false,
 							   bool depth_test = true,
 							   CullMode cull_mode = CULL_MODE_BACK);
+	void setupMeshPipeline(RHICommandList* cmd_list,
+							RHIShaderRef mesh_shader, RHIShaderRef fragment_shader,
+							bool use_blending = false,
+							bool depth_test = true,
+							CullMode cull_mode = CULL_MODE_BACK);
 
 	void flushAndBind(RHICommandList *cmd_list);
 

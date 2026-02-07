@@ -164,6 +164,13 @@ void DX12CommandList::drawIndirect(RHIBuffer * args_buffer, uint32_t draw_count)
 	cmd_list->ExecuteIndirect(DX12Utils::getNativeRHI()->draw_command_signature, draw_count, native_args_buffer->getResource(), 0, nullptr, 0);
 }
 
+void DX12CommandList::dispatchIndirect(RHIBuffer *args_buffer, uint32_t dispatch_count)
+{
+	gDynamicRHI->prepareRenderCall();
+	DX12Buffer *native_args_buffer = static_cast<DX12Buffer *>(args_buffer);
+	cmd_list->ExecuteIndirect(DX12Utils::getNativeRHI()->dispatch_command_signature, dispatch_count, native_args_buffer->getResource(), 0, nullptr, 0);
+}
+
 void DX12CommandList::dispatchRays(uint32_t width, uint32_t height, uint32_t depth)
 {
 	gDynamicRHI->prepareRenderCall();
@@ -176,6 +183,15 @@ void DX12CommandList::dispatchRays(uint32_t width, uint32_t height, uint32_t dep
 	native_pipeline->fillDispatchRaysDesc(desc);
 
 	cmd_list->DispatchRays(&desc);
+}
+
+void DX12CommandList::dispatchMeshIndirect(RHIBuffer *args_buffer, uint32_t draw_count)
+{
+	gDynamicRHI->prepareRenderCall();
+
+	DX12Buffer *native_args_buffer = static_cast<DX12Buffer *>(args_buffer);
+
+	cmd_list->ExecuteIndirect(DX12Utils::getNativeRHI()->dispatch_mesh_command_signature, draw_count, native_args_buffer->getResource(), 0, nullptr, 0);
 }
 
 void DX12CommandList::copyBuffer(RHIBuffer *src, RHIBuffer *dest, uint64_t src_offset, uint64_t dest_offset, uint64_t size)

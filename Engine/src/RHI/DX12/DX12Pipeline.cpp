@@ -48,9 +48,13 @@ void DX12Pipeline::create(const PipelineDescription &description)
 		shaders.push_back(static_cast<DX12Shader *>(description.ray_generation_shader.getReference()));
 		shaders.push_back(static_cast<DX12Shader *>(description.miss_shader.getReference()));
 		shaders.push_back(static_cast<DX12Shader *>(description.closest_hit_shader.getReference()));
-	} else
+	} else if (description.pipeline_type == PipelineType::Graphics)
 	{
 		shaders.push_back(static_cast<DX12Shader *>(description.vertex_shader.getReference()));
+		shaders.push_back(static_cast<DX12Shader *>(description.fragment_shader.getReference()));
+	} else if (description.pipeline_type == PipelineType::Mesh)
+	{
+		shaders.push_back(static_cast<DX12Shader *>(description.mesh_shader.getReference()));
 		shaders.push_back(static_cast<DX12Shader *>(description.fragment_shader.getReference()));
 	}
 
@@ -158,20 +162,8 @@ void DX12Pipeline::create(const PipelineDescription &description)
 		DX12Utils::getNativeRHI()->device->CreateStateObject(ray_tracing_pipeline_desc, IID_PPV_ARGS(&pipeline->rt_pso));
 
 		pipeline->rt_pso->QueryInterface(IID_PPV_ARGS(&pipeline->rt_props));
-	} else
+	} else if (description.pipeline_type == PipelineType::Graphics || description.pipeline_type == PipelineType::Mesh)
 	{
-		DX12Shader *vs = static_cast<DX12Shader *>(description.vertex_shader.getReference());
-		DX12Shader *ps = static_cast<DX12Shader *>(description.fragment_shader.getReference());
-
-		eastl::fixed_vector<D3D12_INPUT_ELEMENT_DESC, 16> input_layout;
-
-		uint32_t offset = 0;
-		for (auto &input : description.vertex_inputs_descriptions.inputs)
-		{
-			input_layout.push_back({input.semantic_name, 0, DX12Utils::getNativeFormat(input.format), input.vertex_buffer_slot, offset, input.per_instance ? D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA : D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0});
-			offset += Math::alignedSize(getFormatSize(input.format), 16);
-		}
-
 		D3D12_PRIMITIVE_TOPOLOGY_TYPE topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_UNDEFINED;
 		switch (description.primitive_topology)
 		{
@@ -276,30 +268,80 @@ void DX12Pipeline::create(const PipelineDescription &description)
 			rt.RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
 		}
 
-		D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
-		psoDesc.InputLayout = {input_layout.data(), (uint32_t)input_layout.size()};
-		psoDesc.pRootSignature = pipeline->root_signature;
-		psoDesc.VS = {vs->blob->GetBufferPointer(), vs->blob->GetBufferSize()};
-		psoDesc.PS = {ps->blob->GetBufferPointer(), ps->blob->GetBufferSize()};
-		psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
-		psoDesc.RasterizerState.FrontCounterClockwise = true;
-		psoDesc.RasterizerState.CullMode = cull_mode;
-		psoDesc.BlendState = blend_state;
-		psoDesc.DepthStencilState = depth_stencil_desc;
-		psoDesc.SampleMask = UINT_MAX;
-		psoDesc.PrimitiveTopologyType = topology;
-
-		psoDesc.NumRenderTargets = description.color_formats.size();
-		for (int i = 0; i < description.color_formats.size(); i++)
+		if (description.pipeline_type == PipelineType::Graphics)
 		{
-			psoDesc.RTVFormats[i] = DX12Utils::getNativeFormat(description.color_formats[i]);
+			DX12Shader *vs = static_cast<DX12Shader *>(description.vertex_shader.getReference());
+			DX12Shader *ps = static_cast<DX12Shader *>(description.fragment_shader.getReference());
+
+			eastl::fixed_vector<D3D12_INPUT_ELEMENT_DESC, 16> input_layout;
+
+			uint32_t offset = 0;
+			for (auto &input : description.vertex_inputs_descriptions.inputs)
+			{
+				input_layout.push_back({input.semantic_name, 0, DX12Utils::getNativeFormat(input.format), input.vertex_buffer_slot, offset, input.per_instance ? D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA : D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0});
+				offset += Math::alignedSize(getFormatSize(input.format), 16);
+			}
+
+			D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_desc = {};
+			pso_desc.InputLayout = {input_layout.data(), (uint32_t)input_layout.size()};
+			pso_desc.pRootSignature = pipeline->root_signature;
+			pso_desc.VS = {vs->blob->GetBufferPointer(), vs->blob->GetBufferSize()};
+			pso_desc.PS = {ps->blob->GetBufferPointer(), ps->blob->GetBufferSize()};
+			pso_desc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+			pso_desc.RasterizerState.FrontCounterClockwise = true;
+			pso_desc.RasterizerState.CullMode = cull_mode;
+			pso_desc.BlendState = blend_state;
+			pso_desc.DepthStencilState = depth_stencil_desc;
+			pso_desc.SampleMask = UINT_MAX;
+			pso_desc.PrimitiveTopologyType = topology;
+
+			pso_desc.NumRenderTargets = description.color_formats.size();
+			for (int i = 0; i < description.color_formats.size(); i++)
+			{
+				pso_desc.RTVFormats[i] = DX12Utils::getNativeFormat(description.color_formats[i]);
+			}
+
+			if (description.depth_format != FORMAT_UNDEFINED)
+				pso_desc.DSVFormat = DX12Utils::getNativeFormat(description.depth_format);
+
+			pso_desc.SampleDesc.Count = 1;
+			device->CreateGraphicsPipelineState(&pso_desc, IID_PPV_ARGS(&pipeline->pipeline_state));
+		} else if (description.pipeline_type == PipelineType::Mesh)
+		{
+			DX12Shader *ms = static_cast<DX12Shader *>(description.mesh_shader.getReference());
+			DX12Shader *ps = static_cast<DX12Shader *>(description.fragment_shader.getReference());
+
+			D3DX12_MESH_SHADER_PIPELINE_STATE_DESC pso_desc = {};
+			pso_desc.pRootSignature = pipeline->root_signature;
+			//pso_desc.AS = {};
+			pso_desc.MS = {ms->blob->GetBufferPointer(), ms->blob->GetBufferSize()};
+			pso_desc.PS = {ps->blob->GetBufferPointer(), ps->blob->GetBufferSize()};
+			pso_desc.BlendState = blend_state;
+			pso_desc.SampleMask = UINT_MAX;
+			pso_desc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+			pso_desc.RasterizerState.FrontCounterClockwise = true;
+			pso_desc.RasterizerState.CullMode = cull_mode;
+			pso_desc.DepthStencilState = depth_stencil_desc;
+			pso_desc.PrimitiveTopologyType = topology;
+
+			pso_desc.NumRenderTargets = description.color_formats.size();
+			for (int i = 0; i < description.color_formats.size(); i++)
+			{
+				pso_desc.RTVFormats[i] = DX12Utils::getNativeFormat(description.color_formats[i]);
+			}
+
+			if (description.depth_format != FORMAT_UNDEFINED)
+				pso_desc.DSVFormat = DX12Utils::getNativeFormat(description.depth_format);
+
+			pso_desc.SampleDesc.Count = 1;
+
+			auto mesh_stream_desc = CD3DX12_PIPELINE_MESH_STATE_STREAM(pso_desc);
+
+			D3D12_PIPELINE_STATE_STREAM_DESC stream_desc = {};
+			stream_desc.SizeInBytes = sizeof(mesh_stream_desc);
+			stream_desc.pPipelineStateSubobjectStream = &mesh_stream_desc;
+			DX12Utils::getNativeRHI()->device->CreatePipelineState(&stream_desc, IID_PPV_ARGS(&pipeline->pipeline_state));
 		}
-
-		if (description.depth_format != FORMAT_UNDEFINED)
-			psoDesc.DSVFormat = DX12Utils::getNativeFormat(description.depth_format);
-
-		psoDesc.SampleDesc.Count = 1;
-		device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&pipeline->pipeline_state));
 	}
 }
 
