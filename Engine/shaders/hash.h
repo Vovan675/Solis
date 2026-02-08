@@ -103,3 +103,45 @@ float4 hash44(float4 p4)
 	p4 += dot(p4, p4.wzxy+33.33);
 	return frac((p4.xxyz+p4.yzzw)*p4.zywx);
 }
+
+uint murmurHash(uint x)
+{
+  uint m = 0x5bd1e995;
+  uint r = 24;
+
+  uint h = 64684;
+  uint k = x;
+
+  k *= m;
+  k ^= (k >> r);
+  k *= m;
+  h *= m;
+  h ^= k;
+
+  return h;
+}
+
+uint wangHash(uint a)
+{
+	a = (a ^ 61) ^ (a >> 16);
+	a = a + (a << 3);
+	a = a ^ (a >> 4);
+	a = a * 0x27d4eb2d;
+	a = a ^ (a >> 15);
+	return a;
+}
+
+float4 unpackUintToFloat4(uint x)
+{
+	return float4(
+		(x & 0xff) / 255.0,
+		((x >> 8) & 0xff) / 255.0,
+		((x >> 16) & 0xff) / 255.0,
+		((x >> 24) & 0xff) / 255.0
+	);
+}
+
+float3 colorHash(uint id)
+{
+	return lerp(0, 1, unpackUintToFloat4(murmurHash(id)).rgb);
+}

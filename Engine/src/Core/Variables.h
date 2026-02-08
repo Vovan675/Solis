@@ -23,3 +23,4 @@ extern AutoConVarBool render_ssao;
 extern AutoConVarBool render_ssr;
 extern AutoConVarBool render_fxaa;
 extern AutoConVarBool render_automatic_sun_position;
+extern AutoConVarBool render_meshlets_use_mesh_shaders;

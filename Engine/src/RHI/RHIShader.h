@@ -56,7 +56,7 @@ public:
 	eastl::string getEntry() const { return entry_point.c_str(); }
 
 	virtual void recompile() = 0;
-	
+
 	static eastl::list<RHIShader *> getAllShadersAtPath(const eastl::wstring &path);
 
 protected:
@@ -64,7 +64,7 @@ protected:
 	std::filesystem::path path;
 	ShaderType type;
 	eastl::string entry_point;
-	eastl::vector<eastl::pair<const char *, const char *>> defines;
+	eastl::vector<eastl::pair<eastl::string, eastl::string>> defines;
 
 	static eastl::unordered_map<eastl::wstring, eastl::list<RHIShader *>> path_to_shaders;
 };

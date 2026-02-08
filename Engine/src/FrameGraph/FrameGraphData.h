@@ -7,8 +7,8 @@
 
 #define InstancesPassMask
 
-#define VisibleInstances
-#define VisibleInstancesCount
+#define CandidateMeshlets
+#define CandidateMeshletsCount
 #define VisibleMeshlets
 #define VisibleMeshletsCount
 

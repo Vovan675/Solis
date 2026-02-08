@@ -5,11 +5,8 @@
 cbuffer Uniforms : register(b0)
 {
 	float4x4 frustum_view_projection;
-	uint visible_instances_buffer_id;
-	uint visible_instances_count_buffer_id;
-	uint draw_indexed_args_buffer_id;
-	uint draw_indexed_count_buffer_id;
-	uint draw_calls_indirect_instances_buffer_id;
+	uint candidate_meshlets_buffer_id;
+	uint candidate_meshlets_count_buffer_id;
 	uint instances_visibility_buffer_id;
 	uint instances_pass_mask_buffer_id;
 	uint instances_count;
@@ -18,19 +15,14 @@ cbuffer Uniforms : register(b0)
 	uint hiz_height;
 	uint hiz_mips;
 	uint current_pass_mask;
-	uint pad[3];
 };
 
-static RWStructuredBuffer<MeshletCandidate> visible_instances_buffer = ResourceDescriptorHeap[visible_instances_buffer_id];
-static RWStructuredBuffer<uint> visible_instances_count = ResourceDescriptorHeap[visible_instances_count_buffer_id];
-
-//static RWStructuredBuffer<DrawIndexedIndirect> draw_indexed_args = ResourceDescriptorHeap[draw_indexed_args_buffer_id];
-//static RWStructuredBuffer<uint> draw_indexed_count  = ResourceDescriptorHeap[draw_indexed_count_buffer_id];
-//static RWStructuredBuffer<uint> indirect_instances  = ResourceDescriptorHeap[draw_calls_indirect_instances_buffer_id];
+static RWStructuredBuffer<MeshletCandidate> candidate_meshlets_buffer = ResourceDescriptorHeap[candidate_meshlets_buffer_id];
+static RWStructuredBuffer<uint> candidate_meshlets_count = ResourceDescriptorHeap[candidate_meshlets_count_buffer_id];
 static RWByteAddressBuffer visibility_buffer = ResourceDescriptorHeap[instances_visibility_buffer_id];
 static ByteAddressBuffer pass_mask_buffer = ResourceDescriptorHeap[instances_pass_mask_buffer_id];
 
-[numthreads(32, 1, 1)]
+[numthreads(THREADGROUP_SIZE, 1, 1)]
 void CSMain(uint3 dispatchID : SV_DispatchThreadID)
 {
 	uint id = dispatchID.x;
@@ -56,7 +48,6 @@ void CSMain(uint3 dispatchID : SV_DispatchThreadID)
 	transformBoundBox(bound_center, bound_extent, instance.world_transform);
 
 	FrustumCullData cull_data = getFrustumCullData(bound_center, bound_extent, frustum_view_projection);
-
 	is_visible &= cull_data.is_visible;
 
 	#if FREEZE_CULLING
@@ -77,39 +68,19 @@ void CSMain(uint3 dispatchID : SV_DispatchThreadID)
 	#if IS_LATE
 		should_draw = is_visible && !was_visible;
 	#endif
+
 	if (should_draw)
 	{
-		#define IS_MESHLET 1
-		#if IS_MESHLET
-			uint offset;
-			uint num_meshlets = mesh.meshlet_count;
-			InterlockedAdd(visible_instances_count[0], num_meshlets, offset);
+		uint offset;
+		uint num_meshlets = mesh.meshlet_count;
+		InterlockedAdd(candidate_meshlets_count[0], num_meshlets, offset);
 
-			for (int i = 0; i < num_meshlets; i++)
-			{
-				MeshletCandidate meshlet;
-				meshlet.instance_id = id;
-				meshlet.meshlet_id = mesh.meshlet_offset + i;
-				visible_instances_buffer[offset + i] = meshlet;
-			}
-		#else
-			uint visible_count = WaveActiveSum(1);
-			uint base_offset;
-
-			if (WaveIsFirstLane())
-				InterlockedAdd(draw_indexed_count[0], visible_count, base_offset);
-
-			base_offset = WaveReadLaneFirst(base_offset);
-			uint offset = base_offset + WavePrefixSum(1);
-
-			DrawIndexedIndirect cmd;
-			cmd.index_count_per_instance = mesh.indices_count;
-			cmd.instance_count = 1;
-			cmd.start_index_location = mesh.index_offset;
-			cmd.base_vertex_location = 0;
-			cmd.start_instance_location = offset;
-			draw_indexed_args[offset] = cmd;
-			indirect_instances[offset] = id;
-		#endif
+		for (int i = 0; i < num_meshlets; i++)
+		{
+			MeshletCandidate meshlet;
+			meshlet.instance_id = id;
+			meshlet.meshlet_id = mesh.meshlet_offset + i;
+			candidate_meshlets_buffer[offset + i] = meshlet;
+		}
 	}
 }

@@ -23,3 +23,4 @@ AutoConVarBool render_ssao("render.ssao.enabled", "Screen Space Ambient Occlusio
 AutoConVarBool render_ssr("render.ssr.enabled", "Screen Space Reflections Enabled", false);
 AutoConVarBool render_fxaa("render.fxaa.enabled", "FXAA Enabled", true);
 AutoConVarBool render_automatic_sun_position("render.automatic_sun_position.enabled", "Automatic Sun Position", true, ConVarFlag::CON_VAR_FLAG_HIDDEN);
+AutoConVarBool render_meshlets_use_mesh_shaders("render.meshlets.use_mesh_shaders", "Use Mesh Shaders for Meshlet Rendering", true);

@@ -98,6 +98,7 @@ public:
 
 	const glm::mat4 &getView() const { return view; }
 	const glm::mat4 &getProj() const { return proj; }
+	const glm::mat4 &getViewProj() const { return proj * view; }
 
 	struct Inputs
 	{

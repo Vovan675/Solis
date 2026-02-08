@@ -23,7 +23,12 @@ void DX12Shader::recompile()
 {
 	destroy();
 
-	DynamicRHI::CompileShaderResult result = gDynamicRHI->compile_shader(path.wstring().c_str(), type, entry_point, false, &defines);
+	eastl::vector<eastl::pair<const char*, const char*>> defines_ptrs;
+	defines_ptrs.reserve(defines.size());
+	for (const auto& define : defines)
+		defines_ptrs.push_back({define.first.c_str(), define.second.c_str()});
+
+	DynamicRHI::CompileShaderResult result = gDynamicRHI->compile_shader(path.wstring().c_str(), type, entry_point, false, &defines_ptrs);
 	blob = result.data;
 	hash = result.source_hash;
 	included_files = result.included_files;

@@ -6,16 +6,18 @@
 class GBufferPass
 {
 public:
-	GBufferPass();
+	void addPass(FrameGraph& fg, uint32_t max_draw_calls);
 
-	void addPass(FrameGraph &fg, uint32_t max_draw_calls_count);
-
-	EntityRenderer *entity_renderer;
+	EntityRenderer* entity_renderer;
 
 private:
-	void gpu_pass_cull(FrameGraph &fg, bool is_late, uint32_t max_draw_calls_count);
-	void render_pass(FrameGraph &fg, uint32_t max_draw_calls_count);
+	void addHiZPass(FrameGraph& fg);
+	void addCullingPasses(FrameGraph& fg, bool is_late_pass, uint32_t max_draw_calls);
+	void addGeometryPass(FrameGraph& fg, uint32_t max_draw_calls);
 
-	RHIShaderRef gbuffer_vertex_shader;
-	RHIShaderRef gbuffer_fragment_shader;
+	void addCounterInitPass(FrameGraph& fg, bool is_late_pass);
+	void addInstanceCullingPass(FrameGraph& fg, bool is_late_pass, uint32_t max_draw_calls);
+	void addMeshletDispatchArgsPass(FrameGraph& fg, bool is_late_pass);
+	void addMeshletCullingPass(FrameGraph& fg, bool is_late_pass, uint32_t max_draw_calls);
+	void addGeometryDispatchArgsPass(FrameGraph& fg, bool is_late_pass);
 };

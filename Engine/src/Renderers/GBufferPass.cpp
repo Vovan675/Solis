@@ -6,105 +6,123 @@
 #include "FrameGraph/FrameGraphUtils.h"
 #include "Scene/Components.h"
 #include "Scene/Entity.h"
+#include "Core/Variables.h"
 
-GBufferPass::GBufferPass()
+namespace
 {
-	gbuffer_vertex_shader = gDynamicRHI->createShader(L"shaders/opaque.hlsl", VERTEX_SHADER);
-	gbuffer_fragment_shader = gDynamicRHI->createShader(L"shaders/opaque.hlsl", FRAGMENT_SHADER);
+	constexpr uint32_t MAX_MESHLETS_PER_FRAME = 1 << 23;
+	constexpr uint32_t HIZ_THREADGROUP_SIZE = 32;
+	constexpr uint32_t INSTANCE_CULLING_THREADGROUP_SIZE = 32;
+	constexpr uint32_t MESHLET_CULLING_THREADGROUP_SIZE = 32;
+
+	struct MeshletCandidate
+	{
+		uint32_t instance_id;
+		uint32_t meshlet_id;
+	};
 }
 
-void GBufferPass::addPass(FrameGraph &fg, uint32_t max_draw_calls_count)
+void GBufferPass::addPass(FrameGraph& fg, uint32_t max_draw_calls)
 {
-	// Render previously visible objects & frustum gpu_pass_cull them
-	gpu_pass_cull(fg, false, max_draw_calls_count);
-	render_pass(fg, max_draw_calls_count);
+	addCullingPasses(fg, false, max_draw_calls);
+	addGeometryPass(fg, max_draw_calls);
+	addHiZPass(fg);
 
-	fg.addCallbackPass("HiZ Pass",
-	[&](RenderPassBuilder &builder)
+	if (!render_freeze_culling)
 	{
-		glm::ivec2 gbuffer_size = Renderer::getViewportSize();
+		addCullingPasses(fg, true, max_draw_calls);
+		addGeometryPass(fg, max_draw_calls);
+	}
+}
+
+void GBufferPass::addHiZPass(FrameGraph& fg)
+{
+	fg.addCallbackPass("HiZ Generation",
+	[&](RenderPassBuilder& builder)
+	{
+		glm::ivec2 viewport_size = Renderer::getViewportSize();
 
 		TextureDescription desc;
 		desc.format = FORMAT_R32_SFLOAT;
 
-		glm::ivec2 mips = glm::max(glm::ceil(glm::log2(glm::vec2(gbuffer_size))), glm::vec2(1.0f));
-		desc.mip_levels = std::max(mips.x, mips.y);
-		desc.width = 1 << (mips.x - 1);
-		desc.height = 1 << (mips.y - 1);
+		glm::ivec2 mip_dimensions = glm::max(glm::ceil(glm::log2(glm::vec2(viewport_size))), glm::vec2(1.0f));
+		desc.mip_levels = std::max(mip_dimensions.x, mip_dimensions.y);
+		desc.width = 1 << (mip_dimensions.x - 1);
+		desc.height = 1 << (mip_dimensions.y - 1);
 
 		builder.createTexture(GFXRID(HiZ), desc);
 		builder.writeUAVTexture(GFXRID(HiZ));
-
 		builder.readTexture(GFXRID(GBufferDepth));
 	},
-	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
+	[=](const RenderPassResources& resources, RHICommandList* cmd_list)
 	{
-		RHITexture *depth = resources.getTexture(GFXRID(GBufferDepth));
-		RHITexture *hiz = resources.getTexture(GFXRID(HiZ));
+		RHITexture* depth = resources.getTexture(GFXRID(GBufferDepth));
+		RHITexture* hiz = resources.getTexture(GFXRID(HiZ));
 
-		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/depth_hiz.hlsl", COMPUTE_SHADER));
-		gGlobalPipeline->flushAndBind(cmd_list);
-
-		struct Constants
+		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/depth_hiz.hlsl", COMPUTE_SHADER, "CSMain",
 		{
-			uint32_t output_tex_id;
-			uint32_t depth_tex_id;
-			glm::ivec2 texture_size;
-		} constants;
+			{"THREADGROUP_SIZE", std::to_string(HIZ_THREADGROUP_SIZE).c_str()}
+		}));
+		gGlobalPipeline->flushAndBind(cmd_list);
 
 		for (int mip = 0; mip < hiz->getMipLevels(); mip++)
 		{
-			if (mip == 0)
-				constants.depth_tex_id = resources.getReadTexture(GFXRID(GBufferDepth));
-			else
+			struct
 			{
-				constants.depth_tex_id = hiz->getShaderResourceView(mip - 1)->getBindlessIndex();
-			}
+				uint32_t output_tex_id;
+				uint32_t depth_tex_id;
+				glm::ivec2 texture_size;
+			} constants;
+			constants.depth_tex_id = (mip == 0)
+				? resources.getReadTexture(GFXRID(GBufferDepth))
+				: hiz->getShaderResourceView(mip - 1)->getBindlessIndex();
 			constants.output_tex_id = hiz->getUnorderedAccessView(mip)->getBindlessIndex();
 			constants.texture_size = hiz->getSize(mip);
+
 			gDynamicRHI->setConstantBufferData(0, &constants, sizeof(constants));
 
-			glm::ivec2 num_groups = glm::max(glm::vec2(1, 1), glm::ceil(glm::vec2(hiz->getSize(mip)) / 32.0f));
-			cmd_list->dispatch(num_groups.x, num_groups.y, 1);
+			glm::ivec2 dispatch_size = glm::max(glm::vec2(1, 1), glm::ceil(glm::vec2(hiz->getSize(mip)) / float(HIZ_THREADGROUP_SIZE)));
+			cmd_list->dispatch(dispatch_size.x, dispatch_size.y, 1);
 			hiz->transitLayout(cmd_list, TEXTURE_LAYOUT_UAV);
 		}
 		hiz->transitLayout(cmd_list, TEXTURE_LAYOUT_UAV);
 	});
-
-	// Render previously not visible objects & frustum, hiz gpu_pass_cull them
-	if (!render_freeze_culling)
-	{
-		gpu_pass_cull(fg, true, max_draw_calls_count);
-		render_pass(fg, max_draw_calls_count);
-	}
 }
 
-uint32_t max_clusters_per_frame = 1 << 22;
-void GBufferPass::gpu_pass_cull(FrameGraph &fg, bool is_late, uint32_t max_draw_calls_count)
+void GBufferPass::addCullingPasses(FrameGraph& fg, bool is_late_pass, uint32_t max_draw_calls)
 {
-	fg.addCallbackPass("Init DrawCalls Pass",
-	[&](RenderPassBuilder &builder)
+	addCounterInitPass(fg, is_late_pass);
+	addInstanceCullingPass(fg, is_late_pass, max_draw_calls);
+	addMeshletDispatchArgsPass(fg, is_late_pass);
+	addMeshletCullingPass(fg, is_late_pass, max_draw_calls);
+	addGeometryDispatchArgsPass(fg, is_late_pass);
+}
+
+void GBufferPass::addCounterInitPass(FrameGraph& fg, bool is_late_pass)
+{
+	fg.addCallbackPass("Init Counters",
+	[&, is_late_pass](RenderPassBuilder& builder)
 	{
-		if (!is_late)
+		if (!is_late_pass)
 		{
-			builder.createBuffer(GFXRID(VisibleInstancesCount), sizeof(uint32_t), 1, BufferUsage::INDIRECT_ARGS_BUFFER | BufferUsage::SHADER_WRITE_BUFFER);
+			builder.createBuffer(GFXRID(CandidateMeshletsCount), sizeof(uint32_t), 1, BufferUsage::INDIRECT_ARGS_BUFFER | BufferUsage::SHADER_WRITE_BUFFER);
 			builder.createBuffer(GFXRID(VisibleMeshletsCount), sizeof(uint32_t), 1, BufferUsage::INDIRECT_ARGS_BUFFER | BufferUsage::SHADER_WRITE_BUFFER);
 			builder.createBuffer(GFXRID(DrawIndexedCount), sizeof(uint32_t), 1, BufferUsage::INDIRECT_ARGS_BUFFER | BufferUsage::SHADER_WRITE_BUFFER);
 		}
 
-		builder.writeBuffer(GFXRID(VisibleInstancesCount));
+		builder.writeBuffer(GFXRID(CandidateMeshletsCount));
 		builder.writeBuffer(GFXRID(VisibleMeshletsCount));
 		builder.writeBuffer(GFXRID(DrawIndexedCount));
 	},
-	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
+	[=](const RenderPassResources& resources, RHICommandList* cmd_list)
 	{
-		struct Constants
+		struct
 		{
-			uint32_t visible_instances_count_buffer_id;
+			uint32_t candidate_meshlets_count_buffer_id;
 			uint32_t visible_meshlets_count_buffer_id;
 			uint32_t draw_calls_count_buffer_id;
 		} constants;
-		constants.visible_instances_count_buffer_id = resources.getReadWriteBuffer(GFXRID(VisibleInstancesCount));
+		constants.candidate_meshlets_count_buffer_id = resources.getReadWriteBuffer(GFXRID(CandidateMeshletsCount));
 		constants.visible_meshlets_count_buffer_id = resources.getReadWriteBuffer(GFXRID(VisibleMeshletsCount));
 		constants.draw_calls_count_buffer_id = resources.getReadWriteBuffer(GFXRID(DrawIndexedCount));
 
@@ -114,46 +132,43 @@ void GBufferPass::gpu_pass_cull(FrameGraph &fg, bool is_late, uint32_t max_draw_
 		gDynamicRHI->setConstantBufferData(0, &constants, sizeof(constants));
 		cmd_list->dispatch(1, 1, 1);
 	});
+}
 
-	fg.addCallbackPass("Cull Instances Pass",
-	[&](RenderPassBuilder &builder)
+void GBufferPass::addInstanceCullingPass(FrameGraph& fg, bool is_late_pass, uint32_t max_draw_calls)
+{
+	fg.addCallbackPass("Cull Instances",
+	[&, is_late_pass, max_draw_calls](RenderPassBuilder& builder)
 	{
-		struct MeshletCandidate
+		if (!is_late_pass)
 		{
-			uint32_t instance_id;
-			uint32_t meshlet_id;
-		};
-
-		if (!is_late)
-		{
-			builder.createBuffer(GFXRID(VisibleInstances), sizeof(MeshletCandidate), max_clusters_per_frame, BufferUsage::SHADER_WRITE_BUFFER);
-			builder.createBuffer(GFXRID(IndirectVisibility), sizeof(uint32_t), max_draw_calls_count, BufferUsage::SHADER_WRITE_BUFFER);
+			builder.createBuffer(GFXRID(CandidateMeshlets), sizeof(MeshletCandidate), MAX_MESHLETS_PER_FRAME, BufferUsage::SHADER_WRITE_BUFFER);
+			builder.createBuffer(GFXRID(IndirectVisibility), sizeof(uint32_t), max_draw_calls, BufferUsage::SHADER_WRITE_BUFFER);
 		}
 
-		builder.writeBuffer(GFXRID(VisibleInstances));
-		builder.writeBuffer(GFXRID(VisibleInstancesCount));
+		builder.writeBuffer(GFXRID(CandidateMeshlets));
+		builder.writeBuffer(GFXRID(CandidateMeshletsCount));
 		builder.writeBuffer(GFXRID(IndirectVisibility));
 		builder.readBuffer(GFXRID(InstancesPassMask));
 
-		if (is_late)
+		if (is_late_pass)
 			builder.readTexture(GFXRID(HiZ));
 	},
-	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
+	[=](const RenderPassResources& resources, RHICommandList* cmd_list)
 	{
-		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/gpu_driven/create_draw_calls.hlsl", COMPUTE_SHADER, "CSMain", 
-											  {{"IS_LATE", is_late ? "1" : "0"},
-											  {"FREEZE_CULLING", render_freeze_culling ? "1" : "0"},
-											  {"HIZ_OCCLUSION_DEBUG", render_culling_hiz_debug ? "1" : "0"}}));
+		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/gpu_driven/cull_instances.hlsl", COMPUTE_SHADER, "CSMain",
+		{
+			{"IS_LATE", is_late_pass ? "1" : "0"},
+			{"FREEZE_CULLING", render_freeze_culling ? "1" : "0"},
+			{"HIZ_OCCLUSION_DEBUG", render_culling_hiz_debug ? "1" : "0"},
+			{"THREADGROUP_SIZE", std::to_string(INSTANCE_CULLING_THREADGROUP_SIZE).c_str()}
+		}));
 		gGlobalPipeline->flushAndBind(cmd_list);
 
-		struct Constants
+		struct
 		{
 			glm::mat4 frustum_view_projection;
-			uint32_t visible_instances_buffer_id;
-			uint32_t visible_instances_count_buffer_id;
-			uint32_t draw_indexed_args_buffer_id;
-			uint32_t draw_indexed_count_buffer_id;
-			uint32_t draw_calls_indirect_instances_buffer_id;
+			uint32_t candidate_meshlets_buffer_id;
+			uint32_t candidate_meshlets_count_buffer_id;
 			uint32_t instances_visibility_buffer_id;
 			uint32_t instances_pass_mask_buffer_id;
 			uint32_t instances_count;
@@ -162,57 +177,51 @@ void GBufferPass::gpu_pass_cull(FrameGraph &fg, bool is_late, uint32_t max_draw_
 			uint32_t hiz_height;
 			uint32_t hiz_mips;
 			uint32_t current_pass_mask;
-			uint32_t pad;
-		} constants;
-		resources.getBuffer(GFXRID(VisibleInstances))->transitState(ResourceState::UAV);
-		resources.getBuffer(GFXRID(VisibleInstancesCount))->transitState(ResourceState::UAV);
-		constants.frustum_view_projection = Renderer::getCamera()->getProj() * Renderer::getCamera()->getView();
-		constants.visible_instances_buffer_id = resources.getReadWriteBuffer(GFXRID(VisibleInstances));
-		constants.visible_instances_count_buffer_id = resources.getReadWriteBuffer(GFXRID(VisibleInstancesCount));
+		} constants = {};
+		constants.frustum_view_projection = Renderer::getCamera()->getViewProj();
+		constants.candidate_meshlets_buffer_id = resources.getReadWriteBuffer(GFXRID(CandidateMeshlets));
+		constants.candidate_meshlets_count_buffer_id = resources.getReadWriteBuffer(GFXRID(CandidateMeshletsCount));
 		constants.instances_visibility_buffer_id = resources.getReadWriteBuffer(GFXRID(IndirectVisibility));
 		constants.instances_pass_mask_buffer_id = resources.getReadWriteBuffer(GFXRID(InstancesPassMask));
-		constants.instances_count = max_draw_calls_count;
-		if (is_late)
+		constants.instances_count = max_draw_calls;
+		constants.current_pass_mask = PASS_MASK_GBUFFER;
+		if (is_late_pass)
 		{
-			RHITexture *hiz = resources.getTexture(GFXRID(HiZ));
+			RHITexture* hiz = resources.getTexture(GFXRID(HiZ));
 			constants.hiz_tex_id = hiz->getShaderResourceView()->getBindlessIndex();
 			constants.hiz_width = hiz->getWidth();
 			constants.hiz_height = hiz->getHeight();
 			constants.hiz_mips = hiz->getMipLevels();
 		}
-		constants.current_pass_mask = PASS_MASK_GBUFFER;
-
 		gDynamicRHI->setConstantBufferData(0, &constants, sizeof(constants));
 
-		int num_groups = ceil(constants.instances_count / 32.0f);
+		uint32_t num_groups = ceil(max_draw_calls / float(INSTANCE_CULLING_THREADGROUP_SIZE));
 		cmd_list->dispatch(num_groups, 1, 1);
-
-		resources.getBuffer(GFXRID(VisibleInstances))->transitState(ResourceState::UAV);
-		resources.getBuffer(GFXRID(VisibleInstancesCount))->transitState(ResourceState::UAV);
 	});
+}
 
-	fg.addCallbackPass("Build Meshlet Dispatch Args Pass",
-	[&](RenderPassBuilder &builder)
+void GBufferPass::addMeshletDispatchArgsPass(FrameGraph& fg, bool is_late_pass)
+{
+	fg.addCallbackPass("Build Meshlet Dispatch Args",
+	[&, is_late_pass](RenderPassBuilder& builder)
 	{
-		if (!is_late)
-		{
+		if (!is_late_pass)
 			builder.createBuffer(GFXRID(DispatchMeshletIndirectArgs), sizeof(DispatchIndirect), 1, BufferUsage::INDIRECT_ARGS_BUFFER | BufferUsage::SHADER_WRITE_BUFFER);
-		}
 
-		builder.writeBuffer(GFXRID(VisibleInstancesCount));
+		builder.writeBuffer(GFXRID(CandidateMeshletsCount));
 		builder.writeBuffer(GFXRID(DispatchMeshletIndirectArgs));
 	},
-	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
+	[=](const RenderPassResources& resources, RHICommandList* cmd_list)
 	{
-		struct Constants
+		struct
 		{
-			uint32_t visible_instances_count_buffer_id;
+			uint32_t candidate_meshlets_count_buffer_id;
 			uint32_t dispatch_indirect_args_buffer_id;
 			uint32_t group_size;
 		} constants;
-		constants.visible_instances_count_buffer_id = resources.getReadWriteBuffer(GFXRID(VisibleInstancesCount));
+		constants.candidate_meshlets_count_buffer_id = resources.getReadWriteBuffer(GFXRID(CandidateMeshletsCount));
 		constants.dispatch_indirect_args_buffer_id = resources.getReadWriteBuffer(GFXRID(DispatchMeshletIndirectArgs));
-		constants.group_size = 32;
+		constants.group_size = MESHLET_CULLING_THREADGROUP_SIZE;
 
 		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/gpu_driven/build_indirect_args.hlsl", COMPUTE_SHADER));
 		gGlobalPipeline->flushAndBind(cmd_list);
@@ -220,111 +229,101 @@ void GBufferPass::gpu_pass_cull(FrameGraph &fg, bool is_late, uint32_t max_draw_
 		gDynamicRHI->setConstantBufferData(0, &constants, sizeof(constants));
 		cmd_list->dispatch(1, 1, 1);
 	});
+}
 
-	fg.addCallbackPass("Cull Meshlets Pass",
-	[&](RenderPassBuilder &builder)
+void GBufferPass::addMeshletCullingPass(FrameGraph& fg, bool is_late_pass, uint32_t max_draw_calls)
+{
+	fg.addCallbackPass("Cull Meshlets",
+	[&, is_late_pass, max_draw_calls](RenderPassBuilder& builder)
 	{
-		struct MeshletCandidate
+		if (!is_late_pass)
 		{
-			uint32_t instance_id;
-			uint32_t meshlet_id;
-		};
+			builder.createBuffer(GFXRID(VisibleMeshlets), sizeof(MeshletCandidate), MAX_MESHLETS_PER_FRAME, BufferUsage::SHADER_WRITE_BUFFER);
+			builder.createBuffer(GFXRID(MeshletVisibility), sizeof(uint32_t), MAX_MESHLETS_PER_FRAME, BufferUsage::SHADER_WRITE_BUFFER);
 
-		if (!is_late)
-		{
-			builder.createBuffer(GFXRID(VisibleMeshlets), sizeof(MeshletCandidate), max_clusters_per_frame, BufferUsage::SHADER_WRITE_BUFFER);
-			builder.createBuffer(GFXRID(DrawIndexedArgs), sizeof(DrawIndexedIndirect), max_clusters_per_frame, BufferUsage::INDIRECT_ARGS_BUFFER | BufferUsage::SHADER_WRITE_BUFFER);
-			builder.createBuffer(GFXRID(DrawCallsInstances), sizeof(uint32_t), max_clusters_per_frame, BufferUsage::VERTEX_BUFFER | BufferUsage::SHADER_WRITE_BUFFER);
-			builder.createBuffer(GFXRID(MeshletVisibility), sizeof(uint32_t), max_clusters_per_frame, BufferUsage::SHADER_WRITE_BUFFER);
+			if (!render_meshlets_use_mesh_shaders)
+			{
+				builder.createBuffer(GFXRID(DrawIndexedArgs), sizeof(DrawIndexedIndirect), MAX_MESHLETS_PER_FRAME, BufferUsage::INDIRECT_ARGS_BUFFER | BufferUsage::SHADER_WRITE_BUFFER);
+				builder.createBuffer(GFXRID(DrawCallsInstances), sizeof(uint32_t), MAX_MESHLETS_PER_FRAME, BufferUsage::VERTEX_BUFFER | BufferUsage::SHADER_WRITE_BUFFER);
+			}
 		}
 
-		builder.writeBuffer(GFXRID(VisibleInstances));
-		builder.writeBuffer(GFXRID(VisibleInstancesCount));
+		builder.writeBuffer(GFXRID(CandidateMeshlets));
+		builder.writeBuffer(GFXRID(CandidateMeshletsCount));
 		builder.writeBuffer(GFXRID(VisibleMeshlets));
 		builder.writeBuffer(GFXRID(VisibleMeshletsCount));
-		builder.writeBuffer(GFXRID(DrawIndexedArgs));
-		builder.writeBuffer(GFXRID(DrawIndexedCount));
-		builder.writeBuffer(GFXRID(DrawCallsInstances));
 		builder.writeBuffer(GFXRID(MeshletVisibility));
-		builder.readBuffer(GFXRID(InstancesPassMask));
 		builder.readIndirectArgsBuffer(GFXRID(DispatchMeshletIndirectArgs));
 
-		if (is_late)
+		if (!render_meshlets_use_mesh_shaders)
+		{
+			builder.writeBuffer(GFXRID(DrawIndexedArgs));
+			builder.writeBuffer(GFXRID(DrawIndexedCount));
+			builder.writeBuffer(GFXRID(DrawCallsInstances));
+		}
+
+		if (is_late_pass)
 			builder.readTexture(GFXRID(HiZ));
 	},
-	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
+	[=](const RenderPassResources& resources, RHICommandList* cmd_list)
 	{
-		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/gpu_driven/cull_meshlets.hlsl", COMPUTE_SHADER, "CSMain", 
-											  {{"IS_LATE", is_late ? "1" : "0"},
-											  {"FREEZE_CULLING", render_freeze_culling ? "1" : "0"},
-											  {"HIZ_OCCLUSION_DEBUG", render_culling_hiz_debug ? "1" : "0"}}));
+		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/gpu_driven/cull_meshlets.hlsl", COMPUTE_SHADER, "CSMain",
+		{
+			{"IS_LATE", is_late_pass ? "1" : "0"},
+			{"FREEZE_CULLING", render_freeze_culling ? "1" : "0"},
+			{"HIZ_OCCLUSION_DEBUG", render_culling_hiz_debug ? "1" : "0"},
+			{"USE_MESH_SHADERS", render_meshlets_use_mesh_shaders ? "1" : "0"},
+			{"THREADGROUP_SIZE", std::to_string(MESHLET_CULLING_THREADGROUP_SIZE).c_str()}
+		}));
 		gGlobalPipeline->flushAndBind(cmd_list);
 
-		resources.getBuffer(GFXRID(VisibleInstances))->transitState(ResourceState::UAV);
-		resources.getBuffer(GFXRID(VisibleInstancesCount))->transitState(ResourceState::UAV);
-
-		struct Constants
+		struct
 		{
 			glm::mat4 frustum_view_projection;
-			uint32_t visible_instances_buffer_id;
-			uint32_t visible_instances_count_buffer_id;
+			uint32_t candidate_meshlets_buffer_id;
+			uint32_t candidate_meshlets_count_buffer_id;
 			uint32_t visible_meshlets_buffer_id;
 			uint32_t visible_meshlets_count_buffer_id;
 			uint32_t draw_indexed_args_buffer_id;
 			uint32_t draw_indexed_count_buffer_id;
 			uint32_t draw_calls_indirect_instances_buffer_id;
 			uint32_t instances_visibility_buffer_id;
-			uint32_t instances_pass_mask_buffer_id;
-			uint32_t instances_count;
-			uint32_t hiz_tex_id;
-			uint32_t hiz_width;
-			uint32_t hiz_height;
-			uint32_t hiz_mips;
-			uint32_t current_pass_mask;
-			uint32_t pad;
-		} constants;
-
-		constants.frustum_view_projection = Renderer::getCamera()->getProj() * Renderer::getCamera()->getView();
-		constants.visible_instances_buffer_id = resources.getReadWriteBuffer(GFXRID(VisibleInstances));
-		constants.visible_instances_count_buffer_id = resources.getReadWriteBuffer(GFXRID(VisibleInstancesCount));
+		} constants = {};
+		constants.frustum_view_projection = Renderer::getCamera()->getViewProj();
+		constants.candidate_meshlets_buffer_id = resources.getReadWriteBuffer(GFXRID(CandidateMeshlets));
+		constants.candidate_meshlets_count_buffer_id = resources.getReadWriteBuffer(GFXRID(CandidateMeshletsCount));
 		constants.visible_meshlets_buffer_id = resources.getReadWriteBuffer(GFXRID(VisibleMeshlets));
 		constants.visible_meshlets_count_buffer_id = resources.getReadWriteBuffer(GFXRID(VisibleMeshletsCount));
-		constants.draw_indexed_args_buffer_id = resources.getReadWriteBuffer(GFXRID(DrawIndexedArgs));
-		constants.draw_indexed_count_buffer_id = resources.getReadWriteBuffer(GFXRID(DrawIndexedCount));
-		constants.draw_calls_indirect_instances_buffer_id = resources.getReadWriteBuffer(GFXRID(DrawCallsInstances));
-		constants.instances_visibility_buffer_id = resources.getReadWriteBuffer(GFXRID(MeshletVisibility));
-		constants.instances_pass_mask_buffer_id = resources.getReadWriteBuffer(GFXRID(InstancesPassMask));
-		constants.instances_count = max_draw_calls_count;
-		if (is_late)
+		if (!render_meshlets_use_mesh_shaders)
 		{
-			RHITexture *hiz = resources.getTexture(GFXRID(HiZ));
-			constants.hiz_tex_id = hiz->getShaderResourceView()->getBindlessIndex();
-			constants.hiz_width = hiz->getWidth();
-			constants.hiz_height = hiz->getHeight();
-			constants.hiz_mips = hiz->getMipLevels();
+			constants.draw_indexed_args_buffer_id = resources.getReadWriteBuffer(GFXRID(DrawIndexedArgs));
+			constants.draw_indexed_count_buffer_id = resources.getReadWriteBuffer(GFXRID(DrawIndexedCount));
+			constants.draw_calls_indirect_instances_buffer_id = resources.getReadWriteBuffer(GFXRID(DrawCallsInstances));
 		}
-		constants.current_pass_mask = PASS_MASK_GBUFFER;
-
+		constants.instances_visibility_buffer_id = resources.getReadWriteBuffer(GFXRID(MeshletVisibility));
 		gDynamicRHI->setConstantBufferData(0, &constants, sizeof(constants));
 
-		resources.getBuffer(GFXRID(DispatchMeshletIndirectArgs))->transitState(ResourceState::INDIRECT_ARGS);
 		cmd_list->dispatchIndirect(resources.getBuffer(GFXRID(DispatchMeshletIndirectArgs)), 1);
 	});
+}
 
-	fg.addCallbackPass("Create Dispatch Args Pass",
-	[&](RenderPassBuilder &builder)
+void GBufferPass::addGeometryDispatchArgsPass(FrameGraph& fg, bool is_late_pass)
+{
+	if (!render_meshlets_use_mesh_shaders)
+		return;
+
+	fg.addCallbackPass("Build Geometry Dispatch Args",
+	[&, is_late_pass](RenderPassBuilder& builder)
 	{
-		if (!is_late)
-		{
-			builder.createBuffer(GFXRID(DispatchMeshIndirectArgs), sizeof(DispatchIndirect), max_clusters_per_frame, BufferUsage::INDIRECT_ARGS_BUFFER | BufferUsage::SHADER_WRITE_BUFFER);
-		}
+		if (!is_late_pass)
+			builder.createBuffer(GFXRID(DispatchMeshIndirectArgs), sizeof(DispatchIndirect), MAX_MESHLETS_PER_FRAME, BufferUsage::INDIRECT_ARGS_BUFFER | BufferUsage::SHADER_WRITE_BUFFER);
 
 		builder.writeBuffer(GFXRID(VisibleMeshletsCount));
 		builder.writeBuffer(GFXRID(DispatchMeshIndirectArgs));
 	},
-	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
+	[=](const RenderPassResources& resources, RHICommandList* cmd_list)
 	{
-		struct Constants
+		struct
 		{
 			uint32_t visible_meshlets_count_buffer_id;
 			uint32_t dispatch_indirect_args_buffer_id;
@@ -342,26 +341,26 @@ void GBufferPass::gpu_pass_cull(FrameGraph &fg, bool is_late, uint32_t max_draw_
 	});
 }
 
-void GBufferPass::render_pass(FrameGraph &fg, uint32_t max_draw_calls_count)
+void GBufferPass::addGeometryPass(FrameGraph& fg, uint32_t max_draw_calls)
 {
-	struct GBufferData
+	struct GeometryPassData
 	{
-		bool is_first_pass;
+		bool clear_targets;
 	};
 
-	fg.addCallbackPass<GBufferData>("GBuffer Pass",
-	[&](RenderPassBuilder &builder, GBufferData &data)
+	fg.addCallbackPass<GeometryPassData>("Geometry",
+	[&](RenderPassBuilder& builder, GeometryPassData& data)
 	{
-		glm::ivec2 gbuffer_size = Renderer::getViewportSize();
+		glm::ivec2 viewport_size = Renderer::getViewportSize();
 
-		data.is_first_pass = !builder.isTextureCreated(GFXRID(GBufferAlbedo));
+		data.clear_targets = !builder.isTextureCreated(GFXRID(GBufferAlbedo));
 
-		if (data.is_first_pass)
+		if (data.clear_targets)
 		{
-			builder.createTexture(GFXRID(GBufferAlbedo), gbuffer_size.x, gbuffer_size.y, FORMAT_R8G8B8A8_UNORM);
-			builder.createTexture(GFXRID(GBufferNormal), gbuffer_size.x, gbuffer_size.y, FORMAT_R8G8B8A8_UNORM);
-			builder.createTexture(GFXRID(GBufferShading), gbuffer_size.x, gbuffer_size.y, FORMAT_R8G8B8A8_UNORM);
-			builder.createTexture(GFXRID(GBufferDepth), gbuffer_size.x, gbuffer_size.y, FORMAT_D32S8);
+			builder.createTexture(GFXRID(GBufferAlbedo), viewport_size.x, viewport_size.y, FORMAT_R8G8B8A8_UNORM);
+			builder.createTexture(GFXRID(GBufferNormal), viewport_size.x, viewport_size.y, FORMAT_R8G8B8A8_UNORM);
+			builder.createTexture(GFXRID(GBufferShading), viewport_size.x, viewport_size.y, FORMAT_R8G8B8A8_UNORM);
+			builder.createTexture(GFXRID(GBufferDepth), viewport_size.x, viewport_size.y, FORMAT_D32S8);
 		}
 
 		builder.writeTexture(GFXRID(GBufferAlbedo));
@@ -370,42 +369,58 @@ void GBufferPass::render_pass(FrameGraph &fg, uint32_t max_draw_calls_count)
 		builder.writeTexture(GFXRID(GBufferDepth));
 
 		builder.readBuffer(GFXRID(VisibleMeshlets));
-		builder.readIndirectArgsBuffer(GFXRID(DispatchMeshIndirectArgs));
-		builder.readIndirectArgsBuffer(GFXRID(DrawIndexedArgs));
-		builder.readIndirectArgsBuffer(GFXRID(DrawIndexedCount));
-		builder.readVertexBuffer(GFXRID(DrawCallsInstances));
+
+		if (render_meshlets_use_mesh_shaders)
+		{
+			builder.readIndirectArgsBuffer(GFXRID(DispatchMeshIndirectArgs));
+		} else
+		{
+			builder.readIndirectArgsBuffer(GFXRID(DrawIndexedArgs));
+			builder.readIndirectArgsBuffer(GFXRID(DrawIndexedCount));
+			builder.readVertexBuffer(GFXRID(DrawCallsInstances));
+		}
 	},
-	[=](const GBufferData &data, const RenderPassResources &resources, RHICommandList *cmd_list)
+	[this, max_draw_calls](const GeometryPassData& data, const RenderPassResources& resources, RHICommandList* cmd_list)
 	{
-		auto albedo = resources.getTexture(GFXRID(GBufferAlbedo));
-		auto normal = resources.getTexture(GFXRID(GBufferNormal));
-		auto shading = resources.getTexture(GFXRID(GBufferShading));
-		auto depth = resources.getTexture(GFXRID(GBufferDepth));
+		RHITexture* albedo = resources.getTexture(GFXRID(GBufferAlbedo));
+		RHITexture* normal = resources.getTexture(GFXRID(GBufferNormal));
+		RHITexture* shading = resources.getTexture(GFXRID(GBufferShading));
+		RHITexture* depth = resources.getTexture(GFXRID(GBufferDepth));
 
-		resources.getBuffer(GFXRID(DrawIndexedArgs))->transitState(ResourceState::INDIRECT_ARGS);
-		resources.getBuffer(GFXRID(DrawIndexedCount))->transitState(ResourceState::INDIRECT_ARGS);
+		if (!render_meshlets_use_mesh_shaders)
+		{
+			cmd_list->setVertexBuffer(resources.getBuffer(GFXRID(DrawCallsInstances)), 0, sizeof(uint32_t), 0);
+			cmd_list->setIndexBuffer(GlobalBufferCache::getGlobalMeshletTriangleBuffer(), 0);
+		}
 
-		// per-draw meshlet_id for instance data
-		VertexInputsDescription inputs_desc;
-		inputs_desc.inputs.push_back({"INSTANCE_ID", 0, FORMAT_R32_UINT, true});
+		cmd_list->setRenderTargets({albedo, normal, shading}, {depth}, 0, 0, data.clear_targets);
+		
+		RHIShader *pixel_shader = gDynamicRHI->createShader(L"shaders/gbuffer.hlsl", FRAGMENT_SHADER);
+		if (render_meshlets_use_mesh_shaders)
+		{
+			RHIShader* mesh_shader = gDynamicRHI->createShader(L"shaders/gbuffer.hlsl", MESH_SHADER);
+			gGlobalPipeline->setupMeshPipeline(cmd_list, mesh_shader, pixel_shader, false, true, CULL_MODE_BACK);
+		} else
+		{
+			RHIShader *vertex_shader = gDynamicRHI->createShader(L"shaders/gbuffer.hlsl", VERTEX_SHADER);
+			VertexInputsDescription inputs;
+			inputs.inputs.push_back({"INSTANCE_ID", 0, FORMAT_R32_UINT, true});
+			gGlobalPipeline->setupGraphicsPipeline(cmd_list, vertex_shader, pixel_shader, inputs, false, true, CULL_MODE_BACK);
+		}
 
-		cmd_list->setVertexBuffer(resources.getBuffer(GFXRID(DrawCallsInstances)), 0, sizeof(uint32_t), 0);
-		cmd_list->setIndexBuffer(GlobalBufferCache::getGlobalMeshletTriangleBuffer(), 0);
-
-		cmd_list->setRenderTargets({albedo, normal, shading}, {depth}, 0, 0, data.is_first_pass);
-		//gGlobalPipeline->setupGraphicsPipeline(cmd_list, gbuffer_vertex_shader, gbuffer_fragment_shader, inputs_desc, false, true, CULL_MODE_BACK);
-		gGlobalPipeline->setupMeshPipeline(cmd_list, gDynamicRHI->createShader(L"shaders/opaque.hlsl", MESH_SHADER), gbuffer_fragment_shader, false, true, CULL_MODE_BACK);
 		gGlobalPipeline->flushAndBind(cmd_list);
 
-		struct Constants
+		struct
 		{
 			uint32_t visible_meshlets_buffer_id;
 		} constants;
 		constants.visible_meshlets_buffer_id = resources.getReadBuffer(GFXRID(VisibleMeshlets));
 		gDynamicRHI->setConstantBufferData(0, &constants, sizeof(constants));
 
-		//cmd_list->drawIndexedIndirect(resources.getBuffer(GFXRID(DrawIndexedArgs)), max_draw_calls_count, resources.getBuffer(GFXRID(DrawIndexedCount)));
-		cmd_list->dispatchMeshIndirect(resources.getBuffer(GFXRID(DispatchMeshIndirectArgs)), 1);
+		if (render_meshlets_use_mesh_shaders)
+			cmd_list->dispatchMeshIndirect(resources.getBuffer(GFXRID(DispatchMeshIndirectArgs)), 1);
+		else
+			cmd_list->drawIndexedIndirect(resources.getBuffer(GFXRID(DrawIndexedArgs)), MAX_MESHLETS_PER_FRAME, resources.getBuffer(GFXRID(DrawIndexedCount)));
 
 		cmd_list->resetRenderTargets();
 	});

@@ -7,17 +7,18 @@ cbuffer Uniforms : register(b0)
     int2 texture_size;
 };
 
-static RWTexture2D<float> output_texture  = ResourceDescriptorHeap[output_tex_id];
+static RWTexture2D<float> output_texture = ResourceDescriptorHeap[output_tex_id];
 static Texture2D depth_texture = ResourceDescriptorHeap[depth_tex_id];
 
-[numthreads(32, 32, 1)]
+[numthreads(THREADGROUP_SIZE, THREADGROUP_SIZE, 1)]
 void CSMain(uint3 dispatchID : SV_DispatchThreadID)
 {
     uint3 coord = dispatchID;
-    
+
     if (coord.x >= texture_size.x || coord.y >= texture_size.y) return;
-    
-    float4 gather = depth_texture.Gather(point_clamp_sampler, (coord.xy + float2(0.5, 0.5)) / float2(texture_size));
+
+    float2 uv = (coord.xy + float2(0.5, 0.5)) / float2(texture_size);
+    float4 gather = depth_texture.Gather(point_clamp_sampler, uv);
     float result = min(gather.x, min(gather.y, min(gather.z, gather.w)));
 
     output_texture[coord.xy] = result;

@@ -5,8 +5,10 @@
 eastl::unordered_map<eastl::wstring, eastl::list<RHIShader *>> RHIShader::path_to_shaders;
 
 RHIShader::RHIShader(const eastl::wstring &path, ShaderType type, eastl::string entry_point, eastl::vector<eastl::pair<const char *, const char *>> defines)
-    : path(path.c_str()), type(type), entry_point(entry_point), defines(defines)
+    : path(path.c_str()), type(type), entry_point(entry_point)
 {
+    for (const auto& define : defines)
+        this->defines.push_back({eastl::string(define.first), eastl::string(define.second)});
     path_to_shaders[Filesystem::normalizePath(path.c_str())].push_back(this);
 }
 
