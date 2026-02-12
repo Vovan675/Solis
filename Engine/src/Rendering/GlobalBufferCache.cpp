@@ -9,6 +9,7 @@ void GlobalBufferCache::shutdown()
     global_index_buffer = nullptr;
     global_meshlet_vertex_buffer = nullptr;
     global_meshlet_triangle_buffer = nullptr;
+    global_meshlet_lod_groups_buffer = nullptr;
 }
 
 uint64_t GlobalBufferCache::addVertexBufferData(Engine::Vertex *vertices, uint32_t count)
@@ -182,5 +183,46 @@ uint64_t GlobalBufferCache::addMeshletTriangleData(uint32_t *data, uint32_t coun
 
     uint64_t prev_size = current_meshlet_triangle_buffer_size;
     current_meshlet_triangle_buffer_size += count;
+    return prev_size;
+}
+
+uint64_t GlobalBufferCache::addMeshletLodGroupData(LODGroup *data, uint32_t count)
+{
+    if (!global_meshlet_lod_groups_buffer)
+    {
+        current_meshlet_lod_groups_buffer_max_size = 3'000'000;
+        current_meshlet_lod_groups_buffer_size = 0;
+    }
+
+    if (!global_meshlet_lod_groups_buffer || current_meshlet_lod_groups_buffer_size + count > current_meshlet_lod_groups_buffer_max_size)
+    {
+        uint64_t new_max_size = std::max(current_meshlet_lod_groups_buffer_size + count, current_meshlet_lod_groups_buffer_max_size * 3);
+
+        BufferDescription desc;
+        desc.size = sizeof(LODGroup) * new_max_size;
+        desc.use_staging_buffer = true;
+        desc.usage = BufferUsage::SHADER_READ_BUFFER;
+        desc.storage_stride = sizeof(uint32_t);
+
+        RHIBufferRef new_buffer = gDynamicRHI->createBuffer(desc);
+
+        if (global_meshlet_lod_groups_buffer && current_meshlet_lod_groups_buffer_size > 0)
+            gDynamicRHI->getCmdList()->copyBuffer(global_meshlet_lod_groups_buffer, new_buffer, 0, 0, current_meshlet_lod_groups_buffer_size * sizeof(LODGroup));
+
+        global_meshlet_lod_groups_buffer = new_buffer;
+        current_meshlet_lod_groups_buffer_max_size = new_max_size;
+    }
+
+    BufferDescription staging_buffer_desc;
+    staging_buffer_desc.size = sizeof(LODGroup) * count;
+    staging_buffer_desc.usage = BufferUsage::STAGING_BUFFER;
+    RHIBufferRef staging_buffer = gDynamicRHI->createBuffer(staging_buffer_desc);
+
+    staging_buffer->fill(data);
+
+    gDynamicRHI->getCmdList()->copyBuffer(staging_buffer, global_meshlet_lod_groups_buffer, 0, current_meshlet_lod_groups_buffer_size * sizeof(LODGroup), staging_buffer->getSize());
+
+    uint64_t prev_size = current_meshlet_lod_groups_buffer_size;
+    current_meshlet_lod_groups_buffer_size += count;
     return prev_size;
 }

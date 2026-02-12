@@ -55,6 +55,7 @@ void Renderer::updateDefaultUniforms(float delta_time)
 	default_uniforms.global_vertex_buffer_id = GlobalBufferCache::getGlobalVertexBuffer()->getShaderResourceView()->getBindlessIndex();
 	default_uniforms.global_meshlets_vertex_buffer_id = GlobalBufferCache::getGlobalMeshletVertexBuffer()->getShaderResourceView()->getBindlessIndex();
 	default_uniforms.global_meshlets_triangles_buffer_id = GlobalBufferCache::getGlobalMeshletTriangleBuffer()->getShaderResourceView()->getBindlessIndex();
+	default_uniforms.global_meshlets_lod_groups_buffer_id = GlobalBufferCache::getGlobalMeshletLodGroupsBuffer()->getShaderResourceView()->getBindlessIndex();
 }
 
 const Renderer::DefaultUniforms Renderer::getDefaultUniforms()

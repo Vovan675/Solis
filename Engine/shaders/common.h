@@ -34,6 +34,7 @@ cbuffer FrameConstants : register(b32) {
 	uint global_vertex_buffer_id;
 	uint global_meshlets_vertex_buffer_id;
 	uint global_meshlets_triangles_buffer_id;
+	uint global_meshlets_lod_groups_buffer_id;
 	uint materials_buffer_id;
 	uint instances_buffer_id;
 	uint meshes_buffer_id;
@@ -106,9 +107,18 @@ struct Mesh
 
 	uint meshlet_vertex_offset;
 	uint meshlet_triangle_offset;
+	uint meshlet_lod_groups_offset;
 
 	uint meshlet_offset;
 	uint meshlet_count;
+};
+
+struct LODGroup
+{
+	float3 center;
+	float radius;
+	float error;
+	uint depth;
 };
 
 struct MeshletTriangle
@@ -123,6 +133,11 @@ struct Meshlet
 {
 	float4 center;
 	float4 extent;
+
+	uint group_id;
+	uint parent_id;
+	uint lod_level;
+	float lod_error;
 
 	uint vertex_offset;
 	uint vertex_count;

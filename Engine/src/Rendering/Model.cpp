@@ -6,6 +6,9 @@
 #include "Scene/Components.h"
 #include "meshoptimizer.h"
 
+#define CLUSTERLOD_IMPLEMENTATION
+#include "clusterlod.h"
+
 static glm::mat4 convertAssimpMat4(const aiMatrix4x4 &m)
 {
 	glm::mat4 o;
@@ -138,67 +141,109 @@ void Model::process_node(MeshNode *mesh_node, aiNode *node, const aiScene *scene
 		Ref<Engine::Mesh> engine_mesh = new Engine::Mesh();
 
 		{
-			const size_t max_vertices = 64;
-			const size_t max_triangles = 126;
-			const float cone_weight = 0.0f;
+			const size_t max_vertices = 128;
+			const size_t max_triangles = 128;
 
-			size_t max_meshlets = meshopt_buildMeshletsBound(indices.size(), max_vertices, max_triangles);
-			std::vector<meshopt_Meshlet> meshlets(max_meshlets);
-			engine_mesh->meshlet_vertices.resize(indices.size());
-			std::vector<unsigned char> meshlet_triangles(indices.size());
+			clodConfig config = clodDefaultConfig(max_triangles);
+			config.max_vertices = max_vertices;
 
-			size_t meshlet_count = meshopt_buildMeshlets(meshlets.data(), engine_mesh->meshlet_vertices.data(), meshlet_triangles.data(), indices.data(), indices.size(), &vertices[0].pos.x, vertices.size(), sizeof(Engine::Vertex), max_vertices, max_triangles, cone_weight);
+			constexpr float VERTEX_ATTRIBUTE_WEIGHT_NORMAL = 0.5f;
+			constexpr float VERTEX_ATTRIBUTE_WEIGHT_UV = 1.0f;
+			constexpr float VERTEX_ATTRIBUTE_WEIGHT_COLOR = 0.0f;
+			constexpr float VERTEX_ATTRIBUTE_WEIGHT_TANGENT = 0.01f;
 
-			const meshopt_Meshlet& last = meshlets[meshlet_count - 1];
+			constexpr float VERTEX_ATTRIBUTE_WEIGHTS[] = {
+				VERTEX_ATTRIBUTE_WEIGHT_NORMAL,
+				VERTEX_ATTRIBUTE_WEIGHT_NORMAL,
+				VERTEX_ATTRIBUTE_WEIGHT_NORMAL,
+				VERTEX_ATTRIBUTE_WEIGHT_TANGENT,
+				VERTEX_ATTRIBUTE_WEIGHT_TANGENT,
+				VERTEX_ATTRIBUTE_WEIGHT_TANGENT,
+				VERTEX_ATTRIBUTE_WEIGHT_UV,
+				VERTEX_ATTRIBUTE_WEIGHT_UV,
+				VERTEX_ATTRIBUTE_WEIGHT_COLOR,
+				VERTEX_ATTRIBUTE_WEIGHT_COLOR,
+				VERTEX_ATTRIBUTE_WEIGHT_COLOR,
+			};
 
-			engine_mesh->meshlet_vertices.resize(last.vertex_offset + last.vertex_count);
-			engine_mesh->meshlets.resize(meshlet_count);
+			clodMesh input_mesh{};
+			input_mesh.indices = indices.data();
+			input_mesh.index_count = indices.size();
+			input_mesh.vertex_count = vertices.size();
+			input_mesh.vertex_positions = (float *)vertices.data();
+			input_mesh.vertex_positions_stride = sizeof(Engine::Vertex);
+			input_mesh.vertex_attributes = (float *)&vertices[0].normal;
+			input_mesh.vertex_attributes_stride = sizeof(Engine::Vertex);
+			input_mesh.attribute_weights = VERTEX_ATTRIBUTE_WEIGHTS;
+			input_mesh.attribute_count = _countof(VERTEX_ATTRIBUTE_WEIGHTS);
+			input_mesh.attribute_protect_mask = 1 << 6 | 1 << 7;
+			
 
-			size_t total_triangle_indices = last.triangle_offset + last.triangle_count * 3;
-			engine_mesh->meshlet_triangles.resize(total_triangle_indices);
-			for (size_t i = 0; i < total_triangle_indices; i++)
+			uint32_t current_vertex_offset = 0;
+			uint32_t current_triangle_offset = 0;
+
+			clodBuild(config, input_mesh,
+						[&](const clodGroup &group, const clodCluster *clusters, size_t cluster_count)
 			{
-				engine_mesh->meshlet_triangles[i] = meshlet_triangles[i];
-			}
-			/*
-			for (size_t i = 0; i < total_triangle_indices / 3; i++)
-			{
-				MeshletTriangle &t = engine_mesh->meshlet_triangles[i];
-				t.v0 = meshlet_triangles[i];
-				t.v1 = meshlet_triangles[i + 1];
-				t.v2 = meshlet_triangles[i + 2];
-			}
-			*/
+				int group_id = engine_mesh->meshlet_lod_groups.size();
 
-			for (size_t i = 0; i < meshlet_count; i++)
-			{
-				meshopt_Meshlet &meshlet = meshlets[i];
+				LODGroup &lod_group = engine_mesh->meshlet_lod_groups.emplace_back();
+				lod_group.center = glm::vec3(group.simplified.center[0], group.simplified.center[1], group.simplified.center[2]);
+				lod_group.radius = group.simplified.radius;
+				lod_group.error = group.simplified.error;
+				lod_group.depth = group.depth;
 
-				meshopt_Bounds bounds = meshopt_computeMeshletBounds(&engine_mesh->meshlet_vertices[meshlet.vertex_offset], &meshlet_triangles[meshlet.triangle_offset], meshlet.triangle_count, (const float *)&vertices[0].pos.x, vertices.size(), sizeof(Engine::Vertex));
-
-				Meshlet &m = engine_mesh->meshlets[i];
-				//m.center = {bounds.center[0], bounds.center[1], bounds.center[2]};
-				//m.radius = bounds.radius;
-				m.vertex_offset = meshlet.vertex_offset;
-				m.vertex_count = meshlet.vertex_count;
-				m.triangle_offset = meshlet.triangle_offset;
-				m.triangle_count = meshlet.triangle_count;
-
-				glm::vec3 min = glm::vec3(FLT_MAX, FLT_MAX, FLT_MAX);
-				glm::vec3 max = glm::vec3(-FLT_MAX, -FLT_MAX, -FLT_MAX);
-				for (size_t j = 0; j < m.triangle_count * 3; j++)
+				for (size_t i = 0; i < cluster_count; i++)
 				{
-					uint32_t local_vertex_index = engine_mesh->meshlet_triangles[m.triangle_offset + j];
-					uint32_t vertex_id = engine_mesh->meshlet_vertices[m.vertex_offset + local_vertex_index];
-					glm::vec3 vertex_pos = vertices[vertex_id].pos;
-					max = glm::max(max, vertex_pos);
-					min = glm::min(min, vertex_pos);
+					const clodCluster *cluster = &clusters[i];
+
+					Meshlet &m = engine_mesh->meshlets.emplace_back();
+					m.group_id = group_id;
+					m.parent_id = cluster->refined;
+					m.lod_level = lod_group.depth;
+					m.lod_error = cluster->bounds.error;
+
+					uint32_t triangle_count = cluster->index_count / 3;
+
+					std::vector<uint32_t> local_vertices(cluster->vertex_count);
+					std::vector<uint8_t> local_triangles(cluster->index_count);
+
+					size_t unique_vertices = clodLocalIndices(local_vertices.data(), local_triangles.data(), cluster->indices, cluster->index_count);
+
+					for (size_t v = 0; v < unique_vertices; v++)
+						engine_mesh->meshlet_vertices.push_back(local_vertices[v]);
+
+					for (size_t t = 0; t < cluster->index_count; t++)
+						engine_mesh->meshlet_triangles.push_back(local_triangles[t]);
+
+
+					m.vertex_offset = current_vertex_offset;
+					m.vertex_count = unique_vertices;
+					m.triangle_offset = current_triangle_offset;
+					m.triangle_count = triangle_count;
+
+					glm::vec3 min = glm::vec3(FLT_MAX, FLT_MAX, FLT_MAX);
+					glm::vec3 max = glm::vec3(-FLT_MAX, -FLT_MAX, -FLT_MAX);
+					for (size_t j = 0; j < m.triangle_count * 3; j++)
+					{
+						uint32_t local_vertex_index = engine_mesh->meshlet_triangles[m.triangle_offset + j];
+						uint32_t vertex_id = engine_mesh->meshlet_vertices[m.vertex_offset + local_vertex_index];
+						glm::vec3 vertex_pos = vertices[vertex_id].pos;
+						max = glm::max(max, vertex_pos);
+						min = glm::min(min, vertex_pos);
+					}
+
+					m.center = (min + max) / 2.0f;
+					m.extent = (max - min) / 2.0f;
+
+					current_vertex_offset += unique_vertices;
+					current_triangle_offset += cluster->index_count;
 				}
 
-				m.center = (min + max) / 2.0f;
-				m.extent = (max - min) / 2.0f;
-			}
+				return group_id;
+			});
 		}
+
 		engine_mesh->setData(vertices, indices);
 
 		mesh_node->meshes.push_back(engine_mesh);

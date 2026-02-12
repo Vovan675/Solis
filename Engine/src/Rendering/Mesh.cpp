@@ -80,6 +80,7 @@ namespace Engine
 		{
 			global_meshlet_vertex_offset = GlobalBufferCache::addMeshletVertexData(meshlet_vertices.data(), meshlet_vertices.size());
 			global_meshlet_triangle_offset = GlobalBufferCache::addMeshletTriangleData(meshlet_triangles.data(), meshlet_triangles.size());
+			global_meshlet_lod_groups_offset = GlobalBufferCache::addMeshletLodGroupData(meshlet_lod_groups.data(), meshlet_lod_groups.size());
 		}
 	}
 }

@@ -15,6 +15,26 @@ void transformBoundBox(inout float3 bound_center, inout float3 bound_extent, flo
 	bound_extent = abs(mul(bound_extent, rotation_scale));
 }
 
+float getScaleFromTransform(float4x4 transform)
+{
+	float3x3 rotation_scale = (float3x3)transpose(transform);
+	float3 scale_factors = float3(
+		length(rotation_scale[0]),
+		length(rotation_scale[1]),
+		length(rotation_scale[2])
+	);
+	return max(max(scale_factors.x, scale_factors.y), scale_factors.z);
+}
+
+void transformBoundSphere(inout float3 bound_center, inout float bound_radius, float4x4 world_transform)
+{
+	float3 translation = transpose(world_transform)[3].xyz;
+	float3x3 rotation_scale = (float3x3)transpose(world_transform);
+
+	bound_center = mul(bound_center, rotation_scale) + translation;
+	bound_radius *= getScaleFromTransform(world_transform);
+}
+
 struct FrustumCullData
 {
 	float3 rect_min;

@@ -28,6 +28,16 @@ static RWStructuredBuffer<uint> visible_meshlets_count = ResourceDescriptorHeap[
 
 static RWByteAddressBuffer visibility_buffer = ResourceDescriptorHeap[instances_visibility_buffer_id];
 
+static ByteAddressBuffer lod_groups_buffer = ResourceDescriptorHeap[global_meshlets_lod_groups_buffer_id];
+
+float get_error(float3 center, float radius, float error)
+{
+	float dist = distance(center, camera_position.xyz) - radius;
+	dist = max(dist, z_near);
+
+	return swapchain_size.x * error / (dist * 2.0f * tan((PI / 4.0) * 0.5));
+}
+
 [numthreads(THREADGROUP_SIZE, 1, 1)]
 void CSMain(uint3 dispatchID : SV_DispatchThreadID)
 {
@@ -38,6 +48,7 @@ void CSMain(uint3 dispatchID : SV_DispatchThreadID)
 	MeshletCandidate meshlet_candidate = candidate_meshlets_buffer[id];
 	Instance instance = GetInstance(meshlet_candidate.instance_id);
 	Meshlet meshlet = GetMeshlet(meshlet_candidate.meshlet_id);
+	Mesh mesh = GetMesh(instance.mesh_id);
 
 	bool is_visible = true;
 
@@ -49,6 +60,8 @@ void CSMain(uint3 dispatchID : SV_DispatchThreadID)
 		float3 bound_extent = meshlet.extent.xyz;
 		transformBoundBox(bound_center, bound_extent, instance.world_transform);
 
+		//addBoundBox(bound_center - bound_extent, bound_center + bound_extent, colorHash(meshlet_candidate.meshlet_id));
+
 		FrustumCullData cull_data = getFrustumCullData(bound_center, bound_extent, frustum_view_projection);
 		is_visible &= cull_data.is_visible;
 
@@ -56,6 +69,37 @@ void CSMain(uint3 dispatchID : SV_DispatchThreadID)
 	#endif
 
 	bool should_draw = is_visible;
+
+	bool is_lod_selected = true;
+
+	// cluster should be rendered if:
+	// 1. clodGroup::simplified for the group it's in is over error threshold
+	// 2. cluster.refined is -1 *or* clodGroup::simplified for groups[cluster.refined].simplified is at or under error threshold
+	
+	LODGroup group = lod_groups_buffer.Load<LODGroup>(sizeof(LODGroup) * (meshlet.group_id + mesh.meshlet_lod_groups_offset)); 
+	transformBoundSphere(group.center, group.radius, instance.world_transform);
+
+	const float error_threshold = 1.0;
+	
+	float scale = getScaleFromTransform(instance.world_transform);
+
+	//addBoundBox(group.center - group.radius.xxx, group.center + group.radius.xxx, colorHash(meshlet_candidate.meshlet_id));
+	float group_error = get_error(group.center, group.radius, group.error * scale);
+
+	if (meshlet.parent_id == -1)
+	{
+		is_lod_selected = group_error > error_threshold;
+	} else
+	{
+		LODGroup parent_group = lod_groups_buffer.Load<LODGroup>(sizeof(LODGroup) * (meshlet.parent_id + mesh.meshlet_lod_groups_offset)); 
+		transformBoundSphere(parent_group.center, parent_group.radius, instance.world_transform);
+		
+		float parent_group_error = get_error(parent_group.center, parent_group.radius, parent_group.error * scale);
+
+		is_lod_selected = (group_error > error_threshold && parent_group_error <= error_threshold);
+	}
+
+	should_draw &= is_lod_selected;
 
 	if (should_draw)
 	{

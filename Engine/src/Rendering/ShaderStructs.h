@@ -45,9 +45,18 @@ struct MeshGPU
 
 	uint32_t meshlet_vertex_offset;
 	uint32_t meshlet_triangle_offset;
+	uint32_t meshlet_lod_groups_offset;
 
 	uint32_t meshlet_offset;
 	uint32_t meshlet_count;
+};
+
+struct LODGroup
+{
+	glm::highp_vec3 center;
+	float radius;
+	float error;
+	uint32_t depth;
 };
 
 struct MeshletTriangle
@@ -62,6 +71,11 @@ struct alignas(16) Meshlet
 {
 	glm::vec3 center;
 	glm::vec3 extent;
+
+	uint32_t group_id;
+	uint32_t parent_id;
+	uint32_t lod_level;
+	float lod_error;
 
 	uint32_t vertex_offset;
 	uint32_t vertex_count; // typically 64

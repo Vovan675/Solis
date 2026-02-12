@@ -310,6 +310,7 @@ void SceneRenderer::update(Camera *camera)
 
 			mesh_gpu.meshlet_vertex_offset = mesh->global_meshlet_vertex_offset;
 			mesh_gpu.meshlet_triangle_offset = mesh->global_meshlet_triangle_offset;
+			mesh_gpu.meshlet_lod_groups_offset = mesh->global_meshlet_lod_groups_offset;
 
 			for (int i = 0; i < mesh->meshlets.size(); i++)
 			{
@@ -388,7 +389,7 @@ void SceneRenderer::gpu_frame_cull(FrameGraph &frame_graph)
 
 		constants.frustums_buffer_id = frustums_gpu->getShaderResourceView()->getBindlessIndex();
 		constants.frustums_count = frustums.size();
-		constants.instances_count = instances.size();
+		constants.instances_count = indirect_draw_calls_max_count;
 		constants.instances_pass_mask_buffer_id = resources.getReadWriteBuffer(GFXRID(InstancesPassMask));
 
 		gDynamicRHI->setConstantBufferData(0, &constants, sizeof(constants));

@@ -40,11 +40,13 @@ namespace Engine
 		eastl::vector<uint32_t> meshlet_vertices; // indices to global vertex buffer
 		eastl::vector<uint32_t> meshlet_triangles; // TODO: just for now, while not working with mesh shaders, for index buffer compatibility
 		//eastl::vector<MeshletTriangle> meshlet_triangles; // index to meshlet_vertices vertices
+		eastl::vector<LODGroup> meshlet_lod_groups;
 
 		uint64_t global_vertex_buffer_offset = 0;
 		uint64_t global_index_buffer_offset = 0;
 		uint64_t global_meshlet_vertex_offset = 0;
 		uint64_t global_meshlet_triangle_offset = 0;
+		uint64_t global_meshlet_lod_groups_offset = 0;
 
 		RHIBufferRef vertexBuffer;
 		RHIBufferRef indexBuffer;

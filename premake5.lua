@@ -27,6 +27,7 @@ IncludeDir["DirectX"] = "vendor/directx/include"
 IncludeDir["SpdLog"] = "vendor/SpdLog/include"
 IncludeDir["Assimp"] = "vendor/Assimp/include"
 IncludeDir["Meshoptimizer"] = "vendor/meshoptimizer/src"
+IncludeDir["MeshoptimizerDemo"] = "vendor/meshoptimizer/demo"
 IncludeDir["STB_IMAGE"] = "vendor/stb"
 IncludeDir["ImGui"] = "vendor/imgui"
 IncludeDir["ImGuizmo"] = "vendor/imguizmo"
@@ -99,6 +100,7 @@ project "Engine"
 		"%{IncludeDir.SpdLog}",
 		"%{IncludeDir.Assimp}",
 		"%{IncludeDir.Meshoptimizer}",
+		"%{IncludeDir.MeshoptimizerDemo}",
 		"%{IncludeDir.STB_IMAGE}",
 		"%{IncludeDir.ImGui}",
 		"%{IncludeDir.ImGuizmo}",

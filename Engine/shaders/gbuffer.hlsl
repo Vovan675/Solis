@@ -117,7 +117,7 @@ float SampleMaterialChannel(uint tex_id, float2 uv, float fallback_value)
 [NumThreads(32, 1, 1)]
 [OutputTopology("triangle")]
 void MSMain(uint group_index : SV_GroupIndex, uint group_id : SV_GroupID,
-			out vertices PixelInput verts[64], out indices uint3 indices[32])
+			out vertices PixelInput verts[128], out indices uint3 indices[128])
 {
 	MeshletCandidate meshlet_candidate;
 	Instance instance;
