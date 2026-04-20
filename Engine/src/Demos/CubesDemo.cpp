@@ -253,7 +253,7 @@ void RenderTargetsDemo::render(RHICommandList *cmd_list)
 	model.getRootNode()->updateTransform();
 	for (auto node : model.getLinearNodes())
 	{
-		for (auto &mesh : node->meshes)
+		for (const auto &prim : node->primitives)
 		{
 			glm::mat4 m = glm::translate(glm::vec3(0, 0, 0)) * glm::scale(glm::vec3(0.2f));
 			m = node->global_model_matrix;
@@ -270,9 +270,9 @@ void RenderTargetsDemo::render(RHICommandList *cmd_list)
 
 			gDynamicRHI->setConstantBufferData(0, &uniforms, sizeof(uniforms));
 
-			cmd_list->setVertexBuffer(mesh->vertexBuffer, 0, sizeof(Engine::Vertex));
-			cmd_list->setIndexBuffer(mesh->indexBuffer, 0, IndexFormat::UINT32);
-			cmd_list->drawIndexedInstanced(mesh->indices.size(), 1, 0, 0, 0);
+			cmd_list->setVertexBuffer(prim.mesh->indexed->vertex_buffer, 0, sizeof(Engine::Vertex));
+			cmd_list->setIndexBuffer(prim.mesh->indexed->index_buffer, 0, IndexFormat::UINT32);
+			cmd_list->drawIndexedInstanced(prim.mesh->indexed->indices.size(), 1, 0, 0, 0);
 		}
 	}
 
@@ -355,7 +355,7 @@ void RenderTargetsDemo::renderFrameGraph(RHICommandList *cmd_list)
 		model.getRootNode()->updateTransform();
 		for (auto node : model.getLinearNodes())
 		{
-			for (auto &mesh : node->meshes)
+			for (const auto &prim : node->primitives)
 			{
 				glm::mat4 m = glm::translate(glm::vec3(0, 0, 0)) * glm::scale(glm::vec3(0.2f));
 				m = node->global_model_matrix;
@@ -373,9 +373,9 @@ void RenderTargetsDemo::renderFrameGraph(RHICommandList *cmd_list)
 				gDynamicRHI->setConstantBufferData(0, &draw_call_uniforms, sizeof(draw_call_uniforms));
 				//gDynamicRHI->setConstantBufferDataPerFrame(32, &frame_uniforms, sizeof(frame_uniforms));
 
-				cmd_list->setVertexBuffer(mesh->vertexBuffer, 0, sizeof(Engine::Vertex));
-				cmd_list->setIndexBuffer(mesh->indexBuffer, 0, IndexFormat::UINT32);
-				cmd_list->drawIndexedInstanced(mesh->indices.size(), 1, 0, 0, 0);
+				cmd_list->setVertexBuffer(prim.mesh->indexed->vertex_buffer, 0, sizeof(Engine::Vertex));
+				cmd_list->setIndexBuffer(prim.mesh->indexed->index_buffer, 0, IndexFormat::UINT32);
+				cmd_list->drawIndexedInstanced(prim.mesh->indexed->indices.size(), 1, 0, 0, 0);
 			}
 		}
 

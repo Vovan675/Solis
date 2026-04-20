@@ -1,17 +1,19 @@
 #pragma once
 #include "Rendering/Mesh.h"
-#include <vector>
-#include "assimp/Importer.hpp"
-#include "assimp/scene.h"
-#include "assimp/postprocess.h"
-#include "assimp/material.h"
-#include "assimp/pbrmaterial.h"
-#include "Utils/FileStream.h"
+#include "Utils/FileMemory.h"
 #include "Scene/Entity.h"
 #include "Rendering/Material.h"
 
+struct ModelImportSettings;
+
 struct MeshNode
 {
+	struct Primitive
+	{
+		Engine::Mesh *mesh = nullptr;
+		Ref<Material> material;
+	};
+
 	~MeshNode()
 	{
 		for (size_t i = 0; i < children.size(); i++)
@@ -19,33 +21,28 @@ struct MeshNode
 	}
 
 	eastl::string name = "";
-	eastl::vector<Engine::Mesh *> meshes;
-	eastl::vector<Ref<Material>> materials;
+	eastl::vector<Primitive> primitives;
 	MeshNode *parent = nullptr;
 	eastl::vector<MeshNode *> children;
-	
+
 	glm::mat4 local_model_matrix = glm::mat4(1);
 	glm::mat4 global_model_matrix = glm::mat4(1);
 
 	void updateTransform()
 	{
 		if (parent)
-		{
 			global_model_matrix = parent->global_model_matrix * local_model_matrix;
-		} else
-		{
+		else
 			global_model_matrix = local_model_matrix;
-		}
 
 		for (auto &child : children)
-		{
 			child->updateTransform();
-		}
 	}
 };
 
-// Model is an asset that contains one full model (for instance, fbx file). It can be used to get information about model and for creating entities from it
-class Model : public Asset
+// Asset representing one imported model file.
+// Always loaded from .mesh binary format
+class Model: public Asset
 {
 public:
 	Model() = default;
@@ -54,8 +51,7 @@ public:
 
 	AssetType getAssetType() const override { return ASSET_TYPE_MODEL; }
 
-	void load(const char *path);
-	void process_node(MeshNode *parent_node, aiNode *node, const aiScene *scene);
+	void load(const char *path, const ModelImportSettings *settings = nullptr);
 
 	static Entity createEntity(Model *model);
 
@@ -68,21 +64,32 @@ public:
 
 	MeshNode *getRootNode() const { return root_node; }
 	eastl::vector<MeshNode *> &getLinearNodes() { return linear_nodes; }
-
 	eastl::string getPath() const { return path; }
 
-	void saveFile(const eastl::string &filename);
-	void loadFile(const eastl::string &filename);
+	const Engine::MeshletFileView *getFileView(size_t mesh_id) const
+	{
+		auto it = file_views.find(mesh_id);
+		return it != file_views.end() ? &it->second : nullptr;
+	}
 
 private:
-	void save_mesh_node(FileStream &stream, MeshNode *node);
-	void load_mesh_node(FileStream &stream, MeshNode *node);
+	friend class MeshSerializer;
+	friend class GltfImporter;
+	friend class AssimpImporter;
+
+	static void assign_mesh_id(eastl::unordered_map<size_t, Ref<Engine::Mesh>> &meshes_id,
+								Engine::Mesh *mesh,
+								const eastl::string &node_name,
+								const eastl::string &prim_name);
+
 	static Entity create_entity_node(Model *model, MeshNode *node, Scene *scene);
 
 	MeshNode *root_node = nullptr;
 	eastl::vector<MeshNode *> linear_nodes = {};
 	eastl::string path;
 
+	FileMemory mesh_file_memory;
+	eastl::unordered_map<size_t, Engine::MeshletFileView> file_views;
+
 	eastl::unordered_map<size_t, Ref<Engine::Mesh>> meshes_id;
 };
-

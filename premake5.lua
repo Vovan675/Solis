@@ -26,6 +26,7 @@ IncludeDir["Vulkan"] = "%{VULKAN_SDK}/include"
 IncludeDir["DirectX"] = "vendor/directx/include"
 IncludeDir["SpdLog"] = "vendor/SpdLog/include"
 IncludeDir["Assimp"] = "vendor/Assimp/include"
+IncludeDir["CGLTF"] = "vendor/cgltf"
 IncludeDir["Meshoptimizer"] = "vendor/meshoptimizer/src"
 IncludeDir["MeshoptimizerDemo"] = "vendor/meshoptimizer/demo"
 IncludeDir["STB_IMAGE"] = "vendor/stb"
@@ -99,6 +100,7 @@ project "Engine"
 		"%{IncludeDir.DirectX}",
 		"%{IncludeDir.SpdLog}",
 		"%{IncludeDir.Assimp}",
+		"%{IncludeDir.CGLTF}",
 		"%{IncludeDir.Meshoptimizer}",
 		"%{IncludeDir.MeshoptimizerDemo}",
 		"%{IncludeDir.STB_IMAGE}",

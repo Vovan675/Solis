@@ -1,9 +1,9 @@
 #pragma once
 #include "RHI/DynamicRHI.h"
 #include "Rendering/Mesh.h"
+#include "Rendering/GeometryStreaming.h"
 #include "Scene/Scene.h"
 #include "Scene/Components.h"
-#include "renderers/EntityRenderer.h"
 #include "renderers/LutRenderer.h"
 #include "renderers/IrradianceRenderer.h"
 #include "renderers/PrefilterRenderer.h"
@@ -39,29 +39,28 @@ public:
 	void render_path_traced(Camera *camera, FrameGraph &frame_graph);
 	void update(Camera *camera);
 
+	void on_mesh_added(entt::registry &registry, entt::entity entity);
+
 	void gpu_frame_cull(FrameGraph &frame_graph);
 
 	Camera *main_view_camera = nullptr;
 
 	Ref<Scene> scene;
 	Ref<RayTracingScene> rt_scene;
+	GeometryStreaming geometry_streaming;
 
 	eastl::vector<FrustumDataGPU> frustums;
 	eastl::vector<MaterialGPU> materials;
 	eastl::vector<MeshGPU> meshes;
-	eastl::vector<Meshlet> meshlets;
 	eastl::vector<InstanceGPU> instances; // All that passed cpu coarse culling and can be rendered
 	eastl::vector<uint32_t> instances_pass_masks; // Instance pass mask, every bit indicates at which pass (frustum) this instance is visible
 
 	RHIBufferRef frustums_gpu;
 	RHIBufferRef materials_gpu;
 	RHIBufferRef meshes_gpu;
-	RHIBufferRef meshlets_gpu;
 	RHIBufferRef instances_gpu;
 
 	uint32_t indirect_draw_calls_max_count;
-
-	EntityRenderer entity_renderer;
 
 	LutRenderer lut_renderer;
 	IrradianceRenderer irradiance_renderer;

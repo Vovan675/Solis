@@ -57,8 +57,8 @@ SurfaceHit TraceSurface(RaytracingAccelerationStructure tlas, RayDesc ray)
 	
 	if (payload.hit)
 	{
-		Instance instance = GetInstance(payload.instance_id);
-		Mesh mesh = GetMesh(instance.mesh_id);
+		Instance instance = getInstance(payload.instance_id);
+		Mesh mesh = getMesh(instance.mesh_id);
 		VertexData vertex = GetVertexData(mesh, payload.primitive_id, payload.bary);
 		
 		hit.position = mul(instance.world_transform, float4(vertex.position, 1.0)).xyz;
@@ -322,8 +322,8 @@ void RayGen()
 			break;
 		}
 		
-		Instance instance = GetInstance(hit.instance_id);
-		Material material = GetMaterial(instance.material_id);
+		Instance instance = getInstance(hit.instance_id);
+		Material material = getMaterial(instance.material_id);
 		SurfaceProperties surface = EvaluateMaterial(material, hit.uv);
 		
 		// Direct lighting with relaxed firefly threshold

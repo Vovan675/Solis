@@ -47,8 +47,8 @@ void CS_CullInstances(uint3 dispatchID : SV_DispatchThreadID)
 	
 	if (id >= instances_count) return;
 	
-	Instance instance = GetInstance(id);
-	Mesh mesh = GetMesh(instance.mesh_id);
+	Instance instance = getInstance(id);
+	Mesh mesh = getMesh(instance.mesh_id);
 
 	float3 bound_center = instance.bound_center.xyz;
 	float3 bound_extent = instance.bound_extent.xyz;

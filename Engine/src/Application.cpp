@@ -4,9 +4,10 @@
 #include "Core/Variables.h"
 #include "Rendering/Renderer.h"
 #include "Rendering/GlobalBufferCache.h"
+#include "Rendering/UploadManager.h"
 #include "Assets/AssetManager.h"
 #include "Scene/Scene.h"
-#include "GLFW/glfw3native.h"
+#include "Core/Platform.h"
 #include "FrameGraph/TransientResources.h"
 #include "Physics/PhysXWrapper.h"
 
@@ -17,9 +18,6 @@
 #include "Demos/CubesDemo.h"
 #include "Demos/TowerGame.h"
 
-#ifndef DWMWA_USE_IMMERSIVE_DARK_MODE
-#define DWMWA_USE_IMMERSIVE_DARK_MODE 20
-#endif
 #include <imgui/ImGuiWrapper.h>
 #include <imgui.h>
 #include "Tracy.hpp"
@@ -27,6 +25,7 @@
 Input gInput;
 DynamicRHI *gDynamicRHI = nullptr;
 GlobalPipeline *gGlobalPipeline = nullptr;
+UploadManager *gUploadManager = nullptr;
 
 static TowerGame tower_game;
 
@@ -49,9 +48,7 @@ Application::Application(int argc, char *argv[])
 		static_cast<Application *>(glfwGetWindowUserPointer(window))->key_callback(window, key, scancode, action, mods);
 	});
 
-	HWND hwnd = glfwGetWin32Window(window);
-	BOOL is_dark_mode = true;
-	DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &is_dark_mode, sizeof(is_dark_mode));
+	Platform::configureNativeWindow(window);
 
 	// Init subsystems
 	gInput.init(window);
@@ -89,6 +86,9 @@ Application::Application(int argc, char *argv[])
 				engine_rhi_validation_break = std::stoi(enabled.c_str());
 				i++;
 			}
+		} else if (arg == "-reimport_assets")
+		{
+			engine_reimport_assets = true;
 		}
 	}
 
@@ -103,6 +103,9 @@ Application::Application(int argc, char *argv[])
 
 	gDynamicRHI->init();
 	gDynamicRHI->createSwapchain(window);
+
+	gUploadManager = new UploadManager();
+	gUploadManager->init();
 
 	AssetManager::init();
 
@@ -228,6 +231,10 @@ void Application::cleanup()
 	cleanupResources();
 	// Shader::destroyAllShaders(); // TODO: implement
 	Renderer::shutdown();
+
+	gUploadManager->shutdown();
+	delete gUploadManager;
+	gUploadManager = nullptr;
 
 	delete gGlobalPipeline;
 	gGlobalPipeline = nullptr;

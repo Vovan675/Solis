@@ -228,6 +228,13 @@ void VulkanCommandList::dispatchMeshIndirect(RHIBuffer *args_buffer, uint32_t dr
 	VulkanUtils::vkCmdDrawMeshTasksIndirect(cmd_buffer, native_args_buffer->getBuffer(), 0, draw_count, sizeof(VkDispatchIndirectCommand));
 }
 
+void VulkanCommandList::fillBuffer(RHIBuffer *buffer, uint32_t value)
+{
+	VulkanBuffer *native_buffer = static_cast<VulkanBuffer *>(buffer);
+	native_buffer->transitState(ResourceState::COPY_DST);
+	vkCmdFillBuffer(cmd_buffer, native_buffer->getBuffer(), 0, VK_WHOLE_SIZE, value);
+}
+
 void VulkanCommandList::copyBuffer(RHIBuffer *src, RHIBuffer *dest, uint64_t src_offset, uint64_t dest_offset, uint64_t size)
 {
 	VulkanBuffer *native_src_buffer = (VulkanBuffer *)src;
@@ -242,6 +249,7 @@ void VulkanCommandList::copyBuffer(RHIBuffer *src, RHIBuffer *dest, uint64_t src
 	copyRegion.size = size;
 	vkCmdCopyBuffer(cmd_buffer, native_src_buffer->getBuffer(), native_dst_buffer->getBuffer(), 1, &copyRegion);
 }
+
 
 void VulkanCommandList::beginDebugLabel(const char *label, glm::vec3 color, uint32_t line, const char *source, size_t source_size, const char *function, size_t function_size)
 {

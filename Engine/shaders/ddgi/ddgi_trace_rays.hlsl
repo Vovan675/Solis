@@ -114,10 +114,10 @@ void RayGen()
 	float3 radiance = 0;
 	if (payload.hit)
 	{
-		Instance instance = GetInstance(payload.instance_id);
-		Material material = GetMaterial(instance.material_id);
+		Instance instance = getInstance(payload.instance_id);
+		Material material = getMaterial(instance.material_id);
 
-		Mesh mesh = GetMesh(instance.mesh_id);
+		Mesh mesh = getMesh(instance.mesh_id);
 		VertexData vertex = GetVertexData(mesh, payload.primitive_id, payload.bary);
 		float3 albedo = (material.albedo_tex_id > 0) ? SampleTextureLevel(material.albedo_tex_id, vertex.uv, 0).rgb : material.albedo.rgb;
 		radiance = albedo;

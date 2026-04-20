@@ -47,11 +47,11 @@ DescriptorLayout DescriptorLayoutBuilder::build(VkShaderStageFlags stages, const
 	info.pNext = pNext;
 
 	size_t hash = 0;
-	hash_combine(hash, bindings.size());
+	hashCombine(hash, bindings.size());
 	for (const auto &b : bindings)
 	{
 		size_t binding_hash = b.binding | b.descriptorType << 8 | b.descriptorCount << 16 | b.stageFlags << 24;
-		hash_combine(hash, binding_hash);
+		hashCombine(hash, binding_hash);
 	}
 
 	// Try to find cached

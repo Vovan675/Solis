@@ -105,6 +105,7 @@ void GuiUtils::draw_stats_bar(float delta_time, ImVec2 pos)
 	const auto& stats = gDynamicRHI->getGPUStatistics();
 	ImGui::Text("Triangles: %llu", stats.clipping_primitives);
 	ImGui::Text("Vertices: %llu", stats.vertex_shader_invocations + stats.mesh_shader_invocations);
+	ImGui::Text("Vertices (Mesh): %llu", stats.mesh_shader_invocations);
 
 	ImGui::EndChild();
 	ImGui::PopStyleColor();

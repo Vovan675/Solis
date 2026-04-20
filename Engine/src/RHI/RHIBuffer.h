@@ -24,7 +24,7 @@ public:
 	virtual bool isValid() const { return true; }
 
 	virtual RHIBufferView *getShaderResourceView() = 0;
-	virtual RHIBufferView *getUnorderedAccessView() = 0;
+	virtual RHIBufferView *getUnorderedAccessView(bool force_raw = false) = 0;
 
 protected:
 	BufferDescription description;

@@ -56,14 +56,16 @@ enum class BufferUsage
 	ACCELERATION_STRUCTURE_STORAGE_BUFFER = 1 << 8,
 	SHADER_BINGING_TABLE_BUFFER = 1 << 9,
 	STAGING_BUFFER = 1 << 10,
+	READBACK_BUFFER = 1 << 11
 };
 ALLOW_ENUM_BITS(BufferUsage)
 
 enum class BufferViewType
 {
 	CONSTANT, // Constant Buffer View on DX12, and Uniform Buffer on Vulkan
-	SHADER_RESOURCE, 
+	SHADER_RESOURCE,
 	SHADER_RESOURCE_STORAGE,
+	SHADER_RESOURCE_STORAGE_RAW,
 };
 
 class RHIBuffer;
@@ -93,11 +95,11 @@ struct BufferDescription
 	size_t getHash() const
 	{
 		size_t hash = 0;
-		Engine::Math::hash_combine(hash, size);
-		Engine::Math::hash_combine(hash, usage);
-		Engine::Math::hash_combine(hash, alignment);
-		Engine::Math::hash_combine(hash, storage_stride);
-		Engine::Math::hash_combine(hash, use_staging_buffer);
+		Engine::Math::hashCombine(hash, size);
+		Engine::Math::hashCombine(hash, usage);
+		Engine::Math::hashCombine(hash, alignment);
+		Engine::Math::hashCombine(hash, storage_stride);
+		Engine::Math::hashCombine(hash, use_staging_buffer);
 
 		return hash;
 	}
@@ -257,18 +259,18 @@ struct TextureDescription
 	size_t getHash() const
 	{
 		size_t hash = 0;
-		Engine::Math::hash_combine(hash, is_cube);
-		Engine::Math::hash_combine(hash, width);
-		Engine::Math::hash_combine(hash, height);
-		Engine::Math::hash_combine(hash, mip_levels);
-		Engine::Math::hash_combine(hash, array_levels);
-		Engine::Math::hash_combine(hash, sample_count);
-		Engine::Math::hash_combine(hash, format);
-		Engine::Math::hash_combine(hash, usage_flags);
-		Engine::Math::hash_combine(hash, sampler_mode);
-		Engine::Math::hash_combine(hash, filtering);
-		Engine::Math::hash_combine(hash, anisotropy);
-		Engine::Math::hash_combine(hash, use_comparison_less);
+		Engine::Math::hashCombine(hash, is_cube);
+		Engine::Math::hashCombine(hash, width);
+		Engine::Math::hashCombine(hash, height);
+		Engine::Math::hashCombine(hash, mip_levels);
+		Engine::Math::hashCombine(hash, array_levels);
+		Engine::Math::hashCombine(hash, sample_count);
+		Engine::Math::hashCombine(hash, format);
+		Engine::Math::hashCombine(hash, usage_flags);
+		Engine::Math::hashCombine(hash, sampler_mode);
+		Engine::Math::hashCombine(hash, filtering);
+		Engine::Math::hashCombine(hash, anisotropy);
+		Engine::Math::hashCombine(hash, use_comparison_less);
 
 		return hash;
 	}

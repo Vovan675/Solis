@@ -53,12 +53,12 @@ public:
 		lines_index_count += 2;
 	}
 
-	void addBox(glm::vec3 half_extents, glm::mat4 transform);
+	void addBox(glm::vec3 half_extents, glm::mat4 transform, glm::vec3 color = glm::vec3(0, 0, 0));
 	void addBoundBox(BoundBox bbox);
-	void addFrustum(glm::mat4 frustum, glm::vec3 color);
-	void addSphere(glm::vec3 center, float radius, int segments = 32);
+	void addFrustum(glm::mat4 frustum, glm::vec3 color = glm::vec3(0, 0, 0));
+	void addSphere(glm::vec3 center, float radius, int segments = 32, glm::vec3 color = glm::vec3(0, 0, 0));
 
-	eastl::vector<glm::vec3> addCirlce(glm::vec3 center, glm::vec3 normal, float radius, int segments);
+	eastl::vector<glm::vec3> addCirlce(glm::vec3 center, glm::vec3 normal, float radius, int segments, glm::vec3 color = glm::vec3(0, 0, 0));
 	void addArrow(glm::vec3 p0, glm::vec3 p1, float arrow_size);
 private:
 	void addTextureDebugPass(FrameGraph &fg);

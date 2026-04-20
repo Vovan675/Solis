@@ -64,7 +64,7 @@ DDGIRenderer::DDGIRenderer()
 	volume_buffer->setDebugName("DDGI Volume Buffer");
 
 	auto model = AssetManager::getModelAsset("assets/icosphere_3.fbx");
-	sphere_mesh = model->getRootNode()->children[0]->meshes[0];
+	sphere_mesh = model->getRootNode()->children[0]->primitives[0].mesh;
 
 	visualize_vertex_shader = gDynamicRHI->createShader(L"shaders/ddgi/ddgi_visualize.hlsl", VERTEX_SHADER);
 	visualize_fragment_shader = gDynamicRHI->createShader(L"shaders/ddgi/ddgi_visualize.hlsl", FRAGMENT_SHADER);
@@ -243,9 +243,9 @@ void DDGIRenderer::addVisualizePass(FrameGraph &fg)
 
 		gDynamicRHI->setConstantBufferData(1, &visualization_settings, sizeof(visualization_settings));
 
-		cmd_list->setVertexBuffer(sphere_mesh->vertexBuffer, 0, sizeof(Engine::Vertex));
-		cmd_list->setIndexBuffer(sphere_mesh->indexBuffer, 0);
-		cmd_list->drawIndexedInstanced(sphere_mesh->indices.size(), volume.getProbesCount(), 0, 0, 0);
+		cmd_list->setVertexBuffer(sphere_mesh->indexed->vertex_buffer, 0, sizeof(Engine::Vertex));
+		cmd_list->setIndexBuffer(sphere_mesh->indexed->index_buffer, 0);
+		cmd_list->drawIndexedInstanced(sphere_mesh->indexed->indices.size(), volume.getProbesCount(), 0, 0, 0);
 
 		cmd_list->resetRenderTargets();
 		//gDynamicRHI->waitGPU();

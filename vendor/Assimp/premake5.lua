@@ -1,5 +1,6 @@
 project "Assimp"
     kind "StaticLib"
+	cppdialect "C++17"
 
 	targetdir ("bin/" .. outputdir .. "/%{prj.name}")
 	objdir ("bin-int/" .. outputdir .. "/%{prj.name}")
@@ -63,7 +64,7 @@ project "Assimp"
         "ASSIMP_BUILD_NO_IRR_IMPORTER",
         "ASSIMP_BUILD_NO_Q3D_IMPORTER",
         "ASSIMP_BUILD_NO_B3D_IMPORTER",
-        -- "ASSIMP_BUILD_NO_COLLADA_IMPORTER",
+        "ASSIMP_BUILD_NO_COLLADA_IMPORTER",
         "ASSIMP_BUILD_NO_TERRAGEN_IMPORTER",
         "ASSIMP_BUILD_NO_CSM_IMPORTER",
         "ASSIMP_BUILD_NO_3D_IMPORTER",
@@ -85,6 +86,7 @@ project "Assimp"
         "ASSIMP_BUILD_NO_3MF_IMPORTER",
         "ASSIMP_BUILD_NO_X3D_IMPORTER",
         "ASSIMP_BUILD_NO_MMD_IMPORTER",
+        "ASSIMP_BUILD_NO_USD_IMPORTER",
             
         "ASSIMP_BUILD_NO_STEP_EXPORTER",
         "ASSIMP_BUILD_NO_SIB_IMPORTER",
@@ -140,6 +142,6 @@ project "Assimp"
 		"contrib/utf8cpp/source/**/h",
 		"contrib/zip/src/**.h",
 		"contrib/zip/src/**.c",
-		"contrib/zlib/**.h",
-		"contrib/zlib/**.c"
+		"contrib/zlib/*.h",
+		"contrib/zlib/*.c"
     }

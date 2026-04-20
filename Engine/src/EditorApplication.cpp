@@ -45,6 +45,7 @@ void EditorApplication::init()
 	debug_panel.debug_renderer = &scene_renderer->debug_renderer;
 	debug_panel.ssao_renderer = &scene_renderer->ssao_renderer;
 	debug_panel.ddgi_renderer = &scene_renderer->ddgi_renderer;
+	debug_panel.geometry_streaming = &scene_renderer->geometry_streaming;
 
 	asset_browser_panel.init();
 }

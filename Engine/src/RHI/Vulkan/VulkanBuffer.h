@@ -23,7 +23,7 @@ public:
 	bool isValid() const override { return buffer != nullptr; }
 
 	RHIBufferView *getShaderResourceView() override;
-	RHIBufferView *getUnorderedAccessView() override;
+	RHIBufferView *getUnorderedAccessView(bool force_raw = false) override;
 
 public:
 	VkBuffer getBuffer() const { return buffer->resource; }

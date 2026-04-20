@@ -45,15 +45,17 @@ void RayTracingScene::build_blas()
 				eastl::vector<RayTracingGeometry> geometries;
 				RayTracingGeometry &geometry = geometries.emplace_back();
 
-				geometry.vertex_buffer = mesh->vertexBuffer;
+				if (!mesh->indexed)
+					continue;
+				geometry.vertex_buffer = mesh->indexed->vertex_buffer;
 				geometry.vertex_buffer_offset = 0;
 				geometry.vertex_buffer_stride = sizeof(Engine::Vertex);
-				geometry.vertex_count = mesh->vertices.size();
+				geometry.vertex_count = mesh->indexed->vertices.size();
 				geometry.vertex_format = FORMAT_R32G32B32_SFLOAT;
 
-				geometry.index_buffer = mesh->indexBuffer;
+				geometry.index_buffer = mesh->indexed->index_buffer;
 				geometry.index_buffer_offset = 0;
-				geometry.index_count = mesh->indices.size();
+				geometry.index_count = mesh->indexed->indices.size();
 				geometry.index_format = FORMAT_R32_UINT;
 
 				auto blas = gDynamicRHI->createBottomLevelAccelerationStructure();

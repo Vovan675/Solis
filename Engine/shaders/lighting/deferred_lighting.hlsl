@@ -6,7 +6,6 @@ struct VSInput
 {
 	float4 inPos : POSITION;
 	float2 inUV : TEXCOORD0;
-	float3 inColor : COLOR;
 	float3 inNormal : NORMAL;
 };
 

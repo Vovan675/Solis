@@ -279,7 +279,7 @@ void DX12Pipeline::create(const PipelineDescription &description)
 			for (auto &input : description.vertex_inputs_descriptions.inputs)
 			{
 				input_layout.push_back({input.semantic_name, 0, DX12Utils::getNativeFormat(input.format), input.vertex_buffer_slot, offset, input.per_instance ? D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA : D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0});
-				offset += Math::alignedSize(getFormatSize(input.format), 16);
+				offset += Math::alignedSize(getFormatSize(input.format), 16u);
 			}
 
 			D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_desc = {};

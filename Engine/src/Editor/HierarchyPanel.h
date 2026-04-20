@@ -9,4 +9,5 @@ public:
 	void renderImGui(EditorContext &context);
 
 private:
+	entt::entity start_entity = entt::null;
 };

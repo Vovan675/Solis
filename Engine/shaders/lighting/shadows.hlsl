@@ -19,13 +19,11 @@ cbuffer UBO : register(b1)
 	float shadow_z_far;
 };
 
-static ByteAddressBuffer vertex_buffer = ResourceDescriptorHeap[global_vertex_buffer_id];
-
 VS_OUTPUT VSMain(VS_INPUT input)
 {
-	Instance instance = GetInstance(input.instance_id);
-	Mesh mesh = GetMesh(instance.mesh_id);
-	float3 vertex_pos = GetMeshVertexData<float3>(vertex_buffer, mesh.positions_offset, input.vertex_id, mesh.vertex_stride);
+	Instance instance = getInstance(input.instance_id);
+	Mesh mesh = getMesh(instance.mesh_id);
+	float3 vertex_pos = GetMeshVertexData<float3>(mesh.vertex_buffer_id, mesh.positions_offset, input.vertex_id, mesh.vertex_stride);
 
 	VS_OUTPUT output;
 	output.outPos = mul(light_space_matrix, mul(instance.world_transform, float4(vertex_pos, 1.0)));

@@ -2,7 +2,7 @@
 Open Asset Import Library (assimp)
 ----------------------------------------------------------------------
 
-Copyright (c) 2006-2024, assimp team
+Copyright (c) 2006-2026, assimp team
 
 All rights reserved.
 
@@ -522,6 +522,10 @@ void CatmullClarkSubdivider::InternSubdivide(
                                             break;
                                         }
                                     }
+                                }
+
+                                if (mp == nullptr) {
+                                    continue;
                                 }
 
                                 ai_assert(adj[o] - moffsets[nidx].first < mp->mNumFaces);

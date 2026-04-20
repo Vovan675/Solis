@@ -23,6 +23,7 @@
 #include <EASTL/unordered_set.h>
 #include <EASTL/hash_set.h>
 #include <EASTL/list.h>
+#include <EASTL/optional.h>
 
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>

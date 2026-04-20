@@ -37,6 +37,7 @@ public:
 	virtual void dispatchMeshIndirect(RHIBuffer *args_buffer, uint32_t draw_count) = 0;
 
 	virtual void copyBuffer(RHIBuffer *src, RHIBuffer *dest, uint64_t src_offset, uint64_t dest_offset, uint64_t size) = 0;
+	virtual void fillBuffer(RHIBuffer *buffer, uint32_t value) = 0;
 
 	virtual void beginDebugLabel(const char *label, glm::vec3 color, uint32_t line, const char* source, size_t source_size, const char* function, size_t function_size) = 0;
 	virtual void endDebugLabel() = 0;

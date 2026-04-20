@@ -194,6 +194,21 @@ void DX12CommandList::dispatchMeshIndirect(RHIBuffer *args_buffer, uint32_t draw
 	cmd_list->ExecuteIndirect(DX12Utils::getNativeRHI()->dispatch_mesh_command_signature, draw_count, native_args_buffer->getResource(), 0, nullptr, 0);
 }
 
+void DX12CommandList::fillBuffer(RHIBuffer *buffer, uint32_t value)
+{
+	DX12Buffer *native_buffer = static_cast<DX12Buffer *>(buffer);
+	DX12BufferView *uav = static_cast<DX12BufferView *>(buffer->getUnorderedAccessView(true));
+
+	native_buffer->transitState(ResourceState::UAV);
+
+	UINT values[4] = { value, value, value, value };
+	cmd_list->ClearUnorderedAccessViewUint(
+		DX12Utils::getNativeRHI()->cbv_srv_uav_heap->getHandle(uav->getBindlessIndex()).getGpuHandle(),
+		uav->getDescriptor().getCpuHandle(),
+		native_buffer->getResource(),
+		values, 0, nullptr);
+}
+
 void DX12CommandList::copyBuffer(RHIBuffer *src, RHIBuffer *dest, uint64_t src_offset, uint64_t dest_offset, uint64_t size)
 {
 	DX12Buffer *native_src_buffer = (DX12Buffer *)src;
@@ -204,6 +219,7 @@ void DX12CommandList::copyBuffer(RHIBuffer *src, RHIBuffer *dest, uint64_t src_o
 
 	cmd_list->CopyBufferRegion(native_dst_buffer->getResource(), dest_offset, native_src_buffer->getResource(), src_offset, size);
 }
+
 
 void DX12CommandList::beginDebugLabel(const char *label, glm::vec3 color, uint32_t line, const char* source, size_t source_size, const char* function, size_t function_size)
 {

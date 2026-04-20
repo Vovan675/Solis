@@ -25,6 +25,14 @@ void DX12DynamicRHI::init()
 			//dc6->SetEnableGPUBasedValidation(true);
 			flags = DXGI_CREATE_FACTORY_DEBUG;
 		}
+
+		/*
+		ComPtr<ID3D12DeviceRemovedExtendedDataSettings> dredSettings;
+		D3D12GetDebugInterface(IID_PPV_ARGS(&dredSettings));
+
+		dredSettings->SetAutoBreadcrumbsEnablement(D3D12_DRED_ENABLEMENT_FORCED_ON);
+		dredSettings->SetPageFaultEnablement(D3D12_DRED_ENABLEMENT_FORCED_ON);
+		*/
 	}
 	#endif
 
@@ -275,9 +283,9 @@ RHIShaderRef DX12DynamicRHI::createShader(eastl::wstring path, ShaderType type, 
 	}
 
 	size_t cache_hash = 0;
-	hash_combine(cache_hash, path);
-	hash_combine(cache_hash, type);
-	hash_combine(cache_hash, entry_point);
+	hashCombine(cache_hash, path);
+	hashCombine(cache_hash, type);
+	hashCombine(cache_hash, entry_point);
 
 	if (cached_shaders.find(cache_hash) != cached_shaders.end())
 	{
@@ -292,9 +300,9 @@ RHIShaderRef DX12DynamicRHI::createShader(eastl::wstring path, ShaderType type, 
 RHIShaderRef DX12DynamicRHI::createShader(eastl::wstring path, ShaderType type, eastl::string entry_point, eastl::vector<eastl::pair<const char *, const char *>> defines)
 {
 	size_t cache_hash = 0;
-	hash_combine(cache_hash, path);
-	hash_combine(cache_hash, type);
-	hash_combine(cache_hash, entry_point);
+	hashCombine(cache_hash, path);
+	hashCombine(cache_hash, type);
+	hashCombine(cache_hash, entry_point);
 
 	eastl::string all_defines = "";
 	for (const auto &define : defines)
@@ -302,7 +310,7 @@ RHIShaderRef DX12DynamicRHI::createShader(eastl::wstring path, ShaderType type, 
 		all_defines += define.first;
 		all_defines += define.second;
 	}
-	Engine::Math::hash_combine(cache_hash, all_defines);
+	Engine::Math::hashCombine(cache_hash, all_defines);
 
 	if (cached_shaders.find(cache_hash) != cached_shaders.end())
 	{

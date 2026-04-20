@@ -29,7 +29,7 @@ public:
 	bool isValid() const override { return resource != nullptr; }
 
 	RHIBufferView *getShaderResourceView() override;
-	RHIBufferView *getUnorderedAccessView() override;
+	RHIBufferView *getUnorderedAccessView(bool force_raw = false) override;
 
 public:
 	ID3D12Resource *getResource() const { return resource->resource; }
@@ -42,6 +42,7 @@ private:
 	ResourceState current_state;
 	Ref<DX12BufferView> shader_resource_view;
 	Ref<DX12BufferView> unordered_access_view;
+	Ref<DX12BufferView> raw_unordered_access_view;
 
 	bool is_mapped = false;
 };

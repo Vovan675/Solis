@@ -33,22 +33,23 @@ struct InstanceGPU
 struct MeshGPU
 {
 	uint32_t vertex_buffer_id;
-	uint32_t index_buffer_id;
+	uint32_t index_buffer_id; // reserved for non-meshleted rendering
 	uint32_t vertex_stride;
 	uint32_t positions_offset;
 	uint32_t normals_offset;
 	uint32_t tangents_offset;
 	uint32_t uvs_offset;
-	uint32_t colors_offset;
-	uint32_t index_offset;
+	uint32_t index_offset; // reserved for non-meshleted rendering
 	uint32_t indices_count;
 
-	uint32_t meshlet_vertex_offset;
-	uint32_t meshlet_triangle_offset;
 	uint32_t meshlet_lod_groups_offset;
+	uint32_t group_count;
 
-	uint32_t meshlet_offset;
-	uint32_t meshlet_count;
+	uint32_t group_residency_offset; // start index in global group_residency buffer
+	uint32_t root_group_offset;
+	uint32_t lod_nodes_offset; // offset in global lod_nodes buffer
+
+	uint32_t attribute_flags;
 };
 
 struct LODGroup
@@ -56,7 +57,29 @@ struct LODGroup
 	glm::highp_vec3 center;
 	float radius;
 	float error;
+
 	uint32_t depth;
+	uint32_t first_meshlet; // local index into mesh's meshlets array
+	uint32_t meshlet_count;
+};
+
+struct LodNode
+{
+	glm::highp_vec3 center;
+	float radius;
+	float error;
+
+	uint32_t group_index = 0; // local LODGroup index
+	uint32_t first_child = 0; // local element offset in group_children buffer
+	uint32_t child_count = 0; // 0 for leaf
+	uint32_t meshlet_count = 0; // meshlet count of the associated LODGroup
+};
+
+// group range for one depth level of the LOD DAG
+struct LODLevel
+{
+	uint32_t group_offset;
+	uint32_t group_count;
 };
 
 struct MeshletTriangle
@@ -67,20 +90,26 @@ struct MeshletTriangle
 	uint32_t : 2;
 };
 
-struct alignas(16) Meshlet
+struct Meshlet
 {
-	glm::vec3 center;
-	glm::vec3 extent;
+	glm::highp_vec3 center;
+	glm::highp_vec3 extent;
 
-	uint32_t group_id;
-	uint32_t parent_id;
-	uint32_t lod_level;
-	float lod_error;
+	uint32_t group_id; // current group id
+	uint32_t refined_group_id; // group id of more detailed cluster group (with more triangles)
 
 	uint32_t vertex_offset;
-	uint32_t vertex_count; // typically 64
 	uint32_t triangle_offset;
-	uint32_t triangle_count; // typically 124
+	uint8_t vertex_count; // typically 64
+	uint8_t triangle_count; // typically 124
+};
+
+#define GROUP_NON_RESIDENT_ADDRESS_START uint32_t(1) << 31
+static constexpr uint32_t MAX_STREAMING_REQUESTS = 1024;
+static constexpr uint32_t MAX_UNLOAD_REQUESTS = 1024;
+struct GroupResidency
+{
+	uint32_t geometry_buffer_offset; // byte offset in global geometry buffer
 };
 
 struct FrustumDataGPU

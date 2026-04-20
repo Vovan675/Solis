@@ -5,6 +5,43 @@
 #define PI2 (2 * PI)
 #define Epsilon 0.00001
 
+struct TraversalItem
+{
+	uint instance_id;
+	// bit 0: isGroup
+	// NODE:
+	// bits 1-26 : childOffset (26 bits)
+	// bits 27-31 : childCountMinusOne (5 bits, up to 32 children)
+	// GROUP:
+	// bits 1-23 : groupIndex (23 bits)
+	// bits 24-31 : clusterCountMinusOne (8 bits, up to 256 clusters)
+	uint packed;
+
+	bool isGroup() { return (packed & 1u) != 0u; }
+	uint getNodeChildOffset() { return (packed >> 1u) & 0x3FFFFFFu; }
+	uint getNodeChildCount() { return ((packed >> 27u) & 0x1Fu) + 1u; }
+	uint getGroupIndex() { return (packed >> 1u) & 0x7FFFFFu; }
+	uint getGroupClusterCount() { return ((packed >> 24u) & 0xFFu) + 1u; }
+	uint getSubCount() { return isGroup() ? getGroupClusterCount() : getNodeChildCount(); }
+};
+
+uint packNodeItem(uint child_offset, uint child_count)
+{
+	return ((child_count - 1u) & 0x1Fu) << 27u | (child_offset & 0x3FFFFFFu) << 1u;
+}
+uint packGroupItem(uint group_index, uint cluster_count)
+{
+	return (((cluster_count - 1u) & 0xFFu) << 24u) | ((group_index & 0x7FFFFFu) << 1u) | 1u;
+}
+
+struct TraversalCtrl
+{
+	int task_counter; // pending tasks; increase on append task, decrease on consume
+	uint read_counter; // next slot to read
+	uint write_counter; // next slot to write
+	uint pad;
+};
+
 float random(float2 uv)
 {
 	return frac(sin(dot(uv, float2(12.9898, 78.233))) * 43758.5453);
@@ -31,14 +68,13 @@ cbuffer FrameConstants : register(b32) {
 	float z_far;
 	float time;
 	uint frame;
-	uint global_vertex_buffer_id;
-	uint global_meshlets_vertex_buffer_id;
-	uint global_meshlets_triangles_buffer_id;
+	uint global_meshlets_geometry_buffer_id;
 	uint global_meshlets_lod_groups_buffer_id;
 	uint materials_buffer_id;
 	uint instances_buffer_id;
 	uint meshes_buffer_id;
-	uint meshlets_buffer_id;
+	uint global_meshlets_group_children_buffer_id;
+	uint global_lod_nodes_buffer_id;
 	uint tlas_id;
 	uint ddgi_volume_buffer_id;
 	uint lines_gpu_buffer_id;
@@ -101,24 +137,42 @@ struct Mesh
 	uint normals_offset;
 	uint tangents_offset;
 	uint uvs_offset;
-	uint colors_offset;
 	uint index_offset;
 	uint indices_count;
 
-	uint meshlet_vertex_offset;
-	uint meshlet_triangle_offset;
 	uint meshlet_lod_groups_offset;
+	uint group_count; // total LODGroup count
 
-	uint meshlet_offset;
-	uint meshlet_count;
+	uint group_residency_offset; // start index in global group_residency buffer
+	uint root_group_offset; // offset in group_children section for root group
+	uint lod_nodes_offset; // offset in global lod_nodes buffer
+
+	uint attribute_flags;
 };
+
+#define MESH_ATTR_TANGENT (1u << 1)
 
 struct LODGroup
 {
 	float3 center;
 	float radius;
 	float error;
+	
 	uint depth;
+	uint first_meshlet; // index in mesh.meshlets
+	uint meshlet_count;
+};
+
+struct LodNode
+{
+	float3 center;
+	float radius;
+	float error;
+
+	uint group_index; // LODGroup index
+	uint first_child; // offset in group_children buffer
+	uint child_count; // 0 for leaf
+	uint meshlet_count; // meshlet count for its LODGroup
 };
 
 struct MeshletTriangle
@@ -129,44 +183,72 @@ struct MeshletTriangle
 	uint : 2;
 };
 
+#define MOST_DETAILED_CLUSTER_GROUP_ID 0xFFFFFFFFu
+#define MAX_STREAMING_REQUESTS 1024
 struct Meshlet
 {
-	float4 center;
-	float4 extent;
+	float3 center;
+	float3 extent;
 
 	uint group_id;
-	uint parent_id;
-	uint lod_level;
-	float lod_error;
+	uint refined_group_id; // group id of more detailed cluster group (with more triangles)
 
+	// Patched on streaming
 	uint vertex_offset;
-	uint vertex_count;
 	uint triangle_offset;
-	uint triangle_count;
+
+	uint packed_counts; // vertex_count (8) + triangle_count(8)
+
+	uint getVertexCount()
+	{
+		return packed_counts & 0xFF;
+	}
+
+	uint getTriangleCount()
+	{
+		return (packed_counts >> 8) & 0xFF;
+	}
 };
 
-Material GetMaterial(uint index)
+#define GROUP_NON_RESIDENT_ADDRESS_START uint32_t(1) << 31
+#define MAX_UNLOAD_REQUESTS 1024
+// meshlet_id encoding: flat_group_idx << 8 | local_meshlet_id
+struct GroupResidency
+{
+	uint32_t geometry_buffer_offset;
+};
+
+Material getMaterial(uint index)
 {
 	StructuredBuffer<Material> materials = ResourceDescriptorHeap[materials_buffer_id];
 	return materials[index];
 }
 
-Instance GetInstance(uint index)
+Instance getInstance(uint index)
 {
 	StructuredBuffer<Instance> instances = ResourceDescriptorHeap[instances_buffer_id];
 	return instances[index];
 }
 
-Mesh GetMesh(uint index)
+Mesh getMesh(uint index)
 {
 	StructuredBuffer<Mesh> meshes = ResourceDescriptorHeap[meshes_buffer_id];
 	return meshes[index];
 }
 
-Meshlet GetMeshlet(uint index)
+uint packMeshletId(uint flat_group_idx, uint local_meshlet)
 {
-	StructuredBuffer<Meshlet> meshlets = ResourceDescriptorHeap[meshlets_buffer_id];
-	return meshlets[index];
+	return (flat_group_idx << 8) | local_meshlet;
+}
+
+Meshlet getMeshlet(uint meshlet_id, uint residency_buffer_id)
+{
+	uint flat_group_idx = meshlet_id >> 8;
+	uint local_meshlet = meshlet_id & 0xFF;
+	RWByteAddressBuffer residency_buf = ResourceDescriptorHeap[residency_buffer_id];
+	GroupResidency res = residency_buf.Load<GroupResidency>(sizeof(GroupResidency) * flat_group_idx);
+	ByteAddressBuffer geometry = ResourceDescriptorHeap[global_meshlets_geometry_buffer_id];
+	return geometry.Load<Meshlet>(uint(res.geometry_buffer_offset) + local_meshlet * 44);
 }
 
 template<typename T>
@@ -196,6 +278,20 @@ float2 Interpolate(float2 x0, float2 x1, float2 x2, float2 bary)
 		x0 * (1.0f - bary.x - bary.y) +
 		x1 * bary.x +
 		x2 * bary.y;
+}
+
+float2 unpackSnorm16x2(uint packed)
+{
+	return float2((int)(packed << 16) >> 16, (int)packed >> 16) / 32767.0;
+}
+
+// Oct-decode two snorm floats to a unit float3.
+float3 octDecode(float2 e)
+{
+	float3 n = float3(e, 1.0 - abs(e.x) - abs(e.y));
+	if (n.z < 0.0)
+		n.xy = (1.0 - abs(n.yx)) * sign(n.xy);
+	return normalize(n);
 }
 
 struct VertexData
@@ -231,29 +327,27 @@ VertexData GetVertexData(Mesh mesh, uint primitive_id, float2 bary)
 }
 
 struct GpuLine {
-    float4 position;
-    float3 color;
+	float4 position;
+	float3 color;
 };
 
 void addLine(float3 p0, float3 p1, float3 color, bool screen_space = false)
 {
-    RWByteAddressBuffer gpu_lines = ResourceDescriptorHeap[lines_gpu_buffer_id];
+	RWByteAddressBuffer gpu_lines = ResourceDescriptorHeap[lines_gpu_buffer_id];
 
-    uint index;
-    gpu_lines.InterlockedAdd(0, 2, index);
+	uint index;
+	gpu_lines.InterlockedAdd(0, 2, index);
 
-	//if (index > 30000)
-	//	return;
-    GpuLine vertex_1;
-    GpuLine vertex_2;
-    
-    vertex_1.position = float4(p0, screen_space);
-    vertex_1.color = color;
+	GpuLine vertex_1;
+	GpuLine vertex_2;
 
-    vertex_2.position = float4(p1, screen_space);
-    vertex_2.color = color;
-    gpu_lines.Store(4 + index * 2 * sizeof(GpuLine), vertex_1);
-    gpu_lines.Store(4 + (index * 2 + 1) * sizeof(GpuLine), vertex_2);
+	vertex_1.position = float4(p0, screen_space);
+	vertex_1.color = color;
+
+	vertex_2.position = float4(p1, screen_space);
+	vertex_2.color = color;
+	gpu_lines.Store(4 + index * 2 * sizeof(GpuLine), vertex_1);
+	gpu_lines.Store(4 + (index * 2 + 1) * sizeof(GpuLine), vertex_2);
 }
 
 void addScreenQuad(float2 p0, float2 p1, float3 color)
@@ -322,6 +416,24 @@ float NativeDepthToLinear(float2 uv, float hardware_depth) {
 	return length(GetVSPosition(uv, hardware_depth));
 }
 
+float3x3 computeTBN(float3 world_position, float3 normal, float2 uv)
+{
+	float3 dp1 = ddx(world_position);
+	float3 dp2 = ddy(world_position);
+	float2 duv1 = ddx(uv);
+	float2 duv2 = ddy(uv);
+
+	float3 dp2perp = cross(dp2, normal);
+	float3 dp1perp = cross(normal, dp1);
+	float3 tangent = dp2perp * duv1.x + dp1perp * duv2.x;
+	float3 bitangent = dp2perp * duv1.y + dp1perp * duv2.y;
+
+	tangent = normalize(tangent - dot(tangent, normal) * normal);
+	float sign = dot(cross(normal, tangent), bitangent) < 0.0 ? -1.0 : 1.0;
+	bitangent = cross(normal, tangent) * sign;
+	return float3x3(-tangent, -bitangent, normal);
+}
+
 // Compute tangent and bitangent from normal
 void ComputeBasis(float3 N, out float3 T, out float3 B) {
 	T = cross(N, float3(0, 1, 0));
@@ -364,22 +476,22 @@ float3 GetCubemapNormal(float2 resolution, uint3 globalID) {
 
 	// Determine the normal based on the face
 	switch (globalID.z) {
-		case 0:  // +X face
+		case 0: // +X face
 			normal = float3(1.0, uv.y, -uv.x);
 			break;
-		case 1:  // -X face
+		case 1: // -X face
 			normal = float3(-1.0, uv.y, uv.x);
 			break;
-		case 2:  // +Y face
+		case 2: // +Y face
 			normal = float3(uv.x, 1.0, -uv.y);
 			break;
-		case 3:  // -Y face
+		case 3: // -Y face
 			normal = float3(uv.x, -1.0, uv.y);
 			break;
-		case 4:  // +Z face
+		case 4: // +Z face
 			normal = float3(uv.x, uv.y, 1.0);
 			break;
-		case 5:  // -Z face
+		case 5: // -Z face
 			normal = float3(-uv.x, uv.y, -1.0);
 			break;
 	}

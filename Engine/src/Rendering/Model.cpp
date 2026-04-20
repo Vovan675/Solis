@@ -1,23 +1,13 @@
 #include "pch.h"
 #include "Rendering/Model.h"
-#include <filesystem>
-#include "Math/EngineMath.h"
+#include "Assets/ModelImporter.h"
+#include "Assets/MeshSerializer.h"
+#include "Assets/ModelImportSettings.h"
 #include "Assets/AssetManager.h"
+#include "Rendering/Material.h"
 #include "Scene/Components.h"
-#include "meshoptimizer.h"
-
-#define CLUSTERLOD_IMPLEMENTATION
-#include "clusterlod.h"
-
-static glm::mat4 convertAssimpMat4(const aiMatrix4x4 &m)
-{
-	glm::mat4 o;
-	o[0][0] = m.a1; o[0][1] = m.b1; o[0][2] = m.c1; o[0][3] = m.d1;
-	o[1][0] = m.a2; o[1][1] = m.b2; o[1][2] = m.c2; o[1][3] = m.d2;
-	o[2][0] = m.a3; o[2][1] = m.b3; o[2][2] = m.c3; o[2][3] = m.d3;
-	o[3][0] = m.a4; o[3][1] = m.b4; o[3][2] = m.c4; o[3][3] = m.d4;
-	return o;
-}
+#include "Core/Variables.h"
+#include "Math/EngineMath.h"
 
 Model::~Model()
 {
@@ -28,370 +18,41 @@ void Model::cleanup()
 {
 	if (root_node)
 		delete root_node;
+	root_node = nullptr;
 	linear_nodes.clear();
 	meshes_id.clear();
+	mesh_file_memory.close();
 }
 
-static eastl::unordered_map<int, int> meshes;
-
-void Model::load(const char *path)
+void Model::load(const char *path, const ModelImportSettings *override_settings)
 {
-	auto runtime_path = std::filesystem::path(path);
+	PROFILE_CPU_FUNCTION();
 
-	if (AssetManager::isRuntimeExists(path) && false)
-	{
-		runtime_path = AssetManager::getRuntimeAssetPath(path).string();
-		loadFile(runtime_path.string().c_str());
-		return;
-	}
-
-	cleanup();
 	this->path = path;
-	Assimp::Importer importer;
+	auto mesh_path = AssetManager::getRuntimeAssetPath(std::filesystem::path(path));
 
-	const aiScene *scene = importer.ReadFile(path,
-											 aiProcess_CalcTangentSpace |
-											 aiProcess_GenSmoothNormals |
-											 aiProcess_Triangulate |
-											 aiProcess_JoinIdenticalVertices |
-											 aiProcess_SortByPType |
-											 aiProcess_OptimizeMeshes |
-											 aiProcess_FlipUVs);
-	meshes.clear();
-	process_node(nullptr, scene->mRootNode, scene);
-	root_node->updateTransform();
+	if (!engine_reimport_assets && MeshSerializer::load(this, mesh_path.string().c_str()))
+		return;
+
+	ModelImportSettings settings = override_settings ? *override_settings : ModelImportSettings{};
+	ModelImporter::import(path, this, settings);
+	MeshSerializer::load(this, mesh_path.string().c_str());
 }
 
-void Model::process_node(MeshNode *mesh_node, aiNode *node, const aiScene *scene)
+void Model::assign_mesh_id(eastl::unordered_map<size_t, Ref<Engine::Mesh>> &meshes_id, Engine::Mesh *mesh, const eastl::string &node_name, const eastl::string &prim_name)
 {
-	if (!mesh_node)
+	int id = 0;
+	size_t hash;
+	do
 	{
-		root_node = new MeshNode();
-		linear_nodes.push_back(root_node);
-		mesh_node = root_node;
-	}
-
-	if (node->mName.length != 0)
-		mesh_node->name = node->mName.C_Str();
-	else if (node->mNumMeshes > 0)
-		mesh_node->name = scene->mMeshes[node->mMeshes[0]]->mName.C_Str();
-
-	eastl::vector<Engine::Vertex> vertices;
-	eastl::vector<uint32_t> indices;
-
-	mesh_node->local_model_matrix = convertAssimpMat4(node->mTransformation);
-
-	for (int m = 0; m < node->mNumMeshes; m++)
-	{
-		vertices.clear();
-		indices.clear();
-
-		int mesh_index = node->mMeshes[m];
-		if (meshes.contains(mesh_index))
-			int i = 0;
-		meshes[mesh_index]++;
-		aiMesh *mesh = scene->mMeshes[mesh_index];
-
-		for (int v = 0; v < mesh->mNumVertices; v++)
-		{
-			aiVector3D vertex = mesh->mVertices[v];
-
-			glm::vec3 normal(0, 0, 0);
-			glm::vec3 tangent(0, 0, 0);
-			glm::vec2 uv(0, 0);
-			glm::vec3 color(1, 1, 1);
-
-			if (mesh->HasNormals())
-			{
-				aiVector3D aiNormal = mesh->mNormals[v];
-				normal = glm::vec3(aiNormal.x, aiNormal.y, aiNormal.z);
-			}
-
-			if (mesh->HasTangentsAndBitangents())
-			{
-				aiVector3D aiTangent = mesh->mTangents[v];
-				tangent = glm::vec3(aiTangent.x, aiTangent.y, aiTangent.z);
-			}
-
-			if (mesh->mTextureCoords[0] != nullptr)
-			{
-				aiVector3D aiUV = mesh->mTextureCoords[0][v];
-				uv = glm::vec2(aiUV.x, aiUV.y);
-			}
-
-			if (mesh->HasVertexColors(v))
-			{
-				aiColor4D *aiColor = mesh->mColors[v];
-				color = glm::vec3(aiColor->r, aiColor->g, aiColor->b);
-			}
-			vertices.emplace_back(Engine::Vertex{{vertex.x, vertex.y, vertex.z}, normal, tangent, uv, color});
-		}
-
-		for (int f = 0; f < mesh->mNumFaces; f++)
-		{
-			aiFace face = mesh->mFaces[f];
-
-			for (int i = 0; i < face.mNumIndices; i++)
-			{
-				int index = face.mIndices[i];
-				indices.emplace_back(index);
-			}
-		}
-
-		Ref<Engine::Mesh> engine_mesh = new Engine::Mesh();
-
-		{
-			const size_t max_vertices = 128;
-			const size_t max_triangles = 128;
-
-			clodConfig config = clodDefaultConfig(max_triangles);
-			config.max_vertices = max_vertices;
-
-			constexpr float VERTEX_ATTRIBUTE_WEIGHT_NORMAL = 0.5f;
-			constexpr float VERTEX_ATTRIBUTE_WEIGHT_UV = 1.0f;
-			constexpr float VERTEX_ATTRIBUTE_WEIGHT_COLOR = 0.0f;
-			constexpr float VERTEX_ATTRIBUTE_WEIGHT_TANGENT = 0.01f;
-
-			constexpr float VERTEX_ATTRIBUTE_WEIGHTS[] = {
-				VERTEX_ATTRIBUTE_WEIGHT_NORMAL,
-				VERTEX_ATTRIBUTE_WEIGHT_NORMAL,
-				VERTEX_ATTRIBUTE_WEIGHT_NORMAL,
-				VERTEX_ATTRIBUTE_WEIGHT_TANGENT,
-				VERTEX_ATTRIBUTE_WEIGHT_TANGENT,
-				VERTEX_ATTRIBUTE_WEIGHT_TANGENT,
-				VERTEX_ATTRIBUTE_WEIGHT_UV,
-				VERTEX_ATTRIBUTE_WEIGHT_UV,
-				VERTEX_ATTRIBUTE_WEIGHT_COLOR,
-				VERTEX_ATTRIBUTE_WEIGHT_COLOR,
-				VERTEX_ATTRIBUTE_WEIGHT_COLOR,
-			};
-
-			clodMesh input_mesh{};
-			input_mesh.indices = indices.data();
-			input_mesh.index_count = indices.size();
-			input_mesh.vertex_count = vertices.size();
-			input_mesh.vertex_positions = (float *)vertices.data();
-			input_mesh.vertex_positions_stride = sizeof(Engine::Vertex);
-			input_mesh.vertex_attributes = (float *)&vertices[0].normal;
-			input_mesh.vertex_attributes_stride = sizeof(Engine::Vertex);
-			input_mesh.attribute_weights = VERTEX_ATTRIBUTE_WEIGHTS;
-			input_mesh.attribute_count = _countof(VERTEX_ATTRIBUTE_WEIGHTS);
-			input_mesh.attribute_protect_mask = 1 << 6 | 1 << 7;
-			
-
-			uint32_t current_vertex_offset = 0;
-			uint32_t current_triangle_offset = 0;
-
-			clodBuild(config, input_mesh,
-						[&](const clodGroup &group, const clodCluster *clusters, size_t cluster_count)
-			{
-				int group_id = engine_mesh->meshlet_lod_groups.size();
-
-				LODGroup &lod_group = engine_mesh->meshlet_lod_groups.emplace_back();
-				lod_group.center = glm::vec3(group.simplified.center[0], group.simplified.center[1], group.simplified.center[2]);
-				lod_group.radius = group.simplified.radius;
-				lod_group.error = group.simplified.error;
-				lod_group.depth = group.depth;
-
-				for (size_t i = 0; i < cluster_count; i++)
-				{
-					const clodCluster *cluster = &clusters[i];
-
-					Meshlet &m = engine_mesh->meshlets.emplace_back();
-					m.group_id = group_id;
-					m.parent_id = cluster->refined;
-					m.lod_level = lod_group.depth;
-					m.lod_error = cluster->bounds.error;
-
-					uint32_t triangle_count = cluster->index_count / 3;
-
-					std::vector<uint32_t> local_vertices(cluster->vertex_count);
-					std::vector<uint8_t> local_triangles(cluster->index_count);
-
-					size_t unique_vertices = clodLocalIndices(local_vertices.data(), local_triangles.data(), cluster->indices, cluster->index_count);
-
-					for (size_t v = 0; v < unique_vertices; v++)
-						engine_mesh->meshlet_vertices.push_back(local_vertices[v]);
-
-					for (size_t t = 0; t < cluster->index_count; t++)
-						engine_mesh->meshlet_triangles.push_back(local_triangles[t]);
-
-
-					m.vertex_offset = current_vertex_offset;
-					m.vertex_count = unique_vertices;
-					m.triangle_offset = current_triangle_offset;
-					m.triangle_count = triangle_count;
-
-					glm::vec3 min = glm::vec3(FLT_MAX, FLT_MAX, FLT_MAX);
-					glm::vec3 max = glm::vec3(-FLT_MAX, -FLT_MAX, -FLT_MAX);
-					for (size_t j = 0; j < m.triangle_count * 3; j++)
-					{
-						uint32_t local_vertex_index = engine_mesh->meshlet_triangles[m.triangle_offset + j];
-						uint32_t vertex_id = engine_mesh->meshlet_vertices[m.vertex_offset + local_vertex_index];
-						glm::vec3 vertex_pos = vertices[vertex_id].pos;
-						max = glm::max(max, vertex_pos);
-						min = glm::min(min, vertex_pos);
-					}
-
-					m.center = (min + max) / 2.0f;
-					m.extent = (max - min) / 2.0f;
-
-					current_vertex_offset += unique_vertices;
-					current_triangle_offset += cluster->index_count;
-				}
-
-				return group_id;
-			});
-		}
-
-		engine_mesh->setData(vertices, indices);
-
-		mesh_node->meshes.push_back(engine_mesh);
-
-		{
-			size_t mesh_hash = 0;
-			int id = 0;
-			eastl::string name = mesh_node->name;
-			Engine::Math::hash_combine(mesh_hash, name);
-			name = mesh->mName.C_Str();
-			Engine::Math::hash_combine(mesh_hash, name);
-			Engine::Math::hash_combine(mesh_hash, id);
-
-			while (getMesh(mesh_hash) != nullptr)
-			{
-				id++;
-				name = mesh_node->name;
-				Engine::Math::hash_combine(mesh_hash, name);
-				name = mesh->mName.C_Str();
-				Engine::Math::hash_combine(mesh_hash, name);
-				Engine::Math::hash_combine(mesh_hash, id);
-			}
-			meshes_id[mesh_hash] = engine_mesh;
-			engine_mesh->id = mesh_hash;
-		}
-
-		aiMaterial *mat = scene->mMaterials[mesh->mMaterialIndex];
-
-		for (int p = 0; p < mat->mNumProperties; p++)
-			aiString name = mat->mProperties[p]->mKey;
-
-		Ref<Material> engine_material = new Material();
-		mesh_node->materials.push_back(engine_material);
-
-		// Textures
-		unsigned int diffuse_count = mat->GetTextureCount(aiTextureType_DIFFUSE);
-		if (diffuse_count > 0)
-		{
-			aiString texture_path;
-			aiReturn res = mat->GetTexture(aiTextureType_DIFFUSE, 0, &texture_path);
-			if (res == aiReturn_SUCCESS)
-			{
-				TextureDescription tex_description{};
-				tex_description.format = FORMAT_R8G8B8A8_SRGB;
-				tex_description.usage_flags = TEXTURE_USAGE_TRANSFER_SRC;
-				tex_description.anisotropy = true;
-
-				std::filesystem::path result_path(path.c_str());
-				result_path = result_path.remove_filename();
-				result_path = result_path.concat(texture_path.C_Str());
-				engine_material->albedo_tex.asset_handle = AssetManager::getGUIDFromPath(result_path.string());
-			}
-		}
-
-		unsigned int metalness_count = mat->GetTextureCount(aiTextureType_METALNESS);
-		if (metalness_count > 0 && false) ////////////////////////////
-		{
-			aiString texture_path;
-			aiReturn res = mat->GetTexture(aiTextureType_METALNESS, 0, &texture_path);
-			if (res == aiReturn_SUCCESS)
-			{
-				TextureDescription tex_description{};
-				tex_description.format = FORMAT_R8G8B8A8_UNORM;
-				tex_description.usage_flags = TEXTURE_USAGE_TRANSFER_SRC;
-				tex_description.anisotropy = true;
-
-				std::filesystem::path result_path(path.c_str());
-				result_path = result_path.remove_filename();
-				result_path = result_path.concat(texture_path.C_Str());
-				engine_material->metalness_tex.asset_handle = AssetManager::getGUIDFromPath(result_path.string());
-			}
-		}
-
-		unsigned int roughness_count = mat->GetTextureCount(aiTextureType_SHININESS);
-		if (roughness_count > 0)
-		{
-			aiString texture_path;
-			aiReturn res = mat->GetTexture(aiTextureType_SHININESS, 0, &texture_path);
-			if (res == aiReturn_SUCCESS)
-			{
-				TextureDescription tex_description{};
-				tex_description.format = FORMAT_R8G8B8A8_UNORM;
-				tex_description.usage_flags = TEXTURE_USAGE_TRANSFER_SRC;
-				tex_description.anisotropy = true;
-
-				std::filesystem::path result_path(path.c_str());
-				result_path = result_path.remove_filename();
-				result_path = result_path.concat(texture_path.C_Str());
-				engine_material->roughness_tex.asset_handle = AssetManager::getGUIDFromPath(result_path.string());
-			}
-		}
-
-		unsigned int specular_count = mat->GetTextureCount(aiTextureType_SPECULAR);
-		if (specular_count > 0)
-		{
-			aiString texture_path;
-			aiReturn res = mat->GetTexture(aiTextureType_SPECULAR, 0, &texture_path);
-			if (res == aiReturn_SUCCESS)
-			{
-				TextureDescription tex_description{};
-				tex_description.format = FORMAT_R8G8B8A8_UNORM;
-				tex_description.usage_flags = TEXTURE_USAGE_TRANSFER_SRC;
-				tex_description.anisotropy = true;
-
-				std::filesystem::path result_path(path.c_str());
-				result_path = result_path.remove_filename();
-				result_path = result_path.concat(texture_path.C_Str());
-				engine_material->specular_tex.asset_handle = AssetManager::getGUIDFromPath(result_path.string());
-			}
-		}
-
-		unsigned int normals_count = mat->GetTextureCount(aiTextureType_NORMALS);
-		if (normals_count > 0)
-		{
-			aiString texture_path;
-			aiReturn res = mat->GetTexture(aiTextureType_NORMALS, 0, &texture_path);
-			if (res == aiReturn_SUCCESS)
-			{
-				TextureDescription tex_description{};
-				tex_description.format = FORMAT_R8G8B8A8_UNORM;
-				tex_description.usage_flags = TEXTURE_USAGE_TRANSFER_SRC;
-
-				std::filesystem::path result_path(path.c_str());
-				result_path = result_path.remove_filename();
-				result_path = result_path.concat(texture_path.C_Str());
-				engine_material->normal_tex.asset_handle = AssetManager::getGUIDFromPath(result_path.string());
-			}
-		}
-
-		// Parameters
-		aiColor3D aiColor;
-		if (mat->Get(AI_MATKEY_COLOR_DIFFUSE, aiColor) == aiReturn_SUCCESS)
-			engine_material->albedo = {aiColor.r, aiColor.g, aiColor.b, 1.0};
-		mat->Get(AI_MATKEY_METALLIC_FACTOR, engine_material->metalness);
-		mat->Get(AI_MATKEY_ROUGHNESS_FACTOR, engine_material->roughness);
-		mat->Get(AI_MATKEY_SPECULAR_FACTOR, engine_material->specular);
-	}
-
-	for (int c = 0; c < node->mNumChildren; c++)
-	{
-		aiNode *child = node->mChildren[c];
-		MeshNode *child_node = new MeshNode();
-		linear_nodes.push_back(child_node);
-		child_node->parent = mesh_node;
-		process_node(child_node, child, scene);
-		mesh_node->children.push_back(child_node);
-	}
-
+		++id;
+		hash = 0;
+		Engine::Math::hashCombine(hash, node_name);
+		Engine::Math::hashCombine(hash, prim_name);
+		Engine::Math::hashCombine(hash, id);
+	} while (meshes_id.find(hash) != meshes_id.end());
+	meshes_id[hash] = mesh;
+	mesh->id = hash;
 }
 
 Entity Model::createEntity(Model *model)
@@ -399,103 +60,22 @@ Entity Model::createEntity(Model *model)
 	return create_entity_node(model, model->root_node, Scene::getCurrentScene());
 }
 
-void Model::saveFile(const eastl::string &filename)
-{
-	FileStream stream(filename, std::ofstream::out | std::ofstream::binary);
-	save_mesh_node(stream, root_node);
-}
-
-void Model::loadFile(const eastl::string &filename)
-{
-	cleanup();
-	FileStream stream(filename, std::ofstream::in | std::ofstream::binary);
-	root_node = new MeshNode();
-	load_mesh_node(stream, root_node);
-}
-
-void Model::save_mesh_node(FileStream &stream, MeshNode *node)
-{
-	stream.write(node->name);
-	stream.write(node->local_model_matrix);
-	stream.write(node->global_model_matrix);
-
-	stream.write(node->meshes.size());
-	for (size_t i = 0; i < node->meshes.size(); i++)
-	{
-		auto &mesh = node->meshes[i];
-		mesh->serialize(stream);
-	}
-
-	stream.write(node->materials.size());
-	for (size_t i = 0; i < node->materials.size(); i++)
-	{
-		auto &mat = node->materials[i];
-		mat->serialize(stream);
-	}
-
-	stream.write(node->children.size());
-	for (size_t i = 0; i < node->children.size(); i++)
-	{
-		save_mesh_node(stream, node->children[i]);
-	}
-}
-
-void Model::load_mesh_node(FileStream &stream, MeshNode *node)
-{
-	linear_nodes.push_back(node);
-	stream.read(node->name);
-	stream.read(node->local_model_matrix);
-	stream.read(node->global_model_matrix);
-
-	size_t meshes_count;
-	stream.read(meshes_count);
-	node->meshes.resize(meshes_count);
-	for (size_t i = 0; i < meshes_count; i++)
-	{
-		Ref<Engine::Mesh> mesh = new Engine::Mesh();
-		mesh->deserialize(stream);
-		node->meshes[i] = mesh;
-		meshes_id[mesh->id] = mesh;
-	}
-
-	size_t materials_count;
-	stream.read(materials_count);
-	node->materials.resize(materials_count);
-	for (size_t i = 0; i < materials_count; i++)
-	{
-		auto *mat = new Material();
-		mat->deserialize(stream);
-		node->materials[i] = mat;
-	}
-
-	size_t children_count;
-	stream.read(children_count);
-	node->children.resize(children_count);
-	for (size_t i = 0; i < children_count; i++)
-	{
-		auto *child = new MeshNode();
-		child->parent = node;
-		load_mesh_node(stream, child);
-		node->children[i] = child;
-	}
-}
-
 Entity Model::create_entity_node(Model *model, MeshNode *node, Scene *scene)
 {
 	Entity entity = scene->createEntity(node->name);
 	auto &transform_component = entity.getComponent<TransformComponent>();
 
-	if (!node->meshes.empty())
+	if (!node->primitives.empty())
 	{
 		auto &mesh_renderer = entity.addComponent<MeshRendererComponent>();
-		for (auto &mesh : node->meshes)
+		for (const MeshNode::Primitive &prim : node->primitives)
 		{
 			MeshRendererComponent::MeshId mesh_id;
 			mesh_id.model = model;
-			mesh_id.mesh_id = mesh->id;
+			mesh_id.mesh_id = prim.mesh->id;
 			mesh_renderer.meshes.push_back(mesh_id);
+			mesh_renderer.materials.push_back(prim.material);
 		}
-		mesh_renderer.materials = node->materials;
 	}
 
 	transform_component.setLocalTransform(node->local_model_matrix);

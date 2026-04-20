@@ -74,12 +74,6 @@ bool ParametersPanel::renderImGui(EditorContext context, DebugRenderer &debug_re
 
 		drawComponent<MeshRendererComponent>(entity, "Mesh Renderer", [&](MeshRendererComponent &mesh_renderer)
 		{
-			for (auto &mesh_id : mesh_renderer.meshes)
-			{
-				auto mesh = mesh_id.getMesh();
-				debug_renderer.addBoundBox(mesh->bound_box * entity.getWorldTransformMatrix());
-			}
-
 			ImGui::SeparatorText("Mesh Settings");
 			if (mesh_renderer.meshes.empty())
 				ImGui::TextColored(ImVec4(1, 0, 0, 1), "No mesh");
@@ -95,7 +89,7 @@ bool ParametersPanel::renderImGui(EditorContext context, DebugRenderer &debug_re
 					auto &linear_nodes = model->getLinearNodes();
 					for (auto node : linear_nodes)
 					{
-						if (!node->meshes.empty())
+						if (!node->primitives.empty())
 						{
 							mesh_renderer.setFromMeshNode(model, node);
 							break;
@@ -306,6 +300,22 @@ bool ParametersPanel::renderImGui(EditorContext context, DebugRenderer &debug_re
 			}
 		}
 	}
+
+	for (entt::entity selected_id : context.selected_entities)
+	{
+		Entity selected(selected_id);
+		if (selected.hasComponent<MeshRendererComponent>())
+		{
+			auto &mesh_renderer = selected.getComponent<MeshRendererComponent>();
+			for (auto &mesh_id : mesh_renderer.meshes)
+			{
+				Engine::Mesh *mesh = mesh_id.getMesh();
+				if (mesh)
+					debug_renderer.addBoundBox(mesh->bound_box * selected.getWorldTransformMatrix());
+			}
+		}
+	}
+
 	ImGui::End();
 	return false;
 }

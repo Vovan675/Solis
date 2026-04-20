@@ -34,6 +34,8 @@ public:
 
 	void updateRuntime();
 private:
+	friend class SceneRenderer;
+
 	static void propagate_world_transforms_update(entt::entity entity_id);
 	static void propagate_local_transforms_update(entt::entity entity_id);
 

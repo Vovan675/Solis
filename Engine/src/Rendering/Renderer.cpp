@@ -52,10 +52,12 @@ void Renderer::updateDefaultUniforms(float delta_time)
 	default_uniforms.z_far = camera->getFar();
 	default_uniforms.time += delta_time;
 	default_uniforms.frame = (uint32_t)gDynamicRHI->getFrame();
-	default_uniforms.global_vertex_buffer_id = GlobalBufferCache::getGlobalVertexBuffer()->getShaderResourceView()->getBindlessIndex();
-	default_uniforms.global_meshlets_vertex_buffer_id = GlobalBufferCache::getGlobalMeshletVertexBuffer()->getShaderResourceView()->getBindlessIndex();
-	default_uniforms.global_meshlets_triangles_buffer_id = GlobalBufferCache::getGlobalMeshletTriangleBuffer()->getShaderResourceView()->getBindlessIndex();
-	default_uniforms.global_meshlets_lod_groups_buffer_id = GlobalBufferCache::getGlobalMeshletLodGroupsBuffer()->getShaderResourceView()->getBindlessIndex();
+	if (GlobalBufferCache::getGlobalMeshletGeometryBuffer())
+		default_uniforms.global_meshlets_geometry_buffer_id = GlobalBufferCache::getGlobalMeshletGeometryBuffer()->getShaderResourceView()->getBindlessIndex();
+	if (GlobalBufferCache::getGlobalMeshletLodGroupsBuffer())
+		default_uniforms.global_meshlets_lod_groups_buffer_id = GlobalBufferCache::getGlobalMeshletLodGroupsBuffer()->getShaderResourceView()->getBindlessIndex();
+	if (GlobalBufferCache::getGlobalLodNodesBuffer())
+		default_uniforms.global_lod_nodes_buffer_id = GlobalBufferCache::getGlobalLodNodesBuffer()->getShaderResourceView()->getBindlessIndex();
 }
 
 const Renderer::DefaultUniforms Renderer::getDefaultUniforms()

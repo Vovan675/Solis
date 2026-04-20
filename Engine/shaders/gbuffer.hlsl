@@ -1,13 +1,18 @@
 #include "common.h"
 #include "bindless.h"
-#include "common.h"
 #include "gpu_driven/culling.h"
 
-#define VISUALIZE_MESHLETS 1
+#define VISUALIZE_TRIANGLES 0
+#define VISUALIZE_MESHLETS 0
+#define VISUALIZE_MESHLETS_GROUPS 0
+// 0=off 1=tangent 2=bitangent 3=normal
+#define VISUALIZE_TBN 0
+#define FORCE_IMPLICIT_TANGENTS 0
 
 cbuffer Uniforms : register(b0)
 {
-    uint visible_meshlets_buffer_id;
+	uint visible_meshlets_buffer_id;
+	uint group_residency_buffer_id;
 };
 
 struct VertexInput
@@ -19,92 +24,98 @@ struct VertexInput
 struct PixelInput
 {
 	float4 position : SV_POSITION;
-	float3 world_normal : TEXCOORD1;
+	float3 world_normal : TEXCOORD0;
+	float3 world_position : TEXCOORD1;
 	float2 uv : TEXCOORD2;
-	float3x3 TBN : TEXCOORD4;
+	float4 world_tangent : TEXCOORD3;
 	nointerpolation uint material_id : MATERIAL_ID;
-	#if VISUALIZE_MESHLETS
+	nointerpolation uint attribute_flags : ATTRIBUTE_FLAGS;
+	#if VISUALIZE_TRIANGLES || VISUALIZE_MESHLETS || VISUALIZE_MESHLETS_GROUPS
 		nointerpolation uint meshlet_id : MESHLET_ID;
 	#endif
 };
 
 static StructuredBuffer<MeshletCandidate> visible_meshlets_buffer = ResourceDescriptorHeap[visible_meshlets_buffer_id];
+static ByteAddressBuffer meshlets_geometry_buffer = ResourceDescriptorHeap[global_meshlets_geometry_buffer_id];
+static RWByteAddressBuffer group_residency_buffer = ResourceDescriptorHeap[group_residency_buffer_id];
 
-static ByteAddressBuffer vertex_buffer = ResourceDescriptorHeap[global_vertex_buffer_id];
-static ByteAddressBuffer meshlets_vertex_buffer = ResourceDescriptorHeap[global_meshlets_vertex_buffer_id];
-static ByteAddressBuffer meshlets_triangles_buffer = ResourceDescriptorHeap[global_meshlets_triangles_buffer_id];
-
-void FetchMeshletGeometry(
-	uint meshlet_candidate_id,
-	StructuredBuffer<MeshletCandidate> visible_meshlets_buffer,
-	out MeshletCandidate meshlet_candidate,
-	out Instance instance,
-	out Meshlet meshlet,
-	out Mesh mesh)
+struct MeshletDraw
 {
-	meshlet_candidate = visible_meshlets_buffer[meshlet_candidate_id];
-	instance = GetInstance(meshlet_candidate.instance_id);
-	meshlet = GetMeshlet(meshlet_candidate.meshlet_id);
-	mesh = GetMesh(instance.mesh_id);
+	MeshletCandidate candidate;
+	Instance instance;
+	Meshlet meshlet;
+	Mesh mesh;
+	uint geometry_base;
+};
+
+MeshletDraw fetchMeshletDraw(uint meshlet_candidate_id)
+{
+	MeshletDraw draw;
+	draw.candidate = visible_meshlets_buffer[meshlet_candidate_id];
+	draw.instance = getInstance(draw.candidate.instance_id);
+	draw.meshlet = getMeshlet(draw.candidate.meshlet_id, group_residency_buffer_id);
+	draw.mesh = getMesh(draw.instance.mesh_id);
+
+	GroupResidency residency = group_residency_buffer.Load<GroupResidency>(
+		sizeof(GroupResidency) * (draw.mesh.group_residency_offset + draw.meshlet.group_id));
+	draw.geometry_base = uint(residency.geometry_buffer_offset);
+	return draw;
 }
 
 struct RawVertexData
 {
 	float3 position;
 	float3 normal;
-	float3 tangent;
+	float4 tangent; // xyz = direction, w = bitangent sign
 	float2 uv;
 };
 
-RawVertexData LoadMeshletVertex(
-	uint local_vertex_id,
-	Meshlet meshlet,
-	Mesh mesh,
-	ByteAddressBuffer vertex_buffer,
-	ByteAddressBuffer meshlets_vertex_buffer)
+RawVertexData loadMeshletVertex(uint local_vertex_id, MeshletDraw draw)
 {
-	uint meshlet_vertex_buffer_id = local_vertex_id + meshlet.vertex_offset;
-	uint vertex_id = meshlets_vertex_buffer.Load<uint>(sizeof(uint) * meshlet_vertex_buffer_id);
+	// Vertex layout (stride 24, or 32 with tangent):
+	// pos float3 | normal oct-snorm16 | uv float2
+	// [ tangent oct-snorm16 | sign int8 | pad 3B ]
+	bool has_tangent = (draw.mesh.attribute_flags & MESH_ATTR_TANGENT) != 0;
+	uint stride = has_tangent ? 32u : 24u;
+	uint base = draw.geometry_base + draw.meshlet.vertex_offset + local_vertex_id * stride;
 
 	RawVertexData vertex;
-	vertex.position = GetMeshVertexData<float3>(vertex_buffer, mesh.positions_offset, vertex_id, mesh.vertex_stride);
-	vertex.normal = GetMeshVertexData<float3>(vertex_buffer, mesh.normals_offset, vertex_id, mesh.vertex_stride);
-	vertex.tangent = GetMeshVertexData<float3>(vertex_buffer, mesh.tangents_offset, vertex_id, mesh.vertex_stride);
-	vertex.uv = GetMeshVertexData<float2>(vertex_buffer, mesh.uvs_offset, vertex_id, mesh.vertex_stride);
+	vertex.position = asfloat(meshlets_geometry_buffer.Load3(base));
+	vertex.normal = octDecode(unpackSnorm16x2(meshlets_geometry_buffer.Load(base + 12)));
+	vertex.uv = asfloat(meshlets_geometry_buffer.Load2(base + 16));
+
+	if (has_tangent)
+	{
+		uint2 packed_tangent = meshlets_geometry_buffer.Load2(base + 24);
+		float3 tangent_dir = octDecode(unpackSnorm16x2(packed_tangent.x));
+		float sign = (packed_tangent.y & 0xFF) == 1 ? 1.0 : -1.0;
+		vertex.tangent = float4(tangent_dir, sign);
+	} else
+	{
+		vertex.tangent = float4(0, 0, 0, 1);
+	}
 
 	return vertex;
 }
 
-
-PixelInput TransformMeshletVertex(
-	RawVertexData raw_vertex,
-	Instance instance,
-	uint meshlet_id,
-	float4x4 view_projection)
+PixelInput transformMeshletVertex(RawVertexData raw_vertex, MeshletDraw draw)
 {
 	PixelInput output;
 
-	// Transform position to world and clip space
-	float4 world_pos = mul(instance.world_transform, float4(raw_vertex.position, 1.0));
+	float4 world_pos = mul(draw.instance.world_transform, float4(raw_vertex.position, 1.0));
 	output.position = mul(view_projection, world_pos);
 
-	// Transform normal to world space
-	float3x3 normal_matrix = (float3x3)instance.world_transform;
-	float3 normal = normalize(mul(normal_matrix, raw_vertex.normal));
-	output.world_normal = normal;
+	float3x3 normal_matrix = (float3x3)draw.instance.world_transform;
+	output.world_normal = normalize(mul(normal_matrix, raw_vertex.normal));
+	output.world_position = world_pos.xyz;
+	if (draw.mesh.attribute_flags & MESH_ATTR_TANGENT)
+		output.world_tangent = float4(normalize(mul(normal_matrix, raw_vertex.tangent.xyz)), raw_vertex.tangent.w);
+	else
+		output.world_tangent = float4(0, 0, 0, 1);
 
-	// Calculate TBN
-	float3 tangent = normalize(mul(normal_matrix, raw_vertex.tangent));
-	float3 bitangent = normalize(mul(normal_matrix, cross(raw_vertex.normal, raw_vertex.tangent)));
-	output.TBN = float3x3(tangent, bitangent, normal);
-
-	// Pass through material and UV data
 	output.uv = raw_vertex.uv;
-	output.material_id = instance.material_id;
-
-	#if VISUALIZE_MESHLETS
-		output.meshlet_id = meshlet_id;
-	#endif
+	output.material_id = draw.instance.material_id;
+	output.attribute_flags = draw.mesh.attribute_flags;
 
 	return output;
 }
@@ -114,65 +125,61 @@ float SampleMaterialChannel(uint tex_id, float2 uv, float fallback_value)
 	return (tex_id > 0) ? SampleTexture(tex_id, uv).r : fallback_value;
 }
 
+static ByteAddressBuffer lod_groups_buffer = ResourceDescriptorHeap[global_meshlets_lod_groups_buffer_id];
+
 [NumThreads(32, 1, 1)]
 [OutputTopology("triangle")]
 void MSMain(uint group_index : SV_GroupIndex, uint group_id : SV_GroupID,
 			out vertices PixelInput verts[128], out indices uint3 indices[128])
 {
-	MeshletCandidate meshlet_candidate;
-	Instance instance;
-	Meshlet meshlet;
-	Mesh mesh;
-	FetchMeshletGeometry(group_id, visible_meshlets_buffer, meshlet_candidate, instance, meshlet, mesh);
+	MeshletDraw draw = fetchMeshletDraw(group_id);
 
-	SetMeshOutputCounts(meshlet.vertex_count, meshlet.triangle_count);
+	uint vertex_count = draw.meshlet.getVertexCount();
+	uint triangle_count = draw.meshlet.getTriangleCount();
 
-	for (uint i = group_index; i < meshlet.vertex_count; i += 32)
+	SetMeshOutputCounts(vertex_count, triangle_count);
+
+	for (uint i = group_index; i < vertex_count; i += 32)
 	{
-		RawVertexData raw_vertex = LoadMeshletVertex(i, meshlet, mesh, vertex_buffer, meshlets_vertex_buffer);
-		PixelInput transformed = TransformMeshletVertex(raw_vertex, instance, meshlet_candidate.meshlet_id, view_projection);
-
-		PixelInput vert;
-		vert.position = transformed.position;
-		vert.world_normal = transformed.world_normal;
-		vert.uv = transformed.uv;
-		vert.TBN = transformed.TBN;
-		vert.material_id = transformed.material_id;
-		#if VISUALIZE_MESHLETS
-			vert.meshlet_id = meshlet_candidate.meshlet_id;
+		RawVertexData raw_vertex = loadMeshletVertex(i, draw);
+		PixelInput vert = transformMeshletVertex(raw_vertex, draw);
+		#if VISUALIZE_TRIANGLES
+			vert.meshlet_id = draw.meshlet.vertex_offset + i;
+		#elif VISUALIZE_MESHLETS
+			vert.meshlet_id = draw.candidate.meshlet_id;
+		#elif VISUALIZE_MESHLETS_GROUPS
+			vert.meshlet_id = draw.meshlet.group_id;
 		#endif
 		verts[i] = vert;
 	}
 
-	for (uint j = group_index; j < meshlet.triangle_count; j += 32)
+	uint triangle_data_offset = draw.geometry_base + draw.meshlet.triangle_offset;
+
+	for (uint j = group_index; j < triangle_count; j += 32)
 	{
-		uint triangle_offset = meshlet.triangle_offset + j * 3;
-		uint v0 = meshlets_triangles_buffer.Load<uint>(sizeof(uint) * (triangle_offset + 0));
-		uint v1 = meshlets_triangles_buffer.Load<uint>(sizeof(uint) * (triangle_offset + 1));
-		uint v2 = meshlets_triangles_buffer.Load<uint>(sizeof(uint) * (triangle_offset + 2));
-		indices[j] = uint3(v0, v1, v2);
+		uint triangle_offset = j * 3;
+		uint3 tri;
+		tri.x = meshlets_geometry_buffer.Load<uint>(triangle_data_offset + sizeof(uint) * (triangle_offset + 0));
+		tri.y = meshlets_geometry_buffer.Load<uint>(triangle_data_offset + sizeof(uint) * (triangle_offset + 1));
+		tri.z = meshlets_geometry_buffer.Load<uint>(triangle_data_offset + sizeof(uint) * (triangle_offset + 2));
+
+		indices[j] = tri;
 	}
 }
 
 PixelInput VSMain(VertexInput IN)
 {
-	MeshletCandidate meshlet_candidate;
-	Instance instance;
-	Meshlet meshlet;
-	Mesh mesh;
-	FetchMeshletGeometry(IN.instance_id, visible_meshlets_buffer, meshlet_candidate, instance, meshlet, mesh);
+	MeshletDraw draw = fetchMeshletDraw(IN.instance_id);
 
-	RawVertexData raw_vertex = LoadMeshletVertex(IN.local_vertex_id, meshlet, mesh, vertex_buffer, meshlets_vertex_buffer);
-	PixelInput transformed = TransformMeshletVertex(raw_vertex, instance, meshlet_candidate.meshlet_id, view_projection);
+	RawVertexData raw_vertex = loadMeshletVertex(IN.local_vertex_id, draw);
+	PixelInput output = transformMeshletVertex(raw_vertex, draw);
 
-	PixelInput output;
-	output.position = transformed.position;
-	output.world_normal = transformed.world_normal;
-	output.uv = transformed.uv;
-	output.TBN = transformed.TBN;
-	output.material_id = transformed.material_id;
-	#if VISUALIZE_MESHLETS
-		output.meshlet_id = meshlet_candidate.meshlet_id;
+	#if VISUALIZE_TRIANGLES
+		output.meshlet_id = IN.local_vertex_id;
+	#elif VISUALIZE_MESHLETS
+		output.meshlet_id = draw.candidate.meshlet_id;
+	#elif VISUALIZE_MESHLETS_GROUPS
+		output.meshlet_id = draw.meshlet.group_id;
 	#endif
 	return output;
 }
@@ -188,7 +195,7 @@ struct PixelOutput
 PixelOutput PSMain(PixelInput IN)
 {
 	PixelOutput output;
-	Material material = GetMaterial(IN.material_id);
+	Material material = getMaterial(IN.material_id);
 
 	output.color = (material.albedo_tex_id > 0)
 		? SampleTexture(material.albedo_tex_id, IN.uv)
@@ -198,23 +205,45 @@ PixelOutput PSMain(PixelInput IN)
 	if (output.color.a < 0.5)
 		discard;
 
-	output.normal = float4(normalize(IN.world_normal), 1.0);
+	float3 world_normal = normalize(IN.world_normal);
+	float3x3 tbn;
+	#if FORCE_IMPLICIT_TANGENTS
+		bool use_explicit = false;
+	#else
+		bool use_explicit = (IN.attribute_flags & MESH_ATTR_TANGENT) != 0;
+	#endif
+	if (use_explicit)
+	{
+		// re orthogonize in case when its very off after non uniform scale.
+		float3 T = normalize(IN.world_tangent.xyz - dot(IN.world_tangent.xyz, world_normal) * world_normal);
+		float3 B = cross(world_normal, T) * IN.world_tangent.w;
+		tbn = float3x3(T, B, world_normal);
+	} else
+	{
+		tbn = computeTBN(IN.world_position, world_normal, IN.uv);
+	}
 	if (material.normal_tex_id > 0)
 	{
-		float3 normal = SampleTexture(material.normal_tex_id, IN.uv).rgb;
-		normal = normalize(normal * 2.0 - 1.0);
-		output.normal.rgb = normalize(mul(normal, IN.TBN));
+		float3 tangent_normal = SampleTexture(material.normal_tex_id, IN.uv).rgb * 2.0 - 1.0;
+		world_normal = normalize(mul(tangent_normal, tbn));
 	}
-	output.normal.rgb = output.normal.rgb * 0.5 + 0.5;
+	output.normal = float4(world_normal * 0.5 + 0.5, 1.0);
 
 	output.shading.r = SampleMaterialChannel(material.metalness_tex_id, IN.uv, material.shading.r);
 	output.shading.g = SampleMaterialChannel(material.roughness_tex_id, IN.uv, material.shading.g);
 	output.shading.b = SampleMaterialChannel(material.specular_tex_id, IN.uv, material.shading.b);
 	output.shading.a = 1.0;
 
-	#if VISUALIZE_MESHLETS
+	#if VISUALIZE_TRIANGLES || VISUALIZE_MESHLETS || VISUALIZE_MESHLETS_GROUPS
 		output.color = float4(colorHash(IN.meshlet_id), 1);
 	#endif
 
+	#if VISUALIZE_TBN == 1
+		output.color = float4(tbn[0] * 0.5 + 0.5, 1.0);
+	#elif VISUALIZE_TBN == 2
+		output.color = float4(tbn[1] * 0.5 + 0.5, 1.0);
+	#elif VISUALIZE_TBN == 3
+		output.color = float4(tbn[2] * 0.5 + 0.5, 1.0);
+	#endif
 	return output;
 }

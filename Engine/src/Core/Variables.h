@@ -5,6 +5,7 @@
 extern AutoConVarBool engine_rhi_validation;
 extern AutoConVarBool engine_rhi_validation_break;
 extern AutoConVarBool engine_ray_tracing;
+extern AutoConVarBool engine_reimport_assets;
 
 // Runtime variables
 extern AutoConVarBool render_vsync;
@@ -24,3 +25,9 @@ extern AutoConVarBool render_ssr;
 extern AutoConVarBool render_fxaa;
 extern AutoConVarBool render_automatic_sun_position;
 extern AutoConVarBool render_meshlets_use_mesh_shaders;
+extern AutoConVarBool render_meshlets_use_persistent_threads;
+extern AutoConVarBool render_meshlets_bvh_visualize;
+extern AutoConVarInt  render_meshlets_bvh_visualize_depth;
+
+// Asset import
+extern AutoConVarInt  engine_gltf_import_threads;

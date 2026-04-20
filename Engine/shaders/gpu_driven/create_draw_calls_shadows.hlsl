@@ -43,8 +43,8 @@ void CSMain(uint3 dispatchID : SV_DispatchThreadID)
 
 	if ((pass_mask & current_pass_mask) == 0) return;
 
-	Instance instance = GetInstance(id);
-	Mesh mesh = GetMesh(instance.mesh_id);
+	Instance instance = getInstance(id);
+	Mesh mesh = getMesh(instance.mesh_id);
 
 	bool is_visible = true;
 

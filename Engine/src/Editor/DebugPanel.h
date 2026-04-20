@@ -8,6 +8,7 @@
 #include "Renderers/DefferedLightingRenderer.h"
 #include "Renderers/SkyRenderer.h"
 #include "Renderers/DDGIRenderer.h"
+#include "Rendering/GeometryStreaming.h"
 
 class DebugPanel
 {
@@ -21,5 +22,6 @@ public:
 	DebugRenderer *debug_renderer;
 	SSAORenderer *ssao_renderer;
 	DDGIRenderer *ddgi_renderer;
+	GeometryStreaming *geometry_streaming;
 private:
 };

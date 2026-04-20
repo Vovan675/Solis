@@ -87,8 +87,8 @@ struct VertexInputsDescription
 		size_t hash = 0;
 		for (const auto &input : inputs)
 		{
-			hash_combine(hash, input.vertex_buffer_slot);
-			hash_combine(hash, input.format);
+			hashCombine(hash, input.vertex_buffer_slot);
+			hashCombine(hash, input.format);
 		}
 		return hash;
 	}
@@ -134,45 +134,45 @@ struct PipelineDescription
 	{
 		size_t hash = 0;
 		if (vertex_shader)
-			hash_combine(hash, vertex_shader->getHash());
+			hashCombine(hash, vertex_shader->getHash());
 		if (fragment_shader)
-			hash_combine(hash, fragment_shader->getHash());
+			hashCombine(hash, fragment_shader->getHash());
 		if (compute_shader)
-			hash_combine(hash, compute_shader->getHash());
+			hashCombine(hash, compute_shader->getHash());
 		if (ray_generation_shader)
-			hash_combine(hash, ray_generation_shader->getHash());
+			hashCombine(hash, ray_generation_shader->getHash());
 		if (miss_shader)
-			hash_combine(hash, miss_shader->getHash());
+			hashCombine(hash, miss_shader->getHash());
 		if (closest_hit_shader)
-			hash_combine(hash, closest_hit_shader->getHash());
+			hashCombine(hash, closest_hit_shader->getHash());
 		if (mesh_shader)
-			hash_combine(hash, mesh_shader->getHash());
+			hashCombine(hash, mesh_shader->getHash());
 
-		hash_combine(hash, vertex_inputs_descriptions.getHash());
+		hashCombine(hash, vertex_inputs_descriptions.getHash());
 		for (const auto &color_format : color_formats)
-			hash_combine(hash, color_format);
+			hashCombine(hash, color_format);
 
 		for (const auto &range : push_constant_ranges)
 		{
-			hash_combine(hash, range.stageFlags);
-			hash_combine(hash, range.offset);
-			hash_combine(hash, range.size);
+			hashCombine(hash, range.stageFlags);
+			hashCombine(hash, range.offset);
+			hashCombine(hash, range.size);
 		}
 
-		hash_combine(hash, depth_format);
-		hash_combine(hash, use_depth_test);
-		hash_combine(hash, use_depth_write);
-		hash_combine(hash, depth_compare_func);
-		hash_combine(hash, use_blending);
-		hash_combine(hash, src_color_blend);
-		hash_combine(hash, dst_color_blend);
-		hash_combine(hash, color_blend_op);
-		hash_combine(hash, src_alpha_blend);
-		hash_combine(hash, dst_alpha_blend);
-		hash_combine(hash, alpha_blend_op);
-		hash_combine(hash, cull_mode);
-		hash_combine(hash, primitive_topology);
-		hash_combine(hash, (int)pipeline_type);
+		hashCombine(hash, depth_format);
+		hashCombine(hash, use_depth_test);
+		hashCombine(hash, use_depth_write);
+		hashCombine(hash, depth_compare_func);
+		hashCombine(hash, use_blending);
+		hashCombine(hash, src_color_blend);
+		hashCombine(hash, dst_color_blend);
+		hashCombine(hash, color_blend_op);
+		hashCombine(hash, src_alpha_blend);
+		hashCombine(hash, dst_alpha_blend);
+		hashCombine(hash, alpha_blend_op);
+		hashCombine(hash, cull_mode);
+		hashCombine(hash, primitive_topology);
+		hashCombine(hash, (int)pipeline_type);
 		return hash;
 	}
 };

@@ -35,7 +35,15 @@ DX12Buffer::DX12Buffer(BufferDescription description) : RHIBuffer(description)
 		resource_state = D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT;
 
 	D3D12MA::ALLOCATION_DESC allocation_desc = {};
-	allocation_desc.HeapType = description.use_staging_buffer && !hasAnyFlags(description.usage, BufferUsage::STAGING_BUFFER) ? D3D12_HEAP_TYPE_DEFAULT : D3D12_HEAP_TYPE_UPLOAD;
+	if (hasAnyFlags(description.usage, BufferUsage::READBACK_BUFFER))
+	{
+		allocation_desc.HeapType = D3D12_HEAP_TYPE_READBACK;
+		resource_state = D3D12_RESOURCE_STATE_COPY_DEST;
+		current_state = ResourceState::COPY_DST;
+	} else
+	{
+		allocation_desc.HeapType = description.use_staging_buffer && !hasAnyFlags(description.usage, BufferUsage::STAGING_BUFFER) ? D3D12_HEAP_TYPE_DEFAULT : D3D12_HEAP_TYPE_UPLOAD;
+	}
 
 	allocation = std::make_unique<DX12AllocationResource>();
 	resource = std::make_unique<DX12Resource>();
@@ -135,8 +143,14 @@ RHIBufferView *DX12Buffer::getShaderResourceView()
 	return shader_resource_view;
 }
 
-RHIBufferView *DX12Buffer::getUnorderedAccessView()
+RHIBufferView *DX12Buffer::getUnorderedAccessView(bool force_raw)
 {
+	if (force_raw)
+	{
+		if (!raw_unordered_access_view)
+			raw_unordered_access_view = new DX12BufferView(BufferViewDescription(this, BufferViewType::SHADER_RESOURCE_STORAGE_RAW));
+		return raw_unordered_access_view;
+	}
 	if (!unordered_access_view)
 		unordered_access_view = new DX12BufferView(BufferViewDescription(this, BufferViewType::SHADER_RESOURCE_STORAGE));
 	return unordered_access_view;
@@ -209,12 +223,13 @@ DX12BufferView::DX12BufferView(BufferViewDescription description) : RHIBufferVie
 
 		rhi->device->CreateShaderResourceView(native_buffer->getResource(), &srv_desc, descriptor.getCpuHandle());
 		bindless_index = gDynamicRHI->getBindlessResources()->addBuffer(this);
-	} else if (description.view_type == BufferViewType::SHADER_RESOURCE_STORAGE)
+	} else if (description.view_type == BufferViewType::SHADER_RESOURCE_STORAGE || description.view_type == BufferViewType::SHADER_RESOURCE_STORAGE_RAW)
 	{
 		D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc = {};
 		uav_desc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
 
-		if (is_raw)
+		bool use_raw = is_raw || description.view_type == BufferViewType::SHADER_RESOURCE_STORAGE_RAW;
+		if (use_raw)
 		{
 			uav_desc.Format = DXGI_FORMAT_R32_TYPELESS;
 			uav_desc.Buffer.FirstElement = 0;

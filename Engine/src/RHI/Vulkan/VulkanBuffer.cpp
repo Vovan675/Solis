@@ -215,7 +215,7 @@ RHIBufferView *VulkanBuffer::getShaderResourceView()
 	return shader_resource_view;
 }
 
-RHIBufferView *VulkanBuffer::getUnorderedAccessView()
+RHIBufferView *VulkanBuffer::getUnorderedAccessView(bool force_raw)
 {
 	if (!unordered_access_view)
 		unordered_access_view = new VulkanBufferView(BufferViewDescription(this, BufferViewType::SHADER_RESOURCE_STORAGE));

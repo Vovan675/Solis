@@ -52,6 +52,14 @@ public:
 		return resource_id;
 	}
 
+	FrameGraphBufferId importBuffer(GraphicsResourceName name, RHIBuffer *buffer)
+	{
+		uint32_t resource_id = all_buffers.size();
+		all_buffers.emplace_back(FrameGraphBuffer(resource_id, buffer, name.name));
+		buffer_name_to_id[name] = resource_id;
+		return resource_id;
+	}
+
 	const FrameGraphBlackboard &getBlackboard() const { return blackboard; }
 	FrameGraphBlackboard &getBlackboard() { return blackboard; }
 

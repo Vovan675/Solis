@@ -11,8 +11,8 @@ void transformBoundBox(inout float3 bound_center, inout float3 bound_extent, flo
 	float3 translation = transpose(world_transform)[3].xyz;
 	float3x3 rotation_scale = (float3x3)transpose(world_transform);
 	
-	bound_center = mul(bound_center, rotation_scale) + translation; 
-	bound_extent = abs(mul(bound_extent, rotation_scale));
+	bound_center = mul(bound_center, rotation_scale) + translation;
+	bound_extent = mul(bound_extent, abs(rotation_scale));
 }
 
 float getScaleFromTransform(float4x4 transform)
@@ -161,7 +161,7 @@ float calculateHizMip(int4 pixel_rect, uint num_texels_to_sample)
 }
 
 //#define HIZ_OCCLUSION_DEBUG 1
-bool isHIZOcclusionCulled(FrustumCullData cull_data, float2 hiz_size, uint hiz_mips, Texture2D hiz_tex)
+bool isHizOcclusionCulled(FrustumCullData cull_data, float2 hiz_size, uint hiz_mips, Texture2D hiz_tex)
 {
 	// [-1, 1] to [0, 1]
 	float4 rect_uv = saturate(float4(cull_data.rect_min.xy, cull_data.rect_max.xy) * float2(0.5, -0.5).xyxy + 0.5).xwzy;

@@ -58,7 +58,7 @@ void DebugRenderer::addPasses(FrameGraph &fg)
 		addTextureDebugPass(fg);
 }
 
-void DebugRenderer::addBox(glm::vec3 half_extents, glm::mat4 transform)
+void DebugRenderer::addBox(glm::vec3 half_extents, glm::mat4 transform, glm::vec3 color)
 {
 	if (!isEnabled()) return;
 	glm::vec3 corners[8] =
@@ -89,7 +89,7 @@ void DebugRenderer::addBox(glm::vec3 half_extents, glm::mat4 transform)
 	{
 		glm::vec3 p0 = corners[edges[i][0]];
 		glm::vec3 p1 = corners[edges[i][1]];
-		addLine(p0, p1);
+		addLine(p0, p1, color);
 	}
 }
 
@@ -147,35 +147,35 @@ void DebugRenderer::addFrustum(glm::mat4 frustum, glm::vec3 color)
 	addLine(corners[3], corners[7], color);
 }
 
-void DebugRenderer::addSphere(glm::vec3 center, float radius, int segments)
+void DebugRenderer::addSphere(glm::vec3 center, float radius, int segments, glm::vec3 color)
 {
 	if (!isEnabled()) return;
 	if (segments < 3) segments = 3;
 	
-	addCirlce(center, glm::vec3(0, 0, 1), radius, segments);
-	addCirlce(center, glm::vec3(0, 1, 0), radius, segments);
-	addCirlce(center, glm::vec3(1, 0, 0), radius, segments);
+	addCirlce(center, glm::vec3(0, 0, 1), radius, segments, color);
+	addCirlce(center, glm::vec3(0, 1, 0), radius, segments, color);
+	addCirlce(center, glm::vec3(1, 0, 0), radius, segments, color);
 	
 	glm::vec3 diagonal_normal = glm::normalize(glm::vec3(1, 1, 0));
 	if (glm::length(diagonal_normal) > 0.001f)
 	{
-		addCirlce(center, diagonal_normal, radius, segments);
+		addCirlce(center, diagonal_normal, radius, segments, color);
 	}
 	
 	diagonal_normal = glm::normalize(glm::vec3(1, 0, 1));
 	if (glm::length(diagonal_normal) > 0.001f)
 	{
-		addCirlce(center, diagonal_normal, radius, segments);
+		addCirlce(center, diagonal_normal, radius, segments, color);
 	}
 	
 	diagonal_normal = glm::normalize(glm::vec3(0, 1, 1));
 	if (glm::length(diagonal_normal) > 0.001f)
 	{
-		addCirlce(center, diagonal_normal, radius, segments);
+		addCirlce(center, diagonal_normal, radius, segments, color);
 	}
 }
 
-eastl::vector<glm::vec3> DebugRenderer::addCirlce(glm::vec3 center, glm::vec3 normal, float radius, int segments)
+eastl::vector<glm::vec3> DebugRenderer::addCirlce(glm::vec3 center, glm::vec3 normal, float radius, int segments, glm::vec3 color)
 {
 	if (!isEnabled()) return {};
 	eastl::vector<glm::vec3> circle_points;
@@ -201,7 +201,7 @@ eastl::vector<glm::vec3> DebugRenderer::addCirlce(glm::vec3 center, glm::vec3 no
 	// Add lines to draw the circle
 	for (int i = 0; i < segments; ++i)
 	{
-		addLine(circle_points[i], circle_points[(i + 1) % segments]);
+		addLine(circle_points[i], circle_points[(i + 1) % segments], color);
 	}
 
 	return circle_points;
@@ -315,6 +315,9 @@ void DebugRenderer::addTextureDebugPass(FrameGraph &fg)
 
 void DebugRenderer::addVisualizerPass(FrameGraph & fg)
 {
+	fg.importBuffer(GFXRID(DebugLinesBuffer), lines_gpu_buffer);
+	fg.importBuffer(GFXRID(DebugLinesDrawArgsBuffer), lines_draw_args_buffer);
+
 	fg.addCallbackPass("Debug Visualizer Pass",
 	[&](RenderPassBuilder &builder)
 	{
@@ -347,13 +350,11 @@ void DebugRenderer::addVisualizerPass(FrameGraph & fg)
 	fg.addCallbackPass("Create Debug DrawCalls Pass",
 	[&](RenderPassBuilder &builder)
 	{
-		builder.setSideEffect(true);
+		builder.writeBuffer(GFXRID(DebugLinesBuffer));
+		builder.writeBuffer(GFXRID(DebugLinesDrawArgsBuffer));
 	},
 	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		lines_gpu_buffer->transitState(ResourceState::UAV);
-		lines_draw_args_buffer->transitState(ResourceState::UAV);
-
 		struct Constants
 		{
 			uint32_t lines_draw_args_buffer_id;
@@ -371,14 +372,13 @@ void DebugRenderer::addVisualizerPass(FrameGraph & fg)
 	[&](RenderPassBuilder &builder)
 	{
 		builder.writeTexture(GFXRID(FinalTexture));
+		builder.readBuffer(GFXRID(DebugLinesBuffer));
+		builder.readIndirectArgsBuffer(GFXRID(DebugLinesDrawArgsBuffer));
 		builder.setSideEffect(true);
 	},
 	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
 		auto final = resources.getTexture(GFXRID(FinalTexture));
-
-		lines_gpu_buffer->transitState(ResourceState::UAV);
-		lines_draw_args_buffer->transitState(ResourceState::INDIRECT_ARGS);
 
 		cmd_list->setRenderTargets({final}, nullptr, -1, 0, false);
 

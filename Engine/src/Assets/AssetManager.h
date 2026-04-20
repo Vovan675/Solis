@@ -3,7 +3,6 @@
 #include "RHI/RHIDefinitions.h"
 #include "Asset.h"
 #include <filesystem>
-#include <assimp/Importer.hpp>
 #include <yaml-cpp/yaml.h>
 
 class RHITexture;
@@ -24,7 +23,6 @@ public:
 	static Engine::GUID getGUIDFromPath(const std::filesystem::path &path);
 
 	static std::filesystem::path getRuntimeAssetPath(const std::filesystem::path &path);
-	static std::filesystem::path getRuntimeAssetPath(Engine::GUID runtime_guid, eastl::string extension);
 
 	static eastl::string getRuntimeExtension(AssetType asset_type);
 	static AssetType getAssetTypeFromExtension(const eastl::string &extension);
@@ -40,6 +38,7 @@ public:
 private:
 	AssetManager() = delete;
 
+	static std::filesystem::path computeRuntimePath(const std::filesystem::path &source_path, Engine::GUID runtime_guid, const eastl::string &extension);
 	static Ref<Asset> load_texture_asset(eastl::string path, TextureDescription desc);
 	static Ref<Asset> load_model_asset(eastl::string path);
 

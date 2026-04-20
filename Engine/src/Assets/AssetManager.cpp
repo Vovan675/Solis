@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "AssetManager.h"
 #include "AssetImporter.h"
+#include "ModelImportSettings.h"
 #include "RHI/RHITexture.h"
 #include "Rendering/Model.h"
 
@@ -50,15 +51,13 @@ Ref<Model> AssetManager::getModelAsset(eastl::string path)
 	Ref<Asset> new_asset;
 
 	auto std_path = std::filesystem::path(path.c_str());
-	std::string extension = std_path.extension().string();
-	if (Assimp::Importer().IsExtensionSupported(extension))
-	{
-		new_asset = load_model_asset(path);
-	} else
+	if (getAssetTypeFromExtension(std_path.extension().string().c_str()) != ASSET_TYPE_MODEL)
 	{
 		CORE_ERROR("Model extension not supported %s", path.c_str());
 		return nullptr;
 	}
+
+	new_asset = load_model_asset(path);
 
 	loaded_assets[path] = new_asset;
 	return new_asset;
@@ -88,19 +87,20 @@ std::filesystem::path AssetManager::getRuntimeAssetPath(const std::filesystem::p
 {
 	const AssetMetadata &metadata = getMetadata(path);
 	if (metadata.isValid() && metadata.runtime_handle != 0)
-	{
-		return getRuntimeAssetPath(metadata.runtime_handle, getRuntimeExtension(metadata.type));
-	}
-
+		return computeRuntimePath(path, metadata.runtime_handle, getRuntimeExtension(metadata.type));
 	return std::filesystem::path();
 }
 
-std::filesystem::path AssetManager::getRuntimeAssetPath(Engine::GUID runtime_guid, eastl::string extension)
+std::filesystem::path AssetManager::computeRuntimePath(const std::filesystem::path &source_path, Engine::GUID runtime_guid, const eastl::string &extension)
 {
-	std::filesystem::path runtime_path = "assets/.runtimes/";
+	auto path_str = source_path.string();
+	bool is_in_assets = path_str.find("assets/") == 0;
+	std::filesystem::path runtimes = is_in_assets
+		? std::filesystem::path("assets/.runtimes")
+		: source_path.parent_path() / ".runtimes";
+	std::filesystem::create_directories(runtimes);
 	eastl::string name = eastl::to_string(runtime_guid) + extension;
-	runtime_path += name.c_str();
-	return runtime_path;
+	return runtimes / name.c_str();
 }
 
 eastl::string AssetManager::getRuntimeExtension(AssetType asset_type)
@@ -125,8 +125,10 @@ AssetType AssetManager::getAssetTypeFromExtension(const eastl::string &extension
 		{".png", ASSET_TYPE_TEXTURE},
 		{".jpg", ASSET_TYPE_TEXTURE},
 		{".jpeg", ASSET_TYPE_TEXTURE},
-		{".fbx", ASSET_TYPE_MODEL},
-		{".obj", ASSET_TYPE_MODEL},
+		{".fbx",  ASSET_TYPE_MODEL},
+		{".obj",  ASSET_TYPE_MODEL},
+		{".gltf", ASSET_TYPE_MODEL},
+		{".glb",  ASSET_TYPE_MODEL},
 	};
 
 	if (extension_to_type.find(extension) == extension_to_type.end())
@@ -209,14 +211,16 @@ void AssetManager::recreateRuntime(const std::filesystem::path &source_path)
 		//AssetImporter::loadAsset(new_metadata, Ref<Asset>(image));
 	} else if (asset_type == ASSET_TYPE_MODEL)
 	{
-		// Create runtime for it
-		Ref<Model> model = new Model();
-		model->load(source_path.string().c_str());
+		ModelImportSettings mesh_settings;
+		mesh_settings.loadFromYAML(metadata.params);
 
-		auto runtime_path = getRuntimeAssetPath(source_path);
-		model->saveFile(runtime_path.string().c_str());
+		Ref<Model> model = new Model();
+		model->load(source_path.string().c_str(), &mesh_settings);
+
 		loaded_assets.erase(source_path.string().c_str());
-		loaded_assets.erase(runtime_path.string().c_str());
+		auto runtime_path = getRuntimeAssetPath(source_path);
+		if (!runtime_path.empty())
+			loaded_assets.erase(runtime_path.string().c_str());
 	}
 }
 
@@ -261,12 +265,13 @@ const AssetMetadata &AssetManager::importAsset(const std::filesystem::path &path
 		new_metadata.runtime_handle = node["runtime_guid"].as<uint64_t>();
 		new_metadata.source_path = path;
 		new_metadata.type = (AssetType)node["type"].as<int>();
+		new_metadata.params = params;
 
 		registered_metadata[new_metadata.asset_handle] = new_metadata;
 
-		if (!isRuntimeExists(path))
+		if (new_metadata.type != ASSET_TYPE_MODEL && !isRuntimeExists(path))
 			recreateRuntime(path);
-		return new_metadata;
+		return registered_metadata[new_metadata.asset_handle];
 	}
 
 	AssetType asset_type = getAssetTypeFromExtension(path.extension().string().c_str());
@@ -297,15 +302,15 @@ const AssetMetadata &AssetManager::importAsset(const std::filesystem::path &path
 	} else if (asset_type == ASSET_TYPE_MODEL)
 	{
 		YAML::Node params;
+		ModelImportSettings defaults;
+		defaults.saveToYAML(params);
 		new_metadata.params = params;
 
 		saveMetadata(new_metadata);
 
 		registered_metadata[new_metadata.asset_handle] = new_metadata;
-
-		recreateRuntime(path);
 	}
-	return new_metadata;
+	return registered_metadata[new_metadata.asset_handle];
 }
 
 void AssetManager::reloadAssets(const std::filesystem::path &path)
@@ -335,7 +340,13 @@ Ref<Asset> AssetManager::load_texture_asset(eastl::string path, TextureDescripti
 
 Ref<Asset> AssetManager::load_model_asset(eastl::string path)
 {
+	importAsset(path.c_str());
+	const AssetMetadata& metadata = getMetadata(path.c_str());
+
+	ModelImportSettings mesh_settings;
+	mesh_settings.loadFromYAML(metadata.params);
+
 	auto model = new Model();
-	model->load(path.c_str());
+	model->load(path.c_str(), &mesh_settings);
 	return model;
 }

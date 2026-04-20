@@ -3,6 +3,16 @@
   "Id": "dbc7d3b0-c769-fe86-b024-12db9c6585d7",
   "Items": [
     {
+      "Id": "8994637e-80f6-4dbc-b680-265e1472f086",
+      "Command": "Utils",
+      "Items": [
+        {
+          "Id": "1e4baad3-53ee-4583-850d-bcf3458cdb91",
+          "Command": "-reimport_assets 1"
+        }
+      ]
+    },
+    {
       "Id": "b6003448-d7b2-4423-b13e-1c56d9d2ac5b",
       "Command": "RHI",
       "ExclusiveMode": true,
@@ -24,6 +34,10 @@
         {
           "Id": "7dbd63e2-dae2-48e9-bacc-f27801aa1b85",
           "Command": "-rhi_validation 1"
+        },
+        {
+          "Id": "d94548e4-831e-44c2-a40b-042ca70422e3",
+          "Command": "-rhi_validation_break 1"
         }
       ]
     }

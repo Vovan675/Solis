@@ -174,9 +174,9 @@ RHIShaderRef VulkanDynamicRHI::createShader(eastl::wstring path, ShaderType type
 	}
 
 	size_t cache_hash = 0;
-	hash_combine(cache_hash, path);
-	hash_combine(cache_hash, type);
-	hash_combine(cache_hash, entry_point);
+	hashCombine(cache_hash, path);
+	hashCombine(cache_hash, type);
+	hashCombine(cache_hash, entry_point);
 
 	if (cached_shaders.find(cache_hash) != cached_shaders.end())
 	{
@@ -191,9 +191,9 @@ RHIShaderRef VulkanDynamicRHI::createShader(eastl::wstring path, ShaderType type
 RHIShaderRef VulkanDynamicRHI::createShader(eastl::wstring path, ShaderType type, eastl::string entry_point, eastl::vector<eastl::pair<const char *, const char *>> defines)
 {
 	size_t cache_hash = 0;
-	hash_combine(cache_hash, path);
-	hash_combine(cache_hash, type);
-	hash_combine(cache_hash, entry_point);
+	hashCombine(cache_hash, path);
+	hashCombine(cache_hash, type);
+	hashCombine(cache_hash, entry_point);
 
 	eastl::string all_defines = "";
 	for (const auto &define : defines)
@@ -201,7 +201,7 @@ RHIShaderRef VulkanDynamicRHI::createShader(eastl::wstring path, ShaderType type
 		all_defines += define.first;
 		all_defines += define.second;
 	}
-	Engine::Math::hash_combine(cache_hash, all_defines);
+	Engine::Math::hashCombine(cache_hash, all_defines);
 
 	if (cached_shaders.find(cache_hash) != cached_shaders.end())
 	{
@@ -263,7 +263,7 @@ void VulkanDynamicRHI::prepareRenderCall()
 	VkDescriptorSet current_set = nullptr;
 
 	size_t descriptor_hash = native_pso->getHash();
-	hash_combine(descriptor_hash, frame_in_flight);
+	hashCombine(descriptor_hash, frame_in_flight);
 	auto &all_descriptors = descriptors[descriptor_hash];
 
 	if (is_something_changed || all_descriptors.current_offset == 0)

@@ -2,6 +2,7 @@
 #include "DebugPanel.h"
 #include "imgui/IconsFontAwesome6.h"
 #include "Rendering/Renderer.h"
+#include "Rendering/GlobalBufferCache.h"
 #include "Core/Variables.h"
 #include "Scene/Components.h"
 
@@ -16,6 +17,42 @@ void DebugPanel::renderImGui(EditorContext &context)
 		// Wait for all operations complete
 		//vkDeviceWaitIdle(VkWrapper::device->logicalHandle);
 		//Shader::recompileAllShaders(); // TODO: implement
+	}
+
+	if (ImGui::TreeNode("Geometry Buffers"))
+	{
+		auto toMB = [](uint64_t bytes) { return bytes / (1024.0f * 1024.0f); };
+
+		uint64_t geom_used = GlobalBufferCache::getMeshletGeometryBufferUsedSize();
+		uint64_t geom_max = GlobalBufferCache::getMeshletGeometryBufferMaxSize();
+		float geom_fraction = geom_max > 0 ? (float)geom_used / geom_max : 0.0f;
+		ImGui::Text("Meshlet Geometry: %.1f / %.0f MB", toMB(geom_used), toMB(geom_max));
+		ImGui::ProgressBar(geom_fraction, ImVec2(-1, 0));
+
+		if (geometry_streaming)
+		{
+			const auto &s = geometry_streaming->getStats();
+			ImGui::Separator();
+			ImGui::Text("Streaming");
+			float resident_frac = s.total_groups > 0 ? (float)s.resident_groups / s.total_groups : 0.0f;
+			ImGui::Text("Resident groups: %u / %u (%.1f%%)", s.resident_groups, s.total_groups, resident_frac * 100.0f);
+			ImGui::Text("Meshes registered: %u", s.registered_mesh_count);
+			ImGui::Text("Pending loads (queue): %u", s.pending_load_queue_size);
+			ImGui::Text("Pending frees: %u", s.pending_frees_count);
+
+			ImGui::Spacing();
+			ImGui::Text("This frame:");
+			ImGui::Text("  Loads: %u (%.2f MB)", s.loads_last_frame, toMB(s.bytes_loaded_last_frame));
+			ImGui::Text("  Unloads: %u (%.2f MB)", s.unloads_last_frame, toMB(s.bytes_unloaded_last_frame));
+
+			ImGui::Spacing();
+			ImGui::Text("Cumulative:");
+			ImGui::Text("  Loads: %llu (%.1f MB)", s.total_loads, toMB(s.total_bytes_loaded));
+			ImGui::Text("  Unloads: %llu (%.1f MB)", s.total_unloads, toMB(s.total_bytes_unloaded));
+
+		}
+
+		ImGui::TreePop();
 	}
 
 	if (ImGui::TreeNode("Debug Info"))

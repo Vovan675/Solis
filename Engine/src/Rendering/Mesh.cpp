@@ -1,86 +1,61 @@
 #include "pch.h"
 #include "Mesh.h"
 #include "Core/Variables.h"
-#include "assimp/Importer.hpp"
-#include "assimp/scene.h"
-#include "assimp/postprocess.h"
-
 #include "RHI/DynamicRHI.h"
 #include "GlobalBufferCache.h"
 
 namespace Engine
 {
-	void Mesh::setData(eastl::vector<Vertex> vertices, eastl::vector<uint32_t> indices)
+	void Mesh::initTraditional(eastl::vector<Vertex> vertices, eastl::vector<uint32_t> indices)
 	{
-		this->vertices = vertices;
-		this->indices = indices;
-		
-		bound_box = BoundBox();
-		for (const auto &vertex : vertices)
-			bound_box.extend(vertex.pos);
-
-		create_buffers();
+		indexed.emplace();
+		indexed->vertices = std::move(vertices);
+		indexed->indices = std::move(indices);
+		uploadTraditionalBuffers();
 	}
 
-	void Mesh::serialize(Stream &stream)
+	void Mesh::initMeshleted()
 	{
-		stream.write(id);
-		stream.write(vertices, true);
-		stream.write(indices, true);
+		uploadMeshletMetadata();
 	}
 
-	void Mesh::deserialize(Stream &stream)
+	void Mesh::uploadTraditionalBuffers()
 	{
-		stream.read(id);
-		stream.read(vertices, true);
-		stream.read(indices, true);
-
-		bound_box = BoundBox();
-		for (const auto &vertex : vertices)
-			bound_box.extend(vertex.pos);
-
-		create_buffers();
-	}
-
-	void Mesh::create_buffers()
-	{
-		BufferUsage additional_usage = BufferUsage::SHADER_READ_BUFFER;
+		BufferUsage extra = BufferUsage::SHADER_READ_BUFFER;
 		if (engine_ray_tracing)
-			additional_usage |= BufferUsage::ACCELERATION_STRUCTURE_BUILD_INPUT_BUFFER;
+			extra |= BufferUsage::ACCELERATION_STRUCTURE_BUILD_INPUT_BUFFER;
 
-		// Create Vertex buffer
-		BufferDescription vertexDesc;
-		vertexDesc.size = sizeof(vertices[0]) * vertices.size();
-		vertexDesc.use_staging_buffer = true;
-		vertexDesc.usage = BufferUsage::VERTEX_BUFFER | additional_usage;
-		vertexDesc.storage_stride = sizeof(uint32_t);
+		BufferDescription vd;
+		vd.size = sizeof(indexed->vertices[0]) * indexed->vertices.size();
+		vd.use_staging_buffer = true;
+		vd.usage = BufferUsage::VERTEX_BUFFER | extra;
+		vd.storage_stride = sizeof(uint32_t);
+		vd.alignment = 16;
+		indexed->vertex_buffer = gDynamicRHI->createBuffer(vd);
+		indexed->vertex_buffer->fill(indexed->vertices.data());
+		indexed->vertex_buffer->setDebugName("Vertex Buffer");
 
-		vertexDesc.alignment = 16;
+		BufferDescription id;
+		id.size = sizeof(indexed->indices[0]) * indexed->indices.size();
+		id.use_staging_buffer = true;
+		id.usage = BufferUsage::INDEX_BUFFER | extra;
+		id.alignment = 0;
+		id.storage_stride = sizeof(uint32_t);
+		indexed->index_buffer = gDynamicRHI->createBuffer(id);
+		indexed->index_buffer->fill(indexed->indices.data());
+		indexed->index_buffer->setDebugName("Index Buffer");
+	}
 
-		vertexBuffer = gDynamicRHI->createBuffer(vertexDesc);
-		vertexBuffer->fill(vertices.data());
-		vertexBuffer->setDebugName("Vertex Buffer");
+	void Mesh::uploadMeshletMetadata()
+	{
+		RHICommandList *cmd_list = gDynamicRHI->getCmdList();
+		uint64_t lod_groups_offset = GlobalBufferCache::addMeshletLodGroupData(
+			meshlet_data->meshlet_lod_groups.data(), meshlet_data->meshlet_lod_groups.size(), cmd_list);
 
-		// Create Index buffer
-		BufferDescription indexDesc;
-		indexDesc.size = sizeof(indices[0]) * indices.size();
-		indexDesc.use_staging_buffer = true;
-		indexDesc.usage = BufferUsage::INDEX_BUFFER | additional_usage;
-		indexDesc.alignment = 0;
-		indexDesc.storage_stride = sizeof(uint32_t);
+		uint64_t lod_nodes_offset = 0;
+		if (!meshlet_data->lod_nodes.empty())
+			lod_nodes_offset = GlobalBufferCache::addLodNodeData(meshlet_data->lod_nodes.data(), meshlet_data->lod_nodes.size(), cmd_list);
 
-		indexBuffer = gDynamicRHI->createBuffer(indexDesc);
-		indexBuffer->fill(indices.data());
-		indexBuffer->setDebugName("Index Buffer");
-
-		global_vertex_buffer_offset = GlobalBufferCache::addVertexBufferData(vertices.data(), vertices.size());
-		global_index_buffer_offset = GlobalBufferCache::addIndexBufferData(indices.data(), indices.size());
-
-		if (!meshlets.empty())
-		{
-			global_meshlet_vertex_offset = GlobalBufferCache::addMeshletVertexData(meshlet_vertices.data(), meshlet_vertices.size());
-			global_meshlet_triangle_offset = GlobalBufferCache::addMeshletTriangleData(meshlet_triangles.data(), meshlet_triangles.size());
-			global_meshlet_lod_groups_offset = GlobalBufferCache::addMeshletLodGroupData(meshlet_lod_groups.data(), meshlet_lod_groups.size());
-		}
+		GlobalBufferCache::registerMeshOffsets(id, lod_groups_offset, lod_nodes_offset);
 	}
 }

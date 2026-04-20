@@ -1,4 +1,5 @@
 guid: 5476960410068313335
 runtime_guid: 5749533055212001143
 type: 2
-Parameters: ~
+Parameters:
+  generate_meshlets: false

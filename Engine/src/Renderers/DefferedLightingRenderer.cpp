@@ -11,7 +11,7 @@
 DefferedLightingRenderer::DefferedLightingRenderer()
 {
 	auto model = AssetManager::getModelAsset("assets/icosphere_3.fbx");
-	icosphere_mesh = model->getRootNode()->children[0]->meshes[0];
+	icosphere_mesh = model->getRootNode()->children[0]->primitives[0].mesh;
 }
 
 DefferedLightingRenderer::~DefferedLightingRenderer()
@@ -115,9 +115,9 @@ void DefferedLightingRenderer::renderLights(FrameGraph &fg)
 				gDynamicRHI->setConstantBufferData(2, &constants, sizeof(PushConstant));
 
 				// Render mesh
-				cmd_list->setVertexBuffer(icosphere_mesh->vertexBuffer, 0, sizeof(Engine::Vertex));
-				cmd_list->setIndexBuffer(icosphere_mesh->indexBuffer, 0, IndexFormat::UINT32);
-				cmd_list->drawIndexedInstanced(icosphere_mesh->indices.size(), 1, 0, 0, 0);
+				cmd_list->setVertexBuffer(icosphere_mesh->indexed->vertex_buffer, 0, sizeof(Engine::Vertex));
+				cmd_list->setIndexBuffer(icosphere_mesh->indexed->index_buffer, 0, IndexFormat::UINT32);
+				cmd_list->drawIndexedInstanced(icosphere_mesh->indexed->indices.size(), 1, 0, 0, 0);
 
 			}
 		} else
@@ -186,9 +186,9 @@ void DefferedLightingRenderer::renderLights(FrameGraph &fg)
 				gDynamicRHI->setConstantBufferData(2, &constants, sizeof(PushConstant));
 
 				// Render mesh
-				cmd_list->setVertexBuffer(icosphere_mesh->vertexBuffer, 0, sizeof(Engine::Vertex));
-				cmd_list->setIndexBuffer(icosphere_mesh->indexBuffer, 0, IndexFormat::UINT32);
-				cmd_list->drawIndexedInstanced(icosphere_mesh->indices.size(), 1, 0, 0, 0);
+				cmd_list->setVertexBuffer(icosphere_mesh->indexed->vertex_buffer, 0, sizeof(Engine::Vertex));
+				cmd_list->setIndexBuffer(icosphere_mesh->indexed->index_buffer, 0, IndexFormat::UINT32);
+				cmd_list->drawIndexedInstanced(icosphere_mesh->indexed->indices.size(), 1, 0, 0, 0);
 
 			}
 		}

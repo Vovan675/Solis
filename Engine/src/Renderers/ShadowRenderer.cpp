@@ -95,7 +95,6 @@ void ShadowRenderer::addShadowMapPasses(FrameGraph &fg, uint32_t max_draw_calls_
 					inputs_desc.inputs.push_back({"INSTANCE_ID", 1, FORMAT_R32_UINT, true});
 
 					cmd_list->setVertexBuffer(resources.getBuffer(GFXRID(DrawCallsInstances)), 0, sizeof(uint32_t), 1);
-					cmd_list->setIndexBuffer(GlobalBufferCache::getGlobalIndexBuffer(), 0, IndexFormat::UINT32);
 
 					cmd_list->setRenderTargets({}, shadow_map, face, 0, true, 1.0f);
 					gGlobalPipeline->setupGraphicsPipeline(cmd_list, shadows_vertex_shader, shadows_fragment_shader_point, inputs_desc, false, true, CULL_MODE_FRONT);
@@ -145,7 +144,6 @@ void ShadowRenderer::addShadowMapPasses(FrameGraph &fg, uint32_t max_draw_calls_
 					inputs_desc.inputs.push_back({"INSTANCE_ID", 1, FORMAT_R32_UINT, true});
 
 					cmd_list->setVertexBuffer(resources.getBuffer(GFXRID(DrawCallsInstances)), 0, sizeof(uint32_t), 1);
-					cmd_list->setIndexBuffer(GlobalBufferCache::getGlobalIndexBuffer(), 0, IndexFormat::UINT32);
 
 					cmd_list->setRenderTargets({}, shadow_map, cascade, 0, true, 1.0f);
 					gGlobalPipeline->setupGraphicsPipeline(cmd_list, shadows_vertex_shader, shadows_fragment_shader_directional, inputs_desc, false, true, CULL_MODE_FRONT);

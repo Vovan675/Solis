@@ -45,11 +45,11 @@ void MeshRenderer::fillCommandBuffer(RHICommandList *cmd_list)
 
 	// TODO: fix
 	/*
-	VkBuffer vertexBuffers[] = {mesh->vertexBuffer->buffer_handle};
+	VkBuffer vertexBuffers[] = {mesh->traditional->vertexBuffer->buffer_handle};
 	VkDeviceSize offsets[] = {0};
 	vkCmdBindVertexBuffers(command_buffer.get_buffer(), 0, 1, vertexBuffers, offsets);
-	vkCmdBindIndexBuffer(command_buffer.get_buffer(), mesh->indexBuffer->buffer_handle, 0, VK_INDEX_TYPE_UINT32);
-	vkCmdDrawIndexed(command_buffer.get_buffer(), mesh->indices.size(), 1, 0, 0, 0);
+	vkCmdBindIndexBuffer(command_buffer.get_buffer(), mesh->traditional->indexBuffer->buffer_handle, 0, VK_INDEX_TYPE_UINT32);
+	vkCmdDrawIndexed(command_buffer.get_buffer(), mesh->traditional->indices.size(), 1, 0, 0, 0);
 
 	*/
 }

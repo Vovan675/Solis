@@ -7,18 +7,27 @@
 
 #define InstancesPassMask
 
-#define CandidateMeshlets
-#define CandidateMeshletsCount
+// Persistent thread traversal
+#define TraversalQueue
+#define TraversalCtrl
 #define VisibleMeshlets
 #define VisibleMeshletsCount
 
+// Flat traversal
+#define CandidateMeshlets
+#define CandidateMeshletsCount
+#define CandidateMeshletsDispatchArgs
+#define MeshletVisibility
+
+#define GroupResidencyBuffer
+#define StreamRequestsBuffer
+#define GroupAgesBuffer
+
 #define DispatchMeshIndirectArgs
-#define DispatchMeshletIndirectArgs
 #define DrawIndexedArgs
 #define DrawIndexedCount
 #define DrawCallsInstances
 #define IndirectVisibility
-#define MeshletVisibility
 
 #define GBufferAlbedo
 #define GBufferNormal
@@ -53,6 +62,9 @@
 #define DDGIDistance
 #define DDGIIrradiance
 #define DDGIMetadata
+
+#define DebugLinesBuffer
+#define DebugLinesDrawArgsBuffer
 
 struct ShadowPasses
 {

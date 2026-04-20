@@ -12,7 +12,7 @@ SkyRenderer::SkyRenderer(): RendererBase()
 	setMode(SKY_MODE_CUBEMAP);
 
 	auto model = AssetManager::getModelAsset("assets/cube.fbx");
-	mesh = model->getRootNode()->children[0]->meshes[0];
+	mesh = model->getRootNode()->children[0]->primitives[0].mesh;
 
 	vertex_shader = gDynamicRHI->createShader(L"shaders/cube.hlsl", VERTEX_SHADER);
 	fragment_shader = gDynamicRHI->createShader(L"shaders/cube.hlsl", FRAGMENT_SHADER);
@@ -58,9 +58,9 @@ void SkyRenderer::addProceduralPasses(FrameGraph &fg)
 			procedural_uniforms.mvp = glm::perspectiveLH(glm::radians(90.0f), 1.0f, 0.01f, 512.0f) * Math::getCubeFaceTransform(face) * glm::eulerAngleXYZ(0.0f, glm::radians(180.0f), 0.0f);
 			gDynamicRHI->setConstantBufferData(0, &procedural_uniforms, sizeof(procedural_uniforms));
 
-			cmd_list->setVertexBuffer(mesh->vertexBuffer, 0, sizeof(Engine::Vertex));
-			cmd_list->setIndexBuffer(mesh->indexBuffer, 0, IndexFormat::UINT32);
-			cmd_list->drawIndexedInstanced(mesh->indices.size(), 1, 0, 0, 0);
+			cmd_list->setVertexBuffer(mesh->indexed->vertex_buffer, 0, sizeof(Engine::Vertex));
+			cmd_list->setIndexBuffer(mesh->indexed->index_buffer, 0, IndexFormat::UINT32);
+			cmd_list->drawIndexedInstanced(mesh->indexed->indices.size(), 1, 0, 0, 0);
 
 			cmd_list->resetRenderTargets();
 		}
@@ -79,7 +79,6 @@ void SkyRenderer::addCompositePasses(FrameGraph &fg)
 	fg.addCallbackPass("Sky Pass",
 	[&](RenderPassBuilder &builder)
 	{
-		builder.setSideEffect(true); // TODO: remove
 		builder.writeTexture(GFXRID(FinalNoPostTexture));
 		builder.readTexture(GFXRID(Sky));
 		builder.readDepthTexture(GFXRID(GBufferDepth));
@@ -110,9 +109,9 @@ void SkyRenderer::addCompositePasses(FrameGraph &fg)
 		constants.cubemap_tex_id = resources.getReadTexture(GFXRID(Sky));
 		gDynamicRHI->setConstantBufferData(0, &constants, sizeof(Constants));
 
-		cmd_list->setVertexBuffer(mesh->vertexBuffer, 0, sizeof(Engine::Vertex));
-		cmd_list->setIndexBuffer(mesh->indexBuffer, 0, IndexFormat::UINT32);
-		cmd_list->drawIndexedInstanced(mesh->indices.size(), 1, 0, 0, 0);
+		cmd_list->setVertexBuffer(mesh->indexed->vertex_buffer, 0, sizeof(Engine::Vertex));
+		cmd_list->setIndexBuffer(mesh->indexed->index_buffer, 0, IndexFormat::UINT32);
+		cmd_list->drawIndexedInstanced(mesh->indexed->indices.size(), 1, 0, 0, 0);
 
 		cmd_list->resetRenderTargets();
 	});

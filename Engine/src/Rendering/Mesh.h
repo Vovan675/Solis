@@ -1,66 +1,84 @@
 #pragma once
 #include "RHI/RHIBuffer.h"
 #include "Math/BoundBox.h"
-#include "Utils/Stream.h"
-#include "glm/glm.hpp"
 #include "RHI/RHIPipeline.h"
 #include "ShaderStructs.h"
 
 namespace Engine
 {
-	struct Vertex
-	{
-		glm::highp_vec3 pos;
-		glm::highp_vec3 normal;
-		glm::highp_vec3 tangent;
-		glm::highp_vec2 uv;
-		glm::highp_vec3 color;
+struct MeshletFileView
+{
+	const uint8_t *vertices_ptr = nullptr;
+	const uint8_t *triangles_ptr = nullptr;
+	uint32_t vertex_count = 0;
+	uint32_t triangle_count = 0;
+	bool isValid() const { return vertices_ptr != nullptr; }
+};
 
-		static VertexInputsDescription GetVertexInputsDescription()
-		{
-			VertexInputsDescription desc;
-			desc.inputs.push_back({"POSITION", 0, FORMAT_R32G32B32_SFLOAT});
-			desc.inputs.push_back({"NORMAL", 0, FORMAT_R32G32B32_SFLOAT});
-			desc.inputs.push_back({"TANGENT", 0, FORMAT_R32G32B32_SFLOAT});
-			desc.inputs.push_back({"TEXCOORD", 0, FORMAT_R32G32_SFLOAT});
-			desc.inputs.push_back({"COLOR", 0, FORMAT_R32G32B32_SFLOAT});
-			return desc;
-		}
+struct Vertex
+{
+	glm::highp_vec3 pos;
+	glm::highp_vec3 normal;
+	glm::highp_vec3 tangent;
+	float tangent_sign = 1.0f;
+	glm::highp_vec2 uv;
+
+	static VertexInputsDescription GetVertexInputsDescription()
+	{
+		VertexInputsDescription desc;
+		desc.inputs.push_back({"POSITION", 0, FORMAT_R32G32B32_SFLOAT});
+		desc.inputs.push_back({"NORMAL", 0, FORMAT_R32G32B32_SFLOAT});
+		desc.inputs.push_back({"TANGENT",  0, FORMAT_R32G32B32A32_SFLOAT});
+		desc.inputs.push_back({"TEXCOORD", 0, FORMAT_R32G32_SFLOAT});
+		return desc;
+	}
+};
+
+struct IndexedGeometry
+{
+	eastl::vector<Vertex> vertices;
+	eastl::vector<uint32_t> indices;
+	RHIBufferRef vertex_buffer;
+	RHIBufferRef index_buffer;
+};
+
+struct MeshletGeometry
+{
+	struct LODGroupDataInfo
+	{
+		uint32_t cpu_vertex_offset;
+		uint32_t cpu_vertex_count;
+		uint32_t cpu_triangle_offset;
+		uint32_t cpu_triangle_count;
 	};
 
-	// Just a collection of data
-	class Mesh : public RefCounted
-	{
-	public:
-		size_t id = 0;
-		eastl::vector<Vertex> vertices;
-		eastl::vector<uint32_t> indices;
-		eastl::vector<Meshlet> meshlets;
+	eastl::vector<Meshlet> meshlets;
+	eastl::vector<LODGroup> meshlet_lod_groups;
+	eastl::vector<LodNode> lod_nodes;
+	eastl::vector<LODLevel> meshlet_lod_levels;
+	eastl::vector<LODGroupDataInfo> meshlet_lod_group_data_info;
+	uint32_t meshlet_root_group_local_offset = 0;
+};
 
-		eastl::vector<uint32_t> meshlet_vertices; // indices to global vertex buffer
-		eastl::vector<uint32_t> meshlet_triangles; // TODO: just for now, while not working with mesh shaders, for index buffer compatibility
-		//eastl::vector<MeshletTriangle> meshlet_triangles; // index to meshlet_vertices vertices
-		eastl::vector<LODGroup> meshlet_lod_groups;
+class Mesh: public RefCounted
+{
+public:
+	size_t id = 0;
+	uint32_t attribute_flags = 0;
 
-		uint64_t global_vertex_buffer_offset = 0;
-		uint64_t global_index_buffer_offset = 0;
-		uint64_t global_meshlet_vertex_offset = 0;
-		uint64_t global_meshlet_triangle_offset = 0;
-		uint64_t global_meshlet_lod_groups_offset = 0;
+	glm::mat4 root_transform = glm::mat4(1.0);
+	BoundBox bound_box;
 
-		RHIBufferRef vertexBuffer;
-		RHIBufferRef indexBuffer;
-		glm::mat4 root_transform = glm::mat4(1.0);
+	eastl::optional<IndexedGeometry> indexed;
+	eastl::optional<MeshletGeometry> meshlet_data;
 
-		BoundBox bound_box;
-	public:
-		Mesh() = default;
-		~Mesh() = default;
-		void setData(eastl::vector<Vertex> vertices, eastl::vector<uint32_t> indices);
+	bool useMeshlets() const { return meshlet_data.has_value(); }
 
-		void serialize(Stream &stream);
-		void deserialize(Stream &stream);
-	private:
-		void create_buffers();
-	};
+	void initTraditional(eastl::vector<Vertex> vertices, eastl::vector<uint32_t> indices);
+	void initMeshleted();
+
+private:
+	void uploadTraditionalBuffers();
+	void uploadMeshletMetadata();
+};
 }

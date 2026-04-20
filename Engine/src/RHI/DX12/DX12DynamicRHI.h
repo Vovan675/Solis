@@ -82,8 +82,8 @@ public:
 
 		// If no descriptor set for this shader, create it
 		size_t descriptor_hash = native_pso->getHash();
-		hash_combine(descriptor_hash, binding);
-		hash_combine(descriptor_hash, frame_in_flight); // TODO: add Frame Allocator for these buffers
+		hashCombine(descriptor_hash, binding);
+		hashCombine(descriptor_hash, frame_in_flight); // TODO: add Frame Allocator for these buffers
 
 		// Create buffer if there is no for this descriptor and offset
 		auto &buffers = buffers_for_shaders[descriptor_hash];
@@ -118,9 +118,9 @@ public:
 		DX12DynamicRHI *rhi = (DX12DynamicRHI *)gDynamicRHI;
 
 		size_t data_hash = 0;
-		hash_combine(data_hash, binding);
-		hash_combine(data_hash, params_size);
-		hash_combine(data_hash, frame_in_flight);
+		hashCombine(data_hash, binding);
+		hashCombine(data_hash, params_size);
+		hashCombine(data_hash, frame_in_flight);
 
 		// Create buffer if there is no for this descriptor and offset
 		auto &buffers = buffers_for_shaders[data_hash];
