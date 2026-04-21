@@ -55,7 +55,6 @@ public:
 		uint32_t materials_buffer_id;
 		uint32_t instances_buffer_id;
 		uint32_t meshes_buffer_id;
-		uint32_t global_meshlets_group_children_buffer_id = 0;
 		uint32_t global_lod_nodes_buffer_id = 0;
 		uint32_t tlas_id = 0;
 		uint32_t ddgi_volume_buffer_id = 0;

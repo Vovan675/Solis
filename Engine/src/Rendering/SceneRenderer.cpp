@@ -357,7 +357,6 @@ void SceneRenderer::update(Camera *camera)
 					mesh_gpu.lod_nodes_offset = mesh_global.lod_nodes_offset;
 				}
 				mesh_gpu.root_group_offset = mesh->meshlet_data ? mesh->meshlet_data->meshlet_root_group_local_offset : 0;
-				mesh_gpu.group_count = mesh->meshlet_data ? mesh->meshlet_data->meshlet_lod_groups.size() : 0;
 				mesh_gpu.attribute_flags = mesh->attribute_flags;
 
 				/*
@@ -505,8 +504,6 @@ void SceneRenderer::update(Camera *camera)
 	uniforms.materials_buffer_id = materials_gpu->getShaderResourceView()->getBindlessIndex();
 	uniforms.instances_buffer_id = instances_gpu->getShaderResourceView()->getBindlessIndex();
 	uniforms.meshes_buffer_id = meshes_gpu->getShaderResourceView()->getBindlessIndex();
-	if (GlobalBufferCache::getGlobalGroupChildrenBuffer())
-		uniforms.global_meshlets_group_children_buffer_id = GlobalBufferCache::getGlobalGroupChildrenBuffer()->getShaderResourceView()->getBindlessIndex();
 	uniforms.tlas_id = engine_ray_tracing ? rt_scene->getTopLevelAS()->getBindlessId() : 0;
 	uniforms.ddgi_volume_buffer_id = render_ddgi ? ddgi_renderer.getVolumeBufferId() : 0;
 	uniforms.lines_gpu_buffer_id = debug_renderer.getLinesGpuBuffer()->getUnorderedAccessView()->getBindlessIndex();

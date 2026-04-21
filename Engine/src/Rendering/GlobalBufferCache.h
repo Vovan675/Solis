@@ -24,7 +24,6 @@ public:
 
 	static RHIBuffer *getGlobalMeshletGeometryBuffer() { return geometry.get(); }
 	static RHIBuffer *getGlobalMeshletLodGroupsBuffer() { return lod_groups.get(); }
-	static RHIBufferRef getGlobalGroupChildrenBuffer() { return global_meshlet_group_children_buffer; }
 	static RHIBuffer *getGlobalLodNodesBuffer() { return lod_nodes.get(); }
 
 	static uint64_t getMeshletGeometryBufferMaxSize() { return geometry.getMaxSize(); }
@@ -67,6 +66,4 @@ private:
 	static inline GlobalBuffer lod_groups;
 	static inline GlobalBuffer lod_nodes;
 	static inline GlobalBuffer geometry;
-
-	static inline RHIBufferRef global_meshlet_group_children_buffer;
 };

@@ -25,7 +25,6 @@ extern AutoConVarBool render_ssr;
 extern AutoConVarBool render_fxaa;
 extern AutoConVarBool render_automatic_sun_position;
 extern AutoConVarBool render_meshlets_use_mesh_shaders;
-extern AutoConVarBool render_meshlets_use_persistent_threads;
 extern AutoConVarBool render_meshlets_bvh_visualize;
 extern AutoConVarInt  render_meshlets_bvh_visualize_depth;
 

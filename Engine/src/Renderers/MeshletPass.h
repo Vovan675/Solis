@@ -17,8 +17,7 @@ public:
 	void addLateCullingPasses(FrameGraph &fg, const MeshletCullDesc &desc);
 
 private:
-	void addPersistentCullingPasses(FrameGraph &fg, const MeshletCullDesc &desc, bool is_late);
-	void addFlatCullingPasses(FrameGraph &fg, const MeshletCullDesc &desc, bool is_late);
+	void addCullingPasses(FrameGraph &fg, const MeshletCullDesc &desc, bool is_late);
 
 	void addCounterInitPass(FrameGraph &fg, bool is_late);
 	void addInstanceCullingPass(FrameGraph &fg, const MeshletCullDesc &desc, bool is_late);

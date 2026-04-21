@@ -43,7 +43,6 @@ struct MeshGPU
 	uint32_t indices_count;
 
 	uint32_t meshlet_lod_groups_offset;
-	uint32_t group_count;
 
 	uint32_t group_residency_offset; // start index in global group_residency buffer
 	uint32_t root_group_offset;
@@ -70,7 +69,7 @@ struct LodNode
 	float error;
 
 	uint32_t group_index = 0; // local LODGroup index
-	uint32_t first_child = 0; // local element offset in group_children buffer
+	uint32_t first_child = 0; // local lod_nodes offset of first child
 	uint32_t child_count = 0; // 0 for leaf
 	uint32_t meshlet_count = 0; // meshlet count of the associated LODGroup
 };

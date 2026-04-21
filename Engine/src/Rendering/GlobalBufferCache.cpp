@@ -157,7 +157,6 @@ void GlobalBufferCache::shutdown()
 	geometry = GlobalBuffer{};
 	lod_groups = GlobalBuffer{};
 	lod_nodes = GlobalBuffer{};
-	global_meshlet_group_children_buffer = nullptr;
 	mesh_offsets.clear();
 }
 

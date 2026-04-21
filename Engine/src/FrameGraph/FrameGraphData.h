@@ -12,11 +12,6 @@
 #define TraversalCtrl
 #define VisibleMeshlets
 #define VisibleMeshletsCount
-
-// Flat traversal
-#define CandidateMeshlets
-#define CandidateMeshletsCount
-#define CandidateMeshletsDispatchArgs
 #define MeshletVisibility
 
 #define GroupResidencyBuffer

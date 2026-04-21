@@ -7,13 +7,8 @@ cbuffer Uniforms : register(b0)
 {
 	float4x4 frustum_view_projection;
 
-	#if PERSISTENT_THREADS
-		uint traversal_queue_buffer_id;
-		uint traversal_ctrl_buffer_id;
-	#else
-		uint candidate_meshlets_buffer_id;
-		uint candidate_meshlets_count_buffer_id;
-	#endif
+	uint traversal_queue_buffer_id;
+	uint traversal_ctrl_buffer_id;
 
 	uint instances_visibility_buffer_id;
 	uint instances_pass_mask_buffer_id;
@@ -23,16 +18,10 @@ cbuffer Uniforms : register(b0)
 	uint hiz_height;
 	uint hiz_mips;
 	uint current_pass_mask;
-	uint group_residency_buffer_id;
 };
 
-#if PERSISTENT_THREADS
-	static RWStructuredBuffer<TraversalItem> traversal_queue = ResourceDescriptorHeap[traversal_queue_buffer_id];
-	static RWStructuredBuffer<TraversalCtrl> traversal_ctrl = ResourceDescriptorHeap[traversal_ctrl_buffer_id];
-#else
-	static RWStructuredBuffer<MeshletCandidate> candidate_meshlets_buffer = ResourceDescriptorHeap[candidate_meshlets_buffer_id];
-	static RWByteAddressBuffer candidate_meshlets_count = ResourceDescriptorHeap[candidate_meshlets_count_buffer_id];
-#endif
+static RWStructuredBuffer<TraversalItem> traversal_queue = ResourceDescriptorHeap[traversal_queue_buffer_id];
+static RWStructuredBuffer<TraversalCtrl> traversal_ctrl = ResourceDescriptorHeap[traversal_ctrl_buffer_id];
 
 static RWByteAddressBuffer visibility_buffer = ResourceDescriptorHeap[instances_visibility_buffer_id];
 static ByteAddressBuffer pass_mask_buffer = ResourceDescriptorHeap[instances_pass_mask_buffer_id];
@@ -83,45 +72,22 @@ void CSMain(uint3 dispatchID : SV_DispatchThreadID)
 
 	if (!should_draw) return;
 
-	#if PERSISTENT_THREADS
-		ByteAddressBuffer children_buf = ResourceDescriptorHeap[global_meshlets_group_children_buffer_id];
-		LodNode root_node = lod_nodes_buffer.Load<LodNode>(sizeof(LodNode) * (mesh.lod_nodes_offset + mesh.root_group_offset));
+	LodNode root_node = lod_nodes_buffer.Load<LodNode>(sizeof(LodNode) * (mesh.lod_nodes_offset + mesh.root_group_offset));
 
-		bool is_leaf = (root_node.child_count == 0);
+	bool is_leaf = (root_node.child_count == 0);
 
-		uint dummy;
-		InterlockedAdd(traversal_ctrl[0].task_counter, 1, dummy);
-		uint base_slot;
-		InterlockedAdd(traversal_ctrl[0].write_counter, 1, base_slot);
+	uint dummy;
+	InterlockedAdd(traversal_ctrl[0].task_counter, 1, dummy);
+	uint base_slot;
+	InterlockedAdd(traversal_ctrl[0].write_counter, 1, base_slot);
 
-		TraversalItem item;
-		item.instance_id = id;
+	TraversalItem item;
+	item.instance_id = id;
 
-		// Leafs are appended as groups
-		if (is_leaf)
-			item.packed = packGroupItem(root_node.group_index, root_node.meshlet_count);
-		else
-			item.packed = packNodeItem(root_node.first_child, root_node.child_count);
-		traversal_queue[base_slot] = item;
-	#else
-		ByteAddressBuffer lod_groups_buf = ResourceDescriptorHeap[global_meshlets_lod_groups_buffer_id];
-		RWByteAddressBuffer residency_buf = ResourceDescriptorHeap[group_residency_buffer_id];
-		for (uint g = 0; g < mesh.group_count; g++)
-		{
-			GroupResidency res = residency_buf.Load<GroupResidency>(sizeof(GroupResidency) * (mesh.group_residency_offset + g));
-			if (res.geometry_buffer_offset >= GROUP_NON_RESIDENT_ADDRESS_START) continue;
-
-			LODGroup group = lod_groups_buf.Load<LODGroup>(sizeof(LODGroup) * (mesh.meshlet_lod_groups_offset + g));
-			uint flat_group_idx = mesh.group_residency_offset + g;
-			uint slot;
-			candidate_meshlets_count.InterlockedAdd(0, group.meshlet_count, slot);
-			for (uint m = 0; m < group.meshlet_count; m++)
-			{
-				MeshletCandidate candidate;
-				candidate.instance_id = id;
-				candidate.meshlet_id = (flat_group_idx << 8) | m;
-				candidate_meshlets_buffer[slot + m] = candidate;
-			}
-		}
-	#endif
+	// Leafs are appended as groups
+	if (is_leaf)
+		item.packed = packGroupItem(root_node.group_index, root_node.meshlet_count);
+	else
+		item.packed = packNodeItem(root_node.first_child, root_node.child_count);
+	traversal_queue[base_slot] = item;
 }

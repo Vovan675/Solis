@@ -73,7 +73,6 @@ cbuffer FrameConstants : register(b32) {
 	uint materials_buffer_id;
 	uint instances_buffer_id;
 	uint meshes_buffer_id;
-	uint global_meshlets_group_children_buffer_id;
 	uint global_lod_nodes_buffer_id;
 	uint tlas_id;
 	uint ddgi_volume_buffer_id;
@@ -141,10 +140,9 @@ struct Mesh
 	uint indices_count;
 
 	uint meshlet_lod_groups_offset;
-	uint group_count; // total LODGroup count
 
 	uint group_residency_offset; // start index in global group_residency buffer
-	uint root_group_offset; // offset in group_children section for root group
+	uint root_group_offset; // local lod_nodes index of the root node
 	uint lod_nodes_offset; // offset in global lod_nodes buffer
 
 	uint attribute_flags;
@@ -170,7 +168,7 @@ struct LodNode
 	float error;
 
 	uint group_index; // LODGroup index
-	uint first_child; // offset in group_children buffer
+	uint first_child; // local lod_nodes offset of first child
 	uint child_count; // 0 for leaf
 	uint meshlet_count; // meshlet count for its LODGroup
 };
