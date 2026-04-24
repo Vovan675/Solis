@@ -9,18 +9,19 @@ struct MeshletCullDesc
 	uint32_t instance_count;
 };
 
-// Adds GPU culling passes that produce VisibleMeshlets + dispatch args.
+// Uses two-pass occlusion culling:
+// Main Pass: frustum + prev-frame HZB. Occluded saved to list
+// Fix Pass: flat dispatch over occluded lists against current-frame HZB.
 class MeshletPass
 {
 public:
-	void addEarlyCullingPasses(FrameGraph &fg, const MeshletCullDesc &desc);
-	void addLateCullingPasses(FrameGraph &fg, const MeshletCullDesc &desc);
+	void addMainCullingPasses(FrameGraph &fg, const MeshletCullDesc &desc);
+	void addFixCullingPasses(FrameGraph &fg, const MeshletCullDesc &desc);
 
 private:
-	void addCullingPasses(FrameGraph &fg, const MeshletCullDesc &desc, bool is_late);
-
-	void addCounterInitPass(FrameGraph &fg, bool is_late);
-	void addInstanceCullingPass(FrameGraph &fg, const MeshletCullDesc &desc, bool is_late);
-	void addTraversalPass(FrameGraph &fg, const MeshletCullDesc &desc, bool is_late);
-	void addGeometryDispatchArgsPass(FrameGraph &fg, bool is_late);
+	void add_counter_init_pass(FrameGraph &fg, const MeshletCullDesc &desc, bool is_fix);
+	void add_instance_culling_pass(FrameGraph &fg, const MeshletCullDesc &desc, bool is_fix);
+	void add_traversal_pass(FrameGraph &fg, const MeshletCullDesc &desc, bool is_fix);
+	void add_meshlet_fix_pass(FrameGraph &fg, const MeshletCullDesc &desc);
+	void add_dispatch_args_pass(FrameGraph &fg, const char *name, GraphicsResourceName args_id, GraphicsResourceName count_id, uint32_t group_size);
 };

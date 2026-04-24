@@ -95,6 +95,11 @@ bool RenderPassBuilder::isTextureCreated(GraphicsResourceName name)
 	return frameGraph.texture_name_to_id.contains(name);
 }
 
+bool RenderPassBuilder::isBufferCreated(GraphicsResourceName name)
+{
+	return frameGraph.buffer_name_to_id.contains(name);
+}
+
 TextureDescription RenderPassBuilder::getTextureDescription(GraphicsResourceName name)
 {
 	return frameGraph.getTextureDescription(name);

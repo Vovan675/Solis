@@ -19,18 +19,56 @@ void GBufferPass::addPass(FrameGraph &fg, uint32_t max_draw_calls)
 	desc.view_projection = Renderer::getCamera()->getViewProj();
 	desc.instance_count = max_draw_calls;
 
-	meshlet_pass.addEarlyCullingPasses(fg, desc);
-	addGeometryPass(fg, max_draw_calls);
-	addHiZPass(fg);
+	import_or_create_hiz(fg);
+
+	// Main cull using prev HiZ to cull almost everything ideally
+	meshlet_pass.addMainCullingPasses(fg, desc);
+	add_geometry_pass(fg, max_draw_calls);
+	add_hiz_pass(fg);
+
+	// TODO: not meshleted geometries render here, it would benefit from depth/HiZ if needed
 
 	if (!render_freeze_culling)
 	{
-		meshlet_pass.addLateCullingPasses(fg, desc);
-		addGeometryPass(fg, max_draw_calls);
+		// Fix culling rescue what is not occluded against new "Real" HiZ
+		meshlet_pass.addFixCullingPasses(fg, desc);
+		add_geometry_pass(fg, max_draw_calls);
+		// Rebuild HiZ for next frame
+		add_hiz_pass(fg);
 	}
 }
 
-void GBufferPass::addGeometryPass(FrameGraph &fg, uint32_t max_draw_calls)
+void GBufferPass::import_or_create_hiz(FrameGraph &fg)
+{
+	glm::ivec2 viewport_size = Renderer::getViewportSize();
+	glm::ivec2 mip_dimensions = glm::max(glm::ceil(glm::log2(glm::vec2(viewport_size))), glm::vec2(1.0f));
+	uint32_t mip_levels = std::max(mip_dimensions.x, mip_dimensions.y);
+	uint32_t width = 1u << (mip_dimensions.x - 1);
+	uint32_t height = 1u << (mip_dimensions.y - 1);
+
+	bool need_realloc = !persistent_hiz
+		|| persistent_hiz->getWidth() != width
+		|| persistent_hiz->getHeight() != height
+		|| persistent_hiz->getMipLevels() != mip_levels;
+
+	if (need_realloc)
+	{
+		TextureDescription desc;
+		desc.format = FORMAT_R32_SFLOAT;
+		desc.width = width;
+		desc.height = height;
+		desc.mip_levels = mip_levels;
+		desc.usage_flags = TEXTURE_USAGE_STORAGE;
+		desc.filtering = FILTER_NEAREST;
+		persistent_hiz = gDynamicRHI->createTexture(desc);
+		persistent_hiz->fill();
+		persistent_hiz->setDebugName("Persistent HiZ");
+	}
+
+	fg.importTexture(GFXRID(HiZ), persistent_hiz);
+}
+
+void GBufferPass::add_geometry_pass(FrameGraph &fg, uint32_t max_draw_calls)
 {
 	struct PassData { bool clear_targets; };
 
@@ -112,26 +150,16 @@ void GBufferPass::addGeometryPass(FrameGraph &fg, uint32_t max_draw_calls)
 	});
 }
 
-void GBufferPass::addHiZPass(FrameGraph &fg)
+void GBufferPass::add_hiz_pass(FrameGraph &fg)
 {
 	fg.addCallbackPass("HiZ Generation",
 	[&](RenderPassBuilder &builder)
 	{
-		glm::ivec2 viewport_size = Renderer::getViewportSize();
-		TextureDescription desc;
-		desc.format = FORMAT_R32_SFLOAT;
-		glm::ivec2 mip_dimensions = glm::max(glm::ceil(glm::log2(glm::vec2(viewport_size))), glm::vec2(1.0f));
-		desc.mip_levels = std::max(mip_dimensions.x, mip_dimensions.y);
-		desc.width = 1 << (mip_dimensions.x - 1);
-		desc.height = 1 << (mip_dimensions.y - 1);
-
-		builder.createTexture(GFXRID(HiZ), desc);
 		builder.writeUAVTexture(GFXRID(HiZ));
 		builder.readTexture(GFXRID(GBufferDepth));
 	},
 	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		RHITexture *depth = resources.getTexture(GFXRID(GBufferDepth));
 		RHITexture *hiz = resources.getTexture(GFXRID(HiZ));
 
 		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/depth_hiz.hlsl", COMPUTE_SHADER, "CSMain",

@@ -23,6 +23,7 @@ public:
 	FrameGraphBufferId readVertexBuffer(GraphicsResourceName name);
 
 	bool isTextureCreated(GraphicsResourceName name);
+	bool isBufferCreated(GraphicsResourceName name);
 	TextureDescription getTextureDescription(GraphicsResourceName name);
 	void setSideEffect(bool side_effect);
 

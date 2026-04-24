@@ -357,6 +357,8 @@ void ShadowRenderer::update_cascades(LightComponent &light, glm::vec3 light_dir,
 
 void ShadowRenderer::create_draw_calls(FrameGraph &fg, uint32_t max_draw_calls_count, uint32_t pass_mask, glm::float4x4 view_projection)
 {
+	// TODO: meshlet pipeline for shadows too
+	/*
 	fg.addCallbackPass("Init DrawCalls Pass",
 	[&](RenderPassBuilder &builder)
 	{
@@ -376,6 +378,7 @@ void ShadowRenderer::create_draw_calls(FrameGraph &fg, uint32_t max_draw_calls_c
 		gDynamicRHI->setConstantBufferData(0, &constants, sizeof(constants));
 		cmd_list->dispatch(1, 1, 1);
 	});
+	*/
 
 	fg.addCallbackPass("Create Draw Calls Pass (Shadows)",
 	[&](RenderPassBuilder &builder)
@@ -383,7 +386,6 @@ void ShadowRenderer::create_draw_calls(FrameGraph &fg, uint32_t max_draw_calls_c
 		builder.writeBuffer(GFXRID(DrawIndexedArgs));
 		builder.writeBuffer(GFXRID(DrawIndexedCount));
 		builder.writeBuffer(GFXRID(DrawCallsInstances));
-		builder.writeBuffer(GFXRID(IndirectVisibility));
 		builder.readBuffer(GFXRID(InstancesPassMask));
 	},
 	[=](const RenderPassResources &resources, RHICommandList *cmd_list)

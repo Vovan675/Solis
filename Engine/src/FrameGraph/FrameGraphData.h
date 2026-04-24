@@ -12,17 +12,21 @@
 #define TraversalCtrl
 #define VisibleMeshlets
 #define VisibleMeshletsCount
-#define MeshletVisibility
+#define OccludedMeshlets
+#define OccludedMeshletsCount
+#define OccludedInstances
+#define OccludedInstancesCount
 
 #define GroupResidencyBuffer
 #define StreamRequestsBuffer
 #define GroupAgesBuffer
 
 #define DispatchMeshIndirectArgs
+#define MeshletFixDispatchArgs
+#define InstanceFixDispatchArgs
 #define DrawIndexedArgs
 #define DrawIndexedCount
 #define DrawCallsInstances
-#define IndirectVisibility
 
 #define GBufferAlbedo
 #define GBufferNormal

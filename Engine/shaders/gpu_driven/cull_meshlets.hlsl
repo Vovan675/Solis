@@ -1,4 +1,4 @@
-#include "streaming.h"
+#include "meshlet_common.h"
 // Reference: NVIDIA vk_lod_clusters
 
 cbuffer Uniforms : register(b0)
@@ -14,11 +14,15 @@ cbuffer Uniforms : register(b0)
 	uint draw_indexed_count_buffer_id;
 	uint draw_calls_indirect_instances_buffer_id;
 	uint max_queue_size;
-	uint meshlet_visibility_buffer_id;
+
+	uint occluded_meshlets_buffer_id;
+	uint occluded_meshlets_count_buffer_id;
+
 	uint hiz_tex_id;
 	uint hiz_width;
 	uint hiz_height;
 	uint hiz_mips;
+
 	uint group_residency_buffer_id;
 	uint stream_requests_buffer_id;
 	uint group_ages_buffer_id;
@@ -28,6 +32,8 @@ static globallycoherent RWStructuredBuffer<TraversalItem> queue = ResourceDescri
 static globallycoherent RWStructuredBuffer<TraversalCtrl> ctrl = ResourceDescriptorHeap[traversal_ctrl_buffer_id];
 static RWStructuredBuffer<MeshletCandidate> visible_meshlets = ResourceDescriptorHeap[visible_meshlets_buffer_id];
 static RWStructuredBuffer<uint> visible_meshlets_count = ResourceDescriptorHeap[visible_meshlets_count_buffer_id];
+static RWStructuredBuffer<MeshletCandidate> occluded_meshlets = ResourceDescriptorHeap[occluded_meshlets_buffer_id];
+static RWByteAddressBuffer occluded_meshlets_count = ResourceDescriptorHeap[occluded_meshlets_count_buffer_id];
 
 #if !USE_MESH_SHADERS
 	static RWStructuredBuffer<DrawIndexedIndirect> draw_args = ResourceDescriptorHeap[draw_indexed_args_buffer_id];
@@ -38,7 +44,6 @@ static RWStructuredBuffer<uint> visible_meshlets_count = ResourceDescriptorHeap[
 static RWByteAddressBuffer group_residency = ResourceDescriptorHeap[group_residency_buffer_id];
 static RWByteAddressBuffer stream_requests = ResourceDescriptorHeap[stream_requests_buffer_id];
 static globallycoherent RWByteAddressBuffer group_ages = ResourceDescriptorHeap[group_ages_buffer_id];
-static RWByteAddressBuffer meshlet_visibility = ResourceDescriptorHeap[meshlet_visibility_buffer_id];
 
 void resetAge(uint group_id, uint group_residency_offset)
 {
@@ -68,7 +73,7 @@ void processSubTask(TraversalItem item, uint sub_id, bool is_valid)
 		uint child_offset = item.getNodeChildOffset();
 		LodNode child_node = lod_nodes_buffer.Load<LodNode>(sizeof(LodNode) * (mesh.lod_nodes_offset + child_offset + sub_id));
 
-		// If child too corase we must go deeper
+		// If child too coarse we must go deeper
 		bool is_child_too_coarse = isCoarserThanNeeded(child_node.center, child_node.radius, child_node.error, instance.world_transform, scale);
 		bool is_leaf = (child_node.child_count == 0);
 
@@ -133,7 +138,7 @@ void processSubTask(TraversalItem item, uint sub_id, bool is_valid)
 			out_item.packed = packNodeItem(child_node.first_child, child_node.child_count);
 			queue[node_slot] = out_item;
 		}
-		
+
 		if (write_group)
 		{
 			out_item.packed = packGroupItem(child_node.group_index, child_node.meshlet_count);
@@ -146,35 +151,16 @@ void processSubTask(TraversalItem item, uint sub_id, bool is_valid)
 	else
 	{
 		uint group_id = item.getGroupIndex();
-
 		uint meshlet_id = packMeshletId(residency_base + group_id, sub_id);
 
 		Meshlet meshlet = getMeshlet(meshlet_id, group_residency_buffer_id);
 
 		resetAge(group_id, residency_base);
 
-		// Frustum culling
-		float3 bound_center = meshlet.center.xyz;
-		float3 bound_extent = meshlet.extent.xyz;
-		transformBoundBox(bound_center, bound_extent, instance.world_transform);
-		FrustumCullData cull = getFrustumCullData(bound_center, bound_extent, frustum_view_projection);
-
-		// Occlusion culling
-		bool was_visible = meshlet_visibility.Load(meshlet_id * 4) != 0;
-
-		#if FREEZE_CULLING
-			bool is_meshlet_visible = was_visible;
-		#else
-			bool is_meshlet_visible = cull.is_visible;
-			#if IS_LATE
-			if (is_meshlet_visible)
-			{
-				Texture2D hiz_tex = ResourceDescriptorHeap[hiz_tex_id];
-				is_meshlet_visible = !isHizOcclusionCulled(cull, float2(hiz_width, hiz_height), hiz_mips, hiz_tex);
-			}
-			#endif
-			meshlet_visibility.Store(meshlet_id * 4, is_meshlet_visible ? 1u : 0u);
-		#endif
+		HizParams hiz = { hiz_tex_id, hiz_width, hiz_height, hiz_mips };
+		FrustumCullData cull;
+		bool is_occluded = !cullMeshletVisibility(meshlet, instance.world_transform, frustum_view_projection, hiz, cull);
+		bool is_visible = is_valid && cull.is_visible;
 
 		// Pick this meshlet when:
 		// 1) The finer (refined) group would be wasteful - going deeper isn't worth it, cut lands here.
@@ -184,41 +170,23 @@ void processSubTask(TraversalItem item, uint sub_id, bool is_valid)
 		if (has_refined && isResident(group_residency, residency_base, meshlet.refined_group_id))
 			need_this_level = !isCoarserThanNeeded(meshlet.refined_group_id, mesh.meshlet_lod_groups_offset, instance.world_transform, scale);
 
-		// Render cluster only when its visible for current occlusion and selected in DAG
-		bool render_cluster = is_valid && is_meshlet_visible && need_this_level;
-		#if IS_LATE
-			render_cluster = render_cluster && !was_visible;
-		#endif
-		
-		// Append new draw calls
-		uint append_count = WaveActiveCountBits(render_cluster);
-		uint append_offset = 0;
+		bool selected = is_visible && need_this_level;
 
-		if (WaveIsFirstLane())
-			InterlockedAdd(visible_meshlets_count[0], append_count, append_offset);
+		MeshletCandidate candidate;
+		candidate.instance_id = item.instance_id;
+		candidate.meshlet_id = meshlet_id;
 
-		append_offset = WaveReadLaneFirst(append_offset);
-		append_offset += WavePrefixCountBits(render_cluster);
-
-		if (render_cluster)
+		if (selected && !is_occluded)
 		{
-			visible_meshlets[append_offset].instance_id = item.instance_id;
-			visible_meshlets[append_offset].meshlet_id = meshlet_id;
-
+			uint slot = appendVisibleMeshlet(candidate, visible_meshlets, visible_meshlets_count);
 			#if !USE_MESH_SHADERS
-				GroupResidency residency = group_residency.Load<GroupResidency>(sizeof(GroupResidency) * (residency_base + meshlet.group_id));
-
-				DrawIndexedIndirect cmd;
-				cmd.index_count_per_instance = meshlet.getTriangleCount() * 3;
-				cmd.instance_count = 1;
-				cmd.start_index_location = uint(residency.geometry_buffer_offset + meshlet.triangle_offset) / sizeof(uint);
-				cmd.base_vertex_location = 0;
-				cmd.start_instance_location = append_offset;
-				draw_args[append_offset] = cmd;
-				indirect_instances.Store(append_offset * sizeof(uint), append_offset);
-				draw_count.InterlockedAdd(0, 1);
+				writeIndirectDraw(slot, meshlet, residency_base, group_residency, draw_args, draw_count, indirect_instances);
 			#endif
 		}
+		#if !IS_FIX
+			// Defer to Meshlet Flat Fix pass
+			appendOccluded(candidate, selected && is_occluded, occluded_meshlets, occluded_meshlets_count);
+		#endif
 	}
 }
 
