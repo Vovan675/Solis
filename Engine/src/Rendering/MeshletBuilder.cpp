@@ -21,11 +21,11 @@ MeshletBuildData build(Engine::Mesh *mesh, const char *debug_name, const eastl::
 	config.partition_sort = true;
 	config.partition_size = 16;
 
-	float attr_weights[11] = {
+	float attr_weights[9] = {
 		settings.normal_weight, settings.normal_weight, settings.normal_weight,
 		settings.tangent_weight, settings.tangent_weight, settings.tangent_weight,
+		settings.tangent_weight,
 		settings.uv_weight, settings.uv_weight,
-		settings.color_weight, settings.color_weight, settings.color_weight,
 	};
 
 	clodMesh input_mesh{};
@@ -38,7 +38,7 @@ MeshletBuildData build(Engine::Mesh *mesh, const char *debug_name, const eastl::
 	input_mesh.vertex_attributes_stride = sizeof(Engine::Vertex);
 	input_mesh.attribute_weights = attr_weights;
 	input_mesh.attribute_count = _countof(attr_weights);
-	input_mesh.attribute_protect_mask = 1 << 6 | 1 << 7;
+	input_mesh.attribute_protect_mask = 1 << 7 | 1 << 8;
 
 	mesh->meshlet_data.emplace();
 	Engine::MeshletGeometry &geometry = *mesh->meshlet_data;
