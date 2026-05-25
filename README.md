@@ -76,8 +76,6 @@ Per-frame cost is bounded by `probes_per_frame` × `rays_per_probe`, so the GI s
 
 Plus SSAO, SSR, FXAA, procedural atmospheric sky, and a post-processing effects.
 
-![Path tracing](.github/images/path-traced.jpg)
-
 ## Coming next
 
 - **RTX Mega Geometry** - use meshlet cluster data in ray tracing
