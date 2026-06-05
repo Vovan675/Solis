@@ -1,12 +1,19 @@
 # RenderingEngine
 
-An experimental Vulkan / DirectX 12 renderer exploring cutting-edge rendering tech. Geometry is fully GPU-driven through a Nanite-style meshlet pipeline - continuous LOD, mesh shader rasterization (with a compute fallback), two-pass HiZ occlusion culling, on-demand streaming for scenes larger than VRAM. Real-time global illumination via hardware ray-traced DDGI, plus a reference path tracer for ground truth.
+> A Vulkan / DirectX 12 engine with GPU-driven, Nanite-style geometry and hardware ray-traced global illumination.
+
+`C++` · `Vulkan` · `DirectX 12` · `HLSL` · `Mesh shaders` · `Ray tracing`
+
+An experimental Vulkan / DirectX 12 renderer exploring cutting-edge rendering tech. Geometry is GPU-driven through a Nanite-style meshlet pipeline - continuous LOD, mesh shader rasterization (with a compute fallback), two-pass HiZ occlusion culling, on-demand streaming for scenes larger than VRAM. Real-time global illumination via hardware ray-traced DDGI, plus a reference path tracer for ground truth.
 
 ![Editor](.github/images/editor.png)
 
 ## Meshlet geometry
 
 Geometry goes through a meshlet pipeline. Meshes are split into clusters of ~64 vertices / ~124 triangles using [meshoptimizer](https://github.com/zeux/meshoptimizer) at import time and baked into a binary `.mesh` file along with their LOD hierarchy.
+
+![Meshlet clusters](.github/images/meshlet-clusters.png)
+*Each color is one meshlet - a cluster of ~124 triangles the GPU culls and draws on its own.*
 
 ### Continuous LOD
 
@@ -16,7 +23,7 @@ Each mesh is preprocessed into a DAG of meshlet groups by iterative simplificati
 
 ### GPU-driven culling
 
-Culling happens on the GPU. Instances are expanded into per-meshlet work items, each meshlet gets frustum + backface + occlusion tested, and survivors are appended into an indirect buffer. There is no per-object CPU draw submission - the whole scene renders as a handful of indirect dispatches.
+Culling happens on the GPU. Instances are expanded into per-meshlet work items, each meshlet gets frustum + backface + occlusion tested, and survivors are appended into an indirect buffer. There is no heavy per-object work on the CPU - the whole scene renders as a handful of indirect dispatches.
 
 ### Two-pass HiZ occlusion
 
@@ -38,7 +45,7 @@ flowchart LR
 
 ### Geometry streaming
 
-Meshlet data streams in on demand: the GPU asks for what it needs while traversing the LOD hierarchy, the CPU uploads it, and groups that haven't been used in a while get evicted. A coarse root group per mesh stays pinned as a fallback, so the scene always renders even when finer detail hasn't streamed in yet. This is how the engine handles scenes larger than VRAM - for example, 25 copies of the 70 GB NVIDIA Zorah scene packed into one world, streaming in and out as the camera moves.
+Meshlet data streams in on demand: the GPU asks for what it needs while traversing the LOD hierarchy, the CPU uploads it, and groups that haven't been used in a while get evicted. A coarse root group per mesh stays pinned as a fallback, so the scene always renders even when finer detail hasn't streamed in yet. This is how the engine handles scenes far larger than VRAM. One copy of NVIDIA's Zorah scene is ~10 GB as glTF and ~70 GB once baked into meshlets and LODs - the engine packs 25 copies into a single world and renders it using up to 1 GB of VRAM, streaming the rest in and out as the camera moves.
 
 ![Zorah streaming](.github/images/zorah-streaming.png)
 
@@ -64,13 +71,18 @@ Additional probes passes:
 
 Per-frame cost is bounded by `probes_per_frame` × `rays_per_probe`, so the GI stays at a fixed budget regardless of volume size.
 
+## FrameGraph
+
+Every frame is described as a graph of passes and resources. The engine schedules it, allocates transient resources, and inserts every layout transition and barrier automatically - renderers just declare what they read and write. A whole frame, visualized with GraphViz:
+
+![FrameGraph](.github/images/framegraph.png)
+
 ## Other features
 
 - **Lighting** - deferred PBR with directional and point lights, IBL (prefiltered specular + diffuse irradiance + BRDF LUT)
 - **Shadows** - directional lights (cascaded shadow maps), point lights (cube shadow maps), with optional ray-traced shadows
 - **Path tracer** - reference path tracer, used as ground truth
-- **RHI** - single abstraction over Vulkan and DX12 with fully bindless resources
-- **FrameGraph** - automatic layout transitions, transient resources, GraphViz visualization
+- **RHI** - single abstraction over Vulkan and DX12 with bindless resources
 - **Tooling** - Tracy CPU + GPU profiling, console variables, debug visualizations
 - **Physics** - PhysX integration
 
