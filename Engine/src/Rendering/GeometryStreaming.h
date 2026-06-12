@@ -10,6 +10,7 @@ class GeometryStreaming
 public:
 	void init();
 	void registerMesh(Engine::Mesh *mesh, const Engine::MeshletFileView &file_view);
+	void unregisterMesh(Engine::Mesh *mesh);
 	void update();
 	void importBuffers(FrameGraph &frame_graph);
 	void addAgeFilterAndReadbackPasses(FrameGraph &frame_graph);
@@ -68,10 +69,18 @@ private:
 		uint64_t frame;
 	};
 
+	struct FreeRange
+	{
+		uint32_t offset;
+		uint32_t count;
+	};
+	eastl::vector<FreeRange> free_ranges;
+
 	void process_gpu_requests(int frame);
 	void process_deferred_frees();
 	eastl::vector<uint32_t> upload_pending_groups(RHICommandList *cmd_list);
 	uint32_t upload_group_data(Engine::Mesh *mesh, uint32_t local_group_id, const Engine::MeshletFileView &file_view, RHICommandList *cmd_list);
+	uint32_t allocate_residency_range(uint32_t count);
 
 	eastl::unordered_map<Engine::Mesh *, RegisteredMesh> registered_meshes;
 	eastl::vector<Engine::Mesh *> flat_to_mesh;

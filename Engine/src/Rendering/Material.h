@@ -34,10 +34,7 @@ public:
 			{
 				if (material_texture.bindless_id == 0 && material_texture.asset_handle.isValid())
 				{
-					auto runtime_path = AssetManager::getPathFromGUID(material_texture.asset_handle);
-					if (runtime_path.empty())
-						return;
-					auto tex = AssetManager::getTextureAsset(runtime_path.string().c_str()); // TODO: desc
+					auto tex = AssetManager::getTextureAssetByGuid(material_texture.asset_handle);
 					if (!tex || !tex->isValid())
 						return;
 					material_texture.bindless_id = tex->getShaderResourceView()->getBindlessIndex();
@@ -49,6 +46,15 @@ public:
 			update_texture(roughness_tex);
 			update_texture(specular_tex);
 			update_texture(normal_tex);
+		}
+
+		void invalidateTextures()
+		{
+			albedo_tex.bindless_id = 0;
+			metalness_tex.bindless_id = 0;
+			roughness_tex.bindless_id = 0;
+			specular_tex.bindless_id = 0;
+			normal_tex.bindless_id = 0;
 		}
 
 		void serialize(Stream &stream)

@@ -7,6 +7,7 @@
 #include <glm/gtc/type_ptr.hpp>
 #include "Application.h"
 #include "Rendering/Model.h"
+#include "Assets/AssetManager.h"
 
 bool ViewportPanel::renderImGui(EditorContext &context, float delta_time)
 {
@@ -90,7 +91,7 @@ bool ViewportPanel::renderImGui(EditorContext &context, float delta_time)
 		{
 			const char *payload_str = (const char *)payload->Data;
 			eastl::string extension = std::filesystem::path(payload_str).extension().string().c_str();
-			if (extension == ".fbx" || extension == ".obj")
+			if (AssetManager::getAssetTypeFromExtension(extension) == ASSET_TYPE_MODEL)
 			{
 				if (payload = ImGui::AcceptDragDropPayload("DND_ASSET_PATH"))
 				{

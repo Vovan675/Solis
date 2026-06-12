@@ -53,6 +53,13 @@ public:
 	}
 
 	template<typename T>
+	void markDirty() const
+	{
+		// Maybe in future add to dirty list and update at the end of frame
+		scene->registry.patch<T>(entity_id);
+	}
+
+	template<typename T>
 	void removeComponent() const
 	{
 		scene->registry.remove<T>(entity_id);

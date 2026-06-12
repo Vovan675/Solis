@@ -103,6 +103,7 @@ void HierarchyPanel::renderImGui(EditorContext &context)
 				start_entity = transform.owner;
 			}
 			context.selected_entity = Entity(transform.owner);
+			context.selection_type = EditorSelectionType::Entity;
 		}
 
 		if (ImGui::BeginPopupContextItem())

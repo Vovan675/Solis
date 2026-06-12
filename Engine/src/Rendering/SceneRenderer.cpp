@@ -6,11 +6,21 @@
 #include "GlobalBufferCache.h"
 #include "Rendering/Model.h"
 #include "Rendering/UploadManager.h"
+#include "Assets/AssetManager.h"
 
 SceneRenderer::SceneRenderer()
 {
 	shadow_renderer.debug_renderer = &debug_renderer;
 	geometry_streaming.init();
+
+	AssetManager::onPreReimport().connect<&SceneRenderer::on_asset_pre_reimport>(this);
+	AssetManager::onPostReimport().connect<&SceneRenderer::on_asset_post_reimport>(this);
+}
+
+SceneRenderer::~SceneRenderer()
+{
+	AssetManager::onPreReimport().disconnect(this);
+	AssetManager::onPostReimport().disconnect(this);
 }
 
 void SceneRenderer::setScene(Ref<Scene> scene)
@@ -19,7 +29,10 @@ void SceneRenderer::setScene(Ref<Scene> scene)
 		return;
 
 	if (this->scene)
+	{
 		this->scene->registry.on_construct<MeshRendererComponent>().disconnect<&SceneRenderer::on_mesh_added>(this);
+		this->scene->registry.on_update<MeshRendererComponent>().disconnect<&SceneRenderer::on_mesh_added>(this);
+	}
 
 	this->scene = scene;
 	if (engine_ray_tracing)
@@ -37,6 +50,7 @@ void SceneRenderer::setScene(Ref<Scene> scene)
 		on_mesh_added(scene->registry, entity);
 
 	scene->registry.on_construct<MeshRendererComponent>().connect<&SceneRenderer::on_mesh_added>(this);
+	scene->registry.on_update<MeshRendererComponent>().connect<&SceneRenderer::on_mesh_added>(this);
 }
 
 void SceneRenderer::on_mesh_added(entt::registry &registry, entt::entity entity)
@@ -49,6 +63,53 @@ void SceneRenderer::on_mesh_added(entt::registry &registry, entt::entity entity)
 			continue;
 		const Engine::MeshletFileView *file_view = mesh_renderer.meshes[i].model->getFileView(mesh->id);
 		geometry_streaming.registerMesh(mesh, *file_view);
+	}
+}
+
+void SceneRenderer::on_asset_pre_reimport(Asset *asset)
+{
+	if (!scene || asset->getAssetType() != ASSET_TYPE_MODEL)
+		return;
+
+	Model *model = static_cast<Model *>(asset);
+	eastl::vector<Ref<Engine::Mesh>> old_meshes;
+	model->getMeshes(old_meshes);
+	for (auto &old_mesh : old_meshes)
+		geometry_streaming.unregisterMesh(old_mesh);
+}
+
+void SceneRenderer::on_asset_post_reimport(Asset *asset)
+{
+	if (!scene)
+		return;
+
+	if (asset->getAssetType() == ASSET_TYPE_TEXTURE)
+	{
+		auto view = scene->registry.view<MeshRendererComponent>();
+		for (entt::entity entity : view)
+		{
+			MeshRendererComponent &mesh_renderer = view.get<MeshRendererComponent>(entity);
+			for (Ref<Material> &material : mesh_renderer.materials)
+				material->invalidateTextures();
+		}
+		render_first_frame = true; // TODO: remove from here, should be reactive
+	} else if (asset->getAssetType() == ASSET_TYPE_MODEL)
+	{
+		Model *model = static_cast<Model *>(asset);
+		auto view = scene->registry.view<MeshRendererComponent>();
+		for (entt::entity entity : view)
+		{
+			MeshRendererComponent &mesh_renderer = view.get<MeshRendererComponent>(entity);
+			for (auto &mesh_id : mesh_renderer.meshes)
+			{
+				if (mesh_id.model == model)
+				{
+					on_mesh_added(scene->registry, entity);
+					break;
+				}
+			}
+		}
+		render_first_frame = true; // TODO: remove from here, should be reactive
 	}
 }
 
@@ -358,6 +419,7 @@ void SceneRenderer::update(Camera *camera)
 				}
 				mesh_gpu.root_group_offset = mesh->meshlet_data ? mesh->meshlet_data->meshlet_root_group_local_offset : 0;
 				mesh_gpu.attribute_flags = mesh->attribute_flags;
+				mesh_gpu.flags = mesh->useMeshlets() ? MESH_FLAG_MESHLET : 0;
 
 				/*
 				for (const auto &group : mesh->meshlet_geometry->meshlet_lod_groups)

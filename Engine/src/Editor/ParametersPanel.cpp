@@ -6,7 +6,7 @@
 #include "Rendering/Model.h"
 #include "imgui/ImGuiWrapper.h"
 #include "Scene/Components.h"
-
+#include "AssetBrowserPanel.h"
 
 template <typename C, typename F>
 static void drawComponent(Entity entity, const char *title, F func)
@@ -49,14 +49,69 @@ static void addComponentButton(Entity entity, const char *title)
 		entity.addComponent<C>();
 }
 
-bool ParametersPanel::renderImGui(EditorContext context, DebugRenderer &debug_renderer)
+static std::string yamlToString(const YAML::Node &node)
+{
+	YAML::Emitter emitter;
+	emitter << node;
+	return emitter.c_str();
+}
+
+static bool assetReferenceField(EditorContext &context, const char *label, Engine::GUID current_handle, AssetType accepted_type, std::filesystem::path &picked_path)
+{
+	ImGui::PushID(label);
+	bool picked = false;
+
+	std::filesystem::path current_path = AssetManager::getPathFromGUID(current_handle);
+	eastl::string field_text = current_path.empty() ? "None" : current_path.filename().string().c_str();
+
+	ImGui::Text("%s", label);
+	ImGui::SameLine();
+	if (ImGui::Button(field_text.c_str()))
+	{
+		std::filesystem::path path = Filesystem::openFileDialog().c_str();
+		if (!path.empty() && AssetManager::getAssetTypeFromExtension(path.extension().string().c_str()) == accepted_type)
+		{
+			picked_path = path;
+			picked = true;
+		}
+	}
+
+	if (ImGui::BeginDragDropTarget())
+	{
+		if (const ImGuiPayload *payload = ImGui::AcceptDragDropPayload("DND_ASSET_PATH"))
+		{
+			std::filesystem::path dropped = (const char *)payload->Data;
+			if (AssetManager::getAssetTypeFromExtension(dropped.extension().string().c_str()) == accepted_type)
+			{
+				picked_path = dropped;
+				picked = true;
+			}
+		}
+		ImGui::EndDragDropTarget();
+	}
+
+	ImGui::SameLine();
+	ImGui::BeginDisabled(!current_handle.isValid());
+	if (ImGui::Button(ICON_FA_UP_RIGHT_FROM_SQUARE))
+	{
+		context.selected_path = current_path;
+		context.selection_type = EditorSelectionType::Asset;
+	}
+	ImGui::EndDisabled();
+
+	ImGui::PopID();
+	return picked;
+}
+
+bool ParametersPanel::renderImGui(EditorContext &context, DebugRenderer &debug_renderer, AssetBrowserPanel &asset_browser)
 {
 	ImGui::Begin((eastl::string(ICON_FA_PEN) + " Parameters###Parameters").c_str());
 	bool is_using_ui = ImGui::IsWindowFocused();
 
 	auto selected_path = context.selected_path;
 	Entity entity = context.selected_entity;
-	if (entity)
+	bool prefer_asset = context.selection_type == EditorSelectionType::Asset && !selected_path.empty();
+	if (entity && !prefer_asset)
 	{
 		drawComponent<TransformComponent>(entity, "Transform", [&](TransformComponent &transform_component) {
 			glm::vec3 position = transform_component.getLocalPosition();
@@ -78,24 +133,24 @@ bool ParametersPanel::renderImGui(EditorContext context, DebugRenderer &debug_re
 			if (mesh_renderer.meshes.empty())
 				ImGui::TextColored(ImVec4(1, 0, 0, 1), "No mesh");
 
-			// TODO: Select mesh (one piece of already loaded model asset)
-			if (ImGui::Button("Select mesh"))
+			Engine::GUID model_handle = 0;
+			if (!mesh_renderer.meshes.empty())
+				model_handle = AssetManager::getGUIDFromPath(mesh_renderer.meshes[0].model->getPath().c_str());
+
+			std::filesystem::path picked_model_path;
+			if (assetReferenceField(context, "Mesh", model_handle, ASSET_TYPE_MODEL, picked_model_path))
 			{
-				eastl::string path = Filesystem::openFileDialog();
-				if (!path.empty())
+				auto model = AssetManager::getModelAsset(picked_model_path.string().c_str());
+				mesh_renderer.meshes.clear();
+				for (auto node : model->getLinearNodes())
 				{
-					auto model = AssetManager::getModelAsset(path);
-					mesh_renderer.meshes.clear();
-					auto &linear_nodes = model->getLinearNodes();
-					for (auto node : linear_nodes)
+					if (!node->primitives.empty())
 					{
-						if (!node->primitives.empty())
-						{
-							mesh_renderer.setFromMeshNode(model, node);
-							break;
-						}
+						mesh_renderer.setFromMeshNode(model, node);
+						break;
 					}
 				}
+				entity.markDirty<MeshRendererComponent>();
 			}
 
 			ImGui::SeparatorText("Materials");
@@ -107,7 +162,7 @@ bool ParametersPanel::renderImGui(EditorContext context, DebugRenderer &debug_re
 				if (ImGui::TreeNode(name.c_str()))
 				{
 
-					auto show_texture_edit = [](Material::MaterialTexture &material_texture, const char *name)
+					auto show_texture_edit = [&context](Material::MaterialTexture &material_texture, const char *name)
 					{
 						bool use_texture = material_texture.bindless_id != 0;
 						eastl::string label = eastl::string("Use ") + name + " texture";
@@ -117,41 +172,16 @@ bool ParametersPanel::renderImGui(EditorContext context, DebugRenderer &debug_re
 								material_texture.asset_handle = 0;
 							material_texture.bindless_id = use_texture ? 1 : 0;
 						}
-						if (use_texture)
-						{
-							if (ImGui::Button("Select"))
-							{
-								eastl::string path = Filesystem::openFileDialog();
-								if (!path.empty())
-								{
-									material_texture.asset_handle = AssetManager::getGUIDFromPath(path.c_str());
-									material_texture.bindless_id = 0;
-								}
-							}
-
-							// TODO: make for all, unify using struct for payload
-							if (ImGui::BeginDragDropTarget())
-							{
-								if (const ImGuiPayload *payload = ImGui::AcceptDragDropPayload("DND_ASSET_PATH", ImGuiDragDropFlags_AcceptPeekOnly))
-								{
-									const char *payload_str = (const char *)payload->Data;
-									eastl::string extension = std::filesystem::path(payload_str).extension().string().c_str();
-									if (extension == ".dds" || extension == ".png" || extension == ".jpg" || extension == ".tga")
-									{
-										if (payload = ImGui::AcceptDragDropPayload("DND_ASSET_PATH"))
-										{
-											material_texture.asset_handle = AssetManager::getGUIDFromPath(payload_str);
-											material_texture.bindless_id = 0;
-										}
-									}
-								}
-								ImGui::EndDragDropTarget();
-							}
-							return true;
-						} else
-						{
+						if (!use_texture)
 							return false;
+
+						std::filesystem::path picked_texture_path;
+						if (assetReferenceField(context, name, material_texture.asset_handle, ASSET_TYPE_TEXTURE, picked_texture_path))
+						{
+							material_texture.asset_handle = AssetManager::getGUIDFromPath(picked_texture_path);
+							material_texture.bindless_id = 0;
 						}
+						return true;
 					};
 
 					if (!show_texture_edit(mat->albedo_tex, "albedo"))
@@ -256,30 +286,49 @@ bool ParametersPanel::renderImGui(EditorContext context, DebugRenderer &debug_re
 		}
 	} else if (!selected_path.empty())
 	{
-		auto &metadata = AssetManager::getMutableMetadata(selected_path);
+		if (AssetManager::getAssetTypeFromExtension(selected_path.extension().string().c_str()) != ASSET_TYPE_UNDEFINED)
+			AssetManager::getOrCreateMetadata(selected_path);
+
+		auto &metadata = AssetManager::getMetadata(selected_path);
 		if (metadata.isValid())
 		{
+			ImGui::SeparatorText(selected_path.filename().string().c_str());
+			if (ImGui::SmallButton(ICON_FA_MAGNIFYING_GLASS " Show in Asset Browser"))
+				asset_browser.setCurrentAsset(selected_path);
+
 			ImGui::Text("Asset Handle: %llu", metadata.asset_handle);
 			ImGui::Text("Runtime Handle: %llu", metadata.runtime_handle);
 
 			static bool reimported = false;
 
+			static std::filesystem::path last_selected_path;
+			static YAML::Node edited_params;
+			static std::string base_params_string;
+			if (last_selected_path != selected_path)
+			{
+				last_selected_path = selected_path;
+				edited_params = YAML::Clone(metadata.params);
+				base_params_string = yamlToString(edited_params);
+			}
+
+			if (metadata.type == ASSET_TYPE_MODEL)
+			{
+				bool generate_meshlets = edited_params["generate_meshlets"].as<bool>(true);
+				if (ImGui::Checkbox("Meshlet (Nanite) geometry", &generate_meshlets))
+					edited_params["generate_meshlets"] = generate_meshlets;
+			}
+
 			if (metadata.type == ASSET_TYPE_TEXTURE)
 			{
-				bool generate_mipmaps = metadata.params["generate_mipmaps"].as<int>(1);
+				bool generate_mipmaps = edited_params["generate_mipmaps"].as<int>(1);
 				if (ImGui::Checkbox("Generate Mipmaps", &generate_mipmaps))
-				{
-					metadata.params["generate_mipmaps"] = (int)generate_mipmaps;
-					AssetManager::saveMetadata(metadata);
-				}
+					edited_params["generate_mipmaps"] = (int)generate_mipmaps;
 
-				auto texture = AssetManager::getTextureAsset(AssetManager::getRuntimeAssetPath(selected_path).string().c_str());
+				auto texture = AssetManager::getTextureAsset(selected_path.string().c_str());
 
 				static int mip_index = 0;
 				if (reimported)
-				{
 					mip_index = 0;
-				}
 				ImGui::SliderInt("Mip", &mip_index, 0, texture->getDescription().mip_levels - 1);
 
 				float aspect = (float)texture->getWidth() / (float)texture->getHeight();
@@ -292,12 +341,20 @@ bool ParametersPanel::renderImGui(EditorContext context, DebugRenderer &debug_re
 					ImGui::Image(ImGuiWrapper::getTextureId(texture, mip_index), viewport_size, {0, 0}, {1, 1});
 			}
 
+			bool params_dirty = yamlToString(edited_params) != base_params_string;
 			reimported = false;
+			if (params_dirty)
+				ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.8f, 0.4f, 0.0f, 1.0f));
 			if (ImGui::Button("Reimport"))
 			{
 				reimported = true;
-				AssetManager::reloadAsset(selected_path);
+				metadata.params = YAML::Clone(edited_params);
+				AssetManager::saveMetadata(metadata);
+				AssetManager::reimport(selected_path);
+				base_params_string = yamlToString(edited_params);
 			}
+			if (params_dirty)
+				ImGui::PopStyleColor();
 		}
 	}
 

@@ -28,6 +28,10 @@
 #define DrawIndexedCount
 #define DrawCallsInstances
 
+#define TraditionalDrawArgs
+#define TraditionalDrawCount
+#define TraditionalDrawInstances
+
 #define GBufferAlbedo
 #define GBufferNormal
 #define GBufferDepth

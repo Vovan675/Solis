@@ -200,9 +200,14 @@ void AssimpImporter::processNode(MeshNode *mesh_node, aiNode *node, const aiScen
 	}
 }
 
-void AssimpImporter::import(const char *path, Model *model, const ModelImportSettings &settings)
+static constexpr uintmax_t AUTO_MESHLET_SOURCE_SIZE = 1024ull * 1024 * 1024;
+
+void AssimpImporter::import(const char *path, Model *model, ModelImportSettings &settings)
 {
 	PROFILE_CPU_FUNCTION();
+
+	if (!settings.generate_meshlets_explicitly_set)
+		settings.generate_meshlets = std::filesystem::file_size(path) > AUTO_MESHLET_SOURCE_SIZE;
 
 	Assimp::Importer importer;
 	const aiScene *scene = importer.ReadFile(path,
@@ -230,5 +235,6 @@ void AssimpImporter::import(const char *path, Model *model, const ModelImportSet
 	model->root_node->updateTransform();
 
 	auto mesh_path = AssetManager::getRuntimeAssetPath(std::filesystem::path(path));
+	std::filesystem::create_directories(mesh_path.parent_path());
 	MeshSerializer::save(model, mesh_path.string().c_str(), &build_data_map);
 }

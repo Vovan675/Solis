@@ -14,6 +14,7 @@ public:
 	Engine::GUID asset_handle;
 
 	virtual AssetType getAssetType() const = 0;
+	virtual void reload() {}
 };
 
 struct AssetMetadata
@@ -23,7 +24,6 @@ struct AssetMetadata
 	std::filesystem::path source_path;
 	AssetType type;
 	YAML::Node params;
-	//std::unordered_map<std::string, std::variant> import_options;
 
 	bool isValid() const
 	{

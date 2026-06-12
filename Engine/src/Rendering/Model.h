@@ -4,8 +4,6 @@
 #include "Scene/Entity.h"
 #include "Rendering/Material.h"
 
-struct ModelImportSettings;
-
 struct MeshNode
 {
 	struct Primitive
@@ -51,7 +49,8 @@ public:
 
 	AssetType getAssetType() const override { return ASSET_TYPE_MODEL; }
 
-	void load(const char *path, const ModelImportSettings *settings = nullptr);
+	void load(const char *path);
+	void reload() override;
 
 	static Entity createEntity(Model *model);
 
@@ -60,6 +59,12 @@ public:
 		if (meshes_id.find(id) == meshes_id.end())
 			return nullptr;
 		return meshes_id[id];
+	}
+
+	void getMeshes(eastl::vector<Ref<Engine::Mesh>> &out) const
+	{
+		for (auto &[id, mesh] : meshes_id)
+			out.push_back(mesh);
 	}
 
 	MeshNode *getRootNode() const { return root_node; }

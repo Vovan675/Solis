@@ -98,24 +98,24 @@ RawVertexData loadMeshletVertex(uint local_vertex_id, MeshletDraw draw)
 	return vertex;
 }
 
-PixelInput transformMeshletVertex(RawVertexData raw_vertex, MeshletDraw draw)
+PixelInput transformVertex(RawVertexData raw_vertex, Instance instance, uint attribute_flags)
 {
 	PixelInput output;
 
-	float4 world_pos = mul(draw.instance.world_transform, float4(raw_vertex.position, 1.0));
+	float4 world_pos = mul(instance.world_transform, float4(raw_vertex.position, 1.0));
 	output.position = mul(view_projection, world_pos);
 
-	float3x3 normal_matrix = (float3x3)draw.instance.world_transform;
+	float3x3 normal_matrix = (float3x3)instance.world_transform;
 	output.world_normal = normalize(mul(normal_matrix, raw_vertex.normal));
 	output.world_position = world_pos.xyz;
-	if (draw.mesh.attribute_flags & MESH_ATTR_TANGENT)
+	if (attribute_flags & MESH_ATTR_TANGENT)
 		output.world_tangent = float4(normalize(mul(normal_matrix, raw_vertex.tangent.xyz)), raw_vertex.tangent.w);
 	else
 		output.world_tangent = float4(0, 0, 0, 1);
 
 	output.uv = raw_vertex.uv;
-	output.material_id = draw.instance.material_id;
-	output.attribute_flags = draw.mesh.attribute_flags;
+	output.material_id = instance.material_id;
+	output.attribute_flags = attribute_flags;
 
 	return output;
 }
@@ -129,7 +129,7 @@ static ByteAddressBuffer lod_groups_buffer = ResourceDescriptorHeap[global_meshl
 
 [NumThreads(32, 1, 1)]
 [OutputTopology("triangle")]
-void MSMain(uint group_index : SV_GroupIndex, uint group_id : SV_GroupID,
+void MSMainMeshlet(uint group_index : SV_GroupIndex, uint group_id : SV_GroupID,
 			out vertices PixelInput verts[128], out indices uint3 indices[128])
 {
 	MeshletDraw draw = fetchMeshletDraw(group_id);
@@ -142,7 +142,7 @@ void MSMain(uint group_index : SV_GroupIndex, uint group_id : SV_GroupID,
 	for (uint i = group_index; i < vertex_count; i += 32)
 	{
 		RawVertexData raw_vertex = loadMeshletVertex(i, draw);
-		PixelInput vert = transformMeshletVertex(raw_vertex, draw);
+		PixelInput vert = transformVertex(raw_vertex, draw.instance, draw.mesh.attribute_flags);
 		#if VISUALIZE_TRIANGLES
 			vert.meshlet_id = draw.meshlet.vertex_offset + i;
 		#elif VISUALIZE_MESHLETS
@@ -167,12 +167,12 @@ void MSMain(uint group_index : SV_GroupIndex, uint group_id : SV_GroupID,
 	}
 }
 
-PixelInput VSMain(VertexInput IN)
+PixelInput VSMainMeshlet(VertexInput IN)
 {
 	MeshletDraw draw = fetchMeshletDraw(IN.instance_id);
 
 	RawVertexData raw_vertex = loadMeshletVertex(IN.local_vertex_id, draw);
-	PixelInput output = transformMeshletVertex(raw_vertex, draw);
+	PixelInput output = transformVertex(raw_vertex, draw.instance, draw.mesh.attribute_flags);
 
 	#if VISUALIZE_TRIANGLES
 		output.meshlet_id = IN.local_vertex_id;
@@ -182,6 +182,25 @@ PixelInput VSMain(VertexInput IN)
 		output.meshlet_id = draw.meshlet.group_id;
 	#endif
 	return output;
+}
+
+PixelInput VSMainTraditional(uint instance_id : INSTANCE_ID, uint vertex_id : SV_VertexID)
+{
+	Instance instance = getInstance(instance_id);
+	Mesh mesh = getMesh(instance.mesh_id);
+
+	uint index = GetMeshVertexData<uint>(mesh.index_buffer_id, 0, vertex_id, sizeof(uint));
+
+	RawVertexData vertex;
+	vertex.position = GetMeshVertexData<float3>(mesh.vertex_buffer_id, mesh.positions_offset, index, mesh.vertex_stride);
+	vertex.normal = GetMeshVertexData<float3>(mesh.vertex_buffer_id, mesh.normals_offset, index, mesh.vertex_stride);
+	vertex.uv = GetMeshVertexData<float2>(mesh.vertex_buffer_id, mesh.uvs_offset, index, mesh.vertex_stride);
+
+	float3 tangent = GetMeshVertexData<float3>(mesh.vertex_buffer_id, mesh.tangents_offset, index, mesh.vertex_stride);
+	float tangent_sign = GetMeshVertexData<float>(mesh.vertex_buffer_id, mesh.tangents_offset + 12, index, mesh.vertex_stride);
+	vertex.tangent = float4(tangent, tangent_sign);
+
+	return transformVertex(vertex, instance, mesh.attribute_flags);
 }
 
 

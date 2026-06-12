@@ -382,7 +382,9 @@ static void process_node(const cgltf_node *gltf_node, MeshNode *parent,
 		process_node(gltf_node->children[c], node, linear_nodes, mesh_cache, path);
 }
 
-void GltfImporter::import(const char *path, Model *model, const ModelImportSettings &settings)
+static constexpr uint64_t AUTO_MESHLET_VERTEX_COUNT = 1'000'000;
+
+void GltfImporter::import(const char *path, Model *model, ModelImportSettings &settings)
 {
 	PROFILE_CPU_FUNCTION();
 
@@ -482,6 +484,14 @@ void GltfImporter::import(const char *path, Model *model, const ModelImportSetti
 		return get_total_vertices(a.gltf_mesh) > get_total_vertices(b.gltf_mesh);
 	});
 
+	if (!settings.generate_meshlets_explicitly_set)
+	{
+		uint64_t total_vertices = 0;
+		for (const MeshBuildJob &job : jobs)
+			total_vertices += get_total_vertices(job.gltf_mesh);
+		settings.generate_meshlets = total_vertices > AUTO_MESHLET_VERTEX_COUNT;
+	}
+
 	// Remove some jobs for debugging
 	#if GLTF_IMPORT_MESH_START > 0
 	if ((int)jobs.size() > GLTF_IMPORT_MESH_START)
@@ -505,6 +515,7 @@ void GltfImporter::import(const char *path, Model *model, const ModelImportSetti
 
 	// Parallel vertex data extraction, meshlet building, output file write.
 	auto mesh_path = AssetManager::getRuntimeAssetPath(std::filesystem::path(path));
+	std::filesystem::create_directories(mesh_path.parent_path());
 	auto writer = MeshSerializer::beginStream(mesh_path.string().c_str());
 
 	std::atomic<int> job_counter = 0;
@@ -556,7 +567,14 @@ void GltfImporter::import(const char *path, Model *model, const ModelImportSetti
 
 				MeshletBuildData build_data;
 				if (settings.generate_meshlets)
+				{
 					build_data = MeshletBuilder::build(res.engine_mesh, mesh_name, vertices, indices, settings);
+				} else
+				{
+					res.engine_mesh->indexed.emplace();
+					res.engine_mesh->indexed->vertices = std::move(vertices);
+					res.engine_mesh->indexed->indices = std::move(indices);
+				}
 
 				{
 					std::unique_lock lock(*writer.mutex);

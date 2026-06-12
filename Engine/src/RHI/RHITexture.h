@@ -29,6 +29,7 @@ public:
 	virtual ~RHITexture() = default;
 
 	AssetType getAssetType() const override { return ASSET_TYPE_TEXTURE; }
+	void reload() override;
 
 	virtual void cleanup() {}
 	virtual void fill() {}

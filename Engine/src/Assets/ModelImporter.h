@@ -8,7 +8,7 @@ class Model;
 
 namespace ModelImporter
 {
-	inline void import(const char* path, Model* model, const ModelImportSettings& settings)
+	inline void import(const char* path, Model* model, ModelImportSettings& settings)
 	{
 		std::string ext = std::filesystem::path(path).extension().string();
 		if (ext == ".gltf" || ext == ".glb")

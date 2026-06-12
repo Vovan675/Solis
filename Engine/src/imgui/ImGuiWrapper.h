@@ -20,4 +20,6 @@ private:
 		uint64_t last_access_frame;
 	};
 	static eastl::unordered_map<VkImageView, DescriptorSetUsage> image_view_to_descriptor_set;
+
+	static eastl::unordered_map<SIZE_T, ImTextureID> dx12_frame_texture_cache;
 };

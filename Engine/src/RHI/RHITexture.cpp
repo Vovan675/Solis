@@ -5,6 +5,19 @@
 #define TINYDDSLOADER_IMPLEMENTATION
 #include "tinyddsloader.h"
 #include "Utils/Math.h"
+#include "Assets/AssetManager.h"
+
+void RHITexture::reload()
+{
+	std::filesystem::path current = AssetManager::getPathFromGUID(asset_handle);
+	if (current.empty())
+		current = path.c_str();
+	if (current.empty())
+		return;
+
+	AssetManager::recreateRuntime(current);
+	load(current.string().c_str());
+}
 
 uint32_t RHITexture::get_block_size(Format format) const
 {

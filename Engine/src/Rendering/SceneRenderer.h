@@ -23,10 +23,13 @@
 #include "renderers/PathTracingRenderer.h"
 #include "ShaderStructs.h"
 
+class Asset;
+
 class SceneRenderer : public RefCounted
 {
 public:
 	SceneRenderer();
+	~SceneRenderer();
 
 	void setScene(Ref<Scene> scene);
 	void render(Camera *camera, RHITextureRef result_texture);
@@ -40,6 +43,9 @@ public:
 	void update(Camera *camera);
 
 	void on_mesh_added(entt::registry &registry, entt::entity entity);
+
+	void on_asset_pre_reimport(Asset *asset);
+	void on_asset_post_reimport(Asset *asset);
 
 	void gpu_frame_cull(FrameGraph &frame_graph);
 

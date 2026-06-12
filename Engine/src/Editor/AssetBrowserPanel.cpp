@@ -14,6 +14,9 @@ static eastl::string get_file_entension(const eastl::string &filename)
 
 void AssetBrowserPanel::init()
 {
+	root_path = AssetManager::getAssetsRoot();
+	current_path = root_path;
+
 	file_texture = AssetManager::getTextureAsset("assets/editor/icons/file.png");
 	scene_texture = AssetManager::getTextureAsset("assets/editor/icons/scene.png");
 	texture_texture = AssetManager::getTextureAsset("assets/editor/icons/texture.png");
@@ -30,7 +33,7 @@ bool AssetBrowserPanel::renderImGui(EditorContext &context)
 	ImGui::BeginChild("hierarchy view", ImVec2(150, 0), ImGuiChildFlags_Border | ImGuiChildFlags_ResizeX);
 	if (ImGui::TreeNode("..."))
 	{
-		render_directory("assets");
+		draw_directories_tree(root_path.string().c_str());
 		ImGui::TreePop();
 	}
 	ImGui::EndChild();
@@ -38,14 +41,14 @@ bool AssetBrowserPanel::renderImGui(EditorContext &context)
 
 	float start_x = ImGui::GetCursorPosX();
 	
-	if (current_grid_path != root_path)
+	if (current_path != root_path)
 	{
 		ImGui::PushFont(GuiUtils::roboto_regular_small);
 		if (ImGui::Button(ICON_FA_ARROW_LEFT))
-			current_grid_path = current_grid_path.parent_path();
+			current_path = current_path.parent_path();
 
 		std::filesystem::path path_accumulated = root_path.parent_path();
-		for (const auto& part : current_grid_path.relative_path())
+		for (const auto& part : current_path.relative_path())
 		{
 			ImGui::SameLine();
 
@@ -54,12 +57,12 @@ bool AssetBrowserPanel::renderImGui(EditorContext &context)
 
 			path_accumulated /= part;
 
-			bool already = path_accumulated == current_grid_path;
+			bool already = path_accumulated == current_path;
 
 			if (already)
 				ImGui::Text(part.generic_string().c_str());
 			else if (ImGui::Button(part.generic_string().c_str()))
-				current_grid_path = path_accumulated;
+				current_path = path_accumulated;
 		}
 		ImGui::PopFont();
 	}
@@ -76,17 +79,17 @@ bool AssetBrowserPanel::renderImGui(EditorContext &context)
 	ImGui::Columns(std::max(1, columns), 0, false);
 
 	int column = 0;
-	auto entries = get_directory_entries(current_grid_path);
+	auto entries = get_directory_entries(current_path);
 	for (const auto &entry : entries)
 	{
 		ImGui::PushID(entry.name.c_str());
-		std::filesystem::path child_path = current_grid_path / entry.name.c_str();
+		std::filesystem::path child_path = current_path / entry.name.c_str();
 
 		if (entry.isDirectory)
 		{
 			if (ImGui::ImageButton(entry.name.c_str(), ImGuiWrapper::getTextureId(folder_tex), tile_size, {0, 0}, {1, 1}))
 			{
-				current_grid_path /= entry.name.c_str();
+				current_path /= entry.name.c_str();
 			}
 		} else
 		{
@@ -94,26 +97,85 @@ bool AssetBrowserPanel::renderImGui(EditorContext &context)
 			ImVec4 color = child_path == context.selected_path ? ImVec4(0.6, 0.6, 0.6, 1.0) : ImVec4();
 			ImGui::ImageButton(entry.name.c_str(), ImGuiWrapper::getTextureId(file_icon), tile_size, {0, 0}, {1, 1}, color);
 			process_drag_drop_source(child_path);
-			if (ImGui::IsItemClicked())
+			process_asset_context_menu(child_path, context);
+			if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
 			{
-				if (ImGui::IsMouseDoubleClicked(0))
-					process_double_click(child_path);
-				else
+				process_double_click(child_path);
+			} else if (ImGui::IsItemDeactivated())
+			{
+				ImVec2 drag = ImGui::GetMouseDragDelta(ImGuiMouseButton_Left);
+				if (drag.x == 0.0f && drag.y == 0.0f)
+				{
 					context.selected_path = child_path;
+					context.selection_type = EditorSelectionType::Asset;
+				}
 			}
 		}
 		ImGui::Text(entry.name.c_str());
-		
+
 		ImGui::NextColumn();
 		ImGui::PopID();
 	}
 
 	ImGui::Columns(1);
 
+	draw_rename_popup(context);
+
 	ImGui::EndChild();
 
 	ImGui::End();
 	return is_used;
+}
+
+void AssetBrowserPanel::process_asset_context_menu(const std::filesystem::path &file, EditorContext &context)
+{
+	if (!ImGui::BeginPopupContextItem())
+		return;
+
+	if (ImGui::MenuItem("Rename"))
+	{
+		rename_target = file;
+		eastl::string name = file.filename().string().c_str();
+		strncpy(rename_buffer, name.c_str(), sizeof(rename_buffer) - 1);
+		rename_buffer[sizeof(rename_buffer) - 1] = 0;
+		open_rename_popup = true;
+	}
+	if (ImGui::MenuItem("Delete"))
+	{
+		AssetManager::deleteAsset(file);
+		if (context.selected_path == file)
+			context.selected_path.clear();
+		directories_cache.clear();
+	}
+	ImGui::EndPopup();
+}
+
+void AssetBrowserPanel::draw_rename_popup(EditorContext &context)
+{
+	if (open_rename_popup)
+	{
+		ImGui::OpenPopup("Rename Asset");
+		open_rename_popup = false;
+	}
+
+	if (!ImGui::BeginPopupModal("Rename Asset", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+		return;
+
+	ImGui::InputText("Name", rename_buffer, sizeof(rename_buffer));
+	if (ImGui::Button("OK") && rename_buffer[0])
+	{
+		std::filesystem::path new_path = rename_target.parent_path() / rename_buffer;
+		AssetManager::moveAsset(rename_target, new_path);
+		if (context.selected_path == rename_target)
+			context.selected_path = new_path;
+		directories_cache.clear();
+		ImGui::CloseCurrentPopup();
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("Cancel"))
+		ImGui::CloseCurrentPopup();
+
+	ImGui::EndPopup();
 }
 
 std::vector<FileEntry> AssetBrowserPanel::get_directory_entries(const std::filesystem::path &path)
@@ -142,29 +204,42 @@ std::vector<FileEntry> AssetBrowserPanel::get_directory_entries(const std::files
 	return entries;
 }
 
-void AssetBrowserPanel::render_directory(const eastl::string &path)
+bool AssetBrowserPanel::has_subdirectories(const std::filesystem::path &path)
+{
+	auto entries = get_directory_entries(path);
+	for (const auto &entry : entries)
+	{
+		if (entry.isDirectory)
+			return true;
+	}
+	return false;
+}
+
+void AssetBrowserPanel::draw_directories_tree(const eastl::string &path)
 {
 	auto entries = get_directory_entries(path.c_str());
 	for (const auto &entry : entries)
 	{
-		if (entry.isDirectory)
-		{
-			if (ImGui::TreeNode(entry.name.c_str()))
-			{
-				std::filesystem::path child_path = (std::filesystem::path(path.c_str()) / entry.name.c_str());
-				render_directory(child_path.string().c_str());
-				ImGui::TreePop();
-			}
-		} else
-		{
-			ImGui::TreeNodeEx(entry.name.c_str(), ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen);
-			std::filesystem::path child_path = (std::filesystem::path(path.c_str()) / entry.name.c_str());
-			process_drag_drop_source(child_path);
+		if (!entry.isDirectory)
+			continue;
 
-			if (ImGui::IsItemClicked() && ImGui::IsMouseDoubleClicked(0))
-			{
-				process_double_click(child_path);
-			}
+		std::filesystem::path child_path = (std::filesystem::path(path.c_str()) / entry.name.c_str());
+
+		ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth;
+		if (current_path == child_path)
+			flags |= ImGuiTreeNodeFlags_Selected;
+		if (!has_subdirectories(child_path))
+			flags |= ImGuiTreeNodeFlags_Leaf;
+
+		bool open = ImGui::TreeNodeEx(entry.name.c_str(), flags);
+
+		if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen())
+			current_path = child_path;
+
+		if (open)
+		{
+			draw_directories_tree(child_path.string().c_str());
+			ImGui::TreePop();
 		}
 	}
 }

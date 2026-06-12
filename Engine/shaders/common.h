@@ -129,26 +129,30 @@ struct Instance
 
 struct Mesh
 {
+	// Shared
 	uint vertex_buffer_id;
-	uint index_buffer_id;
 	uint vertex_stride;
 	uint positions_offset;
 	uint normals_offset;
 	uint tangents_offset;
 	uint uvs_offset;
+	uint attribute_flags;
+	uint flags;
+
+	// Traditional (non-meshleted)
+	uint index_buffer_id;
 	uint index_offset;
 	uint indices_count;
 
+	// Meshleted
 	uint meshlet_lod_groups_offset;
-
 	uint group_residency_offset; // start index in global group_residency buffer
 	uint root_group_offset; // local lod_nodes index of the root node
 	uint lod_nodes_offset; // offset in global lod_nodes buffer
-
-	uint attribute_flags;
 };
 
 #define MESH_ATTR_TANGENT (1u << 1)
+#define MESH_FLAG_MESHLET 0x1
 
 struct LODGroup
 {

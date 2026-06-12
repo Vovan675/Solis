@@ -16,6 +16,7 @@ struct ModelImportSettings
 	float color_weight = 0.0f;
 
 	bool generate_meshlets = true;
+	bool generate_meshlets_explicitly_set = false;
 
 	void loadFromYAML(const YAML::Node& node)
 	{
@@ -29,7 +30,11 @@ struct ModelImportSettings
 		if (node["tangent_weight"]) tangent_weight = node["tangent_weight"].as<float>();
 		if (node["uv_weight"]) uv_weight = node["uv_weight"].as<float>();
 		if (node["color_weight"]) color_weight = node["color_weight"].as<float>();
-		if (node["generate_meshlets"]) generate_meshlets = node["generate_meshlets"].as<bool>();
+		if (node["generate_meshlets"])
+		{
+			generate_meshlets = node["generate_meshlets"].as<bool>();
+			generate_meshlets_explicitly_set = true;
+		}
 
 		meshlet_max_vertices = glm::clamp(meshlet_max_vertices, 32u, 256u);
 		meshlet_max_triangles = glm::clamp(meshlet_max_triangles, 32u, 256u);

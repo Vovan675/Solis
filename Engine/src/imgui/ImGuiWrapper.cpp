@@ -13,6 +13,7 @@
 
 VkDescriptorPool ImGuiWrapper::descriptor_pool;
 eastl::unordered_map<VkImageView, ImGuiWrapper::DescriptorSetUsage> ImGuiWrapper::image_view_to_descriptor_set;
+eastl::unordered_map<SIZE_T, ImTextureID> ImGuiWrapper::dx12_frame_texture_cache;
 
 void ImGuiWrapper::init(GLFWwindow *window)
 {
@@ -109,6 +110,7 @@ void ImGuiWrapper::begin()
 		ImGui_ImplVulkan_NewFrame();
 	} else
 	{
+		dx12_frame_texture_cache.clear();
 		ImGui_ImplDX12_NewFrame();
 	}
 
@@ -166,8 +168,14 @@ ImTextureID ImGuiWrapper::getTextureId(RHITextureRef tex, int mip, int layer)
 		DX12TextureView *view = (DX12TextureView *)native_texture->getShaderResourceView(mip, layer);
 		D3D12_CPU_DESCRIPTOR_HANDLE cpu_handle_staging_heap = view->getDescriptor().getCpuHandle();
 
+		auto cached = dx12_frame_texture_cache.find(cpu_handle_staging_heap.ptr);
+		if (cached != dx12_frame_texture_cache.end())
+			return cached->second;
+
 		DX12Descriptor descriptor = rhi->cbv_srv_uav_additional_heap->allocate();
 		rhi->device->CopyDescriptorsSimple(1, descriptor.getCpuHandle(), cpu_handle_staging_heap, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-		return (ImTextureID)descriptor.getGpuHandle().ptr;
+		ImTextureID texture_id = (ImTextureID)descriptor.getGpuHandle().ptr;
+		dx12_frame_texture_cache[cpu_handle_staging_heap.ptr] = texture_id;
+		return texture_id;
 	}
 }

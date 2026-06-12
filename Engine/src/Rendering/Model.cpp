@@ -1,12 +1,9 @@
 #include "pch.h"
 #include "Rendering/Model.h"
-#include "Assets/ModelImporter.h"
 #include "Assets/MeshSerializer.h"
-#include "Assets/ModelImportSettings.h"
 #include "Assets/AssetManager.h"
 #include "Rendering/Material.h"
 #include "Scene/Components.h"
-#include "Core/Variables.h"
 #include "Math/EngineMath.h"
 
 Model::~Model()
@@ -24,19 +21,24 @@ void Model::cleanup()
 	mesh_file_memory.close();
 }
 
-void Model::load(const char *path, const ModelImportSettings *override_settings)
+void Model::load(const char *path)
 {
 	PROFILE_CPU_FUNCTION();
 
 	this->path = path;
 	auto mesh_path = AssetManager::getRuntimeAssetPath(std::filesystem::path(path));
-
-	if (!engine_reimport_assets && MeshSerializer::load(this, mesh_path.string().c_str()))
-		return;
-
-	ModelImportSettings settings = override_settings ? *override_settings : ModelImportSettings{};
-	ModelImporter::import(path, this, settings);
 	MeshSerializer::load(this, mesh_path.string().c_str());
+}
+
+void Model::reload()
+{
+	std::filesystem::path current = AssetManager::getPathFromGUID(asset_handle);
+	if (current.empty())
+		current = path.c_str();
+
+	cleanup();
+	AssetManager::recreateRuntime(current);
+	load(current.string().c_str());
 }
 
 void Model::assign_mesh_id(eastl::unordered_map<size_t, Ref<Engine::Mesh>> &meshes_id, Engine::Mesh *mesh, const eastl::string &node_name, const eastl::string &prim_name)
@@ -76,6 +78,7 @@ Entity Model::create_entity_node(Model *model, MeshNode *node, Scene *scene)
 			mesh_renderer.meshes.push_back(mesh_id);
 			mesh_renderer.materials.push_back(prim.material);
 		}
+		entity.markDirty<MeshRendererComponent>();
 	}
 
 	transform_component.setLocalTransform(node->local_model_matrix);

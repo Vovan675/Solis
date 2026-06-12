@@ -8,7 +8,6 @@
 #include "dds_helpers.h"
 #include "dds.h"
 #include "Utils/FileStream.h"
-#include "Assets/AssetImporter.h"
 #include "Assets/AssetManager.h"
 
 static CMP_FORMAT to_cmp_format(Format format)

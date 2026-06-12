@@ -100,6 +100,31 @@ void GeometryStreaming::init()
 		stream_requests_readback[i] = create_storage_buffer(STREAM_REQUESTS_BUFFER_SIZE, BufferUsage::READBACK_BUFFER, false, "Streaming Requests Readback");
 }
 
+// Free list range allocation
+uint32_t GeometryStreaming::allocate_residency_range(uint32_t count)
+{
+	for (size_t i = 0; i < free_ranges.size(); i++)
+	{
+		if (free_ranges[i].count < count)
+			continue;
+		uint32_t offset = free_ranges[i].offset;
+		if (free_ranges[i].count == count)
+		{
+			free_ranges.erase(free_ranges.begin() + i);
+		} else
+		{
+			free_ranges[i].offset += count;
+			free_ranges[i].count -= count;
+		}
+		return offset;
+	}
+
+	uint32_t offset = group_residency.size();
+	group_residency.resize(offset + count);
+	flat_to_mesh.resize(offset + count, nullptr);
+	return offset;
+}
+
 void GeometryStreaming::registerMesh(Engine::Mesh *mesh, const Engine::MeshletFileView &file_view)
 {
 	if (!mesh->useMeshlets())
@@ -107,18 +132,19 @@ void GeometryStreaming::registerMesh(Engine::Mesh *mesh, const Engine::MeshletFi
 	if (registered_meshes.contains(mesh))
 		return;
 
+	const LODLevel &coarsest_lod = mesh->meshlet_data->meshlet_lod_levels.back();
+	uint32_t groups_count = mesh->meshlet_data->meshlet_lod_groups.size();
+	uint32_t base = allocate_residency_range(groups_count);
+
 	RegisteredMesh &reg = registered_meshes[mesh];
 	reg.file_view = file_view;
-	reg.group_residency_offset = group_residency.size();
+	reg.group_residency_offset = base;
 
-	const LODLevel &coarsest_lod = mesh->meshlet_data->meshlet_lod_levels.back();
-	uint32_t total = coarsest_lod.group_offset + coarsest_lod.group_count;
-
-	for (uint32_t i = 0; i < total; i++)
+	for (uint32_t i = 0; i < groups_count; i++)
 	{
-		flat_to_mesh.push_back(mesh);
+		flat_to_mesh[base + i] = mesh;
 
-		GroupResidency &group = group_residency.emplace_back();
+		GroupResidency &group = group_residency[base + i];
 		if (i >= coarsest_lod.group_offset)
 		{
 			uint32_t data_size = group_data_size(mesh, i);
@@ -140,6 +166,36 @@ void GeometryStreaming::registerMesh(Engine::Mesh *mesh, const Engine::MeshletFi
 	is_residency_dirty = true;
 	stats.registered_mesh_count = (uint32_t)registered_meshes.size();
 	stats.total_groups = (uint32_t)group_residency.size();
+}
+
+void GeometryStreaming::unregisterMesh(Engine::Mesh *mesh)
+{
+	auto it = registered_meshes.find(mesh);
+	if (it == registered_meshes.end())
+		return;
+
+	uint32_t base = it->second.group_residency_offset;
+	uint32_t groups_count = mesh->meshlet_data->meshlet_lod_groups.size();
+
+	for (uint32_t i = 0; i < groups_count; i++)
+	{
+		uint32_t flat_index = base + i;
+		uint64_t offset = group_residency[flat_index].geometry_buffer_offset;
+		if (offset < GROUP_NON_RESIDENT_ADDRESS_START)
+		{
+			uint64_t data_size = group_data_size(mesh, i);
+			pending_frees.push_back({offset, data_size, gDynamicRHI->getFrame()});
+			stats.addUnload(data_size);
+		}
+		group_residency[flat_index].geometry_buffer_offset = GROUP_NON_RESIDENT_ADDRESS_START;
+		flat_to_mesh[flat_index] = nullptr;
+		load_queued.erase(flat_index);
+	}
+
+	free_ranges.push_back({base, groups_count});
+	registered_meshes.erase(it);
+	is_residency_dirty = true;
+	stats.registered_mesh_count = (uint32_t)registered_meshes.size();
 }
 
 void GeometryStreaming::update()
@@ -185,9 +241,9 @@ void GeometryStreaming::update()
 			memset(ages, 0, ages_size);
 			for (auto &[mesh, reg] : registered_meshes)
 			{
-				LODLevel last_lod = mesh->meshlet_data->meshlet_lod_levels.back();
-				for (uint32_t i = 0; i < last_lod.group_count; i++)
-					ages[reg.group_residency_offset + last_lod.group_offset + i] = 0xFFFFFFFF;
+				const LODLevel &coarsest_lod = mesh->meshlet_data->meshlet_lod_levels.back();
+				for (uint32_t i = 0; i < coarsest_lod.group_count; i++)
+					ages[reg.group_residency_offset + coarsest_lod.group_offset + i] = PINNED_GROUP_AGE;
 			}
 		});
 	}
@@ -278,9 +334,11 @@ void GeometryStreaming::process_gpu_requests(int frame)
 			continue;
 
 		Engine::Mesh *mesh = flat_to_mesh[flat_index];
+		if (!mesh)
+			continue;
 		uint32_t local_group_id = flat_index - registered_meshes[mesh].group_residency_offset;
-		LODLevel last_lod = mesh->meshlet_data->meshlet_lod_levels.back();
-		if (local_group_id >= last_lod.group_offset)
+		const LODLevel &coarsest_lod = mesh->meshlet_data->meshlet_lod_levels.back();
+		if (local_group_id >= coarsest_lod.group_offset)
 			continue;
 
 		is_residency_dirty = true;
@@ -331,6 +389,11 @@ eastl::vector<uint32_t> GeometryStreaming::upload_pending_groups(RHICommandList 
 		}
 
 		Engine::Mesh *mesh = flat_to_mesh[flat_index];
+		if (!mesh)
+		{
+			it = load_queued.erase(it);
+			continue;
+		}
 		RegisteredMesh &reg = registered_meshes[mesh];
 		uint32_t local_group_id = flat_index - reg.group_residency_offset;
 		uint32_t offset = upload_group_data(mesh, local_group_id, reg.file_view, cmd_list);

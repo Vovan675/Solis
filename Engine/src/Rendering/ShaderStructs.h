@@ -3,6 +3,7 @@
 #define PASS_MASK_GBUFFER 1 << 1
 #define PASS_MASK_DIRECTIONAL_SHADOW 1 << 2
 #define PASS_MASK_POINT_SHADOW 1 << 3
+#define MESH_FLAG_MESHLET 0x1
 
 struct MaterialGPU
 {
@@ -32,23 +33,26 @@ struct InstanceGPU
 
 struct MeshGPU
 {
+	// Shared
 	uint32_t vertex_buffer_id;
-	uint32_t index_buffer_id; // reserved for non-meshleted rendering
 	uint32_t vertex_stride;
 	uint32_t positions_offset;
 	uint32_t normals_offset;
 	uint32_t tangents_offset;
 	uint32_t uvs_offset;
-	uint32_t index_offset; // reserved for non-meshleted rendering
+	uint32_t attribute_flags;
+	uint32_t flags;
+
+	// Traditional (non-meshleted)
+	uint32_t index_buffer_id;
+	uint32_t index_offset;
 	uint32_t indices_count;
 
+	// Meshleted
 	uint32_t meshlet_lod_groups_offset;
-
 	uint32_t group_residency_offset; // start index in global group_residency buffer
 	uint32_t root_group_offset;
 	uint32_t lod_nodes_offset; // offset in global lod_nodes buffer
-
-	uint32_t attribute_flags;
 };
 
 struct LODGroup
@@ -104,6 +108,7 @@ struct Meshlet
 };
 
 #define GROUP_NON_RESIDENT_ADDRESS_START uint32_t(1) << 31
+static constexpr uint32_t PINNED_GROUP_AGE = 0xFFFFFFFFu;
 static constexpr uint32_t MAX_STREAMING_REQUESTS = 1024;
 static constexpr uint32_t MAX_UNLOAD_REQUESTS = 1024;
 struct GroupResidency

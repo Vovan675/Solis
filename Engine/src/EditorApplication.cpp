@@ -144,7 +144,7 @@ void EditorApplication::update(float delta_time)
 	ImGui::End();
 
 	// Parameters
-	parameters_panel.renderImGui(context, scene_renderer->debug_renderer);
+	parameters_panel.renderImGui(context, scene_renderer->debug_renderer, asset_browser_panel);
 
 	// Asset browser
 	asset_browser_panel.renderImGui(context);

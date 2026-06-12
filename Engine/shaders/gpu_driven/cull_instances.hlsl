@@ -74,6 +74,9 @@ void CSMain(uint3 dispatchID : SV_DispatchThreadID)
 	Instance instance = getInstance(id);
 	Mesh mesh = getMesh(instance.mesh_id);
 
+	if ((mesh.flags & MESH_FLAG_MESHLET) == 0)
+		return;
+
 	float3 bound_center = instance.bound_center.xyz;
 	float3 bound_extent = instance.bound_extent.xyz;
 	transformBoundBox(bound_center, bound_extent, instance.world_transform);

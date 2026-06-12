@@ -10,7 +10,8 @@ namespace YAML
 	static YAML::Emitter &operator <<(YAML::Emitter &out, const MeshRendererComponent::MeshId mesh_id)
 	{
 		out << YAML::BeginMap;
-		out << YAML::Key << "ModelPath" << YAML::Value << mesh_id.model->getPath();
+		out << YAML::Key << "ModelGuid" << YAML::Value << (uint64_t)mesh_id.model->asset_handle;
+		out << YAML::Key << "ModelPath" << YAML::Value << mesh_id.model->getPath(); // For fallback
 		out << YAML::Key << "MeshId" << YAML::Value << mesh_id.mesh_id;
 		out << YAML::EndMap;
 		return out;
@@ -21,14 +22,20 @@ namespace YAML
 	{
 		static bool decode(const Node &node, MeshRendererComponent::MeshId &mesh_id)
 		{
-			if (!node.IsMap() || node.size() != 2)
+			if (!node.IsMap())
 				return false;
 
-			eastl::string model_path = node["ModelPath"].as<eastl::string>();
-			auto model = AssetManager::getModelAsset(model_path);
+			Ref<Model> model;
+			if (node["ModelGuid"])
+				model = AssetManager::getModelAssetByGuid(node["ModelGuid"].as<uint64_t>());
+			if (!model && node["ModelPath"])
+				model = AssetManager::getModelAsset(node["ModelPath"].as<eastl::string>());
+
+			if (!model)
+				return false;
+
 			mesh_id.model = model;
-			size_t model_mesh_id = node["MeshId"].as<size_t>();
-			mesh_id.mesh_id = model_mesh_id;
+			mesh_id.mesh_id = node["MeshId"].as<size_t>();
 
 			return true;
 		}

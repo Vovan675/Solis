@@ -118,7 +118,7 @@ private:
 	glm::quat orientation;
 	float pitch = 0;
 	float yaw = 0;
-	float aspect;
+	float aspect = 1;
 
 	float fov = 45.0f;
 
