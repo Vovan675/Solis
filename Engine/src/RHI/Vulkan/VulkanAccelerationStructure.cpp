@@ -133,8 +133,6 @@ void VulkanBottomLevelAccelerationStructure::build(const eastl::vector<RayTracin
 
 void VulkanTopLevelAccelerationStructure::build(bool update, const eastl::vector<RayTracingInstance> &instances)
 {
-	if (instances.empty()) return;
-
 	eastl::vector<VkAccelerationStructureInstanceKHR> instances_desc;
 	instances_desc.resize(instances.size());
 
@@ -167,17 +165,20 @@ void VulkanTopLevelAccelerationStructure::build(bool update, const eastl::vector
 	auto device = VulkanUtils::getNativeRHI()->device->logicalHandle;
 
 	// Buffer for instance data
-	BufferDescription instanceDesc;
-	instanceDesc.size = instances_desc.size() * sizeof(VkAccelerationStructureInstanceKHR);
-	instanceDesc.use_staging_buffer = true;
-	instanceDesc.usage = BufferUsage::ACCELERATION_STRUCTURE_BUILD_INPUT_BUFFER;
-	instanceDesc.alignment = 16;
-
-	auto instanceBuffer = gDynamicRHI->createBuffer(instanceDesc);
-	instanceBuffer->fill(instances_desc.data());
-
 	VkDeviceOrHostAddressConstKHR instanceDataDeviceAddress{};
-	instanceDataDeviceAddress.deviceAddress = instanceBuffer->getGPUAddress();
+	if (!instances_desc.empty())
+	{
+		BufferDescription instanceDesc;
+		instanceDesc.size = instances_desc.size() * sizeof(VkAccelerationStructureInstanceKHR);
+		instanceDesc.use_staging_buffer = true;
+		instanceDesc.usage = BufferUsage::ACCELERATION_STRUCTURE_BUILD_INPUT_BUFFER;
+		instanceDesc.alignment = 16;
+
+		auto instanceBuffer = gDynamicRHI->createBuffer(instanceDesc);
+		instanceBuffer->fill(instances_desc.data());
+
+		instanceDataDeviceAddress.deviceAddress = instanceBuffer->getGPUAddress();
+	}
 
 	VkAccelerationStructureGeometryKHR accelerationStructureGeometry{};
 	accelerationStructureGeometry.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;

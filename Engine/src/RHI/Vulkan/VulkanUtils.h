@@ -119,6 +119,7 @@ public:
 			// 16 bit
 			case FORMAT_R16_UNORM: return 2;
 			case FORMAT_R16G16_UNORM: return 4;
+			case FORMAT_R16G16_SFLOAT: return 4;
 			case FORMAT_R16G16B16A16_UNORM: return 8;
 			case FORMAT_R16G16B16A16_SFLOAT: return 8;
 

@@ -75,7 +75,6 @@ void DX12BottomLevelAccelerationStructure::build(const eastl::vector<RayTracingG
 
 void DX12TopLevelAccelerationStructure::build(bool update, const eastl::vector<RayTracingInstance> &instances)
 {
-	if (instances.empty()) return;
 	eastl::vector<D3D12_RAYTRACING_INSTANCE_DESC> instances_desc;
 
 	instances_desc.resize(instances.size());
@@ -108,22 +107,28 @@ void DX12TopLevelAccelerationStructure::build(bool update, const eastl::vector<R
 	}
 
 	// Buffer for instance data
-	BufferDescription instanceDesc;	
-	instanceDesc.size = instances_desc.size() * sizeof(D3D12_RAYTRACING_INSTANCE_DESC);
-	instanceDesc.use_staging_buffer = true;
-	instanceDesc.alignment = D3D12_RAYTRACING_INSTANCE_DESCS_BYTE_ALIGNMENT;
-	instanceDesc.usage = BufferUsage::ACCELERATION_STRUCTURE_BUILD_INPUT_BUFFER;
+	D3D12_GPU_VIRTUAL_ADDRESS instance_descs_address = 0;
+	if (!instances_desc.empty())
+	{
+		BufferDescription instanceDesc;
+		instanceDesc.size = instances_desc.size() * sizeof(D3D12_RAYTRACING_INSTANCE_DESC);
+		instanceDesc.use_staging_buffer = true;
+		instanceDesc.alignment = D3D12_RAYTRACING_INSTANCE_DESCS_BYTE_ALIGNMENT;
+		instanceDesc.usage = BufferUsage::ACCELERATION_STRUCTURE_BUILD_INPUT_BUFFER;
 
-	instances_buffer = gDynamicRHI->createBuffer(instanceDesc);
-	instances_buffer->fill(instances_desc.data());
+		instances_buffer = gDynamicRHI->createBuffer(instanceDesc);
+		instances_buffer->fill(instances_desc.data());
+
+		instance_descs_address = instances_buffer->getGPUAddress();
+	}
 
 	// Create TLAS
 	D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS inputs = {};
 	inputs.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL;
 	inputs.Flags = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_TRACE;
 	inputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
-	inputs.NumDescs = instances_desc.size(); // TODO: revert
-	inputs.InstanceDescs = instances_buffer->getGPUAddress();
+	inputs.NumDescs = instances_desc.size();
+	inputs.InstanceDescs = instance_descs_address;
 
 	D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO prebuild_info = {};
 	DX12Utils::getNativeRHI()->device->GetRaytracingAccelerationStructurePrebuildInfo(&inputs, &prebuild_info);

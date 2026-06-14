@@ -142,6 +142,29 @@ void DX12Texture::fill(const void *sourceData)
 	resource->resource->SetName(L"FILLED TEXTURE");
 }
 
+void DX12Texture::clear(const glm::vec4 &color)
+{
+	DX12DynamicRHI *native_rhi = (DX12DynamicRHI *)rhi;
+	DX12CommandList *native_cmd_list = (DX12CommandList *)gDynamicRHI->getCmdList();
+
+	const float values[4] = { color.x, color.y, color.z, color.w };
+
+	if (isRenderTargetTexture() && !isUAV())
+	{
+		transitLayout(native_cmd_list, TEXTURE_LAYOUT_ATTACHMENT);
+		DX12TextureView *view = (DX12TextureView *)getRenderTargetView();
+		native_cmd_list->cmd_list->ClearRenderTargetView(view->getDescriptor().getCpuHandle(), values, 0, nullptr);
+	} else
+	{
+		transitLayout(native_cmd_list, TEXTURE_LAYOUT_UAV);
+		DX12TextureView *view = (DX12TextureView *)getUnorderedAccessView();
+		native_cmd_list->cmd_list->ClearUnorderedAccessViewFloat(
+			native_rhi->cbv_srv_uav_heap->getHandle(view->getBindlessIndex()).getGpuHandle(),
+			view->getDescriptor().getCpuHandle(),
+			getResource(), values, 0, nullptr);
+	}
+}
+
 void DX12Texture::load(const char *path)
 {
 	Image image(path);

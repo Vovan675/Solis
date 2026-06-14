@@ -36,8 +36,8 @@ void WriteOctahedronBorder(uint3 texel_coord, uint2 oct_texel)
 	bool is_top_or_bottom = oct_texel.y == 0 || oct_texel.y == NUM_TEXELS - 1;
 	if (is_left_or_right && is_top_or_bottom)
 	{
-		source_coord.x += oct_texel.x == 0 ? NUM_TEXELS - 1 : -NUM_TEXELS + 1;
-		source_coord.y += oct_texel.y == 0 ? NUM_TEXELS - 1 : -NUM_TEXELS + 1;
+		source_coord.x += oct_texel.x == 0 ? NUM_TEXELS - 2 : -(NUM_TEXELS - 2);
+		source_coord.y += oct_texel.y == 0 ? NUM_TEXELS - 2 : -(NUM_TEXELS - 2);
 	} else if (is_left_or_right)
 	{
 		source_coord.x += oct_texel.x == 0 ? 1 : -1;
@@ -65,7 +65,7 @@ void CSMain(CSInput input)
 
 	uint3 texel_coord = GetProbeTexelCoords(volume, probe_coord, cascade_id, NUM_TEXELS, input.group_thread_id.xy);
 
-	float2 oct_coord = GetNormalizedOctahedralCoordinates(texel_coord.xy, NUM_TEXELS);
+	float2 oct_coord = GetNormalizedOctahedralCoordinates(int2(input.group_thread_id.xy) - 1, NUM_TEXELS - 2);
 	float3 texel_direction = GetOctahedralDirection(oct_coord);
 
 	if (IsProbeDisabled(volume, probe_coord, cascade_id))

@@ -34,6 +34,7 @@ public:
 	virtual void cleanup() {}
 	virtual void fill() {}
 	virtual void fill(const void *sourceData) {}
+	virtual void clear(const glm::vec4 &color) {}
 	virtual void load(const char *path) {}
 	virtual void loadEquirectangularCubemap(const char *path) {}
 

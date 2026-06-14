@@ -120,7 +120,7 @@ PSOutput PSMain(VSInput input)
 				irradiance *= cascade_weight;
 
 				// If not last cascade and blending needed
-				if (cascade_index < volume.cascades_count && cascade_weight < 0.99f)
+				if (cascade_index < volume.cascades_count - 1 && cascade_weight < 0.99f)
 				{
 					cascade_index++;
 					float3 surface_bias = GetSurfaceBias(normal, camera_position.xyz, world_pos, volume, cascade_index);

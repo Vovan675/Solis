@@ -106,6 +106,24 @@ void VulkanTexture::fill(const void *sourceData)
 	vmaFreeMemory(VulkanUtils::getNativeRHI()->allocator, stagingAllocation);
 }
 
+void VulkanTexture::clear(const glm::vec4 &color)
+{
+	RHICommandList *cmd_list = gDynamicRHI->getCmdList();
+	VulkanCommandList *native_cmd_list = (VulkanCommandList *)cmd_list;
+
+	transitLayout(cmd_list, TEXTURE_LAYOUT_TRANSFER_DST);
+
+	VkClearColorValue clear_value;
+	memcpy(clear_value.float32, &color.x, sizeof(clear_value.float32));
+
+	VkImageSubresourceRange range{};
+	range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	range.levelCount = description.mip_levels;
+	range.layerCount = description.is_cube ? 6 : description.array_levels;
+
+	vkCmdClearColorImage(native_cmd_list->cmd_buffer, image->resource, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clear_value, 1, &range);
+}
+
 void VulkanTexture::load(const char *path)
 {
 	Image image(path);

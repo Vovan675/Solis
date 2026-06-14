@@ -55,7 +55,7 @@ Real-time global illumination via a grid of light probes. Each frame a budget of
 
 | DDGI on | DDGI off |
 |---------|----------|
-| ![DDGI on](.github/images/ddgi-on.jpg) | ![DDGI off](.github/images/ddgi-off.jpg) |
+| ![DDGI on](.github/images/ddgi-on.png) | ![DDGI off](.github/images/ddgi-off.png) |
 
 ### Cascades
 

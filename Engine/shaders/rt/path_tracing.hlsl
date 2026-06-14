@@ -256,11 +256,11 @@ RayDesc GenerateCameraRay(uint2 pixel, uint2 screen_size)
 	ndc.y *= -1.0f;
 	
 	float4x4 view_projection_inverse = mul(iview, iprojection);
-	
-	float4 ray_start = mul(view_projection_inverse, float4(ndc, 0, 1));
+
+	float4 ray_start = mul(view_projection_inverse, float4(ndc, 1, 1));
 	ray_start.xyz /= ray_start.w;
-	
-	float4 ray_end = mul(view_projection_inverse, float4(ndc, 1, 1));
+
+	float4 ray_end = mul(view_projection_inverse, float4(ndc, 0, 1));
 	ray_end.xyz /= ray_end.w;
 	
 	RayDesc ray;

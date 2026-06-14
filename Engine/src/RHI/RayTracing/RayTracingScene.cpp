@@ -80,7 +80,7 @@ void RayTracingScene::build_tlas()
 			for (auto &mesh_node : mesh_renderer.meshes)
 			{
 				auto mesh = mesh_node.getMesh();
-				if (mesh == nullptr)
+				if (mesh == nullptr || mesh->useMeshlets())
 					continue;
 
 				if (blas_meshes.find(mesh->id) == blas_meshes.end())

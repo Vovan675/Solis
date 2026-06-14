@@ -4,7 +4,7 @@
 // Startup variables
 AutoConVarBool engine_rhi_validation("engine.rhi_validation.enabled", "RHI Validation Enabled", false, ConVarFlag::CON_VAR_FLAG_HIDDEN);
 AutoConVarBool engine_rhi_validation_break("engine.rhi_validation_break.enabled", "RHI Validation Break Enabled", false, ConVarFlag::CON_VAR_FLAG_HIDDEN);
-AutoConVarBool engine_ray_tracing("engine.ray_tracing.enabled", "Ray Tracing Enabled", false, ConVarFlag::CON_VAR_FLAG_HIDDEN);
+AutoConVarBool engine_ray_tracing("engine.ray_tracing.enabled", "Ray Tracing Enabled", true, ConVarFlag::CON_VAR_FLAG_HIDDEN);
 AutoConVarBool engine_reimport_assets("engine.reimport_assets", "Force reimport all assets from source, ignoring binary cache", false, ConVarFlag::CON_VAR_FLAG_HIDDEN);
 
 // Runtime variables

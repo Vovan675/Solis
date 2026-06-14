@@ -90,6 +90,8 @@ void DDGIRenderer::addPasses(FrameGraph & fg, Ref<RayTracingScene> rt_scene)
 		desc.usage_flags = TEXTURE_USAGE_STORAGE;
 		distance_atlas_texture = gDynamicRHI->createTexture(desc);
 		distance_atlas_texture->fill();
+		distance_atlas_texture->setDebugName("DDGI Distance Atlas");
+		distance_atlas_texture->clear(glm::vec4(0.0f));
 
 		volume.distance_atlas_tex_id = distance_atlas_texture->getShaderResourceView()->getBindlessIndex();
 	}
@@ -106,6 +108,8 @@ void DDGIRenderer::addPasses(FrameGraph & fg, Ref<RayTracingScene> rt_scene)
 		desc.usage_flags = TEXTURE_USAGE_STORAGE;
 		irradiance_atlas_texture = gDynamicRHI->createTexture(desc);
 		irradiance_atlas_texture->fill();
+		irradiance_atlas_texture->setDebugName("DDGI Irradiance Atlas");
+		irradiance_atlas_texture->clear(glm::vec4(0.0f));
 
 		volume.irradiance_atlas_tex_id = irradiance_atlas_texture->getShaderResourceView()->getBindlessIndex();
 	}
@@ -122,6 +126,7 @@ void DDGIRenderer::addPasses(FrameGraph & fg, Ref<RayTracingScene> rt_scene)
 		desc.usage_flags = TEXTURE_USAGE_STORAGE;
 		metadata_atlas_texture = gDynamicRHI->createTexture(desc);
 		metadata_atlas_texture->fill();
+		metadata_atlas_texture->setDebugName("DDGI Metadata Atlas");
 
 		volume.metadata_atlas_tex_id = metadata_atlas_texture->getShaderResourceView()->getBindlessIndex();
 	}
@@ -134,6 +139,7 @@ void DDGIRenderer::addPasses(FrameGraph & fg, Ref<RayTracingScene> rt_scene)
 		desc.storage_stride = sizeof(glm::vec4);
 		desc.usage = BufferUsage::SHADER_READ_BUFFER | BufferUsage::SHADER_WRITE_BUFFER;
 		ray_data_buffer = gDynamicRHI->createBuffer(desc);
+		ray_data_buffer->setDebugName("DDGI Ray Data Buffer");
 		volume.ray_data_buffer_id = ray_data_buffer->getShaderResourceView()->getBindlessIndex();
 	}
 
@@ -180,7 +186,7 @@ void DDGIRenderer::addPasses(FrameGraph & fg, Ref<RayTracingScene> rt_scene)
 			glm::decompose(light_entity.getWorldTransformMatrix(), scale, rotation, position, skew, persp);
 
 			volume.sun_dir = rotation * glm::vec4(0, 0, -1, 1);
-			volume.sun_color = glm::vec4(light_component.color, 1.0);
+			volume.sun_color = glm::vec4(light_component.color * light_component.intensity, 1.0);
 			break;
 		}
 	}

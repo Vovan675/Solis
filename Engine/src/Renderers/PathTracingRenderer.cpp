@@ -23,6 +23,7 @@ void PathTracingRenderer::addPass(FrameGraph &fg, Ref<RayTracingScene> rt_scene)
 		desc.usage_flags = TEXTURE_USAGE_STORAGE;
 		accumulation_texture = gDynamicRHI->createTexture(desc);
 		accumulation_texture->fill();
+		accumulation_texture->setDebugName("Path Trace Accumulation");
 	}
 
 	fg.importTexture(GFXRID(PathTraceAccumulation), accumulation_texture);
