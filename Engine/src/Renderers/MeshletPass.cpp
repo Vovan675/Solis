@@ -35,53 +35,55 @@ void MeshletPass::addMainCullingPasses(FrameGraph &fg, const MeshletCullDesc &de
 	add_instance_culling_pass(fg, desc, false);
 	add_traversal_pass(fg, desc, false);
 	if (render_meshlets_use_mesh_shaders)
-		add_dispatch_args_pass(fg, "Build Geometry Dispatch Args", GFXRID(DispatchMeshIndirectArgs), GFXRID(VisibleMeshletsCount), 1);
+		add_dispatch_args_pass(fg, "Build Geometry Dispatch Args", GFXRID_ID(DispatchMeshIndirectArgs, desc.view_id), GFXRID_ID(VisibleMeshletsCount, desc.view_id), 1);
 }
 
 void MeshletPass::addFixCullingPasses(FrameGraph &fg, const MeshletCullDesc &desc)
 {
 	add_counter_init_pass(fg, desc, true);
 
-	add_dispatch_args_pass(fg, "Build Instance Fix Dispatch Args", GFXRID(InstanceFixDispatchArgs), GFXRID(OccludedInstancesCount), INSTANCE_CULLING_THREADGROUP_SIZE);
+	// Instance fix
+	add_dispatch_args_pass(fg, "Build Instance Fix Dispatch Args", GFXRID_ID(InstanceFixDispatchArgs, desc.view_id), GFXRID_ID(OccludedInstancesCount, desc.view_id), INSTANCE_CULLING_THREADGROUP_SIZE);
 	add_instance_culling_pass(fg, desc, true);
-
 	add_traversal_pass(fg, desc, true);
 
-	add_dispatch_args_pass(fg, "Build Meshlet Fix Dispatch Args", GFXRID(MeshletFixDispatchArgs), GFXRID(OccludedMeshletsCount), MESHLET_FIX_THREADGROUP_SIZE);
+	// Meshlet fix
+	add_dispatch_args_pass(fg, "Build Meshlet Fix Dispatch Args", GFXRID_ID(MeshletFixDispatchArgs, desc.view_id), GFXRID_ID(OccludedMeshletsCount, desc.view_id), MESHLET_FIX_THREADGROUP_SIZE);
 	add_meshlet_fix_pass(fg, desc);
 
 	if (render_meshlets_use_mesh_shaders)
-		add_dispatch_args_pass(fg, "Build Geometry Dispatch Args", GFXRID(DispatchMeshIndirectArgs), GFXRID(VisibleMeshletsCount), 1);
+		add_dispatch_args_pass(fg, "Build Geometry Dispatch Args", GFXRID_ID(DispatchMeshIndirectArgs, desc.view_id), GFXRID_ID(VisibleMeshletsCount, desc.view_id), 1);
 }
 
 void MeshletPass::add_counter_init_pass(FrameGraph &fg, const MeshletCullDesc &desc, bool is_fix)
 {
+	uint32_t view_id = desc.view_id;
 	fg.addCallbackPass("Init Counters",
-	[&, is_fix, instance_count = desc.instance_count](RenderPassBuilder &builder)
+	[&, is_fix, view_id, instance_count = desc.instance_count](RenderPassBuilder &builder)
 	{
 		if (!is_fix)
 		{
-			builder.createBuffer(GFXRID(TraversalQueue), sizeof(TraversalItem), MAX_TRAVERSAL_TASKS, BufferUsage::SHADER_WRITE_BUFFER);
-			builder.createBuffer(GFXRID(TraversalCtrl), sizeof(uint32_t) * 4, 1, BufferUsage::SHADER_WRITE_BUFFER);
-			builder.createBuffer(GFXRID(VisibleMeshlets), sizeof(MeshletCandidate), MAX_MESHLETS_PER_FRAME, BufferUsage::SHADER_WRITE_BUFFER);
-			builder.createBuffer(GFXRID(VisibleMeshletsCount), sizeof(uint32_t), 1, BufferUsage::INDIRECT_ARGS_BUFFER | BufferUsage::SHADER_WRITE_BUFFER);
-			builder.createBuffer(GFXRID(DrawIndexedCount), sizeof(uint32_t), 1, BufferUsage::INDIRECT_ARGS_BUFFER | BufferUsage::SHADER_WRITE_BUFFER);
-			builder.createBuffer(GFXRID(OccludedMeshlets), sizeof(MeshletCandidate), MAX_MESHLETS_PER_FRAME, BufferUsage::SHADER_WRITE_BUFFER);
-			builder.createBuffer(GFXRID(OccludedMeshletsCount), sizeof(uint32_t), 1, BufferUsage::SHADER_WRITE_BUFFER);
-			builder.createBuffer(GFXRID(OccludedInstances), sizeof(uint32_t), instance_count, BufferUsage::SHADER_WRITE_BUFFER);
-			builder.createBuffer(GFXRID(OccludedInstancesCount), sizeof(uint32_t), 1, BufferUsage::SHADER_WRITE_BUFFER);
+			builder.createBuffer(GFXRID_ID(TraversalQueue, view_id), sizeof(TraversalItem), MAX_TRAVERSAL_TASKS, BufferUsage::SHADER_WRITE_BUFFER);
+			builder.createBuffer(GFXRID_ID(TraversalCtrl, view_id), sizeof(uint32_t) * 4, 1, BufferUsage::SHADER_WRITE_BUFFER);
+			builder.createBuffer(GFXRID_ID(VisibleMeshlets, view_id), sizeof(MeshletCandidate), MAX_MESHLETS_PER_FRAME, BufferUsage::SHADER_WRITE_BUFFER);
+			builder.createBuffer(GFXRID_ID(VisibleMeshletsCount, view_id), sizeof(uint32_t), 1, BufferUsage::INDIRECT_ARGS_BUFFER | BufferUsage::SHADER_WRITE_BUFFER);
+			builder.createBuffer(GFXRID_ID(DrawIndexedCount, view_id), sizeof(uint32_t), 1, BufferUsage::INDIRECT_ARGS_BUFFER | BufferUsage::SHADER_WRITE_BUFFER);
+			builder.createBuffer(GFXRID_ID(OccludedMeshlets, view_id), sizeof(MeshletCandidate), MAX_MESHLETS_PER_FRAME, BufferUsage::SHADER_WRITE_BUFFER);
+			builder.createBuffer(GFXRID_ID(OccludedMeshletsCount, view_id), sizeof(uint32_t), 1, BufferUsage::SHADER_WRITE_BUFFER);
+			builder.createBuffer(GFXRID_ID(OccludedInstances, view_id), sizeof(uint32_t), instance_count, BufferUsage::SHADER_WRITE_BUFFER);
+			builder.createBuffer(GFXRID_ID(OccludedInstancesCount, view_id), sizeof(uint32_t), 1, BufferUsage::SHADER_WRITE_BUFFER);
 		}
 
-		builder.writeBuffer(GFXRID(TraversalCtrl));
-		builder.writeBuffer(GFXRID(TraversalQueue));
-		builder.writeBuffer(GFXRID(VisibleMeshletsCount));
-		builder.writeBuffer(GFXRID(DrawIndexedCount));
-		builder.writeBuffer(GFXRID(OccludedMeshletsCount));
-		builder.writeBuffer(GFXRID(OccludedInstancesCount));
+		builder.writeBuffer(GFXRID_ID(TraversalCtrl, view_id));
+		builder.writeBuffer(GFXRID_ID(TraversalQueue, view_id));
+		builder.writeBuffer(GFXRID_ID(VisibleMeshletsCount, view_id));
+		builder.writeBuffer(GFXRID_ID(DrawIndexedCount, view_id));
+		builder.writeBuffer(GFXRID_ID(OccludedMeshletsCount, view_id));
+		builder.writeBuffer(GFXRID_ID(OccludedInstancesCount, view_id));
 	},
 	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		cmd_list->fillBuffer(resources.getBuffer(GFXRID(TraversalQueue)), ~0u);
+		cmd_list->fillBuffer(resources.getBuffer(GFXRID_ID(TraversalQueue, view_id)), ~0u);
 
 		struct
 		{
@@ -92,14 +94,14 @@ void MeshletPass::add_counter_init_pass(FrameGraph &fg, const MeshletCullDesc &d
 			uint32_t occluded_instances_count_buffer_id;
 			uint32_t reset_occluded;
 		} constants;
-		constants.traversal_ctrl_buffer_id = resources.getReadWriteBuffer(GFXRID(TraversalCtrl));
-		constants.visible_meshlets_count_buffer_id = resources.getReadWriteBuffer(GFXRID(VisibleMeshletsCount));
-		constants.draw_calls_count_buffer_id = resources.getReadWriteBuffer(GFXRID(DrawIndexedCount));
-		constants.occluded_meshlets_count_buffer_id = resources.getReadWriteBuffer(GFXRID(OccludedMeshletsCount));
-		constants.occluded_instances_count_buffer_id = resources.getReadWriteBuffer(GFXRID(OccludedInstancesCount));
+		constants.traversal_ctrl_buffer_id = resources.getReadWriteBuffer(GFXRID_ID(TraversalCtrl, view_id));
+		constants.visible_meshlets_count_buffer_id = resources.getReadWriteBuffer(GFXRID_ID(VisibleMeshletsCount, view_id));
+		constants.draw_calls_count_buffer_id = resources.getReadWriteBuffer(GFXRID_ID(DrawIndexedCount, view_id));
+		constants.occluded_meshlets_count_buffer_id = resources.getReadWriteBuffer(GFXRID_ID(OccludedMeshletsCount, view_id));
+		constants.occluded_instances_count_buffer_id = resources.getReadWriteBuffer(GFXRID_ID(OccludedInstancesCount, view_id));
 		constants.reset_occluded = is_fix ? 0u : 1u;
 
-		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/gpu_driven/init_meshlet_counters.hlsl", COMPUTE_SHADER));
+		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/gpu_driven/meshlet_init_counters.hlsl", COMPUTE_SHADER));
 		gGlobalPipeline->flushAndBind(cmd_list);
 		gDynamicRHI->setConstantBufferData(0, &constants, sizeof(constants));
 		cmd_list->dispatch(1, 1, 1);
@@ -108,23 +110,28 @@ void MeshletPass::add_counter_init_pass(FrameGraph &fg, const MeshletCullDesc &d
 
 void MeshletPass::add_instance_culling_pass(FrameGraph &fg, const MeshletCullDesc &desc, bool is_fix)
 {
+	uint32_t view_id = desc.view_id;
 	fg.addCallbackPass("Cull Instances",
-	[&, is_fix](RenderPassBuilder &builder)
+	[&, is_fix, view_id](RenderPassBuilder &builder)
 	{
-		builder.writeBuffer(GFXRID(TraversalQueue));
-		builder.writeBuffer(GFXRID(TraversalCtrl));
-		builder.writeBuffer(GFXRID(OccludedInstances));
-		builder.writeBuffer(GFXRID(OccludedInstancesCount));
+		builder.writeBuffer(GFXRID_ID(TraversalQueue, view_id));
+		builder.writeBuffer(GFXRID_ID(TraversalCtrl, view_id));
+		builder.writeBuffer(GFXRID_ID(OccludedInstances, view_id));
+		builder.writeBuffer(GFXRID_ID(OccludedInstancesCount, view_id));
 		builder.readBuffer(GFXRID(InstancesPassMask));
-		builder.readTexture(GFXRID(HiZ));
+		if (desc.use_occlusion)
+			builder.readTexture(desc.hiz);
 		if (is_fix)
-			builder.readIndirectArgsBuffer(GFXRID(InstanceFixDispatchArgs));
+			builder.readIndirectArgsBuffer(GFXRID_ID(InstanceFixDispatchArgs, view_id));
 	},
 	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/gpu_driven/cull_instances.hlsl", COMPUTE_SHADER, "CSMain",
+		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/gpu_driven/meshlet_cull_instances.hlsl", COMPUTE_SHADER, "CSMain",
 											  {
 												  {"IS_FIX", is_fix ? "1" : "0"},
+												  {"IS_ORTHO_FRUSTUM", desc.is_ortho ? "1" : "0"},
+												  {"REVERSE_Z", desc.reverse_z ? "1" : "0"},
+												  {"USE_OCCLUSION", desc.use_occlusion ? "1" : "0"},
 												  {"HIZ_OCCLUSION_DEBUG", render_culling_hiz_debug ? "1" : "0"},
 												  {"THREADGROUP_SIZE", std::to_string(INSTANCE_CULLING_THREADGROUP_SIZE).c_str()}
 											  }));
@@ -146,25 +153,28 @@ void MeshletPass::add_instance_culling_pass(FrameGraph &fg, const MeshletCullDes
 			uint32_t current_pass_mask;
 		} constants = {};
 		constants.frustum_view_projection = desc.view_projection;
-		constants.traversal_queue_buffer_id = resources.getReadWriteBuffer(GFXRID(TraversalQueue));
-		constants.traversal_ctrl_buffer_id = resources.getReadWriteBuffer(GFXRID(TraversalCtrl));
-		constants.occluded_instances_buffer_id = resources.getReadWriteBuffer(GFXRID(OccludedInstances));
-		constants.occluded_instances_count_buffer_id = resources.getReadWriteBuffer(GFXRID(OccludedInstancesCount));
+		constants.traversal_queue_buffer_id = resources.getReadWriteBuffer(GFXRID_ID(TraversalQueue, view_id));
+		constants.traversal_ctrl_buffer_id = resources.getReadWriteBuffer(GFXRID_ID(TraversalCtrl, view_id));
+		constants.occluded_instances_buffer_id = resources.getReadWriteBuffer(GFXRID_ID(OccludedInstances, view_id));
+		constants.occluded_instances_count_buffer_id = resources.getReadWriteBuffer(GFXRID_ID(OccludedInstancesCount, view_id));
 		constants.instances_pass_mask_buffer_id = resources.getReadBuffer(GFXRID(InstancesPassMask));
 		constants.instances_count = desc.instance_count;
 		constants.current_pass_mask = desc.pass_mask;
 
-		RHITexture *hiz = resources.getTexture(GFXRID(HiZ));
-		constants.hiz_tex_id = hiz->getShaderResourceView()->getBindlessIndex();
-		constants.hiz_width = hiz->getWidth();
-		constants.hiz_height = hiz->getHeight();
-		constants.hiz_mips = hiz->getMipLevels();
+		if (desc.use_occlusion)
+		{
+			RHITexture *hiz = resources.getTexture(desc.hiz);
+			constants.hiz_tex_id = hiz->getShaderResourceView(-1, desc.hiz_layer)->getBindlessIndex();
+			constants.hiz_width = hiz->getWidth();
+			constants.hiz_height = hiz->getHeight();
+			constants.hiz_mips = hiz->getMipLevels();
+		}
 
 		gDynamicRHI->setConstantBufferData(0, &constants, sizeof(constants));
 
 		if (is_fix)
 		{
-			cmd_list->dispatchIndirect(resources.getBuffer(GFXRID(InstanceFixDispatchArgs)), 1);
+			cmd_list->dispatchIndirect(resources.getBuffer(GFXRID_ID(InstanceFixDispatchArgs, view_id)), 1);
 		} else
 		{
 			uint32_t num_groups = (desc.instance_count + INSTANCE_CULLING_THREADGROUP_SIZE - 1) / INSTANCE_CULLING_THREADGROUP_SIZE;
@@ -175,43 +185,48 @@ void MeshletPass::add_instance_culling_pass(FrameGraph &fg, const MeshletCullDes
 
 void MeshletPass::add_traversal_pass(FrameGraph &fg, const MeshletCullDesc &desc, bool is_fix)
 {
+	uint32_t view_id = desc.view_id;
 	fg.addCallbackPass("Traversal",
-	[&, is_fix](RenderPassBuilder &builder)
+	[&, is_fix, view_id](RenderPassBuilder &builder)
 	{
 		if (!is_fix)
 		{
 			if (!render_meshlets_use_mesh_shaders)
 			{
-				builder.createBuffer(GFXRID(DrawIndexedArgs), sizeof(DrawIndexedIndirect), MAX_MESHLETS_PER_FRAME, BufferUsage::INDIRECT_ARGS_BUFFER | BufferUsage::SHADER_WRITE_BUFFER);
-				builder.createBuffer(GFXRID(DrawCallsInstances), sizeof(uint32_t), MAX_MESHLETS_PER_FRAME, BufferUsage::VERTEX_BUFFER | BufferUsage::SHADER_WRITE_BUFFER);
+				builder.createBuffer(GFXRID_ID(DrawIndexedArgs, view_id), sizeof(DrawIndexedIndirect), MAX_MESHLETS_PER_FRAME, BufferUsage::INDIRECT_ARGS_BUFFER | BufferUsage::SHADER_WRITE_BUFFER);
+				builder.createBuffer(GFXRID_ID(DrawCallsInstances, view_id), sizeof(uint32_t), MAX_MESHLETS_PER_FRAME, BufferUsage::VERTEX_BUFFER | BufferUsage::SHADER_WRITE_BUFFER);
 			}
 		}
 
-		builder.writeBuffer(GFXRID(TraversalQueue));
-		builder.writeBuffer(GFXRID(TraversalCtrl));
-		builder.writeBuffer(GFXRID(VisibleMeshlets));
-		builder.writeBuffer(GFXRID(VisibleMeshletsCount));
-		builder.writeBuffer(GFXRID(OccludedMeshlets));
-		builder.writeBuffer(GFXRID(OccludedMeshletsCount));
+		builder.writeBuffer(GFXRID_ID(TraversalQueue, view_id));
+		builder.writeBuffer(GFXRID_ID(TraversalCtrl, view_id));
+		builder.writeBuffer(GFXRID_ID(VisibleMeshlets, view_id));
+		builder.writeBuffer(GFXRID_ID(VisibleMeshletsCount, view_id));
+		builder.writeBuffer(GFXRID_ID(OccludedMeshlets, view_id));
+		builder.writeBuffer(GFXRID_ID(OccludedMeshletsCount, view_id));
 		builder.writeBuffer(GFXRID(GroupResidencyBuffer));
 		builder.writeBuffer(GFXRID(StreamRequestsBuffer));
 		builder.writeBuffer(GFXRID(GroupAgesBuffer));
 
 		if (!render_meshlets_use_mesh_shaders)
 		{
-			builder.writeBuffer(GFXRID(DrawIndexedArgs));
-			builder.writeBuffer(GFXRID(DrawIndexedCount));
-			builder.writeBuffer(GFXRID(DrawCallsInstances));
+			builder.writeBuffer(GFXRID_ID(DrawIndexedArgs, view_id));
+			builder.writeBuffer(GFXRID_ID(DrawIndexedCount, view_id));
+			builder.writeBuffer(GFXRID_ID(DrawCallsInstances, view_id));
 		}
 
-		builder.readTexture(GFXRID(HiZ));
+		if (desc.use_occlusion)
+			builder.readTexture(desc.hiz);
 	},
 	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/gpu_driven/cull_meshlets.hlsl", COMPUTE_SHADER, "CSMain",
+		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/gpu_driven/meshlet_traverse.hlsl", COMPUTE_SHADER, "CSMain",
 											  {
 												  {"USE_MESH_SHADERS", render_meshlets_use_mesh_shaders ? "1" : "0"},
 												  {"IS_FIX", is_fix ? "1" : "0"},
+												  {"IS_ORTHO_FRUSTUM", desc.is_ortho ? "1" : "0"},
+												  {"REVERSE_Z", desc.reverse_z ? "1" : "0"},
+												  {"USE_OCCLUSION", desc.use_occlusion ? "1" : "0"},
 												  {"THREADGROUP_SIZE", std::to_string(MESHLET_CULLING_THREADGROUP_SIZE).c_str()}
 											  }));
 		gGlobalPipeline->flushAndBind(cmd_list);
@@ -238,26 +253,29 @@ void MeshletPass::add_traversal_pass(FrameGraph &fg, const MeshletCullDesc &desc
 			uint32_t group_ages_buffer_id;
 		} constants = {};
 		constants.frustum_view_projection = desc.view_projection;
-		constants.queue_buffer_id = resources.getReadWriteBuffer(GFXRID(TraversalQueue));
-		constants.traversal_ctrl_buffer_id = resources.getReadWriteBuffer(GFXRID(TraversalCtrl));
+		constants.queue_buffer_id = resources.getReadWriteBuffer(GFXRID_ID(TraversalQueue, view_id));
+		constants.traversal_ctrl_buffer_id = resources.getReadWriteBuffer(GFXRID_ID(TraversalCtrl, view_id));
 		constants.max_queue_size = MAX_TRAVERSAL_TASKS;
-		constants.visible_meshlets_buffer_id = resources.getReadWriteBuffer(GFXRID(VisibleMeshlets));
-		constants.visible_meshlets_count_buffer_id = resources.getReadWriteBuffer(GFXRID(VisibleMeshletsCount));
-		constants.occluded_meshlets_buffer_id = resources.getReadWriteBuffer(GFXRID(OccludedMeshlets));
-		constants.occluded_meshlets_count_buffer_id = resources.getReadWriteBuffer(GFXRID(OccludedMeshletsCount));
+		constants.visible_meshlets_buffer_id = resources.getReadWriteBuffer(GFXRID_ID(VisibleMeshlets, view_id));
+		constants.visible_meshlets_count_buffer_id = resources.getReadWriteBuffer(GFXRID_ID(VisibleMeshletsCount, view_id));
+		constants.occluded_meshlets_buffer_id = resources.getReadWriteBuffer(GFXRID_ID(OccludedMeshlets, view_id));
+		constants.occluded_meshlets_count_buffer_id = resources.getReadWriteBuffer(GFXRID_ID(OccludedMeshletsCount, view_id));
 
 		if (!render_meshlets_use_mesh_shaders)
 		{
-			constants.draw_indexed_args_buffer_id = resources.getReadWriteBuffer(GFXRID(DrawIndexedArgs));
-			constants.draw_indexed_count_buffer_id = resources.getReadWriteBuffer(GFXRID(DrawIndexedCount));
-			constants.draw_calls_indirect_instances_buffer_id = resources.getReadWriteBuffer(GFXRID(DrawCallsInstances));
+			constants.draw_indexed_args_buffer_id = resources.getReadWriteBuffer(GFXRID_ID(DrawIndexedArgs, view_id));
+			constants.draw_indexed_count_buffer_id = resources.getReadWriteBuffer(GFXRID_ID(DrawIndexedCount, view_id));
+			constants.draw_calls_indirect_instances_buffer_id = resources.getReadWriteBuffer(GFXRID_ID(DrawCallsInstances, view_id));
 		}
 
-		RHITexture *hiz = resources.getTexture(GFXRID(HiZ));
-		constants.hiz_tex_id = hiz->getShaderResourceView()->getBindlessIndex();
-		constants.hiz_width = hiz->getWidth();
-		constants.hiz_height = hiz->getHeight();
-		constants.hiz_mips = hiz->getMipLevels();
+		if (desc.use_occlusion)
+		{
+			RHITexture *hiz = resources.getTexture(desc.hiz);
+			constants.hiz_tex_id = hiz->getShaderResourceView(-1, desc.hiz_layer)->getBindlessIndex();
+			constants.hiz_width = hiz->getWidth();
+			constants.hiz_height = hiz->getHeight();
+			constants.hiz_mips = hiz->getMipLevels();
+		}
 
 		constants.group_residency_buffer_id = resources.getReadWriteBuffer(GFXRID(GroupResidencyBuffer));
 		constants.stream_requests_buffer_id = resources.getReadWriteBuffer(GFXRID(StreamRequestsBuffer));
@@ -269,28 +287,32 @@ void MeshletPass::add_traversal_pass(FrameGraph &fg, const MeshletCullDesc &desc
 
 void MeshletPass::add_meshlet_fix_pass(FrameGraph &fg, const MeshletCullDesc &desc)
 {
+	uint32_t view_id = desc.view_id;
 	fg.addCallbackPass("Cull Meshlets Fix",
-	[&](RenderPassBuilder &builder)
+	[&, view_id](RenderPassBuilder &builder)
 	{
-		builder.writeBuffer(GFXRID(VisibleMeshlets));
-		builder.writeBuffer(GFXRID(VisibleMeshletsCount));
-		builder.writeBuffer(GFXRID(OccludedMeshlets));
-		builder.writeBuffer(GFXRID(OccludedMeshletsCount));
+		builder.writeBuffer(GFXRID_ID(VisibleMeshlets, view_id));
+		builder.writeBuffer(GFXRID_ID(VisibleMeshletsCount, view_id));
+		builder.writeBuffer(GFXRID_ID(OccludedMeshlets, view_id));
+		builder.writeBuffer(GFXRID_ID(OccludedMeshletsCount, view_id));
 		builder.writeBuffer(GFXRID(GroupResidencyBuffer));
 		if (!render_meshlets_use_mesh_shaders)
 		{
-			builder.writeBuffer(GFXRID(DrawIndexedArgs));
-			builder.writeBuffer(GFXRID(DrawIndexedCount));
-			builder.writeBuffer(GFXRID(DrawCallsInstances));
+			builder.writeBuffer(GFXRID_ID(DrawIndexedArgs, view_id));
+			builder.writeBuffer(GFXRID_ID(DrawIndexedCount, view_id));
+			builder.writeBuffer(GFXRID_ID(DrawCallsInstances, view_id));
 		}
-		builder.readIndirectArgsBuffer(GFXRID(MeshletFixDispatchArgs));
-		builder.readTexture(GFXRID(HiZ));
+		builder.readIndirectArgsBuffer(GFXRID_ID(MeshletFixDispatchArgs, view_id));
+		builder.readTexture(desc.hiz);
 	},
 	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/gpu_driven/cull_meshlets_fix.hlsl", COMPUTE_SHADER, "CSMain",
+		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/gpu_driven/meshlet_cull_fix.hlsl", COMPUTE_SHADER, "CSMain",
 											  {
 												  {"USE_MESH_SHADERS", render_meshlets_use_mesh_shaders ? "1" : "0"},
+												  {"IS_ORTHO_FRUSTUM", desc.is_ortho ? "1" : "0"},
+												  {"REVERSE_Z", desc.reverse_z ? "1" : "0"},
+												  {"USE_OCCLUSION", desc.use_occlusion ? "1" : "0"},
 												  {"THREADGROUP_SIZE", std::to_string(MESHLET_FIX_THREADGROUP_SIZE).c_str()}
 											  }));
 		gGlobalPipeline->flushAndBind(cmd_list);
@@ -312,20 +334,20 @@ void MeshletPass::add_meshlet_fix_pass(FrameGraph &fg, const MeshletCullDesc &de
 			uint32_t group_residency_buffer_id;
 		} constants = {};
 		constants.frustum_view_projection = desc.view_projection;
-		constants.visible_meshlets_buffer_id = resources.getReadWriteBuffer(GFXRID(VisibleMeshlets));
-		constants.visible_meshlets_count_buffer_id = resources.getReadWriteBuffer(GFXRID(VisibleMeshletsCount));
-		constants.occluded_meshlets_buffer_id = resources.getReadWriteBuffer(GFXRID(OccludedMeshlets));
-		constants.occluded_meshlets_count_buffer_id = resources.getReadWriteBuffer(GFXRID(OccludedMeshletsCount));
+		constants.visible_meshlets_buffer_id = resources.getReadWriteBuffer(GFXRID_ID(VisibleMeshlets, view_id));
+		constants.visible_meshlets_count_buffer_id = resources.getReadWriteBuffer(GFXRID_ID(VisibleMeshletsCount, view_id));
+		constants.occluded_meshlets_buffer_id = resources.getReadWriteBuffer(GFXRID_ID(OccludedMeshlets, view_id));
+		constants.occluded_meshlets_count_buffer_id = resources.getReadWriteBuffer(GFXRID_ID(OccludedMeshletsCount, view_id));
 
 		if (!render_meshlets_use_mesh_shaders)
 		{
-			constants.draw_indexed_args_buffer_id = resources.getReadWriteBuffer(GFXRID(DrawIndexedArgs));
-			constants.draw_indexed_count_buffer_id = resources.getReadWriteBuffer(GFXRID(DrawIndexedCount));
-			constants.draw_calls_indirect_instances_buffer_id = resources.getReadWriteBuffer(GFXRID(DrawCallsInstances));
+			constants.draw_indexed_args_buffer_id = resources.getReadWriteBuffer(GFXRID_ID(DrawIndexedArgs, view_id));
+			constants.draw_indexed_count_buffer_id = resources.getReadWriteBuffer(GFXRID_ID(DrawIndexedCount, view_id));
+			constants.draw_calls_indirect_instances_buffer_id = resources.getReadWriteBuffer(GFXRID_ID(DrawCallsInstances, view_id));
 		}
 
-		RHITexture *hiz = resources.getTexture(GFXRID(HiZ));
-		constants.hiz_tex_id = hiz->getShaderResourceView()->getBindlessIndex();
+		RHITexture *hiz = resources.getTexture(desc.hiz);
+		constants.hiz_tex_id = hiz->getShaderResourceView(-1, desc.hiz_layer)->getBindlessIndex();
 		constants.hiz_width = hiz->getWidth();
 		constants.hiz_height = hiz->getHeight();
 		constants.hiz_mips = hiz->getMipLevels();
@@ -333,7 +355,7 @@ void MeshletPass::add_meshlet_fix_pass(FrameGraph &fg, const MeshletCullDesc &de
 		constants.group_residency_buffer_id = resources.getReadWriteBuffer(GFXRID(GroupResidencyBuffer));
 		gDynamicRHI->setConstantBufferData(0, &constants, sizeof(constants));
 
-		cmd_list->dispatchIndirect(resources.getBuffer(GFXRID(MeshletFixDispatchArgs)), 1);
+		cmd_list->dispatchIndirect(resources.getBuffer(GFXRID_ID(MeshletFixDispatchArgs, view_id)), 1);
 	});
 }
 

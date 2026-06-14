@@ -8,7 +8,6 @@
 #include "FrameGraph/FrameGraph.h"
 #include "FrameGraph/FrameGraphData.h"
 #include "FrameGraph/FrameGraphUtils.h"
-#include "EntityRenderer.h"
 #include "glm/glm.hpp"
 #include "Editor/EditorContext.h"
 #include "Utils/Camera.h"
@@ -17,10 +16,6 @@
 
 ShadowRenderer::ShadowRenderer()
 {
-	shadows_vertex_shader = gDynamicRHI->createShader(L"shaders/lighting/shadows.hlsl", VERTEX_SHADER);
-	shadows_fragment_shader_point = gDynamicRHI->createShader(L"shaders/lighting/shadows.hlsl", FRAGMENT_SHADER, "PSMain", {{"LIGHT_TYPE", "0"}});
-	shadows_fragment_shader_directional = gDynamicRHI->createShader(L"shaders/lighting/shadows.hlsl", FRAGMENT_SHADER, "PSMain", {{"LIGHT_TYPE", "1"}});
-
 	if (engine_ray_tracing)
 	{
 		raygen_shader = gDynamicRHI->createShader(L"shaders/rt/rt_shader.hlsl", RAY_GENERATION_SHADER);
@@ -39,9 +34,13 @@ ShadowRenderer::ShadowRenderer()
 
 void ShadowRenderer::addShadowMapPasses(FrameGraph &fg, uint32_t max_draw_calls_count)
 {
+	OpaqueGeometryPass opaque;
+
 	auto light_entities_id = Scene::getCurrentScene()->getEntitiesWith<LightComponent>();
 
 	ShadowPasses &shadow_passes = fg.getBlackboard().add<ShadowPasses>();
+
+	uint32_t shadow_view_id = 1; // TODO: in future registrate frustums in separate system and use real view_id (view_id is tied to pass_mask and view_projection)
 
 	for (entt::entity light_entity_id : light_entities_id)
 	{
@@ -55,114 +54,74 @@ void ShadowRenderer::addShadowMapPasses(FrameGraph &fg, uint32_t max_draw_calls_
 
 		if (light.getType() == LIGHT_TYPE_POINT)
 		{
-			eastl::vector<glm::mat4> faces_transforms;
-			faces_transforms.push_back(glm::lookAtLH(position, position + glm::vec3(1, 0, 0), glm::vec3(0, 1, 0)));
-			faces_transforms.push_back(glm::lookAtLH(position, position + glm::vec3(-1, 0, 0), glm::vec3(0, 1, 0)));
-			faces_transforms.push_back(glm::lookAtLH(position, position + glm::vec3(0, 1, 0), glm::vec3(0, 0, 1)));
-			faces_transforms.push_back(glm::lookAtLH(position, position + glm::vec3(0, -1, 0), glm::vec3(0, 0, 1)));
-			faces_transforms.push_back(glm::lookAtLH(position, position + glm::vec3(0, 0, 1), glm::vec3(0, 1, 0)));
-			faces_transforms.push_back(glm::lookAtLH(position, position + glm::vec3(0, 0, -1), glm::vec3(0, 1, 0)));
-
+			glm::mat4 faces_transforms[6] = {
+				glm::lookAtLH(position, position + glm::vec3(1, 0, 0), glm::vec3(0, 1, 0)),
+				glm::lookAtLH(position, position + glm::vec3(-1, 0, 0), glm::vec3(0, 1, 0)),
+				glm::lookAtLH(position, position + glm::vec3(0, 1, 0), glm::vec3(0, 0, -1)),
+				glm::lookAtLH(position, position + glm::vec3(0, -1, 0), glm::vec3(0, 0, 1)),
+				glm::lookAtLH(position, position + glm::vec3(0, 0, 1), glm::vec3(0, 1, 0)),
+				glm::lookAtLH(position, position + glm::vec3(0, 0, -1), glm::vec3(0, 1, 0)),
+			};
+			glm::mat4 light_projection = glm::perspectiveLH(glm::radians(90.0f), 1.0f, POINT_SHADOW_Z_NEAR, light.radius);
 
 			GraphicsResourceName shadow_map_resource = GFXRID_ID(ShadowMap, (uint32_t)light_entity_id);
 			fg.importTexture(shadow_map_resource, light.shadow_map);
+			shadow_passes.shadow_maps.push_back(shadow_map_resource);
 
-			for (int face_ = 0; face_ < 6; face_++)
+			OpaqueGeometryPass::ShaderSet shaders = OpaqueGeometryPass::ShaderSet::fromFile(L"shaders/lighting/shadows.hlsl");
+
+			for (int face = 0; face < 6; face++)
 			{
-				int face = face_;
+				OpaqueGeometryPass::RenderView view;
+				view.view_projection = light_projection * faces_transforms[face];
+				view.pass_mask = PASS_MASK_POINT_SHADOW;
+				view.instance_count = max_draw_calls_count;
+				view.view_id = shadow_view_id++;
+				view.render_size = glm::ivec2(light.shadow_map->getWidth());
+				view.layer = face;
+				view.use_two_pass_occlusion = false;
+				view.use_reverse_z = false;
+				view.cull_mode = CULL_MODE_FRONT;
+				view.shaders = shaders;
 
-				glm::mat4 light_projection = glm::perspectiveLH(glm::radians(90.0f), 1.0f, 0.05f, light.radius);
-				glm::mat4 light_view_projection = light_projection * faces_transforms[face];
-				create_draw_calls(fg, max_draw_calls_count, PASS_MASK_POINT_SHADOW, light_view_projection);
+				OpaqueGeometryPass::DepthOutput output;
+				output.depth = shadow_map_resource;
 
-				fg.addCallbackPass("Cube Shadow Map Pass",
-				[&](RenderPassBuilder &builder)
-				{
-					builder.writeTexture(shadow_map_resource);
-					if (face == 0)
-						shadow_passes.shadow_maps.push_back(shadow_map_resource);
-
-					builder.readIndirectArgsBuffer(GFXRID(DrawIndexedArgs));
-					builder.readIndirectArgsBuffer(GFXRID(DrawIndexedCount));
-					builder.readVertexBuffer(GFXRID(DrawCallsInstances));
-				},
-				[=](const RenderPassResources &resources, RHICommandList *cmd_list)
-				{
-					// Render
-					auto shadow_map = resources.getTexture(shadow_map_resource);
-
-					VertexInputsDescription inputs_desc;
-					inputs_desc.inputs.push_back({"INSTANCE_ID", 1, FORMAT_R32_UINT, true});
-
-					cmd_list->setVertexBuffer(resources.getBuffer(GFXRID(DrawCallsInstances)), 0, sizeof(uint32_t), 1);
-
-					cmd_list->setRenderTargets({}, shadow_map, face, 0, true, 1.0f);
-					gGlobalPipeline->setupGraphicsPipeline(cmd_list, shadows_vertex_shader, shadows_fragment_shader_point, inputs_desc, false, true, CULL_MODE_FRONT);
-					gGlobalPipeline->setDepthFunc(COMPARE_FUNC_LESS_EQUAL);
-					gGlobalPipeline->flushAndBind(cmd_list);
-
-					EntityRenderer::ShadowUBO ubo;
-					ubo.light_space_matrix = light_view_projection;
-					ubo.light_pos = glm::vec4(position, 1.0);
-					ubo.z_far = light.radius;
-
-					gDynamicRHI->setConstantBufferData(1, &ubo, sizeof(EntityRenderer::ShadowUBO));
-
-					cmd_list->drawIndexedIndirect(resources.getBuffer(GFXRID(DrawIndexedArgs)), max_draw_calls_count, resources.getBuffer(GFXRID(DrawIndexedCount)));
-
-					cmd_list->resetRenderTargets();
-				});
+				opaque.renderDepth(fg, view, output);
 			}
 		} else
 		{
 			GraphicsResourceName shadow_map_resource = GFXRID_ID(ShadowMap, (uint32_t)light_entity_id);
 			fg.importTexture(shadow_map_resource, light.shadow_map);
+			shadow_passes.shadow_maps.push_back(shadow_map_resource);
 
-			for (int i_ = 0; i_ < SHADOW_MAP_CASCADE_COUNT; i_++)
+			uint32_t shadow_size = light.shadow_map->getWidth();
+			HiZ::createOrImport(fg, cascade_hiz, GFXRID(CascadeHiZ), glm::ivec2(shadow_size / 4), SHADOW_MAP_CASCADE_COUNT);
+
+			OpaqueGeometryPass::ShaderSet shaders = OpaqueGeometryPass::ShaderSet::fromFile(L"shaders/lighting/shadows.hlsl");
+
+			for (int cascade = 0; cascade < SHADOW_MAP_CASCADE_COUNT; cascade++)
 			{
-				int cascade = i_;
-				create_draw_calls(fg, max_draw_calls_count, PASS_MASK_DIRECTIONAL_SHADOW, light.cascades[cascade].viewProjMatrix);
+				OpaqueGeometryPass::RenderView view;
+				view.view_projection = light.cascades[cascade].viewProjMatrix;
+				view.pass_mask = PASS_MASK_DIRECTIONAL_SHADOW;
+				view.instance_count = max_draw_calls_count;
+				view.view_id = shadow_view_id++;
+				view.render_size = glm::ivec2(shadow_size);
+				view.hiz = GFXRID(CascadeHiZ);
+				view.layer = cascade;
+				view.use_two_pass_occlusion = true;
+				view.ortho_frustum = true;
+				view.use_reverse_z = false;
+				view.cull_mode = CULL_MODE_FRONT;
+				view.shaders = shaders;
 
-				fg.addCallbackPass("Cascaded Shadows Pass",
-				[&](RenderPassBuilder &builder)
-				{
-					builder.writeTexture(shadow_map_resource);
-					if (cascade == 0)
-						shadow_passes.shadow_maps.push_back(shadow_map_resource);
+				OpaqueGeometryPass::DepthOutput output;
+				output.depth = shadow_map_resource;
 
-					builder.readIndirectArgsBuffer(GFXRID(DrawIndexedArgs));
-					builder.readIndirectArgsBuffer(GFXRID(DrawIndexedCount));
-					builder.readVertexBuffer(GFXRID(DrawCallsInstances));
-				},
-				[=, &light](const RenderPassResources &resources, RHICommandList *cmd_list)
-				{
-					// Render
-					auto shadow_map = resources.getTexture(shadow_map_resource);
-					glm::mat4 light_matrix = light.cascades[cascade].viewProjMatrix;
-
-					VertexInputsDescription inputs_desc;
-					inputs_desc.inputs.push_back({"INSTANCE_ID", 1, FORMAT_R32_UINT, true});
-
-					cmd_list->setVertexBuffer(resources.getBuffer(GFXRID(DrawCallsInstances)), 0, sizeof(uint32_t), 1);
-
-					cmd_list->setRenderTargets({}, shadow_map, cascade, 0, true, 1.0f);
-					gGlobalPipeline->setupGraphicsPipeline(cmd_list, shadows_vertex_shader, shadows_fragment_shader_directional, inputs_desc, false, true, CULL_MODE_FRONT);
-					gGlobalPipeline->setDepthFunc(COMPARE_FUNC_LESS_EQUAL);
-					gGlobalPipeline->flushAndBind(cmd_list);
-
-					EntityRenderer::ShadowUBO ubo;
-					ubo.light_space_matrix = light_matrix;
-					ubo.light_pos = glm::vec4(position, 1.0);
-					ubo.z_far = 0;
-
-					gDynamicRHI->setConstantBufferData(1, &ubo, sizeof(EntityRenderer::ShadowUBO));
-
-					cmd_list->drawIndexedIndirect(resources.getBuffer(GFXRID(DrawIndexedArgs)), max_draw_calls_count, resources.getBuffer(GFXRID(DrawIndexedCount)));
-
-					cmd_list->resetRenderTargets();
-				});
-				}
+				opaque.renderDepth(fg, view, output);
 			}
+		}
 	}
 }
 
@@ -237,6 +196,11 @@ void ShadowRenderer::updateShadows(Camera *camera)
 			glm::vec3 light_dir = transform.getLocalDirection(glm::vec3(0, 0, 1));
 			debug_renderer->addArrow(position, position + light_dir, 0.1);
 			update_cascades(light, light_dir, camera);
+		} else if (light.getType() == LIGHT_TYPE_POINT)
+		{
+			glm::vec3 position = glm::vec3(transform.getWorldTransform()[3]);
+			debug_renderer->addSphere(position, POINT_SHADOW_Z_NEAR, 16, glm::vec3(1, 0.4, 0));
+			debug_renderer->addSphere(position, light.radius, 32, glm::vec3(1, 1, 0));
 		}
 	}
 }
@@ -353,70 +317,4 @@ void ShadowRenderer::update_cascades(LightComponent &light, glm::vec3 light_dir,
 
 		lastSplitDist = cascadeSplits[i];
 	}
-}
-
-void ShadowRenderer::create_draw_calls(FrameGraph &fg, uint32_t max_draw_calls_count, uint32_t pass_mask, glm::float4x4 view_projection)
-{
-	// TODO: meshlet pipeline for shadows too
-	/*
-	fg.addCallbackPass("Init DrawCalls Pass",
-	[&](RenderPassBuilder &builder)
-	{
-		builder.writeBuffer(GFXRID(DrawIndexedCount));
-	},
-	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
-	{
-		struct Constants
-		{
-			uint32_t draw_calls_count_buffer_id;
-		} constants;
-		constants.draw_calls_count_buffer_id = resources.getReadWriteBuffer(GFXRID(DrawIndexedCount));
-
-		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/gpu_driven/init_draw_calls.hlsl", COMPUTE_SHADER));
-		gGlobalPipeline->flushAndBind(cmd_list);
-
-		gDynamicRHI->setConstantBufferData(0, &constants, sizeof(constants));
-		cmd_list->dispatch(1, 1, 1);
-	});
-	*/
-
-	fg.addCallbackPass("Create Draw Calls Pass (Shadows)",
-	[&](RenderPassBuilder &builder)
-	{
-		builder.writeBuffer(GFXRID(DrawIndexedArgs));
-		builder.writeBuffer(GFXRID(DrawIndexedCount));
-		builder.writeBuffer(GFXRID(DrawCallsInstances));
-		builder.readBuffer(GFXRID(InstancesPassMask));
-	},
-	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
-	{
-		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/gpu_driven/create_draw_calls_shadows.hlsl", COMPUTE_SHADER, "CSMain", {{"IS_ORTHO_FRUSTUM", pass_mask == PASS_MASK_DIRECTIONAL_SHADOW ? "1" : "0"}}));
-
-		gGlobalPipeline->flushAndBind(cmd_list);
-
-		struct Constants
-		{
-			glm::mat4 frustum_view_projection;
-			uint32_t draw_indexed_args_buffer_id;
-			uint32_t draw_indexed_count_buffer_id;
-			uint32_t draw_calls_indirect_instances_buffer_id;
-			uint32_t instances_pass_mask_buffer_id;
-			uint32_t instances_count;
-			uint32_t current_pass_mask;
-			uint32_t pad[2];
-		} constants;
-
-		constants.frustum_view_projection = view_projection;
-		constants.draw_indexed_args_buffer_id = resources.getReadWriteBuffer(GFXRID(DrawIndexedArgs));
-		constants.draw_indexed_count_buffer_id = resources.getReadWriteBuffer(GFXRID(DrawIndexedCount));
-		constants.draw_calls_indirect_instances_buffer_id = resources.getReadWriteBuffer(GFXRID(DrawCallsInstances));
-		constants.instances_pass_mask_buffer_id = resources.getReadWriteBuffer(GFXRID(InstancesPassMask));
-		constants.instances_count = max_draw_calls_count;
-		constants.current_pass_mask = pass_mask;
-
-		gDynamicRHI->setConstantBufferData(0, &constants, sizeof(constants));
-
-		int num_groups = ceil(constants.instances_count / 32.0f);
-		cmd_list->dispatch(num_groups, 1, 1);
-	});
 }

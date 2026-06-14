@@ -39,7 +39,11 @@ void CSMain(uint3 dispatchID : SV_DispatchThreadID)
 	float3 bound_center = instance.bound_center.xyz;
 	float3 bound_extent = instance.bound_extent.xyz;
 	transformBoundBox(bound_center, bound_extent, instance.world_transform);
-	FrustumCullData cull_data = getFrustumCullData(bound_center, bound_extent, frustum_view_projection);
+	#if IS_ORTHO_FRUSTUM
+		FrustumCullData cull_data = getFrustumCullDataOrtho(bound_center, bound_extent, frustum_view_projection);
+	#else
+		FrustumCullData cull_data = getFrustumCullData(bound_center, bound_extent, frustum_view_projection);
+	#endif
 
 	if (!cull_data.is_visible)
 		return;

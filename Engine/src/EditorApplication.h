@@ -3,7 +3,6 @@
 #include "Core/Log.h"
 #include "Rendering/Mesh.h"
 #include "Scene/Scene.h"
-#include "renderers/EntityRenderer.h"
 #include "renderers/LutRenderer.h"
 #include "renderers/IrradianceRenderer.h"
 #include "renderers/PrefilterRenderer.h"

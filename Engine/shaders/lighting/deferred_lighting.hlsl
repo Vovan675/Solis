@@ -46,6 +46,7 @@ cbuffer PushConstants : register(b2)
 	float4 light_color;
 	float light_intensity;
 	float light_range_square;
+	float shadow_z_near;
 	float shadow_z_far;
 	uint shadow_map_tex_id;
 };
@@ -98,7 +99,10 @@ float2( -0.8595296839803187f, -0.3859107698213548f ),
 		float get_shadow_point(float3 frag_pos, float bias)
 		{
 			float3 fragToLight = frag_pos - light_pos.xyz;
-			float current_depth = length(fragToLight) / shadow_z_far;
+
+			// Max of sampling coordinates for cubemap is the cube face axis, so the value itself is the view depth
+			float view_depth = max(abs(fragToLight.x), max(abs(fragToLight.y), abs(fragToLight.z)));
+			float current_depth = (shadow_z_far / (shadow_z_far - shadow_z_near)) * (1.0 - shadow_z_near / view_depth);
 
 			float shadow = 0.0;
 			
@@ -249,7 +253,7 @@ PSOutput PSMain(VSOutput input)
 			light_attenuation = get_attenuation(P);
 			#if USE_SHADOWS == 1
 				//float bias = max(0.005, 0.05 * (1.0 - dot(N, L)));
-				float bias = 0.005;
+				float bias = 0.002;
 				shadow = get_shadow_point(P, bias);
 			#endif
 		#elif LIGHT_TYPE == 1

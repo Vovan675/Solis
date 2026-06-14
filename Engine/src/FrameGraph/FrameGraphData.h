@@ -37,7 +37,8 @@
 #define GBufferDepth
 #define GBufferShading
 
-#define HiZ
+#define HiZTexture
+#define CascadeHiZ
 
 #define SSAONoiseTexture
 #define SSAORaw

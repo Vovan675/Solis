@@ -291,7 +291,7 @@ void GeometryStreaming::addAgeFilterAndReadbackPasses(FrameGraph &frame_graph)
 			constants.stream_requests_buffer_id = resources.getReadWriteBuffer(GFXRID(StreamRequestsBuffer));
 			constants.group_ages_buffer_id = resources.getReadWriteBuffer(GFXRID(GroupAgesBuffer));
 
-			gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/gpu_driven/age_filter.hlsl", COMPUTE_SHADER));
+			gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/gpu_driven/meshlet_stream_aging.hlsl", COMPUTE_SHADER));
 			gGlobalPipeline->flushAndBind(cmd_list);
 			gDynamicRHI->setConstantBufferData(0, &constants, sizeof(constants));
 			cmd_list->dispatch((group_count + 63) / 64, 1, 1);

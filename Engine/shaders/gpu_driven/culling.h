@@ -198,7 +198,7 @@ bool isHizOcclusionCulled(FrustumCullData cull_data, float2 hiz_size, uint hiz_m
 				hiz_tex.SampleLevel(point_clamp_sampler, min_uv, hiz_mip, int2(0, 1)).r,
 				hiz_tex.SampleLevel(point_clamp_sampler, min_uv, hiz_mip, int2(1, 1)).r
 			);
-			hiz_depth = min(min(depth.x, depth.y), min(depth.z, depth.w));
+			hiz_depth = max(max(depth.x, depth.y), max(depth.z, depth.w));
 		#elif HIZ_SAMPLES == 4
 			float2 base_uv = rect_uv.xy;
 			
@@ -227,11 +227,16 @@ bool isHizOcclusionCulled(FrustumCullData cull_data, float2 hiz_size, uint hiz_m
 				hiz_tex.SampleLevel(point_clamp_sampler, base_uv, hiz_mip, int2(3, 3)).r
 			);
 			
-			float4 depth = min(min(depth0, depth1), min(depth2, depth3));
-			hiz_depth = min(min(depth.x, depth.y), min(depth.z, depth.w));
+			float4 depth = max(max(depth0, depth1), max(depth2, depth3));
+			hiz_depth = max(max(depth.x, depth.y), max(depth.z, depth.w));
 		#endif
 
-		bool is_culled = cull_data.rect_max.z < hiz_depth;
+		#if REVERSE_Z
+			float nearest_depth = 1.0 - cull_data.rect_max.z;
+		#else
+			float nearest_depth = cull_data.rect_min.z;
+		#endif
+		bool is_culled = nearest_depth > hiz_depth;
 
 		#if HIZ_OCCLUSION_DEBUG
 			float3 instance_color = is_culled ? float3(1, 0, 0) : float3(0, 1, 0);

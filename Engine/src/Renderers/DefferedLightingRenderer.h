@@ -32,6 +32,7 @@ public:
 		glm::vec4 light_color;
 		float light_intensity;
 		float light_range_square; // radius ^ 2
+		float z_near;
 		float z_far;
 		uint32_t shadow_map_tex_id;
 	} constants;

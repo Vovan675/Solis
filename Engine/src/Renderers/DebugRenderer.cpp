@@ -264,8 +264,8 @@ void DebugRenderer::addTextureDebugPass(FrameGraph &fg)
 			builder.readTexture(GFXRID(DDGIIrradiance));
 		if (builder.isTextureCreated(GFXRID(DDGIMetadata)))
 			builder.readTexture(GFXRID(DDGIMetadata));
-		if (builder.isTextureCreated(GFXRID(HiZ)))
-			builder.readTexture(GFXRID(HiZ));
+		if (builder.isTextureCreated(GFXRID(HiZTexture)))
+			builder.readTexture(GFXRID(HiZTexture));
 		builder.readTexture(GFXRID(FinalNoPostTexture));
 		if (builder.isTextureCreated(GFXRID(RayTracedVisibility)))
 			builder.readTexture(GFXRID(RayTracedVisibility));
@@ -295,8 +295,8 @@ void DebugRenderer::addTextureDebugPass(FrameGraph &fg)
 		if (resources.has(GFXRID(RayTracedVisibility)))
 			ubo.light_diffuse_id = resources.getReadTexture(GFXRID(RayTracedVisibility));
 
-		if (resources.has(GFXRID(HiZ)))
-			ubo.hiz_tex_id = resources.getReadTexture(GFXRID(HiZ));
+		if (resources.has(GFXRID(HiZTexture)))
+			ubo.hiz_tex_id = resources.getReadTexture(GFXRID(HiZTexture));
 		else
 			ubo.hiz_tex_id = 0;
 

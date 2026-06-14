@@ -32,7 +32,7 @@ public:
 			ZORAH
 		} scene;
 
-		scene = ZORAH;
+		scene = SPONZA;
 
 		if (scene == SPONZA)
 		{

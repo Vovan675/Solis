@@ -123,6 +123,8 @@ enum LIGHT_TYPE
 };
 
 #define SHADOW_MAP_CASCADE_COUNT 4
+#define POINT_SHADOW_Z_NEAR 0.05f
+
 struct LightComponent
 {
 	LightComponent()
@@ -182,7 +184,7 @@ struct LightComponent
 	float intensity = 1.0f;
 	float radius = 1.0f;
 
-	float shadow_map_size = 4096;
+	float shadow_map_size = 2048;
 
 	RHITextureRef shadow_map = nullptr;
 

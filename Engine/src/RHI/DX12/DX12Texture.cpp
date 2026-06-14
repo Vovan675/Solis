@@ -409,11 +409,18 @@ DX12TextureView::DX12TextureView(TextureViewDescription description): RHITexture
 		D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
 		srv_desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 		srv_desc.Format = srv_format;
-		if (native_texture->getDescription().is_cube)
+		if (native_texture->getDescription().is_cube && description.layer == -1)
 		{
 			srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBE;
 			srv_desc.TextureCube.MipLevels = mip_count;
 			srv_desc.TextureCube.MostDetailedMip = mip_base;
+		} else if (native_texture->getDescription().is_cube)
+		{
+			srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2DARRAY;
+			srv_desc.Texture2DArray.MipLevels = mip_count;
+			srv_desc.Texture2DArray.MostDetailedMip = mip_base;
+			srv_desc.Texture2DArray.FirstArraySlice = description.layer;
+			srv_desc.Texture2DArray.ArraySize = 1;
 		} else if (native_texture->getDescription().array_levels > 1)
 		{
 			srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2DARRAY;

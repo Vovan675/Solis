@@ -19,13 +19,21 @@ bool cullMeshletVisibility(
 	float3 bound_center = meshlet.center.xyz;
 	float3 bound_extent = meshlet.extent.xyz;
 	transformBoundBox(bound_center, bound_extent, world_transform);
-	cull = getFrustumCullData(bound_center, bound_extent, frustum_view_projection);
+	#if IS_ORTHO_FRUSTUM
+		cull = getFrustumCullDataOrtho(bound_center, bound_extent, frustum_view_projection);
+	#else
+		cull = getFrustumCullData(bound_center, bound_extent, frustum_view_projection);
+	#endif
 
 	if (!cull.is_visible)
 		return false;
 
-	Texture2D hiz_tex = ResourceDescriptorHeap[hiz.tex_id];
-	return !isHizOcclusionCulled(cull, float2(hiz.width, hiz.height), hiz.mips, hiz_tex);
+	#if USE_OCCLUSION
+		Texture2D hiz_tex = ResourceDescriptorHeap[hiz.tex_id];
+		return !isHizOcclusionCulled(cull, float2(hiz.width, hiz.height), hiz.mips, hiz_tex);
+	#else
+		return true;
+	#endif
 }
 
 uint appendVisibleMeshlet(

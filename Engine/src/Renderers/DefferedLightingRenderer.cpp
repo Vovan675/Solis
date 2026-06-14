@@ -177,6 +177,7 @@ void DefferedLightingRenderer::renderLights(FrameGraph &fg)
 				constants.light_color = glm::vec4(light.color, 1.0);
 				constants.light_range_square = pow(light.radius, 2);
 				constants.light_intensity = light.intensity;
+				constants.z_near = POINT_SHADOW_Z_NEAR;
 				constants.z_far = light.radius;
 				constants.shadow_map_tex_id = light.shadow_map->getShaderResourceView()->getBindlessIndex();
 
