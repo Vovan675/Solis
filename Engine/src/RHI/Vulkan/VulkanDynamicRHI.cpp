@@ -495,7 +495,7 @@ void VulkanDynamicRHI::endFrame()
 	if (frame >= MAX_FRAMES_IN_FLIGHT)
 	{
 		VkQueryPool prev_stats_pool = device->pipeline_statistics_query_pools[frame_in_flight];
-		uint64_t query_results[8];
+		uint64_t query_results[7];
 		VkResult result_query = vkGetQueryPoolResults(device->logicalHandle, prev_stats_pool, 0, 1, sizeof(query_results), query_results, sizeof(uint64_t), VK_QUERY_RESULT_64_BIT);
 
 		if (result_query == VK_SUCCESS)
@@ -507,7 +507,7 @@ void VulkanDynamicRHI::endFrame()
 			gpu_statistics.clipping_primitives = query_results[4];
 			gpu_statistics.fragment_shader_invocations = query_results[5];
 			gpu_statistics.compute_shader_invocations = query_results[6];
-			gpu_statistics.mesh_shader_invocations = query_results[7];
+			//gpu_statistics.mesh_shader_invocations = query_results[7];
 		}
 	}
 

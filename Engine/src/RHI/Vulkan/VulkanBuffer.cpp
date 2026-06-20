@@ -176,7 +176,7 @@ void VulkanBuffer::transitState(ResourceState new_state)
 {
 	VulkanCommandList *native_cmd_list = (VulkanCommandList *)gDynamicRHI->getCmdList();
 
-	auto writes = [](ResourceState state) { return hasAnyFlags(state, ResourceState::UAV); };
+	auto writes = [](ResourceState state) { return hasAnyFlags(state, ResourceState::UAV | ResourceState::COPY_DST); };
 
 	if (!writes(current_state) && !writes(new_state))
 	{

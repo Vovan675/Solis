@@ -89,8 +89,8 @@ struct BufferDescription
 	BufferUsage usage = BufferUsage::NONE;
 	uint32_t alignment = 0;
 
-	uint32_t storage_stride; // storage_stride = 4 for raw access. Stride is more tied to data, thats why it is here instead of BufferView
-	bool use_staging_buffer; // Use separate buffer for filling data (if true then only GPU memory is used)
+	uint32_t storage_stride = 4; // storage_stride = 4 for raw access. Stride is more tied to data, thats why it is here instead of BufferView
+	bool use_staging_buffer = true; // Use separate buffer for filling data (if true then only GPU memory is used)
 
 	size_t getHash() const
 	{

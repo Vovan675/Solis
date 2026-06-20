@@ -279,7 +279,7 @@ void VulkanTexture::transitLayout(RHICommandList *cmd_list, TextureLayoutType ne
 			} else
 			{
 				dst_stage_mask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
-				dst_access_mask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
+				dst_access_mask = VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
 			}
 			break;
 		case TEXTURE_LAYOUT_DEPTH_READ:

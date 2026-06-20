@@ -105,6 +105,7 @@ uint64_t GlobalBufferCache::GlobalBuffer::add(const void *cpu_data, uint64_t siz
 	staging->fill(cpu_data);
 
 	cmd_list->copyBuffer(staging, buffer, 0, offset, size);
+	buffer->transitState(ResourceState::SHADER_RESOURCE);
 	return offset;
 }
 

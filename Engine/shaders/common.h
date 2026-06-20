@@ -1,5 +1,21 @@
 #pragma once
 #include "hash.h"
+
+// Workaround for https://github.com/microsoft/DirectXShaderCompiler/issues/7740
+#ifdef VULKAN
+	#define DECLARE_COHERENT_RW_STRUCTURED_BUFFER(name, type, id) \
+		[[vk::binding(0, 1)]] globallycoherent RWStructuredBuffer<type> name##_coherent[] : register(u0); \
+		static globallycoherent RWStructuredBuffer<type> name = name##_coherent[id];
+	#define DECLARE_COHERENT_RW_BYTE_ADDRESS_BUFFER(name, id) \
+		[[vk::binding(0, 1)]] globallycoherent RWByteAddressBuffer name##_coherent[] : register(u0); \
+		static globallycoherent RWByteAddressBuffer name = name##_coherent[id];
+#else
+	#define DECLARE_COHERENT_RW_STRUCTURED_BUFFER(name, type, id) \
+		static globallycoherent RWStructuredBuffer<type> name = ResourceDescriptorHeap[id];
+	#define DECLARE_COHERENT_RW_BYTE_ADDRESS_BUFFER(name, id) \
+		static globallycoherent RWByteAddressBuffer name = ResourceDescriptorHeap[id];
+#endif
+
 // Constants
 #define PI 3.14159265359
 #define PI2 (2 * PI)

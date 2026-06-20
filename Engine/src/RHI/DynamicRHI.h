@@ -87,7 +87,7 @@ public:
 	void releaseGPUResource(RenderResource *resource)
 	{
 		if (resource)
-			gpu_release_queue.emplace(resource, frame);
+			gpu_release_queue.emplace(resource, frame + MAX_FRAMES_IN_FLIGHT);
 	}
 
 	template <typename F>
@@ -102,7 +102,7 @@ public:
 	void releaseNextFrame(F func)
 	{
 		auto *resource = new ReleaseNextFrameResource<F>(eastl::move(func));
-		gpu_release_queue.emplace(resource, frame);
+		gpu_release_queue.emplace(resource, frame + MAX_FRAMES_IN_FLIGHT);
 	}
 protected:
 	DynamicRHI() = default;

@@ -28,8 +28,8 @@ cbuffer Uniforms : register(b0)
 	uint group_ages_buffer_id;
 };
 
-static globallycoherent RWStructuredBuffer<TraversalItem> queue = ResourceDescriptorHeap[queue_buffer_id];
-static globallycoherent RWStructuredBuffer<TraversalCtrl> ctrl = ResourceDescriptorHeap[traversal_ctrl_buffer_id];
+DECLARE_COHERENT_RW_STRUCTURED_BUFFER(queue, TraversalItem, queue_buffer_id)
+DECLARE_COHERENT_RW_STRUCTURED_BUFFER(ctrl, TraversalCtrl, traversal_ctrl_buffer_id)
 static RWStructuredBuffer<MeshletCandidate> visible_meshlets = ResourceDescriptorHeap[visible_meshlets_buffer_id];
 static RWStructuredBuffer<uint> visible_meshlets_count = ResourceDescriptorHeap[visible_meshlets_count_buffer_id];
 static RWStructuredBuffer<MeshletCandidate> occluded_meshlets = ResourceDescriptorHeap[occluded_meshlets_buffer_id];
@@ -43,7 +43,7 @@ static RWByteAddressBuffer occluded_meshlets_count = ResourceDescriptorHeap[occl
 
 static RWByteAddressBuffer group_residency = ResourceDescriptorHeap[group_residency_buffer_id];
 static RWByteAddressBuffer stream_requests = ResourceDescriptorHeap[stream_requests_buffer_id];
-static globallycoherent RWByteAddressBuffer group_ages = ResourceDescriptorHeap[group_ages_buffer_id];
+DECLARE_COHERENT_RW_BYTE_ADDRESS_BUFFER(group_ages, group_ages_buffer_id)
 
 void resetAge(uint group_id, uint group_residency_offset)
 {
