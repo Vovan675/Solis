@@ -3,7 +3,6 @@
 #define PASS_MASK_GBUFFER 1 << 1
 #define PASS_MASK_DIRECTIONAL_SHADOW 1 << 2
 #define PASS_MASK_POINT_SHADOW 1 << 3
-#define MESH_FLAG_MESHLET 0x1
 
 struct MaterialGPU
 {
@@ -17,6 +16,8 @@ struct MaterialGPU
 	uint32_t normal_tex_id = 0;
 };
 
+#define INSTANCE_FLAG_INVALID 0x1
+
 struct InstanceGPU
 {
 	glm::mat4 world_transform;
@@ -28,8 +29,10 @@ struct InstanceGPU
 
 	uint32_t mesh_id;
 	uint32_t material_id = 0;
+	uint32_t flags = 0;
 };
 
+#define MESH_FLAG_MESHLET 0x1
 
 struct MeshGPU
 {

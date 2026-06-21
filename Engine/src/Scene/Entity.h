@@ -52,11 +52,9 @@ public:
 		return scene->registry.emplace_or_replace<T>(entity_id, args...);
 	}
 
-	template<typename T>
-	void markDirty() const
+	void markDirty(uint32_t flags) const
 	{
-		// Maybe in future add to dirty list and update at the end of frame
-		scene->registry.patch<T>(entity_id);
+		scene->markDirty(entity_id, flags);
 	}
 
 	template<typename T>

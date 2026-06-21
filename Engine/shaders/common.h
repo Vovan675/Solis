@@ -129,6 +129,8 @@ struct Material
 	uint pad[3];
 };
 
+#define INSTANCE_FLAG_INVALID 0x1
+
 struct Instance
 {
 	float4x4 world_transform;
@@ -140,7 +142,8 @@ struct Instance
 
 	uint mesh_id;
 	uint material_id;
-	uint pad[2];
+	uint flags;
+	uint pad;
 };
 
 struct Mesh

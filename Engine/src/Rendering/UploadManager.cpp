@@ -43,7 +43,10 @@ void UploadManager::beginFrame()
 UploadManager::StagedRange UploadManager::stage(uint32_t size)
 {
 	if (ring_offset + size > ring_size)
+	{
+		CORE_WARN("UploadManager::stage(): not enough frame ring buffer size");
 		return {};
+	}
 
 	StagedRange range;
 	range.data = (uint8_t *)ring_mapped[current_frame] + ring_offset;

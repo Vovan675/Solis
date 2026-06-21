@@ -13,6 +13,11 @@ SceneRenderer::SceneRenderer()
 	shadow_renderer.debug_renderer = &debug_renderer;
 	geometry_streaming.init();
 
+	frustums_table.init("Frustums Buffer", 64, ReplicationPolicy::Copy);
+	materials_table.init("Materials Buffer", 512, ReplicationPolicy::DirtyRows);
+	meshes_table.init("Meshes Buffer", 4096, ReplicationPolicy::DirtyRows);
+	instances_table.init("Instances Buffer", 65536, ReplicationPolicy::DirtyRows);
+
 	AssetManager::onPreReimport().connect<&SceneRenderer::on_asset_pre_reimport>(this);
 	AssetManager::onPostReimport().connect<&SceneRenderer::on_asset_post_reimport>(this);
 }
@@ -30,40 +35,60 @@ void SceneRenderer::setScene(Ref<Scene> scene)
 
 	if (this->scene)
 	{
-		this->scene->registry.on_construct<MeshRendererComponent>().disconnect<&SceneRenderer::on_mesh_added>(this);
-		this->scene->registry.on_update<MeshRendererComponent>().disconnect<&SceneRenderer::on_mesh_added>(this);
+		this->scene->registry.on_construct<MeshRendererComponent>().disconnect<&SceneRenderer::on_mesh_renderer_constructed>(this);
+		this->scene->registry.on_destroy<MeshRendererComponent>().disconnect<&SceneRenderer::on_mesh_renderer_destroyed>(this);
 	}
 
 	this->scene = scene;
 	if (engine_ray_tracing)
 	{
-		rt_scene = new RayTracingScene(scene);
+		rt_scene = new RayTracingScene();
 	} else
 	{
 		rt_scene = nullptr;
 	}
 
+	entity_instances.clear();
+	instances_table.reset();
+	materials_table.reset();
+	meshes_table.reset();
+
 	if (!scene)
 		return;
 
-	for (entt::entity entity : scene->registry.view<MeshRendererComponent>())
-		on_mesh_added(scene->registry, entity);
+	scene->registry.on_construct<MeshRendererComponent>().connect<&SceneRenderer::on_mesh_renderer_constructed>(this);
+	scene->registry.on_destroy<MeshRendererComponent>().connect<&SceneRenderer::on_mesh_renderer_destroyed>(this);
 
-	scene->registry.on_construct<MeshRendererComponent>().connect<&SceneRenderer::on_mesh_added>(this);
-	scene->registry.on_update<MeshRendererComponent>().connect<&SceneRenderer::on_mesh_added>(this);
+	for (entt::entity entity : scene->registry.view<MeshRendererComponent>())
+		scene->markDirty(entity, DIRTY_RENDER_STATE);
 }
 
-void SceneRenderer::on_mesh_added(entt::registry &registry, entt::entity entity)
+void SceneRenderer::on_mesh_renderer_constructed(entt::registry &registry, entt::entity entity)
 {
-	auto &mesh_renderer = registry.get<MeshRendererComponent>(entity);
-	for (int i = 0; i < mesh_renderer.meshes.size(); i++)
+	scene->markDirty(entity, DIRTY_RENDER_STATE);
+}
+
+void SceneRenderer::on_mesh_renderer_destroyed(entt::registry &registry, entt::entity entity)
+{
+	free_instances(entity);
+}
+
+void SceneRenderer::free_instances(entt::entity entity_id)
+{
+	auto it = entity_instances.find(entity_id);
+	if (it == entity_instances.end())
+		return;
+
+	InstanceGPU empty_instance{};
+	empty_instance.flags = INSTANCE_FLAG_INVALID;
+	for (uint32_t i = 0; i < it->second.count; i++)
 	{
-		Engine::Mesh *mesh = mesh_renderer.meshes[i].getMesh();
-		if (mesh == nullptr)
-			continue;
-		const Engine::MeshletFileView *file_view = mesh_renderer.meshes[i].model->getFileView(mesh->id);
-		geometry_streaming.registerMesh(mesh, *file_view);
+		instances_table.set(it->second.start + i, empty_instance);
+		if (rt_scene)
+			rt_scene->removeInstance(it->second.start + i);
 	}
+	instances_table.freeArray(it->second.start, it->second.count);
+	entity_instances.erase(it);
 }
 
 void SceneRenderer::on_asset_pre_reimport(Asset *asset)
@@ -75,7 +100,11 @@ void SceneRenderer::on_asset_pre_reimport(Asset *asset)
 	eastl::vector<Ref<Engine::Mesh>> old_meshes;
 	model->getMeshes(old_meshes);
 	for (auto &old_mesh : old_meshes)
+	{
 		geometry_streaming.unregisterMesh(old_mesh);
+		if (rt_scene)
+			rt_scene->invalidateMesh(old_mesh);
+	}
 }
 
 void SceneRenderer::on_asset_post_reimport(Asset *asset)
@@ -91,6 +120,7 @@ void SceneRenderer::on_asset_post_reimport(Asset *asset)
 			MeshRendererComponent &mesh_renderer = view.get<MeshRendererComponent>(entity);
 			for (Ref<Material> &material : mesh_renderer.materials)
 				material->invalidateTextures();
+			scene->markDirty(entity, DIRTY_RENDER_STATE);
 		}
 		render_first_frame = true; // TODO: remove from here, should be reactive
 	} else if (asset->getAssetType() == ASSET_TYPE_MODEL)
@@ -104,7 +134,7 @@ void SceneRenderer::on_asset_post_reimport(Asset *asset)
 			{
 				if (mesh_id.model == model)
 				{
-					on_mesh_added(scene->registry, entity);
+					scene->markDirty(entity, DIRTY_RENDER_STATE);
 					break;
 				}
 			}
@@ -130,6 +160,11 @@ void SceneRenderer::render(Camera *camera, RHITextureRef result_texture)
 	frame_graph.importTexture(GFXRID(FinalTexture), result_texture);
 	frame_graph.importTexture(GFXRID(LutBRDF), lut_renderer.brdf_lut_texture);
 	geometry_streaming.importBuffers(frame_graph);
+
+	frustums_table.upload(frame_graph);
+	instances_table.upload(frame_graph);
+	materials_table.upload(frame_graph);
+	meshes_table.upload(frame_graph);
 
 	if (render_first_frame)
 	{
@@ -234,29 +269,8 @@ void SceneRenderer::update(Camera *camera)
 {
 	main_view_camera = camera;
 
-	if (engine_ray_tracing)
-		rt_scene->update();
-
 	if (render_shadows)
 		shadow_renderer.updateShadows(camera);
-
-	auto fill_buffer = [](RHIBufferRef &buffer, void *data, size_t count, size_t stride, const char *name, BufferUsage usage = BufferUsage::SHADER_READ_BUFFER, bool use_staging = true)
-	{
-		uint32_t buffer_size = count * stride;
-		if (!buffer || buffer->getSize() < buffer_size)
-		{
-			BufferDescription desc;
-			desc.size = buffer_size;
-			desc.usage = usage;
-			desc.use_staging_buffer = use_staging;
-			desc.storage_stride = stride;
-			buffer = gDynamicRHI->createBuffer(desc);
-			buffer->setDebugName(name);
-		}
-
-		if (data)
-			buffer->fill(data);
-	};
 
 	{
 		PROFILE_CPU_SCOPE("SceneRenderer update render data");
@@ -311,198 +325,123 @@ void SceneRenderer::update(Camera *camera)
 			}
 		}
 
-		{
-			uint32_t frustums_size = frustums.size() * sizeof(FrustumDataGPU);
-			if (!frustums_gpu || frustums_gpu->getSize() < frustums_size)
-			{
-				BufferDescription desc;
-				desc.size = frustums_size;
-				desc.usage = BufferUsage::SHADER_READ_BUFFER;
-				desc.use_staging_buffer = true;
-				desc.storage_stride = sizeof(FrustumDataGPU);
-				frustums_gpu = gDynamicRHI->createBuffer(desc);
-				frustums_gpu->setDebugName("Frustums Buffer");
-			}
-			BufferDescription staging_desc;
-			staging_desc.size = frustums_size;
-			staging_desc.usage = BufferUsage::STAGING_BUFFER;
-			staging_desc.use_staging_buffer = false;
-			staging_desc.storage_stride = sizeof(FrustumDataGPU);
-			RHIBufferRef staging = gDynamicRHI->createBuffer(staging_desc);
-			staging->fill(frustums.data());
-			RHICommandList *cmd_list = gDynamicRHI->getCmdList();
-			cmd_list->copyBuffer(staging, frustums_gpu, 0, 0, frustums_size);
-			frustums_gpu->transitState(ResourceState::SHADER_RESOURCE);
-		}
+		frustums_table.setArray(0, eastl::span<const FrustumDataGPU>(frustums.data(), frustums.size()));
 
 		geometry_streaming.update();
 
-		// TODO: replace with dirty tracking + upload in future
-		static bool gpu_buffers_uploaded = false;
-		if (!gpu_buffers_uploaded || render_first_frame)
+		auto create_gpu_instance = [](const TransformComponent &transform, Engine::Mesh *mesh, uint32_t slot)
 		{
-			auto entities_view = Scene::getCurrentScene()->getEntitiesWith<TransformComponent, MeshRendererComponent>();
+			InstanceGPU instance{};
+			instance.world_transform = transform.getWorldTransform();
+			instance.iworld_transform = transform.getInverseWorldTransform();
+			instance.mesh_id = slot;
+			instance.material_id = slot;
+			BoundBox bound_box(mesh->bound_box);
+			instance.bound_center = glm::vec4(bound_box.getCenter(), 1.0f);
+			instance.bound_extent = glm::vec4(bound_box.getSize() / 2.0f, 1.0);
+			return instance;
+		};
 
-			eastl::vector<RenderObject> render_objects;
-			for (entt::entity entity_id : entities_view)
+		for (entt::entity entity_id : scene->getDirtyList())
+		{
+			if (!scene->registry.valid(entity_id) || !scene->registry.all_of<MeshRendererComponent>(entity_id))
+				continue;
+
+			Entity entity(entity_id);
+			TransformComponent &transform = entity.getComponent<TransformComponent>();
+			MeshRendererComponent &mesh_renderer = entity.getComponent<MeshRendererComponent>();
+
+			uint32_t flags = scene->getDirtyFlags(entity_id);
+			if (flags & DIRTY_RENDER_STATE)
 			{
-				TransformComponent &transform = entities_view.get<TransformComponent>(entity_id);
-				MeshRendererComponent &mesh_renderer = entities_view.get<MeshRendererComponent>(entity_id);
+				free_instances(entity_id);
 
+				uint32_t meshes_count = 0;
+				for (int i = 0; i < mesh_renderer.meshes.size(); i++)
+				{
+					if (mesh_renderer.meshes[i].getMesh())
+						meshes_count++;
+				}
+
+				if (meshes_count == 0)
+					continue;
+
+				uint32_t start_slot = instances_table.allocate(meshes_count);
+				uint32_t slot = start_slot;
 				for (int i = 0; i < mesh_renderer.meshes.size(); i++)
 				{
 					Engine::Mesh *mesh = mesh_renderer.meshes[i].getMesh();
-					if (mesh == nullptr)
+					if (!mesh)
 						continue;
 
 					Material *material = mesh_renderer.materials[i];
 					material->update();
 
-					RenderObject &render_object = render_objects.emplace_back();
-					render_object.transform = &transform;
-					render_object.mesh = mesh;
-					render_object.material = material;
 					const Engine::MeshletFileView *file_view = mesh_renderer.meshes[i].model->getFileView(mesh->id);
 					if (file_view)
-						render_object.file_view = *file_view;
-				}
-			}
+						geometry_streaming.registerMesh(mesh, *file_view);
 
-			materials.clear();
-			meshes.clear();
-			instances.clear();
-			instances_pass_masks.clear();
+					MaterialGPU material_gpu{};
+					material_gpu.albedo = material->albedo;
+					material_gpu.albedo_tex_id = material->albedo_tex.bindless_id;
+					material_gpu.metalness_tex_id = material->metalness_tex.bindless_id;
+					material_gpu.roughness_tex_id = material->roughness_tex.bindless_id;
+					material_gpu.specular_tex_id = material->specular_tex.bindless_id;
+					material_gpu.shading = glm::vec4(material->metalness, material->roughness, material->specular, 1.0f);
+					material_gpu.normal_tex_id = material->normal_tex.bindless_id;
 
-			for (int i = 0; i < render_objects.size(); i++)
-			{
-				RenderObject &render_object = render_objects[i];
-				TransformComponent *transform = render_object.transform;
-				Engine::Mesh *mesh = render_object.mesh;
-				Material *material = render_object.material;
-
-				InstanceGPU &instance = instances.emplace_back();
-				instance.world_transform = transform->getWorldTransform();
-				instance.iworld_transform = transform->getInverseWorldTransform();
-				instance.mesh_id = meshes.size();
-				instance.material_id = materials.size();
-
-				BoundBox bound_box(mesh->bound_box);
-				instance.bound_center = glm::vec4(bound_box.getCenter(), 1.0f);
-				instance.bound_extent = glm::vec4(bound_box.getSize() / 2.0f, 1.0);
-
-				MaterialGPU &material_gpu = materials.emplace_back();
-				material_gpu.albedo = material->albedo;
-				material_gpu.albedo_tex_id = material->albedo_tex.bindless_id;
-				material_gpu.metalness_tex_id = material->metalness_tex.bindless_id;
-				material_gpu.roughness_tex_id = material->roughness_tex.bindless_id;
-				material_gpu.specular_tex_id = material->specular_tex.bindless_id;
-				material_gpu.shading = glm::vec4(material->metalness, material->roughness, material->specular, 1.0f);
-				material_gpu.normal_tex_id = material->normal_tex.bindless_id;
-
-				MeshGPU &mesh_gpu = meshes.emplace_back();
-				mesh_gpu.vertex_buffer_id = mesh->indexed && mesh->indexed->vertex_buffer ? mesh->indexed->vertex_buffer->getShaderResourceView()->getBindlessIndex() : 0;
-				mesh_gpu.index_buffer_id = mesh->indexed && mesh->indexed->index_buffer ? mesh->indexed->index_buffer->getShaderResourceView()->getBindlessIndex() : 0;
-				mesh_gpu.vertex_stride = sizeof(Engine::Vertex);
-
-				mesh_gpu.positions_offset = offsetof(Engine::Vertex, pos);
-				mesh_gpu.normals_offset = offsetof(Engine::Vertex, normal);
-				mesh_gpu.tangents_offset = offsetof(Engine::Vertex, tangent);
-				mesh_gpu.uvs_offset = offsetof(Engine::Vertex, uv);
-				mesh_gpu.indices_count = mesh->indexed ? mesh->indexed->indices.size() : 0;
-
-				if (mesh->useMeshlets())
-				{
-					GlobalBufferCache::MeshGlobalOffsets mesh_global = GlobalBufferCache::getMeshOffsets(mesh->id);
-					mesh_gpu.meshlet_lod_groups_offset = mesh_global.lod_groups_offset;
-					mesh_gpu.group_residency_offset = geometry_streaming.getMeshResidencyOffset(mesh);
-					mesh_gpu.lod_nodes_offset = mesh_global.lod_nodes_offset;
-				}
-				mesh_gpu.root_group_offset = mesh->meshlet_data ? mesh->meshlet_data->meshlet_root_group_local_offset : 0;
-				mesh_gpu.attribute_flags = mesh->attribute_flags;
-				mesh_gpu.flags = mesh->useMeshlets() ? MESH_FLAG_MESHLET : 0;
-
-				/*
-				for (const auto &group : mesh->meshlet_geometry->meshlet_lod_groups)
-				{
-					glm::vec4 color = glm::vec4(group.depth / 10.0f, 0, 0, 1);
-					debug_renderer.addSphere(group.center, group.radius, 32, color);
-				}
-				*/
-
-
-				#if 0
-				// check how traversal works
-				struct Item
-				{
-					bool is_node;
-					uint32_t child_id;
-					uint32_t group_id;
-					uint32_t count;
-				};
-
-				LodNode root_node = mesh->meshlet_geometry->lod_nodes[mesh->meshlet_geometry->meshlet_root_group_local_offset];
-
-				eastl::queue<Item> items;
-
-				// Starting as root node was pushed
-				Item &it = items.emplace();
-				it.is_node = true;
-				it.child_id = root_node.first_child;
-				it.count = root_node.child_count;
-
-				while (items.size())
-				{
-					Item item = items.front();
-					items.pop();
-
-					// Traverse sub items of item
-					for (int local_sub_item_id = 0; local_sub_item_id < item.count; local_sub_item_id++)
+					MeshGPU mesh_gpu{};
+					mesh_gpu.vertex_buffer_id = mesh->indexed && mesh->indexed->vertex_buffer ? mesh->indexed->vertex_buffer->getShaderResourceView()->getBindlessIndex() : 0;
+					mesh_gpu.index_buffer_id = mesh->indexed && mesh->indexed->index_buffer ? mesh->indexed->index_buffer->getShaderResourceView()->getBindlessIndex() : 0;
+					mesh_gpu.vertex_stride = sizeof(Engine::Vertex);
+					mesh_gpu.positions_offset = offsetof(Engine::Vertex, pos);
+					mesh_gpu.normals_offset = offsetof(Engine::Vertex, normal);
+					mesh_gpu.tangents_offset = offsetof(Engine::Vertex, tangent);
+					mesh_gpu.uvs_offset = offsetof(Engine::Vertex, uv);
+					mesh_gpu.indices_count = mesh->indexed ? mesh->indexed->indices.size() : 0;
+					if (mesh->useMeshlets())
 					{
-
-						// Traverse hierarchy of nodes
-						if (item.is_node)
-						{
-							LodNode lod_node = mesh->meshlet_geometry->lod_nodes[item.child_id + local_sub_item_id];
-
-							bool is_child_group = lod_node.child_count == 0;
-
-							Item &i = items.emplace();
-							i = {};
-
-							if (is_child_group)
-							{
-								i.is_node = false;
-								i.group_id = lod_node.group_index;
-								i.count = lod_node.meshlet_count;
-							} else
-							{
-								i.is_node = true;
-								i.child_id = lod_node.first_child;
-								i.count = lod_node.child_count;
-							}
-
-						}
-						// Meshlets level
-						else
-						{
-							LODGroup lod_group = mesh->meshlet_geometry->meshlet_lod_groups[item.group_id];
-							uint32_t meshlet_id = lod_group.first_meshlet + local_sub_item_id;
-
-						}
+						GlobalBufferCache::MeshGlobalOffsets mesh_global = GlobalBufferCache::getMeshOffsets(mesh->id);
+						mesh_gpu.meshlet_lod_groups_offset = mesh_global.lod_groups_offset;
+						mesh_gpu.group_residency_offset = geometry_streaming.getMeshResidencyOffset(mesh);
+						mesh_gpu.lod_nodes_offset = mesh_global.lod_nodes_offset;
 					}
+					mesh_gpu.root_group_offset = mesh->meshlet_data ? mesh->meshlet_data->meshlet_root_group_local_offset : 0;
+					mesh_gpu.attribute_flags = mesh->attribute_flags;
+					mesh_gpu.flags = mesh->useMeshlets() ? MESH_FLAG_MESHLET : 0;
+
+					instances_table.set(slot, create_gpu_instance(transform, mesh, slot));
+					if (rt_scene)
+						rt_scene->setInstance(slot, mesh, transform.getWorldTransform());
+					materials_table.set(slot, material_gpu); // In future materials would be globally unique, so every material would hold its own slot
+					meshes_table.set(slot, mesh_gpu); // In future every mesh would hold its own slot and dont hold duplicates
+					slot++;
 				}
+				entity_instances[entity_id] = { start_slot, meshes_count };
+			} else if (flags & DIRTY_TRANSFORM)
+			{
+				auto it = entity_instances.find(entity_id);
+				if (it == entity_instances.end())
+					continue;
 
-				#endif
+				uint32_t slot = it->second.start;
+				for (int i = 0; i < mesh_renderer.meshes.size(); i++)
+				{
+					Engine::Mesh *mesh = mesh_renderer.meshes[i].getMesh();
+					if (!mesh)
+						continue;
+					instances_table.set(slot, create_gpu_instance(transform, mesh, slot));
+					if (rt_scene)
+						rt_scene->setInstance(slot, mesh, transform.getWorldTransform());
+					slot++;
+				}
 			}
-
-			indirect_draw_calls_max_count = instances.size();
-
-			fill_buffer(materials_gpu, materials.data(), materials.size(), sizeof(MaterialGPU), "Materials Buffer");
-			fill_buffer(instances_gpu, instances.data(), instances.size(), sizeof(InstanceGPU), "Instances Buffer");
-			fill_buffer(meshes_gpu, meshes.data(), meshes.size(), sizeof(MeshGPU), "Meshes Buffer");
-
-			gpu_buffers_uploaded = true;
 		}
+		indirect_draw_calls_max_count = instances_table.getMaxUsedSlot();
+		scene->clearDirty();
+
+		if (engine_ray_tracing && rt_scene)
+			rt_scene->update(camera);
 
 		if (render_meshlets_bvh_visualize)
 		{
@@ -563,9 +502,9 @@ void SceneRenderer::update(Camera *camera)
 	}
 
 	auto uniforms = Renderer::getDefaultUniforms();
-	uniforms.materials_buffer_id = materials_gpu->getShaderResourceView()->getBindlessIndex();
-	uniforms.instances_buffer_id = instances_gpu->getShaderResourceView()->getBindlessIndex();
-	uniforms.meshes_buffer_id = meshes_gpu->getShaderResourceView()->getBindlessIndex();
+	uniforms.materials_buffer_id = materials_table.getBindlessIndex();
+	uniforms.instances_buffer_id = instances_table.getBindlessIndex();
+	uniforms.meshes_buffer_id = meshes_table.getBindlessIndex();
 	uniforms.tlas_id = engine_ray_tracing ? rt_scene->getTopLevelAS()->getBindlessId() : 0;
 	uniforms.ddgi_volume_buffer_id = render_ddgi ? ddgi_renderer.getVolumeBufferId() : 0;
 	uniforms.lines_gpu_buffer_id = debug_renderer.getLinesGpuBuffer()->getUnorderedAccessView()->getBindlessIndex();
@@ -586,8 +525,6 @@ void SceneRenderer::gpu_frame_cull(FrameGraph &frame_graph)
 		if (render_freeze_culling)
 			return;
 
-		frustums_gpu->transitState(ResourceState::SHADER_RESOURCE);
-
 		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/gpu_driven/frame_cull_instances.hlsl", COMPUTE_SHADER, "CS_CullInstances"));
 		gGlobalPipeline->flushAndBind(cmd_list);
 
@@ -599,7 +536,7 @@ void SceneRenderer::gpu_frame_cull(FrameGraph &frame_graph)
 			uint32_t instances_pass_mask_buffer_id;
 		} constants;
 
-		constants.frustums_buffer_id = frustums_gpu->getShaderResourceView()->getBindlessIndex();
+		constants.frustums_buffer_id = frustums_table.getBindlessIndex();
 		constants.frustums_count = frustums.size();
 		constants.instances_count = indirect_draw_calls_max_count;
 		constants.instances_pass_mask_buffer_id = resources.getReadWriteBuffer(GFXRID(InstancesPassMask));

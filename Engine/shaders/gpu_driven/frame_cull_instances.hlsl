@@ -46,8 +46,15 @@ void CS_CullInstances(uint3 dispatchID : SV_DispatchThreadID)
 	uint id = dispatchID.x;
 	
 	if (id >= instances_count) return;
-	
+
 	Instance instance = getInstance(id);
+
+	if (instance.flags & INSTANCE_FLAG_INVALID)
+	{
+		pass_mask_buffer.Store(id * sizeof(uint), 0);
+		return;
+	}
+
 	Mesh mesh = getMesh(instance.mesh_id);
 
 	float3 bound_center = instance.bound_center.xyz;

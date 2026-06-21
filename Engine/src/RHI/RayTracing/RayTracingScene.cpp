@@ -1,107 +1,61 @@
 #include "pch.h"
 #include "RayTracingScene.h"
-#include "Scene/Entity.h"
-#include "Scene/Components.h"
 
-void RayTracingScene::update()
+void RayTracingScene::setInstance(uint32_t slot, Engine::Mesh *mesh, const glm::mat4 &transform)
 {
-	build_tlas();
+	if (!mesh->indexed)
+		return;
+	instances[slot] = {mesh, transform};
 }
 
-void RayTracingScene::build_blas()
+void RayTracingScene::removeInstance(uint32_t slot)
 {
-	// Create BLAS for every node
-	{
-
-		if (!transform_buffer)
-		{
-			// Setup identity transform matrix
-			VkTransformMatrixKHR transformMatrix = {
-				1.0f, 0.0f, 0.0f, 0.0f,
-				0.0f, 1.0f, 0.0f, 0.0f,
-				0.0f, 0.0f, 1.0f, 0.0f
-			};
-			// Create Transform buffer
-			BufferDescription transformDesc;
-			transformDesc.size = sizeof(transformMatrix);
-			transformDesc.use_staging_buffer = true;
-			transformDesc.usage = BufferUsage::ACCELERATION_STRUCTURE_BUILD_INPUT_BUFFER;
-			transformDesc.alignment = 16;
-
-			transform_buffer = gDynamicRHI->createBuffer(transformDesc);
-			transform_buffer->fill(&transformMatrix);
-		}
-
-		auto entities = Scene::getCurrentScene()->getEntitiesWith<MeshRendererComponent>();
-		for (auto &entity_id : entities)
-		{
-			Entity entity(entity_id);
-			auto &mesh_renderer = entity.getComponent<MeshRendererComponent>();
-			for (auto &mesh_node : mesh_renderer.meshes)
-			{
-				auto *mesh = mesh_node.getMesh();
-
-				blas_meshes.emplace(mesh->id, blas_meshes.size());
-				eastl::vector<RayTracingGeometry> geometries;
-				RayTracingGeometry &geometry = geometries.emplace_back();
-
-				if (!mesh->indexed)
-					continue;
-				geometry.vertex_buffer = mesh->indexed->vertex_buffer;
-				geometry.vertex_buffer_offset = 0;
-				geometry.vertex_buffer_stride = sizeof(Engine::Vertex);
-				geometry.vertex_count = mesh->indexed->vertices.size();
-				geometry.vertex_format = FORMAT_R32G32B32_SFLOAT;
-
-				geometry.index_buffer = mesh->indexed->index_buffer;
-				geometry.index_buffer_offset = 0;
-				geometry.index_count = mesh->indexed->indices.size();
-				geometry.index_format = FORMAT_R32_UINT;
-
-				auto blas = gDynamicRHI->createBottomLevelAccelerationStructure();
-				blas->build(geometries);
-				blases[mesh] = eastl::move(blas);
-			}
-		}
-	}
+	instances.erase(slot);
 }
 
-void RayTracingScene::build_tlas()
+void RayTracingScene::invalidateMesh(Engine::Mesh *mesh)
 {
-	// Create TLAS
+	blases.erase(mesh);
+}
+
+RHIBottomLevelAccelerationStructureRef RayTracingScene::ensure_blas(Engine::Mesh *mesh)
+{
+	auto it = blases.find(mesh);
+	if (it != blases.end())
+		return it->second;
+
+	eastl::vector<RayTracingGeometry> geometries;
+	RayTracingGeometry &geometry = geometries.emplace_back();
+	geometry.vertex_buffer = mesh->indexed->vertex_buffer;
+	geometry.vertex_buffer_offset = 0;
+	geometry.vertex_buffer_stride = sizeof(Engine::Vertex);
+	geometry.vertex_count = mesh->indexed->vertices.size();
+	geometry.vertex_format = FORMAT_R32G32B32_SFLOAT;
+
+	geometry.index_buffer = mesh->indexed->index_buffer;
+	geometry.index_buffer_offset = 0;
+	geometry.index_count = mesh->indexed->indices.size();
+	geometry.index_format = FORMAT_R32_UINT;
+
+	auto blas = gDynamicRHI->createBottomLevelAccelerationStructure();
+	blas->build(geometries);
+	blases[mesh] = blas;
+	return blas;
+}
+
+void RayTracingScene::update(Camera *camera)
+{
+	eastl::vector<RayTracingInstance> rt_instances;
+	rt_instances.reserve(instances.size());
+	for (auto &[slot, entry] : instances)
 	{
-		eastl::vector<RayTracingInstance> instances;
-		auto components = Scene::getCurrentScene()->getEntitiesWith<TransformComponent, MeshRendererComponent>();
-		instances.reserve(components.size_hint());
-		int object_id = 0;
-		for (auto &&[entity, transform, mesh_renderer]: components.each())
-		{
-			int material_id = 0;
-			for (auto &mesh_node : mesh_renderer.meshes)
-			{
-				auto mesh = mesh_node.getMesh();
-				if (mesh == nullptr || mesh->useMeshlets())
-					continue;
-
-				if (blas_meshes.find(mesh->id) == blas_meshes.end())
-				{
-					CORE_ERROR("Blas Instance not found for mesh");
-					continue;
-				}
-
-				size_t blas_id = blas_meshes[mesh->id];
-				
-				RayTracingInstance &instance = instances.emplace_back();
-				instance.blas = blases[mesh];
-				instance.transform = transform.getWorldTransform();
-				instance.instance_id = object_id;
-				instance.instance_mask = 0xFF;
-				instance.instance_contribution_to_hit_group_index = 0;
-
-				object_id++;
-			}
-		}
-
-		topLevelAS->build(false, instances);
+		RayTracingInstance &instance = rt_instances.emplace_back();
+		instance.blas = ensure_blas(entry.mesh);
+		instance.transform = entry.transform;
+		instance.instance_id = slot;
+		instance.instance_mask = 0xFF;
+		instance.instance_contribution_to_hit_group_index = 0;
 	}
+
+	topLevelAS->build(false, rt_instances);
 }

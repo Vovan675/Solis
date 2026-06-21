@@ -150,7 +150,7 @@ bool ParametersPanel::renderImGui(EditorContext &context, DebugRenderer &debug_r
 						break;
 					}
 				}
-				entity.markDirty<MeshRendererComponent>();
+				entity.markDirty(DIRTY_RENDER_STATE);
 			}
 
 			ImGui::SeparatorText("Materials");

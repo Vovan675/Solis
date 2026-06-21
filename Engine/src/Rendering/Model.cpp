@@ -78,7 +78,7 @@ Entity Model::create_entity_node(Model *model, MeshNode *node, Scene *scene)
 			mesh_renderer.meshes.push_back(mesh_id);
 			mesh_renderer.materials.push_back(prim.material);
 		}
-		entity.markDirty<MeshRendererComponent>();
+		entity.markDirty(DIRTY_RENDER_STATE);
 	}
 
 	transform_component.setLocalTransform(node->local_model_matrix);

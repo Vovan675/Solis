@@ -22,6 +22,7 @@
 
 #include "renderers/PathTracingRenderer.h"
 #include "ShaderStructs.h"
+#include "GpuTable.h"
 
 class Asset;
 
@@ -42,7 +43,9 @@ public:
 	void render_path_traced(Camera *camera, FrameGraph &frame_graph);
 	void update(Camera *camera);
 
-	void on_mesh_added(entt::registry &registry, entt::entity entity);
+	void on_mesh_renderer_constructed(entt::registry &registry, entt::entity entity);
+	void on_mesh_renderer_destroyed(entt::registry &registry, entt::entity entity);
+	void free_instances(entt::entity entity);
 
 	void on_asset_pre_reimport(Asset *asset);
 	void on_asset_post_reimport(Asset *asset);
@@ -56,15 +59,14 @@ public:
 	GeometryStreaming geometry_streaming;
 
 	eastl::vector<FrustumDataGPU> frustums;
-	eastl::vector<MaterialGPU> materials;
-	eastl::vector<MeshGPU> meshes;
-	eastl::vector<InstanceGPU> instances; // All that passed cpu coarse culling and can be rendered
-	eastl::vector<uint32_t> instances_pass_masks; // Instance pass mask, every bit indicates at which pass (frustum) this instance is visible
 
-	RHIBufferRef frustums_gpu;
-	RHIBufferRef materials_gpu;
-	RHIBufferRef meshes_gpu;
-	RHIBufferRef instances_gpu;
+	struct InstanceRange { uint32_t start; uint32_t count; };
+	eastl::hash_map<entt::entity, InstanceRange> entity_instances;
+
+	GpuTable<FrustumDataGPU> frustums_table;
+	GpuTable<MaterialGPU> materials_table;
+	GpuTable<MeshGPU> meshes_table;
+	GpuTable<InstanceGPU> instances_table;
 
 	uint32_t indirect_draw_calls_max_count;
 

@@ -154,6 +154,26 @@ Entity Scene::createEntity(eastl::string name, entt::entity id)
 	return Entity(entity_id);
 }
 
+void Scene::markDirty(entt::entity entity, uint32_t flags)
+{
+	uint32_t &f = dirty_flags[entity];
+	if (f == 0)
+		dirty_list.push_back(entity);
+	f |= flags;
+}
+
+uint32_t Scene::getDirtyFlags(entt::entity entity) const
+{
+	auto it = dirty_flags.find(entity);
+	return it != dirty_flags.end() ? it->second : 0;
+}
+
+void Scene::clearDirty()
+{
+	dirty_flags.clear();
+	dirty_list.clear();
+}
+
 Entity Scene::findEntityByName(eastl::string name)
 {
 	auto view = registry.view<TransformComponent>();
@@ -319,6 +339,9 @@ void Scene::propagate_world_transforms_update(entt::entity entity_id)
 	}
 	transform.inverse_world_transform = glm::inverse(transform.world_transform);
 
+	if (current_scene)
+		current_scene->markDirty(entity_id, DIRTY_TRANSFORM);
+
 	auto children = entity.getChildren();
 	for (auto &child_id : children)
 	{
@@ -342,6 +365,9 @@ void Scene::propagate_local_transforms_update(entt::entity entity_id)
 		transform.world_transform = parent_transform * transform.getLocalTransform();
 	}
 	transform.inverse_world_transform = glm::inverse(transform.world_transform);
+
+	if (current_scene)
+		current_scene->markDirty(entity_id, DIRTY_TRANSFORM);
 
 	auto children = entity.getChildren();
 	for (auto &child_id : children)

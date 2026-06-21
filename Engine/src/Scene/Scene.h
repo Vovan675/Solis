@@ -4,6 +4,13 @@
 
 class Entity;
 
+enum DirtyFlags : uint32_t
+{
+	DIRTY_TRANSFORM = 1 << 0,
+	DIRTY_RENDER_STATE = 1 << 1,
+	DIRTY_LIGHT = 1 << 2,
+};
+
 class Scene : public RefCounted
 {
 public:
@@ -15,6 +22,11 @@ public:
 	Entity findEntityByName(eastl::string name);
 
 	void destroyEntity(entt::entity id);
+
+	void markDirty(entt::entity entity, uint32_t channels);
+	uint32_t getDirtyFlags(entt::entity entity) const;
+	const eastl::vector<entt::entity> &getDirtyList() const { return dirty_list; }
+	void clearDirty();
 
 	Ref<Scene> copy();
 
@@ -42,6 +54,9 @@ private:
 	friend class Entity;
 	friend class TransformComponent;
 	entt::registry registry;
+
+	eastl::hash_map<entt::entity, uint32_t> dirty_flags;
+	eastl::vector<entt::entity> dirty_list;
 public:
 	Ref<PhysicsScene> physics_scene;
 

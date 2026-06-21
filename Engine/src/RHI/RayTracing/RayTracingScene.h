@@ -7,33 +7,28 @@
 class RayTracingScene : public RefCounted
 {
 public:
-	RayTracingScene(Scene *scene): scene(scene)
+	RayTracingScene()
 	{
-		build_blas();
 		topLevelAS = gDynamicRHI->createTopLevelAccelerationStructure();
 	}
 
-	void update();
+	void setInstance(uint32_t slot, Engine::Mesh *mesh, const glm::mat4 &transform);
+	void removeInstance(uint32_t slot);
+	void invalidateMesh(Engine::Mesh *mesh);
+	void update(Camera *camera);
 
 	RHITopLevelAccelerationStructureRef getTopLevelAS() { return topLevelAS; }
 
-	struct ObjDesc
+private:
+	RHIBottomLevelAccelerationStructureRef ensure_blas(Engine::Mesh *mesh);
+
+	struct InstanceEntry
 	{
-		glm::vec4 color;
-		uint32_t vertexBufferOffset;
-		uint32_t indexBufferOffset;
+		Engine::Mesh *mesh;
+		glm::mat4 transform;
 	};
 
-private:
-	void build_blas();
-	void build_tlas();
-
-	Scene *scene;
-
+	eastl::hash_map<uint32_t, InstanceEntry> instances;
 	eastl::unordered_map<Engine::Mesh *, RHIBottomLevelAccelerationStructureRef> blases;
 	RHITopLevelAccelerationStructureRef topLevelAS;
-
-	eastl::unordered_map<size_t, size_t> blas_meshes = {};
-
-	RHIBufferRef transform_buffer;
 };
