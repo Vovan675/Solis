@@ -21,6 +21,8 @@ extern AutoConVarBool engine_rhi_validation;
 extern AutoConVarBool engine_rhi_validation_break;
 extern AutoConVarBool engine_ray_tracing;
 extern AutoConVarBool engine_reimport_assets;
+extern AutoConVarBool engine_shader_debug_info;
+extern AutoConVarBool engine_streamline_enabled;
 
 // Runtime variables
 extern AutoConVarBool render_vsync;

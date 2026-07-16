@@ -6,6 +6,8 @@ AutoConVarBool engine_rhi_validation("engine.rhi_validation.enabled", "RHI Valid
 AutoConVarBool engine_rhi_validation_break("engine.rhi_validation_break.enabled", "RHI Validation Break Enabled", false, ConVarFlag::CON_VAR_FLAG_HIDDEN);
 AutoConVarBool engine_ray_tracing("engine.ray_tracing.enabled", "Ray Tracing Enabled", true, ConVarFlag::CON_VAR_FLAG_HIDDEN);
 AutoConVarBool engine_reimport_assets("engine.reimport_assets", "Force reimport all assets from source, ignoring binary cache", false, ConVarFlag::CON_VAR_FLAG_HIDDEN);
+AutoConVarBool engine_shader_debug_info("engine.shader.debug_info", "Embed debug info into shaders (slower shaders compilation)", false, ConVarFlag::CON_VAR_FLAG_HIDDEN);
+AutoConVarBool engine_streamline_enabled("engine.streamline.enabled", "Initialize Streamline (DLSS and other features) at startup", true, ConVarFlag::CON_VAR_FLAG_HIDDEN);
 
 // Runtime variables
 AutoConVarBool render_vsync("render.vsync.enabled", "Vsync Enabled", false);

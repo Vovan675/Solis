@@ -10,7 +10,8 @@
 
 void VulkanDynamicRHI::init()
 {
-	StreamlineWrapper::init();
+	if (engine_streamline_enabled)
+		StreamlineWrapper::init();
 
 	init_instance();
 	device = new Device(instance);
@@ -28,8 +29,11 @@ void VulkanDynamicRHI::init()
 
 	VulkanUtils::init();
 
-	streamline.init();
-	dlss_upscaler.init();
+	if (engine_streamline_enabled)
+	{
+		streamline.init();
+		dlss_upscaler.init();
+	}
 
 	in_flight_fences.resize(MAX_FRAMES_IN_FLIGHT);
 	imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);

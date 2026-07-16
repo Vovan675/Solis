@@ -11,7 +11,7 @@
 glm::ivec2 UpscaleRenderer::getRenderResolution(glm::ivec2 output_resolution)
 {
 	Upscaler *upscaler = gDynamicRHI->getUpscaler();
-	if (render_upscale_mode != UPSCALE_MODE_DLSS || !upscaler)
+	if (!Renderer::isUpscalerActive())
 	{
 		if (last_render_resolution != glm::ivec2(0))
 		{
@@ -41,7 +41,7 @@ glm::ivec2 UpscaleRenderer::getRenderResolution(glm::ivec2 output_resolution)
 
 void UpscaleRenderer::addPasses(FrameGraph &frame_graph)
 {
-	if (render_upscale_mode != UPSCALE_MODE_DLSS)
+	if (!Renderer::isUpscalerActive())
 		return;
 
 	bool reset_history = !history_valid;

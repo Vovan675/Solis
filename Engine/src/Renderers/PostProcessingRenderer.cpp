@@ -16,7 +16,7 @@ PostProcessingRenderer::~PostProcessingRenderer()
 void PostProcessingRenderer::addPasses(FrameGraph &fg)
 {
 	last_output = GFXRID(FinalNoPostTexture);
-	if (render_upscale_mode == UPSCALE_MODE_DLSS)
+	if (Renderer::isUpscalerActive())
 		last_output = GFXRID(UpscaledColor);
 
 	if (render_path_tracing)
@@ -24,7 +24,7 @@ void PostProcessingRenderer::addPasses(FrameGraph &fg)
 		addFilmPass(fg);
 	} else
 	{
-		if (render_ssr && render_upscale_mode != UPSCALE_MODE_DLSS)
+		if (render_ssr && !Renderer::isUpscalerActive())
 			last_output = GFXRID(SSR);
 
 		addFilmPass(fg);

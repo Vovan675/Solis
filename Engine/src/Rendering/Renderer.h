@@ -97,6 +97,8 @@ public:
 
 	static void addDrawCalls(size_t count) { debug_info.drawcalls += count; }
 
+	static bool isUpscalerActive();
+
 private:
 	friend class VulkanDynamicRHI;
 	friend class DX12DynamicRHI;

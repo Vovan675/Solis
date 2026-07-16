@@ -116,16 +116,14 @@ void Image::load(eastl::string path)
 			CORE_ERROR("Invalid texture format");
 
 
-		data.resize(getImageSize());
-
-		int offset = 0;
+		data.clear();
+		data.reserve(getImageSize());
 		for (int i = 0; i < mip_levels; i++)
 		{
 			auto *img_data = file.GetImageData(i, 0);
-			memcpy(&data[offset], img_data->m_mem, getImageSize(i));
-			offset += getImageSize(i);
+			uint8_t *bytes = (uint8_t *)img_data->m_mem;
+			data.insert(data.end(), bytes, bytes + getImageSize(i));
 		}
-		pixels = data.data();
 	} else
 	{
 		int tex_width, tex_height, tex_channels;
@@ -150,8 +148,8 @@ void Image::load(eastl::string path)
 		height = tex_height;
 		mip_levels = 1;
 
-		data.resize(getImageSize());
-		memcpy(data.data(), pixels, getImageSize());
+		uint8_t *bytes = (uint8_t *)pixels;
+		data.assign(bytes, bytes + getImageSize());
 
 		stbi_image_free(pixels);
 	}

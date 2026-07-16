@@ -2,6 +2,7 @@
 #include "Renderer.h"
 #include "GlobalBufferCache.h"
 #include "RHI/BindlessResources.h"
+#include "RHI/Upscaler.h"
 #include "Core/Variables.h"
 #include "Utils/Math.h"
 
@@ -70,7 +71,7 @@ void Renderer::updateDefaultUniforms(float delta_time)
 	float upscale_factor = (float)getOutputWidth() / getRenderWidth();
 
 	jitter = glm::vec2(0.0f);
-	if (render_upscale_mode == UPSCALE_MODE_DLSS)
+	if (isUpscalerActive())
 	{
 		// From DLSS guide section 3.7.1.1
 		int phase_count = glm::max(int(8.0f * upscale_factor * upscale_factor), 1);
@@ -109,4 +110,10 @@ void Renderer::updateDefaultUniforms(float delta_time)
 const Renderer::DefaultUniforms Renderer::getDefaultUniforms()
 {
 	return default_uniforms;
+}
+
+bool Renderer::isUpscalerActive()
+{
+	Upscaler *upscaler = gDynamicRHI->getUpscaler();
+	return render_upscale_mode == UPSCALE_MODE_DLSS && upscaler && upscaler->isAvailable();
 }

@@ -4,6 +4,7 @@
 #include "RHI/RHIShader.h"
 #include "RHI/BindlessResources.h"
 #include "Core/Filesystem.h"
+#include "Core/Variables.h"
 
 eastl::unordered_map<size_t, RHIShaderRef> DynamicRHI::cached_shaders;
 
@@ -76,14 +77,15 @@ DynamicRHI::CompileShaderResult DynamicRHI::compile_shader(eastl::wstring path, 
 	eastl::vector<LPCWSTR> args =
 	{
 		path.c_str(),            // Optional shader_blob source file name for error reporting
-		// and for PIX shader_blob source view.  
+		// and for PIX shader_blob source view.
 		L"-E", entry_point_wstr.c_str(),              // Entry point.
-		//L"-Zs",                      // Enable debug information (slim format)
-		L"-Zi",
-		L"-Qembed_debug"
-		//L"-Qsource_in_debug_module", 
-		//L"-Qstrip_reflect",          // Strip reflection into a separate blob. 
 	};
+
+	if (engine_shader_debug_info)
+	{
+		args.push_back(L"-Zi");
+		args.push_back(L"-Qembed_debug");
+	}
 
 	args.push_back(L"-T");
 	if (type == VERTEX_SHADER)

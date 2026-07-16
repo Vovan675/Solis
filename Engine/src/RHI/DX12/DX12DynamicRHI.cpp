@@ -11,7 +11,8 @@ static UINT64 fenceValues[MAX_FRAMES_IN_FLIGHT] = {};
 
 void DX12DynamicRHI::init()
 {
-	StreamlineWrapper::init();
+	if (engine_streamline_enabled)
+		StreamlineWrapper::init();
 
 	// Factory
 	uint32_t flags = 0;
@@ -77,8 +78,11 @@ void DX12DynamicRHI::init()
 	}
 	#endif
 
-	streamline.init();
-	dlss_upscaler.init();
+	if (engine_streamline_enabled)
+	{
+		streamline.init();
+		dlss_upscaler.init();
+	}
 
 	// Allocator
 	D3D12MA::ALLOCATOR_DESC allocatorDesc = {};
