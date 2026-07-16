@@ -70,7 +70,7 @@ void DebugPanel::renderImGui(EditorContext &context)
 	if (render_debug_rendering)
 	{
 		int mode = render_debug_rendering_mode;
-		char* items[] = { "All", "Final Composite", "Albedo", "Metalness", "Roughness", "Specular", "Normal", "Depth", "Position", "Light Diffuse", "Light Specular", "BRDF LUT", "SSAO", "DDGI", "HiZ", "Debug Texture", "Overdraw" };
+		char* items[] = { "All", "Final Composite", "Albedo", "Metalness", "Roughness", "Specular", "Normal", "Depth", "Position", "Light Diffuse", "Light Specular", "BRDF LUT", "SSAO", "DDGI", "HiZ", "Debug Texture", "Overdraw", "Motion Vectors" };
 		if (ImGui::BeginCombo("Preview Combo", items[mode]))
 		{
 			for (int n = 0; n < IM_ARRAYSIZE(items); n++)
@@ -84,6 +84,40 @@ void DebugPanel::renderImGui(EditorContext &context)
 			ImGui::EndCombo();
 		}
 		debug_renderer->ubo.present_mode = render_debug_rendering_mode;
+	}
+
+	{
+		const char *upscale_items[] = { "Off", "DLSS" };
+		int upscale_mode = render_upscale_mode;
+		if (ImGui::BeginCombo("Upscaling", upscale_items[upscale_mode]))
+		{
+			for (int n = 0; n < IM_ARRAYSIZE(upscale_items); n++)
+			{
+				bool is_selected = upscale_mode == n;
+				if (ImGui::Selectable(upscale_items[n], is_selected))
+					render_upscale_mode = n;
+				if (is_selected)
+					ImGui::SetItemDefaultFocus();
+			}
+			ImGui::EndCombo();
+		}
+
+		const char *dlss_items[] = { "Performance", "Balanced", "Quality", "Ultra Performance", "DLAA" };
+		ImGui::BeginDisabled(render_upscale_mode != UPSCALE_MODE_DLSS);
+		int dlss_mode = render_dlss_mode;
+		if (ImGui::BeginCombo("DLSS Mode", dlss_items[dlss_mode]))
+		{
+			for (int n = 0; n < IM_ARRAYSIZE(dlss_items); n++)
+			{
+				bool is_selected = dlss_mode == n;
+				if (ImGui::Selectable(dlss_items[n], is_selected))
+					render_dlss_mode = n;
+				if (is_selected)
+					ImGui::SetItemDefaultFocus();
+			}
+			ImGui::EndCombo();
+		}
+		ImGui::EndDisabled();
 	}
 
 	ConVarSystem::drawImGui();

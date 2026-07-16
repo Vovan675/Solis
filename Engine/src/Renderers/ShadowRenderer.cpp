@@ -133,7 +133,7 @@ void ShadowRenderer::addRayTracedShadowPasses(FrameGraph & fg, Ref<RayTracingSce
 	fg.addCallbackPass("Ray Traced Shadows Pass",
 	[&](RenderPassBuilder &builder)
 	{
-		builder.createTexture(GFXRID(RayTracedVisibility), Renderer::getViewportWidth(), Renderer::getViewportHeight(), gDynamicRHI->getSwapchainTexture(0)->getDescription().format);
+		builder.createTexture(GFXRID(RayTracedVisibility), Renderer::getRenderWidth(), Renderer::getRenderHeight(), gDynamicRHI->getSwapchainTexture(0)->getDescription().format);
 		builder.writeUAVTexture(GFXRID(RayTracedVisibility)); // was transfer
 
 		builder.readTexture(GFXRID(GBufferDepth));
@@ -175,7 +175,7 @@ void ShadowRenderer::addRayTracedShadowPasses(FrameGraph & fg, Ref<RayTracingSce
 
 		gDynamicRHI->setConstantBufferData(1, &ubo_light, sizeof(LightUBO));
 
-		cmd_list->dispatchRays(Renderer::getViewportSize().x, Renderer::getViewportSize().y, 1);
+		cmd_list->dispatchRays(Renderer::getRenderResolution().x, Renderer::getRenderResolution().y, 1);
 
 	});
 }

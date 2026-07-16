@@ -21,7 +21,7 @@ VSOutput VSMain(VSInput input)
         output.position = float4(input.position.xyz, 1.0f);
     } else
     {
-        output.position = mul(projection, mul(view, float4(input.position.xyz, 1.0f)));
+        output.position = mul(view_projection_unjittered, float4(input.position.xyz, 1.0f));
     }
     output.color = input.color;
     return output;
@@ -70,7 +70,7 @@ VSOutput VSGpuLines(uint vertex_id : SV_VertexID)
         output.position = float4(input.position.xyz, 1.0f);
     } else
     {
-        output.position = mul(projection, mul(view, float4(input.position.xyz, 1.0f)));
+        output.position = mul(view_projection_unjittered, float4(input.position.xyz, 1.0f));
     }
     output.color = input.color;
     return output;

@@ -1,6 +1,21 @@
 #pragma once
 #include "ConsoleVariables.h"
 
+enum UpscaleMode
+{
+	UPSCALE_MODE_OFF = 0,
+	UPSCALE_MODE_DLSS = 1,
+};
+
+enum DLSSQualityMode
+{
+	DLSS_MODE_MAX_PERFORMANCE = 0,
+	DLSS_MODE_BALANCED,
+	DLSS_MODE_MAX_QUALITY,
+	DLSS_MODE_ULTRA_PERFORMANCE,
+	DLSS_MODE_DLAA,
+};
+
 // Startup variables
 extern AutoConVarBool engine_rhi_validation;
 extern AutoConVarBool engine_rhi_validation_break;
@@ -23,6 +38,8 @@ extern AutoConVarBool render_ray_traced_shadows;
 extern AutoConVarBool render_ssao;
 extern AutoConVarBool render_ssr;
 extern AutoConVarBool render_fxaa;
+extern AutoConVarInt render_upscale_mode;
+extern AutoConVarInt render_dlss_mode;
 extern AutoConVarBool render_automatic_sun_position;
 extern AutoConVarBool render_meshlets_use_mesh_shaders;
 extern AutoConVarBool render_meshlets_bvh_visualize;

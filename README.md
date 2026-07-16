@@ -83,6 +83,7 @@ Every frame is described as a graph of passes and resources. The engine schedule
 - **Shadows** - directional lights (cascaded shadow maps), point lights (cube shadow maps), with optional ray-traced shadows
 - **Path tracer** - reference path tracer, used as ground truth
 - **RHI** - single abstraction over Vulkan and DX12 with bindless resources
+- **Upscaling** - NVIDIA DLSS via Streamline
 - **Tooling** - Tracy CPU + GPU profiling, console variables, debug visualizations
 - **Physics** - PhysX integration
 
@@ -93,6 +94,6 @@ Plus SSAO, SSR, FXAA, procedural atmospheric sky, and a post-processing effects.
 - **RTX Mega Geometry** - use meshlet cluster data in ray tracing
 - **Per-pixel ray-traced GI** - per-pixel ray-traced indirect lighting on top of DDGI
 - **Path tracer improvements** - expand material support and integrate NVIDIA NRD denoisers
-- **Upscalers** - DLSS and FSR
+- **Upscalers** - FSR and XeSS
 - **MaterialX** - basic support of the MaterialX standard
 - **macOS support** - Metal 4 backend

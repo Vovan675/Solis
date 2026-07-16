@@ -65,7 +65,7 @@ void SSAORenderer::addPasses(FrameGraph &fg)
 	fg.addCallbackPass("SSAO Raw Pass",
 	[&](RenderPassBuilder &builder)
 	{
-		builder.createTexture(GFXRID(SSAORaw), Renderer::getViewportWidth(), Renderer::getViewportHeight(), FORMAT_R8_UNORM);
+		builder.createTexture(GFXRID(SSAORaw), Renderer::getRenderWidth(), Renderer::getRenderHeight(), FORMAT_R8_UNORM);
 		builder.writeTexture(GFXRID(SSAORaw));
 
 		builder.readTexture(GFXRID(SSAONoiseTexture));
@@ -100,7 +100,7 @@ void SSAORenderer::addPasses(FrameGraph &fg)
 	fg.addCallbackPass("SSAO Blur Pass",
 	[&](RenderPassBuilder &builder)
 	{
-		builder.createTexture(GFXRID(SSAOBlurred), Renderer::getViewportWidth(), Renderer::getViewportHeight(), FORMAT_R8_UNORM);
+		builder.createTexture(GFXRID(SSAOBlurred), Renderer::getRenderWidth(), Renderer::getRenderHeight(), FORMAT_R8_UNORM);
 		builder.writeTexture(GFXRID(SSAOBlurred));
 
 		builder.readTexture(GFXRID(SSAORaw));

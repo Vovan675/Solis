@@ -170,6 +170,11 @@ uint32_t Scene::getDirtyFlags(entt::entity entity) const
 
 void Scene::clearDirty()
 {
+	for (entt::entity entity_id : dirty_list)
+	{
+		TransformComponent &transform = registry.get<TransformComponent>(entity_id);
+		transform.old_world_transform = transform.world_transform;
+	}
 	dirty_flags.clear();
 	dirty_list.clear();
 }
@@ -365,6 +370,13 @@ void Scene::propagate_local_transforms_update(entt::entity entity_id)
 		transform.world_transform = parent_transform * transform.getLocalTransform();
 	}
 	transform.inverse_world_transform = glm::inverse(transform.world_transform);
+
+	// Init old transform first time
+	if (!transform.old_world_transform_set)
+	{
+		transform.old_world_transform = transform.world_transform;
+		transform.old_world_transform_set = true;
+	}
 
 	if (current_scene)
 		current_scene->markDirty(entity_id, DIRTY_TRANSFORM);

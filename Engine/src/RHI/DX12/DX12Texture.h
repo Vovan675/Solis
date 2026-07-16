@@ -48,6 +48,9 @@ public:
 	ID3D12Resource *getResource() const { return resource->resource; }
 	D3D12MA::Allocation *getAllocation() const { return allocation->resource; }
 
+	DXGI_FORMAT getNativeFormat() const { return native_format; }
+	D3D12_RESOURCE_STATES getNativeState() { return get_native_layout(current_layout); }
+
 protected:
 	friend class DX12DynamicRHI;
 	friend class DX12Swapchain;

@@ -6,9 +6,12 @@
 #include "VulkanUtils.h"
 #include "TracyVulkan.hpp"
 #include "Core/Variables.h"
+#include "RHI/StreamlineWrapper.h"
 
 void VulkanDynamicRHI::init()
 {
+	StreamlineWrapper::init();
+
 	init_instance();
 	device = new Device(instance);
 	init_vma();
@@ -24,6 +27,9 @@ void VulkanDynamicRHI::init()
 	global_descriptor_allocator = std::make_shared<DescriptorAllocator>();
 
 	VulkanUtils::init();
+
+	streamline.init();
+	dlss_upscaler.init();
 
 	in_flight_fences.resize(MAX_FRAMES_IN_FLIGHT);
 	imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
@@ -73,6 +79,9 @@ void VulkanDynamicRHI::init()
 void VulkanDynamicRHI::shutdown()
 {
 	TracyVkDestroy(tracy_ctx);
+
+	dlss_upscaler.shutdown();
+	StreamlineWrapper::shutdown();
 
 	release_gpu_resources(UINT64_MAX);
 	gDynamicRHI->getBindlessResources()->cleanup();
@@ -342,6 +351,8 @@ void VulkanDynamicRHI::init_instance()
 		for (int i = 0; i < extensions_count; i++)
 			extensions.push_back(extensions_name[i]);
 	}
+
+	VulkanStreamline::appendInstanceExtensions(extensions);
 
 	// Instance creation
 	VkApplicationInfo appInfo{};

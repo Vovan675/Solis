@@ -161,8 +161,8 @@ bool ParametersPanel::renderImGui(EditorContext &context, DebugRenderer &debug_r
 
 				if (ImGui::TreeNode(name.c_str()))
 				{
-
-					auto show_texture_edit = [&context](Material::MaterialTexture &material_texture, const char *name)
+					bool material_changed = false;
+					auto show_texture_edit = [&context, &material_changed](Material::MaterialTexture &material_texture, const char *name)
 					{
 						bool use_texture = material_texture.bindless_id != 0;
 						eastl::string label = eastl::string("Use ") + name + " texture";
@@ -171,6 +171,7 @@ bool ParametersPanel::renderImGui(EditorContext &context, DebugRenderer &debug_r
 							if (!use_texture)
 								material_texture.asset_handle = 0;
 							material_texture.bindless_id = use_texture ? 1 : 0;
+							material_changed = true;
 						}
 						if (!use_texture)
 							return false;
@@ -180,32 +181,29 @@ bool ParametersPanel::renderImGui(EditorContext &context, DebugRenderer &debug_r
 						{
 							material_texture.asset_handle = AssetManager::getGUIDFromPath(picked_texture_path);
 							material_texture.bindless_id = 0;
+							material_changed = true;
 						}
 						return true;
 					};
 
 					if (!show_texture_edit(mat->albedo_tex, "albedo"))
-					{
-						ImGui::ColorEdit4("Color", mat->albedo.data.data);
-					}
+						material_changed |= ImGui::ColorEdit4("Color", mat->albedo.data.data);
 
 					show_texture_edit(mat->normal_tex, "normal");
 
 					if (!show_texture_edit(mat->metalness_tex, "metalness"))
-					{
-						ImGui::DragFloat("Metalness", &mat->metalness, 0.1, 0, 1.0);
-					}
+						material_changed |= ImGui::DragFloat("Metalness", &mat->metalness, 0.1, 0, 1.0);
 
 					if (!show_texture_edit(mat->roughness_tex, "roughness"))
-					{
-						ImGui::DragFloat("Roughness", &mat->roughness, 0.1, 0, 1.0);
-					}
+						material_changed |= ImGui::DragFloat("Roughness", &mat->roughness, 0.1, 0, 1.0);
 
 					if (!show_texture_edit(mat->specular_tex, "specular"))
-					{
-						ImGui::DragFloat("Specular", &mat->specular, 0.1, 0, 1.0);
-					}
-				
+						material_changed |= ImGui::DragFloat("Specular", &mat->specular, 0.1, 0, 1.0);
+
+					// TODO: mark only material as dirty, so reupload only material
+					if (material_changed)
+						entity.markDirty(DIRTY_RENDER_STATE);
+
 					ImGui::TreePop();
 				}
 			}

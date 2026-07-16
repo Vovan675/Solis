@@ -41,11 +41,16 @@ public:
 	virtual void setAccelerationStructure(uint32_t index, RHITopLevelAccelerationStructure *as);
 
 	virtual uint32_t addSampler(const TextureDescription &description) { return 0; }
+	void setSamplersMipBias(float bias);
+
 protected:
 	virtual void set_invalid_texture(uint32_t index) {}
+	virtual void recreate_sampler(uint32_t index) {}
 
 protected:
 	RHITextureRef invalid_texture;
+
+	eastl::vector<TextureDescription> sampler_descriptions;
 
 	eastl::unordered_map<RHITextureView *, uint32_t> texture_view_to_resource_index;
 	eastl::unordered_map<RHIBufferView *, uint32_t> buffer_to_resource_index;
@@ -74,6 +79,7 @@ public:
 	VkDescriptorSet getDescriptorSet() { return bindless_set; }
 private:
 	void set_invalid_texture(uint32_t index) override;
+	void recreate_sampler(uint32_t index) override;
 
 private:
 	DescriptorLayout bindless_layout;
@@ -101,6 +107,7 @@ public:
 	uint32_t addSampler(const TextureDescription &description) override;
 private:
 	void set_invalid_texture(uint32_t index) override;
+	void recreate_sampler(uint32_t index) override;
 
-private:
+	eastl::vector<uint32_t> sampler_heap_indices;
 };

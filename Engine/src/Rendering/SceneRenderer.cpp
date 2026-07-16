@@ -148,7 +148,11 @@ void SceneRenderer::render(Camera *camera, RHITextureRef result_texture)
 	PROFILE_CPU_FUNCTION();
 	PROFILE_GPU_FUNCTION(gDynamicRHI->getCmdList());
 
-	Renderer::setViewportSize(result_texture->getSize());
+	glm::ivec2 output_resolution = result_texture->getSize();
+	glm::ivec2 render_resolution = upscale_renderer.getRenderResolution(output_resolution);
+
+	Renderer::setOutputResolution(output_resolution);
+	Renderer::setRenderResolution(render_resolution);
 	Renderer::setCamera(camera);
 
 	gUploadManager->beginFrame();
@@ -247,11 +251,12 @@ void SceneRenderer::render_deferred(Camera *camera, FrameGraph &frame_graph)
 	if (render_ddgi && render_ddgi_visualize)
 		ddgi_renderer.addVisualizePass(frame_graph);
 
-	// Render post process
+	// Render post process (render resolution posts -> upscale -> outpu resolution posts)
 	{
-		// Postprocessing
 		if (render_ssr)
 			ssr_renderer.addPasses(frame_graph);
+
+		upscale_renderer.addPasses(frame_graph);
 
 		post_renderer.addPasses(frame_graph);
 	}
@@ -334,6 +339,7 @@ void SceneRenderer::update(Camera *camera)
 			InstanceGPU instance{};
 			instance.world_transform = transform.getWorldTransform();
 			instance.iworld_transform = transform.getInverseWorldTransform();
+			instance.old_world_transform = transform.getOldWorldTransform();
 			instance.mesh_id = slot;
 			instance.material_id = slot;
 			BoundBox bound_box(mesh->bound_box);
@@ -341,6 +347,30 @@ void SceneRenderer::update(Camera *camera)
 			instance.bound_extent = glm::vec4(bound_box.getSize() / 2.0f, 1.0);
 			return instance;
 		};
+
+		auto refresh_transforms = [&](entt::entity entity_id)
+		{
+			auto it = entity_instances.find(entity_id);
+			if (it == entity_instances.end())
+				return;
+
+			Entity entity(entity_id);
+			TransformComponent &transform = entity.getComponent<TransformComponent>();
+			MeshRendererComponent &mesh_renderer = entity.getComponent<MeshRendererComponent>();
+			uint32_t slot = it->second.start;
+			for (int i = 0; i < mesh_renderer.meshes.size(); i++)
+			{
+				Engine::Mesh *mesh = mesh_renderer.meshes[i].getMesh();
+				if (!mesh)
+					continue;
+				instances_table.set(slot, create_gpu_instance(transform, mesh, slot));
+				if (rt_scene)
+					rt_scene->setInstance(slot, mesh, transform.getWorldTransform());
+				slot++;
+			}
+		};
+
+		eastl::hash_set<entt::entity> moved_this_frame;
 
 		for (entt::entity entity_id : scene->getDirtyList())
 		{
@@ -410,7 +440,9 @@ void SceneRenderer::update(Camera *camera)
 					mesh_gpu.attribute_flags = mesh->attribute_flags;
 					mesh_gpu.flags = mesh->useMeshlets() ? MESH_FLAG_MESHLET : 0;
 
-					instances_table.set(slot, create_gpu_instance(transform, mesh, slot));
+					InstanceGPU instance = create_gpu_instance(transform, mesh, slot);
+					instance.old_world_transform = instance.world_transform;
+					instances_table.set(slot, instance);
 					if (rt_scene)
 						rt_scene->setInstance(slot, mesh, transform.getWorldTransform());
 					materials_table.set(slot, material_gpu); // In future materials would be globally unique, so every material would hold its own slot
@@ -420,23 +452,20 @@ void SceneRenderer::update(Camera *camera)
 				entity_instances[entity_id] = { start_slot, meshes_count };
 			} else if (flags & DIRTY_TRANSFORM)
 			{
-				auto it = entity_instances.find(entity_id);
-				if (it == entity_instances.end())
-					continue;
-
-				uint32_t slot = it->second.start;
-				for (int i = 0; i < mesh_renderer.meshes.size(); i++)
-				{
-					Engine::Mesh *mesh = mesh_renderer.meshes[i].getMesh();
-					if (!mesh)
-						continue;
-					instances_table.set(slot, create_gpu_instance(transform, mesh, slot));
-					if (rt_scene)
-						rt_scene->setInstance(slot, mesh, transform.getWorldTransform());
-					slot++;
-				}
+				refresh_transforms(entity_id);
+				moved_this_frame.insert(entity_id);
 			}
 		}
+
+		// Reupload moved objects old transformation once more (so old_position would be the same as position)
+		for (entt::entity entity_id : moved_last_frame_entities)
+		{
+			if (scene->getDirtyFlags(entity_id) & DIRTY_TRANSFORM)
+				continue;
+			refresh_transforms(entity_id);
+		}
+		moved_last_frame_entities = moved_this_frame;
+
 		indirect_draw_calls_max_count = instances_table.getMaxUsedSlot();
 		scene->clearDirty();
 

@@ -14,11 +14,11 @@ static uint32_t accumulation_frame = 0;
 
 void PathTracingRenderer::addPass(FrameGraph &fg, Ref<RayTracingScene> rt_scene)
 {
-	if (!accumulation_texture || accumulation_texture->getSize() != Renderer::getViewportSize())
+	if (!accumulation_texture || accumulation_texture->getSize() != Renderer::getRenderResolution())
 	{
 		TextureDescription desc;
-		desc.width = Renderer::getViewportWidth();
-		desc.height = Renderer::getViewportHeight();
+		desc.width = Renderer::getRenderWidth();
+		desc.height = Renderer::getRenderHeight();
 		desc.format = FORMAT_R32G32B32A32_SFLOAT;
 		desc.usage_flags = TEXTURE_USAGE_STORAGE;
 		accumulation_texture = gDynamicRHI->createTexture(desc);
@@ -37,7 +37,7 @@ void PathTracingRenderer::addPass(FrameGraph &fg, Ref<RayTracingScene> rt_scene)
 	fg.addCallbackPass("Path Tracing Pass",
 	[&](RenderPassBuilder &builder)
 	{
-		builder.createTexture(GFXRID(FinalNoPostTexture), Renderer::getViewportWidth(), Renderer::getViewportHeight(), FORMAT_R16G16B16A16_UNORM);
+		builder.createTexture(GFXRID(FinalNoPostTexture), Renderer::getRenderWidth(), Renderer::getRenderHeight(), FORMAT_R16G16B16A16_UNORM);
 		builder.writeUAVTexture(GFXRID(FinalNoPostTexture));
 		builder.writeUAVTexture(GFXRID(PathTraceAccumulation));
 		builder.readTexture(GFXRID(Sky));
@@ -79,7 +79,7 @@ void PathTracingRenderer::addPass(FrameGraph &fg, Ref<RayTracingScene> rt_scene)
 		}
 		gDynamicRHI->setConstantBufferData(3, &light, sizeof(light));
 
-		cmd_list->dispatchRays(Renderer::getViewportSize().x, Renderer::getViewportSize().y, 1);
+		cmd_list->dispatchRays(Renderer::getRenderResolution().x, Renderer::getRenderResolution().y, 1);
 
 	});
 }

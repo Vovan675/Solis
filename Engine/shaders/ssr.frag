@@ -129,7 +129,7 @@ vec3 ssr()
 
 		edge = max(abs(2.0*current_uv.x-1.0), abs(2.0*current_uv.y-1.0));
     }
-	//current_uv = (floor(current_uv * swapchain_size.xy) + vec2(0.5,0.5)) * swapchain_size.zw;
+	//current_uv = (floor(current_uv * render_resolution.xy) + vec2(0.5,0.5)) * render_resolution.zw;
     //return hit ? vec3(1, 0, 0) : vec3(0, 0, 0);
     //return vec3(-GetDepth(GetUV(view_pos)) / 10.0f, 0, 0);
     //return hit ? vec3(current_uv, 0) : vec3(0, 0, 0);

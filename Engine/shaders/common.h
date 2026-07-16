@@ -78,11 +78,16 @@ cbuffer FrameConstants : register(b32) {
 	float4x4 projection;
 	float4x4 iprojection;
 	float4x4 view_projection;
+	float4x4 old_view_projection;
+	float4x4 view_projection_unjittered;
 	float4 camera_position;
-	float4 swapchain_size; // (width, height, 1/width, 1/height)
+	float4 render_resolution; // (width, height, 1/width, 1/height)
+	float4 output_resolution; // (width, height, 1/width, 1/height)
 	float z_near;
 	float z_far;
 	float time;
+	float upscale_factor;
+	float2 jitter;
 	uint frame;
 	uint global_meshlets_geometry_buffer_id;
 	uint global_meshlets_lod_groups_buffer_id;
@@ -135,6 +140,7 @@ struct Instance
 {
 	float4x4 world_transform;
 	float4x4 iworld_transform;
+	float4x4 old_world_transform;
 
 	float4 bound_sphere;
 	float4 bound_center;

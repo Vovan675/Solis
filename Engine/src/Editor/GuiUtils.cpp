@@ -98,8 +98,10 @@ void GuiUtils::draw_stats_bar(float delta_time, ImVec2 pos)
 
 	ImGui::Text("FPS: %i (%f ms)", (int)(last_fps), 1.0f / last_fps * 1000);
 
-	glm::ivec2 viewport_size = Renderer::getViewportSize();
-	ImGui::Text("Render Size: %i %i", viewport_size.x, viewport_size.y);
+	glm::ivec2 render_resolution = Renderer::getRenderResolution();
+	ImGui::Text("Render Size: %i %i", render_resolution.x, render_resolution.y);
+	glm::ivec2 output_resolution = Renderer::getOutputResolution();
+	ImGui::Text("Output Size: %i %i", output_resolution.x, output_resolution.y);
 	ImGui::Text("Frame: %i", gDynamicRHI->getFrame());
 
 	const auto& stats = gDynamicRHI->getGPUStatistics();

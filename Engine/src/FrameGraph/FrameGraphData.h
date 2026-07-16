@@ -36,6 +36,7 @@
 #define GBufferNormal
 #define GBufferDepth
 #define GBufferShading
+#define MotionVectors
 
 #define HiZTexture
 #define CascadeHiZ

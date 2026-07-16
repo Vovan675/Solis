@@ -13,6 +13,8 @@
 #include "DX12AccelerationStructure.h"
 #include "DX12DescriptorHeap.h"
 #include "D3D12MemoryAllocator/D3D12MemAlloc.h"
+#include "DX12Streamline.h"
+#include "RHI/DLSSUpscaler.h"
 
 class DX12CommandQueue;
 class DX12CommandList;
@@ -48,6 +50,9 @@ public:
 
 	RHICommandList *getCmdList() override { return cmd_lists[frame_in_flight]; };
 	RHICommandList *getCmdListCopy() override { return cmd_list_copy; };
+
+	Upscaler *getUpscaler() override { return &dlss_upscaler; }
+	StreamlineAdapter *getStreamline() override { return &streamline; }
 
 	RHICommandQueue *getCmdQueue() override { return cmd_queue; };
 	RHICommandQueue *getCmdQueueCopy() override { return cmd_queue_copy; };
@@ -214,5 +219,10 @@ public:
 
 	void beginFrame() override;
 	void endFrame() override;
+
+	void bindDescriptorHeaps();
+
+	DX12Streamline streamline;
+	DLSSUpscaler dlss_upscaler;
 };
 

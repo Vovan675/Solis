@@ -39,6 +39,7 @@ IncludeDir["SPIRV_Reflect"] = "vendor/spirv-reflect"
 IncludeDir["Tracy"] = "vendor/tracy"
 IncludeDir["WinPixRuntime"] = "vendor/WinPixEventRuntime"
 IncludeDir["Compressonator"] = "vendor/Compressonator/include"
+IncludeDir["Streamline"] = "vendor/streamline/include"
 
 LibDir = {}
 LibDir["Vulkan"] = "%{VULKAN_SDK}/Lib"
@@ -61,6 +62,14 @@ function copy_file_to_target_dir(from_dir, folder, name)
 		string.format("{ECHO} Copying %s/%s to $(targetdir)%s%s", from_dir, name, folder, name),
 		string.format('if not exist "$(targetdir)%s" mkdir "$(targetdir)%s"', folder, folder),
 		string.format("{COPYFILE} \"%s/%s\" \"$(targetdir)%s%s\"", from_dir, name, folder, name)
+	}
+end
+
+function copy_dir_to_target_dir(from_dir, folder)
+	postbuildcommands
+	{
+		string.format("{ECHO} Copying dir %s to $(targetdir)%s", from_dir, folder),
+		string.format("{COPYDIR} \"%s\" \"$(targetdir)%s\"", from_dir, folder)
 	}
 end
 
@@ -113,6 +122,7 @@ project "Engine"
 		"%{IncludeDir.Tracy}/tracy",
 		"%{IncludeDir.WinPixRuntime}/include",
 		"%{IncludeDir.Compressonator}",
+		"%{IncludeDir.Streamline}",
 	}
 
 	libdirs
@@ -158,6 +168,8 @@ project "Engine"
 		copy_file_to_target_dir("%{wks.location}%{IncludeDir.DirectX}/../dlls/D3D12", "D3D12/", "d3d12SDKLayers.pdb")
 		-- WinPixRuntime
 		copy_file_to_target_dir("%{wks.location}%{IncludeDir.WinPixRuntime}/dlls/", "/", "WinPixEventRuntime.dll")
+		-- Streamline
+		copy_dir_to_target_dir("%{wks.location}vendor/streamline/bin/x64/development", "NVStreamline/")
 
 	filter "configurations:Debug"
 		editandcontinue "On"

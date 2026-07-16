@@ -19,6 +19,7 @@
 #include "renderers/SSAORenderer.h"
 #include "renderers/SSRRenderer.h"
 #include "renderers/DDGIRenderer.h"
+#include "renderers/UpscaleRenderer.h"
 
 #include "renderers/PathTracingRenderer.h"
 #include "ShaderStructs.h"
@@ -62,6 +63,7 @@ public:
 
 	struct InstanceRange { uint32_t start; uint32_t count; };
 	eastl::hash_map<entt::entity, InstanceRange> entity_instances;
+	eastl::hash_set<entt::entity> moved_last_frame_entities;
 
 	GpuTable<FrustumDataGPU> frustums_table;
 	GpuTable<MaterialGPU> materials_table;
@@ -85,6 +87,7 @@ public:
 	SSAORenderer ssao_renderer;
 	SSRRenderer ssr_renderer;
 	DDGIRenderer ddgi_renderer;
+	UpscaleRenderer upscale_renderer;
 
 	PathTracingRenderer path_tracing_renderer;
 };

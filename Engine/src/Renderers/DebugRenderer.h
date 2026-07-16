@@ -28,6 +28,7 @@ public:
 		uint32_t hiz_tex_id = 0;
 		uint32_t debug_tex_id = 0;
 		uint32_t overdraw_tex_id = 0;
+		uint32_t motion_vectors_tex_id = 0;
 	} ubo;
 
 	DebugRenderer();

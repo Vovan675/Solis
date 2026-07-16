@@ -80,7 +80,7 @@ float4 CastSingleRay(float3 view_pos, float3 view_reflection, float roughness)
 		return 0;
 
 	//snap texcoords to nearest texel
-	float2 hit_uv = (floor(tc * swapchain_size.xy) + float2(0.5,0.5)) * swapchain_size.zw;
+	float2 hit_uv = (floor(tc * render_resolution.xy) + float2(0.5,0.5)) * render_resolution.zw;
 
 	float3 reflection_color = SampleTexture(composite_final_tex_id, hit_uv, point_clamp_sampler).rgb;
 

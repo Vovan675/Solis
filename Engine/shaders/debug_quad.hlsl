@@ -27,6 +27,7 @@ cbuffer UBO : register(b0)
 	uint hiz_tex_id;
 	uint debug_tex_srv_id;
 	uint overdraw_tex_srv_id;
+	uint motion_vectors_tex_id;
 };
 
 void ComputePreviewSize(float2 tex_size, float screen_aspect, float scale, float max_h, out float2 size)
@@ -157,7 +158,7 @@ PSOutput PSMain(VSInput input)
 			const float scale = 1.0f;
 			const float offset = 0.02f;
 			const float max_height = 0.1f;
-			float screen_aspect = swapchain_size.x / float(swapchain_size.y);
+			float screen_aspect = output_resolution.x / output_resolution.y;
 			float y_pos = 0.0f;
 			float max_cascade = 6;
 
@@ -259,6 +260,12 @@ PSOutput PSMain(VSInput input)
 			uint v = tex.Sample(point_wrap_sampler, uv).r;
 			//value = float4(v, 1);
 			value = float4(v / 10.0f, 0, 0, 1);
+		}
+		break;
+		case 17:
+		{
+			float2 motion = SampleTexture(motion_vectors_tex_id, uv).rg;
+			value = float4(motion * 10.0f, 0.0f, 1.0f);
 		}
 		break;
 	}

@@ -6,7 +6,7 @@
 
 static const float camera_fov = PI / 4.0f; // TODO: compute on cpu (45 degrees)
 static const float error_threshold_pixels = 1.0;
-static const float error_threshold = (tan(camera_fov * 0.5) * error_threshold_pixels / swapchain_size.y);
+static const float error_threshold = (tan(camera_fov * 0.5) * error_threshold_pixels / render_resolution.y);
 
 static ByteAddressBuffer lod_groups_buffer = ResourceDescriptorHeap[global_meshlets_lod_groups_buffer_id];
 static ByteAddressBuffer lod_nodes_buffer  = ResourceDescriptorHeap[global_lod_nodes_buffer_id];

@@ -22,6 +22,8 @@ private:
 
 	glm::mat4 world_transform = glm::mat4(1);
 	glm::mat4 inverse_world_transform = glm::mat4(1);
+	glm::mat4 old_world_transform = glm::mat4(1);
+	bool old_world_transform_set = false;
 public:
 	eastl::string name = "";
 	entt::entity owner;
@@ -96,6 +98,11 @@ public:
 	const glm::mat4 &getInverseWorldTransform() const
 	{
 		return inverse_world_transform;
+	}
+
+	const glm::mat4 &getOldWorldTransform() const
+	{
+		return old_world_transform;
 	}
 protected:
 	friend class Scene;

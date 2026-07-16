@@ -32,10 +32,9 @@ public:
 		}
 		prev_mouse_pos = mouse_pos;
 
-		// Get rows for directions
-		glm::vec3 forward = glm::rotate(orientation, glm::vec3(0, 0, -1));
-		glm::vec3 right = glm::rotate(orientation, glm::vec3(1, 0, 0));
-		glm::vec3 up = glm::rotate(orientation, glm::vec3(0, 1, 0));
+		glm::vec3 forward = getForward();
+		glm::vec3 right = getRight();
+		glm::vec3 up = getUp();
 
 		glm::vec3 movement = glm::vec3(0, 0, 0);
 		if (gInput.isKeyDown(GLFW_KEY_W))
@@ -98,7 +97,11 @@ public:
 
 	const glm::mat4 &getView() const { return view; }
 	const glm::mat4 &getProj() const { return proj; }
-	const glm::mat4 &getViewProj() const { return proj * view; }
+	glm::mat4 getViewProj() const { return proj * view; }
+
+	glm::vec3 getForward() const { return glm::rotate(orientation, glm::vec3(0, 0, -1)); }
+	glm::vec3 getRight() const { return glm::rotate(orientation, glm::vec3(1, 0, 0)); }
+	glm::vec3 getUp() const { return glm::rotate(orientation, glm::vec3(0, 1, 0)); }
 
 	struct Inputs
 	{

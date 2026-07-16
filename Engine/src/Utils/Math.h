@@ -57,4 +57,23 @@ namespace Math
 	uint64_t roundUp(uint64_t size, uint64_t granularity);
 
 	bool isPowerOfTwo(uint32_t x);
+
+	inline float halton(uint32_t index, uint32_t base)
+	{
+		float result = 0.0f;
+		float fraction = 1.0f;
+		while (index > 0)
+		{
+			fraction /= base;
+			result += fraction * (index % base);
+			index /= base;
+		}
+		return result;
+	}
+
+	inline glm::vec2 halton2D(uint32_t index)
+	{
+		return {halton(index, 2), halton(index, 3)};
+	}
+
 }

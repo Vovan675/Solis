@@ -10,6 +10,8 @@
 #include "VulkanTexture.h"
 #include "VulkanPipeline.h"
 #include "VulkanAccelerationStructure.h"
+#include "VulkanStreamline.h"
+#include "RHI/DLSSUpscaler.h"
 #include "TracyVulkan.hpp"
 #include <queue>
 
@@ -42,6 +44,9 @@ public:
 
 	RHICommandList *getCmdList() override { return cmd_lists[frame_in_flight]; };
 	RHICommandList *getCmdListCopy() override { return cmd_list_immediate; };
+
+	Upscaler *getUpscaler() override { return &dlss_upscaler; }
+	StreamlineAdapter *getStreamline() override { return &streamline; }
 
 	RHICommandQueue *getCmdQueue() override { return cmd_queue; };
 	RHICommandQueue *getCmdQueueCopy() override { return cmd_copy_queue; };
@@ -150,6 +155,9 @@ public:
 	VkInstance instance;
 	Ref<Device> device;
 	VmaAllocator allocator;
+
+	VulkanStreamline streamline;
+	DLSSUpscaler dlss_upscaler;
 
 	VkCommandPool command_pool;
 

@@ -253,6 +253,7 @@ void DebugRenderer::addTextureDebugPass(FrameGraph &fg)
 		builder.readTexture(GFXRID(GBufferNormal));
 		builder.readTexture(GFXRID(GBufferDepth));
 		builder.readTexture(GFXRID(GBufferShading));
+		builder.readTexture(GFXRID(MotionVectors));
 		builder.readTexture(GFXRID(DiffuseLight));
 		builder.readTexture(GFXRID(SpecularLight));
 		builder.readTexture(GFXRID(LutBRDF));
@@ -280,6 +281,7 @@ void DebugRenderer::addTextureDebugPass(FrameGraph &fg)
 		ubo.shading_tex_id = resources.getReadTexture(GFXRID(GBufferShading));
 		ubo.normal_tex_id = resources.getReadTexture(GFXRID(GBufferNormal));
 		ubo.depth_tex_id = resources.getReadTexture(GFXRID(GBufferDepth));
+		ubo.motion_vectors_tex_id = resources.getReadTexture(GFXRID(MotionVectors));
 		ubo.light_diffuse_id = resources.getReadTexture(GFXRID(DiffuseLight));
 		ubo.light_specular_id = resources.getReadTexture(GFXRID(SpecularLight));
 		ubo.brdf_lut_id = resources.getReadTexture(GFXRID(LutBRDF));

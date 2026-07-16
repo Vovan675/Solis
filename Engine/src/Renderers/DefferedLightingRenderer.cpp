@@ -33,10 +33,10 @@ void DefferedLightingRenderer::renderLights(FrameGraph &fg)
 	fg.addCallbackPass("Deffered Lighting Pass",
 	[&](RenderPassBuilder &builder)
 	{
-		builder.createTexture(GFXRID(DiffuseLight), Renderer::getViewportWidth(), Renderer::getViewportHeight(), FORMAT_R11G11B10_UFLOAT);
+		builder.createTexture(GFXRID(DiffuseLight), Renderer::getRenderWidth(), Renderer::getRenderHeight(), FORMAT_R11G11B10_UFLOAT);
 		builder.writeTexture(GFXRID(DiffuseLight));
 
-		builder.createTexture(GFXRID(SpecularLight), Renderer::getViewportWidth(), Renderer::getViewportHeight(), FORMAT_R11G11B10_UFLOAT);
+		builder.createTexture(GFXRID(SpecularLight), Renderer::getRenderWidth(), Renderer::getRenderHeight(), FORMAT_R11G11B10_UFLOAT);
 		builder.writeTexture(GFXRID(SpecularLight));
 
 		builder.readTexture(GFXRID(GBufferAlbedo));

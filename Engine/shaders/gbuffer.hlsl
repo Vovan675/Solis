@@ -23,6 +23,7 @@ struct PixelInput
 	float3 world_position : TEXCOORD1;
 	float2 uv : TEXCOORD2;
 	float4 world_tangent : TEXCOORD3;
+	float4 old_clip_position : TEXCOORD4;
 	nointerpolation uint material_id : MATERIAL_ID;
 	nointerpolation uint attribute_flags : ATTRIBUTE_FLAGS;
 	#if VISUALIZE_TRIANGLES || VISUALIZE_MESHLETS || VISUALIZE_MESHLETS_GROUPS
@@ -36,6 +37,9 @@ PixelInput transformVertex(RawVertexData raw_vertex, Instance instance, uint att
 
 	float4 world_pos = mul(instance.world_transform, float4(raw_vertex.position, 1.0));
 	output.position = mul(view_projection, world_pos);
+
+	float4 old_world_pos = mul(instance.old_world_transform, float4(raw_vertex.position, 1.0));
+	output.old_clip_position = mul(old_view_projection, old_world_pos);
 
 	float3x3 normal_matrix = (float3x3)instance.world_transform;
 	output.world_normal = normalize(mul(normal_matrix, raw_vertex.normal));
@@ -141,6 +145,7 @@ struct PixelOutput
 	float4 color : SV_Target0;
 	float4 normal : SV_Target1;
 	float4 shading : SV_Target2;
+	float2 motion_vectors : SV_Target3;
 };
 
 PixelOutput PSMain(PixelInput IN)
@@ -185,6 +190,9 @@ PixelOutput PSMain(PixelInput IN)
 	output.shading.b = SampleMaterialChannel(material.specular_tex_id, IN.uv, material.shading.b);
 	output.shading.a = 1.0;
 
+	float2 current_uv = (IN.position.xy + jitter) / render_resolution.xy;
+	float2 old_uv = (IN.old_clip_position.xy / IN.old_clip_position.w) * float2(0.5, -0.5) + 0.5;
+	output.motion_vectors = old_uv - current_uv;
 	#if VISUALIZE_TRIANGLES || VISUALIZE_MESHLETS || VISUALIZE_MESHLETS_GROUPS
 		output.color = float4(colorHash(IN.meshlet_id), 1);
 	#endif

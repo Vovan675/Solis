@@ -41,6 +41,7 @@ public:
 		GraphicsResourceName albedo;
 		GraphicsResourceName normal;
 		GraphicsResourceName shading;
+		GraphicsResourceName motion_vectors;
 		GraphicsResourceName depth;
 	};
 

@@ -17,10 +17,10 @@ void DefferedCompositeRenderer::addPasses(FrameGraph &fg)
 	fg.addCallbackPass("Composite Indirect Pass",
 	[&](RenderPassBuilder &builder)
 	{
-		builder.createTexture(GFXRID(CompositeIndirectAmbient), Renderer::getViewportWidth(), Renderer::getViewportHeight(), FORMAT_R32G32B32A32_SFLOAT);
+		builder.createTexture(GFXRID(CompositeIndirectAmbient), Renderer::getRenderWidth(), Renderer::getRenderHeight(), FORMAT_R32G32B32A32_SFLOAT);
 		builder.writeTexture(GFXRID(CompositeIndirectAmbient));
 
-		builder.createTexture(GFXRID(CompositeIndirectSpecular), Renderer::getViewportWidth(), Renderer::getViewportHeight(), FORMAT_R32G32B32A32_SFLOAT);
+		builder.createTexture(GFXRID(CompositeIndirectSpecular), Renderer::getRenderWidth(), Renderer::getRenderHeight(), FORMAT_R32G32B32A32_SFLOAT);
 		builder.writeTexture(GFXRID(CompositeIndirectSpecular));
 
 		builder.readTexture(GFXRID(DiffuseLight));
@@ -95,7 +95,7 @@ void DefferedCompositeRenderer::addPasses(FrameGraph &fg)
 	fg.addCallbackPass("Deffered Composite Pass",
 	[&](RenderPassBuilder &builder)
 	{
-		builder.createTexture(GFXRID(FinalNoPostTexture), Renderer::getViewportWidth(),  Renderer::getViewportHeight(), FORMAT_R32G32B32A32_SFLOAT);
+		builder.createTexture(GFXRID(FinalNoPostTexture), Renderer::getRenderWidth(),  Renderer::getRenderHeight(), FORMAT_R32G32B32A32_SFLOAT);
 		builder.writeTexture(GFXRID(FinalNoPostTexture));
 
 		builder.readTexture(GFXRID(CompositeIndirectAmbient));

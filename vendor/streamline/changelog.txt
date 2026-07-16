@@ -1,0 +1,571 @@
+======== Release 2.11.0 Entries ========
+
+    * Added support for application-controlled VSync with DLSS Frame Generation.
+      Applications using D3D12 can now enable VSync while using Frame Generation
+      for tear-free presentation with frame interpolation. Check
+      `sl::DLSSGState::bIsVsyncSupportAvailable` before exposing VSync controls
+      in the UI. See section 24.0 "VSYNC WITH FRAME GENERATION" in
+      `ProgrammingGuideDLSS_G.md` for more information.
+
+    * Added support for DLSS Dynamic Multi Frame Generation with a new
+      `sl::DLSSGOptions::dynamicTargetFrameRate` field for specifying the target
+      frame rate when `DLSSGMode::eDynamic` is enabled. See section 14.2 "HOW TO
+      CHECK FOR DYNAMIC MULTI FRAME SUPPORT" in `ProgrammingGuideDLSS_G.md` for
+      more information.
+
+    * Added support for DLSS Frame Generation User Interface Recomposition with
+      a new `sl::DLSSGOptions::enableUserInterfaceRecomposition` field. When
+      enabled, DLSS-G allocates a codepath that supports interpolating HUDless
+      and UI Color & Alpha buffers separately from the Color Backbuffer. See
+      section 6.6 "ENABLING USER INTERFACE RECOMPOSITION" in
+      `ProgrammingGuideDLSS_G.md` for more information.
+
+    * Updated `slIsFeatureSupported()` to provide more detailed error reporting
+      instead of always returning `sl::Result::eErrorFeatureMissing`.
+
+    * Fixed a memory leak in `sl.common` where tagged resources were not properly
+      released.
+      Reported on GitHub by @anyiscsak as issue #89
+
+    * Fixed a memory leak in `sl.nis` where viewports were not properly released
+      when `slFreeResources()` was called.
+
+    * Fixed a memory leak in `sl.common` where `requiredTags` were not properly
+      released.
+
+    * Fixed a bug in `sl.common` where D3D12 buffers were created with an
+      incorrect initial state. Buffers are now created in
+      `D3D12_RESOURCE_STATE_COMMON` instead of `D3D12_RESOURCE_STATE_COPY_DEST`.
+
+    * Fixed a bug in `sl.interposer` where OTA updates could fail if the
+      DriverStore path did not exist.
+
+    * Fixed a bug in `sl.dlss_g` where mode keybinds could override the Off
+      state.
+
+    * Fixed a bug in `sl.plugin-manager` where `mapPlugins()` used an invalidated
+      iterator.
+
+    * Fixed a bug in `sl.dlss_g` where swapchain null pointer handling could lead
+      to unexpected behavior.
+
+    * Fixed a bug in DLSS Super Resolution where a crash could occur during
+      feature creation when clearing the autoexposure texture on Vulkan.
+
+    * Fixed a bug in DLSS Super Resolution where Dynamic Resolution Scaling
+      could cause unnecessary resource reallocation when input dimensions
+      exceeded the creation-time dimensions.
+
+    * Fixed a bug in DLSS Super Resolution where internal state was incorrectly
+      shared across multiple feature instances, causing incorrect behavior.
+
+    * Fixed a bug in DLSS-FG where unnecessary copies from input to output buffer
+      were performed when both buffers pointed to the same resource.
+
+    * Fixed a bug in `sl.common` which could cause excessive debug log spam when
+      `slSetTagForFrame()` was called with DLSS-FG disabled.
+
+    * Improved `sl.common` to detect when `presentCommon()` is not being called
+      and log appropriate warnings. See section 2.2.2.3 "MEMORY MANAGEMENT" in
+      `ProgrammingGuide.md` for more information.
+
+    * Demoted zero-width/height errors from `getOptimalSettings` in `sl.dlss` and
+      `sl.dlss_d` to warnings.
+
+    * Updated the DLSS-FG debug visualization to include distortion offset in the
+      MV/Depth alignment mode.
+
+
+======== Release 2.10.3 Entries ========
+
+    * Fixed a bug in `sl.dlss_g` which could lead to a crash during
+      transitions between frame generation states.
+
+
+======== Release 2.10.0 Entries ========
+
+    * Added support for two additional DLSS Super Resolution Transformer
+      Models:
+      - `sl::DLSSPreset::ePresetL`
+      - `sl::DLSSPreset::ePresetM`
+
+    * Updated `sl.dlss_g` to reduce latency on high refresh rate displays
+      when Vertical Sync is enabled in the NVIDIA Control Panel.
+
+    * Updated `sl.interposer` to only load plugins from the OTA cache when
+      updated versions of all requested plugins are available.
+
+    * Fixed a memory leak in `slGetFeatureRequirements()`.
+
+    * Fixed a bug in `slIsFeatureSupported` for `sl::kFeatureDLSS_G` where
+      `sl::Result::eErrorOSDisabledHWS` was not returned when GPU-Accelerated
+      Hardware Scheduling was disabled.
+
+    * Fixed a bug in `sl.common` where stale registry key information could
+      cause NGX initialization to fail.
+
+    * Fixed a bug in `sl.interposer` where stale registry key information
+      could prevent OTA Updates from downloading.
+
+    * Fixed a memory leak in `sl.nis` when `slFreeResources()` was called.
+      Reported on GitHub by @CCPNobody as issue #85
+
+    * Fixed a bug in `sl.reflex` where the `VK_NV_low_latency` extension was
+      required on unsupported hardware.
+
+    * Fixed a bug in DLSS-SR which could cause NvApp In-Game Overlay to
+      incorrectly report DLSS-SR Override as "Inactive".
+
+    * Improved logging and documentation around presentation hooking. See
+      section 2.2.2.3 "MEMORY MANAGEMENT" in `ProgrammingGuide.md` and
+      section 2.0 "MANUAL HOOKING API" in `ProgrammingGuideManualHooking.md`
+      for more information.
+
+    * Reduced verbosity of log messages for `slSetTagForFrame()`.
+      Reported on GitHub by @simco50 as issue #80
+
+    * Added an `eAll` value to the following enumerations:
+      - `sl::DirectSRVariantFlags`
+      - `sl::DLSSGFlags`
+      - `sl::DLSSGStatus`
+      - `sl::FeatureRequirementFlags`
+      - `sl::PreferenceFlags`
+
+    * Added an `eCount` value to the following enumerations:
+      - `sl::DirectSROptimizationType`
+      - `sl::DLSSDNormalRoughnessMode`
+      - `sl::NvPerfMode`
+
+
+======== Release 2.9.0 Entries ========
+
+    * Removed support for the following `sl::DLSSPreset` values:
+      - `sl::DLSSPreset::ePresetA`
+      - `sl::DLSSPreset::ePresetB`
+      - `sl::DLSSPreset::ePresetC`
+      - `sl::DLSSPreset::ePresetD`
+      - `sl::DLSSPreset::ePresetE`
+
+    * Removed support for the following `sl::DLSSDPreset` values:
+      - `sl::DLSSDPreset::ePresetA`
+      - `sl::DLSSDPreset::ePresetB`
+      - `sl::DLSSDPreset::ePresetC`
+
+    * Removed support for building with Visual Studio 2017.
+
+    * Updated the `sl::PreferenceFlags::eLoadDownloadedPlugins` flag to control
+      the loading of Optional OTA Updates. The loading of Mandatory OTA Updates
+      is not impacted by this flag.
+
+    * Added `slFreeResources` function to `sl.nis`. See Section 3.0 "TAG ALL
+      REQUIRED RESOURCES" in `ProgrammingGuideNIS.md` for more information.
+
+    * Fixed a bug in `sl.common` where the NGX allocation callbacks where
+      failure to allocate resources would not be properly reported back to the
+      caller.
+
+    * Fixed a bug in `sl.dlss` and `sl.dlss_d` where feature NGX failures during
+      `slEvaluate()` and `slGetData()` were not properly communicated to the
+      application.
+
+    * Fixed a bug in `sl.dlss` and `sl.dlss_d` which could lead to crash if the
+      feature was re-created while GPU work was still in-flight.
+
+    * Fixed a bug in `sl.dlss_g` where references to tagged resources would be
+      kept for 32 frames after their last usage.
+      Reported on GitHub by @simco50 as issue #66
+
+    * Fixed a bug in `sl.dlss_g` which could lead to crashes when feature
+      creation failed. This was most commonly found in scenarios where the
+      swapchain resolution was not supported.
+
+    * Fixed a bug in `sl.dlss_g` which could lead to simultaneous access of
+      swapchain buffers as a result of a GPU timeout during frame presentation.
+
+    * Fixed a bug in `sl.dlss_g` which resulted in high latency when Vertical
+      sync was enabled in the NVIDIA Control Panel.
+
+    * Fixed a bug where `sl.interposer` would incorrectly state that a
+      `sl::Preferences::applicationId` was required despite the application
+      passing in `sl::Preferences::projectId`.
+
+    * Fixed a bug in `sl.deepdvc` where `sl::FeatureVersion::versionNGX` was not set.
+
+    * Fixed a bug in `sl.imgui` where resources would be leaked on `slShutdown()`.
+      Reported on GitHub by @simco50 as issue #59
+
+    * Fixed a bug in `sl_core_types.h` which resulted in compilation failures on clang.
+      Reported on GitHub by @clshortfuse as issue #71
+
+
+======== Release 2.8.0 Entries ========
+
+    * Deprecated support for the following `sl::DLSSPreset` values:
+      - `sl::DLSSPreset::ePresetA`
+      - `sl::DLSSPreset::ePresetB`
+      - `sl::DLSSPreset::ePresetC`
+      - `sl::DLSSPreset::ePresetD`
+      - `sl::DLSSPreset::ePresetE`
+
+    * Deprecated support for building with Visual Studio 2017.
+
+    * Fixed a bug in `sl.dlss_g` which allowed applications to pass in an
+      invalid `sl::DLSSGOptions::numFramesToGenerate` value of zero, resulting
+      in the presentation of stale frame data when DLSS-FG was enabled.
+
+    * Fixed a bug in `sl.common` which could lead to graphical corruption and
+      instability in when used across different threads.
+
+    * Disabled loading of plugins via OTA Updates on non-production builds.
+
+    * Improved performance of the following functions:
+      - `slAllocateResources()`
+      - `slEvaluateFeature()`
+      - `slFreeResources()`
+      - `slGetFeatureFunction()`
+      - `slIsFeatureLoaded()`
+      - `slSetConstants()`
+      - `slSetTag()`
+      - `slSetTagForFrame()`
+
+    * Added debug event markers for the following APIs:
+      - `slEvaluateFeature()`
+      - `slSetTag()`
+      - `slSetTagForFrame()`
+
+    * Enabled debug names in all build configurations.
+
+    * Updated the FrameView SDK installer bundled with Streamline.
+
+    * Added documentation for frame pacing behavior. See section 14.1
+      "UNDERSTANDING FRAME PACING BEHAVIOR" in `ProgrammingGuideDLSS_G.md` for
+      more information.
+
+======== Release 2.7.32 Entries ========
+
+    * Removed the following directories from the repository. Release packages
+      containing these binaries can be found at:
+      https://github.com/NVIDIA-RTX/Streamline/releases
+      - `bin`
+      - `lib`
+      - `symbols`
+      - `utils`
+
+    * Fixed a bug in `sl.dlss_g` where a worker-thread could time out and cause
+      a deadlock.
+
+    * Fixed a crash in `sl.dlss_g` where the presentation fence could time out
+      and inadvertently result in an active GPU command buffer being overwritten.
+
+======== Release 2.7.30 Entries ========
+
+    * Added support for `slSetTagForFrame()` which allows for frame-based
+      tagging of resources.
+      See section 2.9 of `ProgrammingGuide.md` "TAGGING RESOURCES" for more information.
+
+    * Deprecated support for `slSetTag()`. Use `slSetTagForFrame()` instead.
+      See section 2.9 of `ProgrammingGuide.md` "TAGGING RESOURCES" for more information.
+
+    * Added support for an additional DLSS Super Resolution Transformer Model (BETA)
+      Available as `sl::DLSSPreset::ePresetK`.
+
+    * Fixed a bug in `sl.dlss_g` where DLSS-G was marked as unsupported when
+      used with image format `VK_FORMAT_A2B10G10R10_UNORM_PACK32`.
+
+    * Fixed a race condition in `sl.dlss_g` when enabling either `sl.dlss` or
+      `sl.dlss_d` simultaneously, which could result in graphical corruption and
+      degraded performance.
+
+    * Fixed a bug in `sl.dlss_g` where calling `slFreeResources()` was called in
+      multi-swapchain applications would result in a crash.
+
+    * Fixed a bug in `sl.dlss_g` leading to D3D12 Validation
+      `RESOURCE_MANIPULATION ERROR #527 RESOURCE_BARRIER_BEFORE_AFTER_MISMATCH`.
+
+    * Fixed a bug in `sl.dlss_g` where enabling the debug visualization would
+      result in a crash.
+
+    * Fixed a bug in `sl.common` which caused a memory leak in D3D11
+      applications.
+
+    * Added additional documentation for DLSS-SR and DLSS-RR to the `docs` directory.
+
+======== Release 2.7.2 Entries ========
+
+    * Added support for DLSS Ray Reconstruction Transformer Model
+      Available as `sl::DLSSDPreset::ePresetD`.
+
+    * Deprecated support for the following `sl::DLSSDPreset` values:
+      - `sl::DLSSDPreset::ePresetA`
+      - `sl::DLSSDPreset::ePresetB`
+      - `sl::DLSSDPreset::ePresetC`
+
+    * Added support for DLSS Multi-Frame Generation.
+      See section 6.1 "ENABLING MULTI-FRAME GENERATION" in
+      `ProgrammingGuideDLSS_G.md` for more information.
+
+    * Added support for DLSS Super Resolution Transformer Model (BETA)
+      Available as `sl::DLSSPreset::ePresetJ`.
+
+    * Removed the `sl.nrd` plugin, which was deprecated in v2.4.10.
+
+    * Migrated the Reflex SDK for Vulkan applications from an externally hosted
+      Packman package, into Streamline SDK directly under the
+      `external/reflex-sdk-vk` directory.
+
+    * Added Reflex Verification Tools under the `utils/reflex` directory.
+
+    * Added a new enumeration `sl::DLSSGQueueParallelismMode` for controlling
+      GPU work overlap. See section 18.0 "DLSS-G INTEGRATION CHECKLIST DETAILS"
+      in `ProgrammingGuideDLSS_G.md` for more information.
+
+    * Added two new `sl::DLSSGState` fields:
+      - `inputsProcessingCompletionFence`
+      - `inputsProcessingCompletionFenceValue`
+      For guarding tagged resource use by `sl.dlssg`. See section 15.1 "HOW TO
+      SYNCHRONIZE THE HOST APP DLSS-G INPUTS AND STERAMLINE IF REQUIRED" in
+      `ProgrammingGuideDLSS_G.md` for more information.
+
+    * Added a new `sl::DLSSGOptions` field `queueParallelismMode`, see the above
+      changelog entry on `sl::DLSSGQueueParallelismMode` for more information.
+
+    * Added support for overriding Streamline's logging behavior via environment
+      variables and Windows registry keys. See the "Logging" section in
+      `README.md` for more information.
+
+    * Added a new helper function `getDLSSGModeAsStr()`.
+
+    * Fixed a bug where `sl.dlss` would not propagate changes to the
+      `sl::DLSSPreset` fields in `sl::DLSSOptions` structure.
+
+    * Fixed a bug where `sl.interposer` could attempt to add both
+      `VkPhysicalDeviceVulkan12Features` and `VkPhysicalDeviceVulkan13Features`
+      to the same pNext chain.
+
+    * Fixed a bug where `sl.interposer` would attempt to enable
+      `VK_EXT_buffer_device_address` simultaneously with
+      `VK_KHR_buffer_device_address`.
+
+    * Updated documentation `sl::kBufferTypeBidirectionalDistortionField` to
+      include a HLSL example of an iterative Newton-Raphson method for inverse
+      distortion. See section 5.0 "TAG ALL REQUIRED RESOURCES" in
+      `ProgrammingGuideDLSS_G.md` for more information.
+
+======== Release 2.4.15 Entries ========
+
+    * Added support for DirectSR with a new plugin: `sl.directsr`.
+      See `ProgrammingGuideDirectSR.md` for more information.
+
+    * Fixed a bug in `sl.dlss_g` where the correct `sl::Resource::Type` of a VK resource was not set.
+
+    * Fixed a bug in `sl.dlss_g` which violated the following Vulkan valid usage IDs:
+        - `VUID-VkDescriptorImageInfo-imageView-01976`
+
+    * Fixed a bug in `sl.dlss_g` which led `vkAcquireNextImageKHR` to stall unnecessarily.
+
+    * Fixed a bug in `sl.imgui` where the native `VkQueue` was passed instead of `sl::chi::CommandQueueVk`,
+      resulting in a crash.
+
+    * Fixed a bug in `sl.imgui` which could cause a crash during swapchain recreation.
+
+    * Fixed a bug in `sl.dlss_g` where the fence passed to `slHookVkAcquireNextImageKHR` 
+      was not used.
+
+    * Fixed a bug in `sl.dlss_g` where an old `VkQueue` would get used if the presenting queue 
+      changed, resulting in a crash.
+
+======== Release 2.4.11 Entries ========
+
+    * Fixed a bug in `sl.common` where shared `ID3D12CommandAllocator` objects were not reset, 
+      resulting in a video memory leak.
+
+    * Fixed a bug in `sl.dlss_g` where `sl::Constants::reset` would get set for every frame.
+
+======== Release 2.4.10 Entries ========
+
+    * Added debug names for Streamline-created Vulkan objects.
+
+    * Added `sl::Result::eWarnOutOfVRAM` to `sl::getResultAsStr()` helper
+      function.
+      Reported on GitHub by @QDanteQ as issue #38
+
+    * Improved support for depth-stencil formats when using Vulkan.
+
+    * Deprecated the `sl.nrd` plugin; this plugin will be removed in a future
+      release.
+
+    * Fixed a regression introduced in SL 2.4.0 where options set via calls to
+      `slDLSSGSetOptions()` would not persist across frames.
+
+    * Fixed a bug in `sl.common` which violated the following Vulkan valid usage IDs:
+        - `VUID-vkCmdCopyBuffer-srcBuffer-00118`
+        - `VUID-vkDestroyDevice-device-05137`
+        - `VUID-VkImageMemoryBarrier-newLayout-01198`
+        - `VUID-VkSubmitInfo-pWaitSemaphores-parameter`
+
+    * Fixed a bug in `sl.common` where descriptor sets may have been used before
+      being properly initialized.
+      Reported on GitHub by @Bizzarrus as issue #30
+
+    * Fixed a bug in `sl.common` where descriptor processing could fail on
+      Vulkan.
+      Reported on GitHub by @Bizzarrus as issue #29
+
+    * Fixed a bug in `sl.common` where calls to `getSystemCaps()` would leak
+      D3DKMTAdapter handles.
+      Reported on GitHub by @Nukem9 as issue #28
+
+    * Fixed a bug in `sl.dlssg` where unused memory would be allocated when
+      `sl::DLSSGFlags::eShowOnlyInterpolatedFrame` was in used.
+
+    * Fixed a bug in `sl.dlssg` which violated the following Vulkan valid usage IDs:
+        - `UNASSIGNED-CoreValidation-DrawState-InvalidImageLayout`
+        - `UNASSIGNED-vkQueueSubmit-QueueForwardProgress`
+        - `VUID-vkAcquireNextImageKHR-semaphore-01779`
+        - `VUID-vkDestroyDevice-device-05137`
+        - `VUID-vkQueueSubmit-pWaitSemaphores-03238`
+
+    * Fixed a bug in `sl.imgui` which violated the following Vulkan valid usage IDs:
+        - `VUID-VkMappedMemoryRange-size-01389`
+
+    * Fixed a bug in `sl.interposer` which violated the following Vulkan valid
+      usage IDs:
+        - `VUID-VkDeviceQueueCreateInfo-pQueuePriorities-00383`
+
+    * Fixed a bug in `sl.nis` where it did not properly request `shaderFloat16`
+      feature support.
+      Reported on GitHub by @dzhdanNV as issue #32
+
+    * Fixed the documentation for `sl.nis` to indicate that `slNISSetOptions`
+      should be used to set `sl::NISOptions`.
+      Reported on GitHub by @Bizzarrus as issue #34
+
+======== Release 2.4.1 Entries ========
+
+    * Fixed a bug in `sl.dlssg` where tagged
+      `sl::kBufferTypeBidirectionalDistortionField` extents were incorrectly
+      applied to `sl::kBufferTypeDepth` inputs, causing visual corruption.
+
+======== Release 2.4.0 Entries ========
+
+    * Added support for upscaling Alpha in `sl.dlss`.
+
+    * Added support for multiple viewports in `sl.dlss_g`.
+      See section 5.0 "MULTIPLE VIEWPORTS" in `ProgrammingGuideDLSS_G.md` for more information.
+
+    * Added support for `VK_FORMAT_D32_SFLOAT_S8_UINT`.
+
+    * Added fullscreen menu detection in `sl.dlss_g`.
+      See section 6.3 "AUTOMATICALLY DISABLING DLSS-G IN MENUS" in `ProgrammingGuideDLSS_G.md` for more information.
+
+    * Added support for a new preset `sl::DLSSPreset::ePresetE`. This is now the default preset for DLSS SR.
+
+    * Deprecated the ambiguous flag `sl::ReflexOptions::useMarkersToOptimize`.
+
+======== Release 2.3.0 Entries ========
+
+    * Added support for DeepDVC with a new plugin: `sl.deepdvc`.
+      See `ProgrammingGuideDeepDVC.md` for more information.
+
+    * Added a new plugin `sl.pcl` for handling the IHV-agnostic functionality
+      previously covered within `sl.reflex`. See `ProgrammingGuidePCL.md` and
+      `ProgrammingGuideReflex.md` for more information.
+
+    * Added support for specifying `sl::Extent` values which are smaller than
+      the backbuffer size for `sl.dlssg`. See `ProgrammingGuideDLSS_G.md` for
+      more information.
+
+    * Added support for the Nsight Perf SDK with a new plugin: `sl.nvperf`.
+      See `Debugging - Nsight-Perf-SDK GUI.md` for more information
+
+    * Added a new `sl::DLSSGFlags` enumeration value `eRetainResourcesWhenOff`
+      for controlling resource retention behavior on changes to `sl::DLSSGOptions::mode`.
+      See section 6.2 "RETAINING RESOURCES WHEN DLSS-G IS OFF" in `ProgrammingGuideDLSS_G.md`
+      for more information.
+
+    * Added a CMakeLists file for easier integration into projects using the
+      CMake build system.
+
+    * Added the Reflex Verification Tools to the repository under the `utils`
+      directory.
+
+    * Added a new enumeration `sl::PCLHotKey` for specifying the PC Latency
+      Marker hotkey. The field-type of `sl::PCLOptions::virtualKey` makes use of
+      this type rather than `uint16_t` that `sl::ReflexOptions::virtualKey`
+      used.
+
+    * Added the current thread id to log messages.
+
+    * Fixed a bug where `sl.dlssg` would occasionally deadlock when applications
+      switched between windows via the alt+tab keybind.
+
+    * Fixed a bug in `sl.reflex` where a workaround for the Unity engine was
+      checking for the incorrect `sl::PCLMarker`.
+
+    * Fixed a bug where the `sl.dlssg` debug interface could display when DLSS-G
+      was not enabled.
+
+    * Fixed a bug in `sl.imgui` where the `WM_GETMESSAGE` hook was leaked on plugin shutdown.
+
+    * Fixed a bug where logging would crash if the supplied message was greater
+      than 1024 characters in length.
+
+    * Fixed a bug where logging would crash if the supplied message was an empty
+      string.
+
+    * Updated `sl.nrd` to NRD version 4.3.5.
+
+    * Demoted GPU-Accelerated Hardware Scheduling related errors in `sl.dlssg`
+      to warnings. These cause non-fatal issues which impacted the logging
+      callback on machine configurations where DLSS-G was unsupported.
+
+======== Release 2.2.1 Entries ========
+
+    * Added support for DLSS Frame Generation Dynamic Frame Generation.
+      See section 22.0 "Dynamic Frame Generation" in `ProgrammingGuideDLSS_G.md`
+      for more information.
+
+    * Added two new buffer types:
+      - `sl::kBufferTypeTransparencyLayer`
+      - `sl::kBufferTypeTransparencyLayerOpacity`
+      See section 4.1.10 "Transparency Overlay" in `ProgrammingGuideDLSS_RR.md`
+      for more information.
+
+    * Added new buffer type `sl::kBufferTypeBidirectionalDistortionField` for
+      post-processed distortion patterns applied to the backbuffer and
+      `sl::kBufferTypeUIColorAndAlpha`.
+      See section 5.0 "TAG ALL REQUIRED RESOURCES" in `ProgrammingGuideDLSS_G.md`
+      for more information.
+
+    * Added a new `sl::Constants` field `minRelativeLinearDepthObjectSeparation`
+      for describing the minimum depth difference between two objects in screen-space.
+
+    * Added a new structure `sl::PrecisionInfo` for specifying floating-point
+      precision bias for a `sl::Resource`.
+      See section 2.8 "TAGGING RESOURCES" in `ProgrammingGuide.md` for more
+      information.
+
+    * Fixed a bug where `sl.interposer.dll` would crash if plugins were located
+      in paths containing wide characters.
+
+    * Fixed a bug where verbose logging would not include additional information for OTA Updates.
+
+    * Updated documentation for `sl::DLSSGMode::eOff` to match current behavior.
+      See section 5.0 "TURN DLSS-G ON/OFF/AUTO AND PROVIDE OTHER DLSS-G OPTIONS" in
+      `ProgrammingGuideDLSS_G.md` for more information.
+
+
+======== Release 2.2.0 Entries ========
+
+    * Added support for multiple viewports to the sl.nis plugin.
+
+    * Added a new structure `sl::SubresourceRange` for specifying Vulkan subresource range information.
+
+    * Moved SL Feature ID definitions to a central location in `sl.h`.
+
+    * Added support for DLSS Ray Reconstruction with a new plugin: `sl.dlss_d`.
+
+    * Fixed a bug where only the first 8 bytes of child-classes of `sl::StructType` would be used for comparison operators.
+
+    * Added support for DLSS Frame Generation Auto Scene Change Detection.
+      See section 21.0 "Auto Scene Change Detection" in `ProgrammingGuideDLSS_G.md` for more information.

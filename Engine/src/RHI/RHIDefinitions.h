@@ -256,6 +256,7 @@ struct TextureDescription
 	Filter filtering = FILTER_LINEAR;
 	bool anisotropy = false;
 	bool use_comparison_less = false;
+	float mip_bias = 0.0f;
 	float depth_clear_value = 0.0f; // 0.0 for reverse-Z (GBuffer), 1.0 for standard Z (shadows)
 
 	size_t getHash() const
@@ -273,6 +274,7 @@ struct TextureDescription
 		Engine::Math::hashCombine(hash, filtering);
 		Engine::Math::hashCombine(hash, anisotropy);
 		Engine::Math::hashCombine(hash, use_comparison_less);
+		Engine::Math::hashCombine(hash, mip_bias);
 
 		return hash;
 	}

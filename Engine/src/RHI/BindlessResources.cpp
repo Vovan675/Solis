@@ -49,6 +49,18 @@ void RHIBindlessResources::cleanup()
 	invalid_texture = nullptr;
 }
 
+void RHIBindlessResources::setSamplersMipBias(float bias)
+{
+	for (uint32_t i = 0; i < sampler_descriptions.size(); i++)
+	{
+		TextureDescription &description = sampler_descriptions[i];
+		if (description.mip_bias == bias || description.filtering != FILTER_LINEAR || description.use_comparison_less)
+			continue;
+		description.mip_bias = bias;
+		recreate_sampler(i);
+	}
+}
+
 void RHIBindlessResources::setTexture(uint32_t index, RHITextureView *view)
 {
 	if (view == nullptr)
@@ -334,6 +346,20 @@ void VulkanBindlessResources::setAccelerationStructure(uint32_t index, RHITopLev
 
 uint32_t VulkanBindlessResources::addSampler(const TextureDescription &description)
 {
+	VkSamplerResource *sampler = new VkSamplerResource();
+	sampler->resource = VK_NULL_HANDLE;
+	samplers.push_back(sampler);
+	sampler_descriptions.push_back(description);
+
+	uint32_t index = samplers.size() - 1;
+	recreate_sampler(index);
+	return index;
+}
+
+void VulkanBindlessResources::recreate_sampler(uint32_t index)
+{
+	const TextureDescription &description = sampler_descriptions[index];
+
 	VkFilter filter = VK_FILTER_LINEAR;
 	if (description.filtering == FILTER_LINEAR)
 		filter = VK_FILTER_LINEAR;
@@ -370,20 +396,19 @@ uint32_t VulkanBindlessResources::addSampler(const TextureDescription &descripti
 	samplerInfo.anisotropyEnable = description.anisotropy;
 	samplerInfo.maxAnisotropy = description.anisotropy ? VulkanUtils::getNativeRHI()->device->physicalProperties.properties.limits.maxSamplerAnisotropy : 1.0f;
 	samplerInfo.unnormalizedCoordinates = VK_FALSE;
-	samplerInfo.mipLodBias = 0.0f;
+	samplerInfo.mipLodBias = description.mip_bias;
 	samplerInfo.minLod = 0;
 	samplerInfo.maxLod = VK_LOD_CLAMP_NONE;
 
-	VkSamplerResource *sampler = new VkSamplerResource();
+	VkSamplerResource *sampler = samplers[index];
+	if (sampler->resource != VK_NULL_HANDLE)
+		sampler->Release();
 	CHECK_ERROR(vkCreateSampler(VulkanUtils::getNativeRHI()->device->logicalHandle, &samplerInfo, nullptr, &sampler->resource));
-	samplers.push_back(sampler);
 
 	descriptor_writer.writeImage(BINDLESS_SAMPLERS_BINDING, VK_DESCRIPTOR_TYPE_SAMPLER, nullptr, sampler->resource, VK_IMAGE_LAYOUT_UNDEFINED);
-	descriptor_writer.writes.back().dstArrayElement = samplers.size() - 1;
+	descriptor_writer.writes.back().dstArrayElement = index;
 	is_dirty = true;
 	updateSets();
-
-	return samplers.size() - 1;
 }
 
 VkSampler VulkanBindlessResources::getNativeSampler(uint32_t sampler_index)
@@ -502,10 +527,21 @@ void DX12BindlessResources::update()
 uint32_t DX12BindlessResources::addSampler(const TextureDescription &description)
 {
 	DX12DynamicRHI *rhi = (DX12DynamicRHI *)gDynamicRHI;
-	D3D12_CPU_DESCRIPTOR_HANDLE cpu_handle_samplers_heap(rhi->samplers_heap->getHandle(rhi->samplers_heap->getCount()).getCpuHandle());
 
 	// Allocate in samplers heap
 	DX12Descriptor sampler_view = rhi->samplers_heap->allocate();
+
+	sampler_descriptions.push_back(description);
+	sampler_heap_indices.push_back(sampler_view.getIndex());
+
+	recreate_sampler(sampler_descriptions.size() - 1);
+	return sampler_view.getIndex();
+}
+
+void DX12BindlessResources::recreate_sampler(uint32_t index)
+{
+	DX12DynamicRHI *rhi = (DX12DynamicRHI *)gDynamicRHI;
+	const TextureDescription &description = sampler_descriptions[index];
 
 	D3D12_FILTER filter = D3D12_FILTER_MIN_MAG_MIP_POINT;
 	if (description.filtering == FILTER_LINEAR)
@@ -527,7 +563,7 @@ uint32_t DX12BindlessResources::addSampler(const TextureDescription &description
 	sampler_desc.AddressU = address_mode;
 	sampler_desc.AddressV = address_mode;
 	sampler_desc.AddressW = address_mode;
-	sampler_desc.MipLODBias = 0;
+	sampler_desc.MipLODBias = description.mip_bias;
 	sampler_desc.MaxAnisotropy = description.anisotropy ? 16 : 1.0f;
 	sampler_desc.ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
 	sampler_desc.MinLOD = 0.0f;
@@ -548,8 +584,8 @@ uint32_t DX12BindlessResources::addSampler(const TextureDescription &description
 		sampler_desc.ComparisonFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL; // For shadows - standard approach (regular Z)
 	}
 
-	rhi->device->CreateSampler(&sampler_desc, sampler_view.getCpuHandle());
-	return sampler_view.getIndex();
+	D3D12_CPU_DESCRIPTOR_HANDLE cpu_handle_samplers_heap(rhi->samplers_heap->getHandle(sampler_heap_indices[index]).getCpuHandle());
+	rhi->device->CreateSampler(&sampler_desc, cpu_handle_samplers_heap);
 }
 
 void DX12BindlessResources::set_invalid_texture(uint32_t index)

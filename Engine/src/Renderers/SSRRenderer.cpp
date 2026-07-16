@@ -9,7 +9,7 @@ void SSRRenderer::addPasses(FrameGraph &fg)
 	fg.addCallbackPass("SSR Pass",
 	[&](RenderPassBuilder &builder)
 	{
-		builder.createTexture(GFXRID(SSR), Renderer::getViewportWidth(), Renderer::getViewportHeight(), FORMAT_R16G16B16A16_UNORM);
+		builder.createTexture(GFXRID(SSR), Renderer::getRenderWidth(), Renderer::getRenderHeight(), FORMAT_R16G16B16A16_UNORM);
 		builder.writeTexture(GFXRID(SSR));
 
 		builder.readTexture(GFXRID(FinalNoPostTexture));

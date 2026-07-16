@@ -37,6 +37,9 @@ public:
 
 public:
 	VkImage getImage() const { return image->resource; }
+	VkImageLayout getNativeLayout() { return get_native_layout(current_layouts[0]); }
+	VkFormat getNativeFormat() const { return native_format; }
+	VkImageUsageFlags getNativeUsage() const { return get_vk_image_usage_flags(); }
 
 protected:
 	friend class VulkanDynamicRHI;

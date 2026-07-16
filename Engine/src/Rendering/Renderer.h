@@ -44,11 +44,16 @@ public:
 		glm::mat4 projection;
 		glm::mat4 iprojection;
 		glm::mat4 view_projection;
+		glm::mat4 old_view_projection;
+		glm::mat4 view_projection_unjittered;
 		glm::vec4 camera_position;
-		glm::vec4 swapchain_size;
+		glm::vec4 render_resolution; // (w, h, 1/w, 1/h)
+		glm::vec4 output_resolution; // (w, h, 1/w, 1/h)
 		float z_near = 0;
 		float z_far = 0;
 		float time = 0;
+		float upscale_factor = 1.0f;
+		glm::vec2 jitter = glm::vec2(0.0f);
 		uint32_t frame = 0;
 		uint32_t global_meshlets_geometry_buffer_id;
 		uint32_t global_meshlets_lod_groups_buffer_id;
@@ -65,10 +70,21 @@ public:
 
 	static void init();
 	static void shutdown();
-	static void setViewportSize(glm::ivec2 size);
-	static glm::ivec2 getViewportSize() { return viewport_size; }
-	static int getViewportWidth() { return viewport_size.x; }
-	static int getViewportHeight() { return viewport_size.y; }
+
+	// Scene rendering resolution
+	static void setRenderResolution(glm::ivec2 size);
+	static glm::ivec2 getRenderResolution() { return render_resolution; }
+	static int getRenderWidth() { return render_resolution.x; }
+	static int getRenderHeight() { return render_resolution.y; }
+
+	// Output viewport resolution (can be other than rendering for example when upscaling)
+	static void setOutputResolution(glm::ivec2 size);
+	static glm::ivec2 getOutputResolution() { return output_resolution; }
+	static int getOutputWidth() { return output_resolution.x; }
+	static int getOutputHeight() { return output_resolution.y; }
+
+	static glm::vec2 getJitter() { return jitter; }
+	static const glm::mat4 &getOldViewProjection() { return old_view_projection; }
 	static void beginFrame();
 	static void endFrame(unsigned int image_index);
 
@@ -89,5 +105,9 @@ private:
 	static RendererDebugInfo debug_info;
 	static DefaultUniforms default_uniforms;
 	static Camera *camera;
-	static glm::ivec2 viewport_size;
+	static glm::ivec2 render_resolution;
+	static glm::ivec2 output_resolution;
+	static glm::vec2 jitter;
+	static glm::mat4 old_view_projection;
+	static glm::mat4 view_projection_unjittered;
 };

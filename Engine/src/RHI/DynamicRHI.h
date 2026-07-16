@@ -58,6 +58,9 @@ public:
 	virtual RHICommandList *getCmdList() = 0;
 	virtual RHICommandList *getCmdListCopy() = 0;
 
+	virtual class Upscaler *getUpscaler() { return nullptr; }
+	virtual class StreamlineAdapter *getStreamline() { return nullptr; }
+
 	virtual RHICommandQueue *getCmdQueue() = 0;
 	virtual RHICommandQueue *getCmdQueueCopy() = 0;
 

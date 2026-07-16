@@ -3,6 +3,7 @@
 #include "Core/Log.h"
 #include "Core/Variables.h"
 #include "RHI/RHIDefinitions.h"
+#include "VulkanStreamline.h"
 
 static eastl::vector<const char*> s_ValidationLayers = {
 		"VK_LAYER_KHRONOS_validation"
@@ -122,6 +123,8 @@ void Device::CreateLogicalDevice()
 	}
 	extensions.push_back(VK_EXT_MESH_SHADER_EXTENSION_NAME);
 
+	VulkanStreamline::appendDeviceExtensions(extensions);
+
 	info.enabledExtensionCount = extensions.size();
 	info.ppEnabledExtensionNames = extensions.data();
 
@@ -165,6 +168,7 @@ void Device::CreateLogicalDevice()
 	features12.shaderSampledImageArrayNonUniformIndexing = true;
 	features12.hostQueryReset = true;
 	features12.scalarBlockLayout = true; // alignment for storage buffers like DX12
+	features12.timelineSemaphore = true;
 	features12.pNext = &mesh_shader_features;
 
 	// Enable dynamic rendering

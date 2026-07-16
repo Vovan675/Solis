@@ -5,11 +5,14 @@
 #include "GLFW/glfw3native.h"
 #include "Rendering/Renderer.h"
 #include "Core/Variables.h"
+#include "RHI/StreamlineWrapper.h"
 
 static UINT64 fenceValues[MAX_FRAMES_IN_FLIGHT] = {};
 
 void DX12DynamicRHI::init()
 {
+	StreamlineWrapper::init();
+
 	// Factory
 	uint32_t flags = 0;
 
@@ -73,6 +76,9 @@ void DX12DynamicRHI::init()
 		}
 	}
 	#endif
+
+	streamline.init();
+	dlss_upscaler.init();
 
 	// Allocator
 	D3D12MA::ALLOCATOR_DESC allocatorDesc = {};
@@ -179,6 +185,8 @@ void DX12DynamicRHI::init()
 void DX12DynamicRHI::shutdown()
 {
 	TracyD3D12Destroy(tracy_ctx);
+	dlss_upscaler.shutdown();
+	StreamlineWrapper::shutdown();
 
 	release_gpu_resources(UINT64_MAX);
 	gDynamicRHI->getBindlessResources()->cleanup();
@@ -423,6 +431,12 @@ void DX12DynamicRHI::prepareRenderCall()
 	is_buffers_dirty = false;
 }
 
+void DX12DynamicRHI::bindDescriptorHeaps()
+{
+	ID3D12DescriptorHeap *heaps[] = { cbv_srv_uav_heap->getHeap(), samplers_heap->getHeap() };
+	cmd_lists[frame_in_flight]->cmd_list->SetDescriptorHeaps(_countof(heaps), heaps);
+}
+
 void DX12DynamicRHI::beginFrame()
 {
 	PROFILE_CPU_FUNCTION();
@@ -444,9 +458,7 @@ void DX12DynamicRHI::beginFrame()
 	// Command list is already sent to execution, so after ExecuteCommandList we can reset it at any time (thats why only one will be enough)
 	getCmdList()->open();
 
-	ID3D12DescriptorHeap *heaps[] = { cbv_srv_uav_heap->getHeap(), samplers_heap->getHeap() };
-
-	cmd_lists[frame_in_flight]->cmd_list->SetDescriptorHeaps(_countof(heaps), heaps); // do it when open cmd list?
+	bindDescriptorHeaps();
 	cbv_srv_uav_heap->releaseFrame(fenceValues[frame_in_flight]);
 	cbv_srv_uav_additional_heap->releaseFrame(fenceValues[frame_in_flight]);
 

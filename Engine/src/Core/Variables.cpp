@@ -23,6 +23,8 @@ AutoConVarBool render_ray_traced_shadows("render.ray_traced_shadows.enabled", "R
 AutoConVarBool render_ssao("render.ssao.enabled", "Screen Space Ambient Occlusion Enabled", true);
 AutoConVarBool render_ssr("render.ssr.enabled", "Screen Space Reflections Enabled", false);
 AutoConVarBool render_fxaa("render.fxaa.enabled", "FXAA Enabled", true);
+AutoConVarInt render_upscale_mode("render.upscale.mode", "Upscaling (0=Off, 1=DLSS)", 0, ConVarFlag::CON_VAR_FLAG_HIDDEN);
+AutoConVarInt render_dlss_mode("render.upscale.dlss_mode", "DLSS Mode", 2, ConVarFlag::CON_VAR_FLAG_HIDDEN);
 AutoConVarBool render_automatic_sun_position("render.automatic_sun_position.enabled", "Automatic Sun Position", true, ConVarFlag::CON_VAR_FLAG_HIDDEN);
 AutoConVarBool render_meshlets_use_mesh_shaders("render.meshlets.use_mesh_shaders", "Use Mesh Shaders for Meshlet Rendering", true);
 AutoConVarBool render_meshlets_bvh_visualize("render.meshlets.bvh_visualize", "Draw BVH node spheres for all scene meshes", false);

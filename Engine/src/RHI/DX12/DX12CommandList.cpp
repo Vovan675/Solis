@@ -55,7 +55,7 @@ void DX12CommandList::setRenderTargets(const eastl::vector<RHITexture *> &color_
 		depth_stencil = view->getDescriptor().getCpuHandle();
 
 		if (clear)
-			cmd_list->ClearDepthStencilView(depth_stencil, D3D12_CLEAR_FLAG_DEPTH, depth_clear_value, 0, 0, nullptr);
+			cmd_list->ClearDepthStencilView(depth_stencil, D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, depth_clear_value, 0, 0, nullptr);
 	}
 
 	cmd_list->RSSetViewports(1, &viewport);

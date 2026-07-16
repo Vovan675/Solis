@@ -22,6 +22,7 @@ struct InstanceGPU
 {
 	glm::mat4 world_transform;
 	glm::mat4 iworld_transform;
+	glm::mat4 old_world_transform;
 
 	glm::vec4 bound_sphere;
 	glm::vec4 bound_center;

@@ -42,7 +42,7 @@ bool ViewportPanel::renderImGui(EditorContext &context, float delta_time)
 	if (viewport_texture)
 		ImGui::Image(ImGuiWrapper::getTextureId(viewport_texture), viewport_size);
 
-	Renderer::setViewportSize({viewport_size.x, viewport_size.y});
+	Renderer::setOutputResolution({viewport_size.x, viewport_size.y});
 	context.editor_camera.setAspect(viewport_size.x / viewport_size.y);
 
 	// ImGuizmo
