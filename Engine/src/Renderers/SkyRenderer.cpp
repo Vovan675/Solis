@@ -165,13 +165,7 @@ void SkyRenderer::create_mode_resources()
 
 	if (mode == SKY_MODE_CUBEMAP)
 	{
-		//cube_texture->loadEquirectangularCubemap("assets/alps_field_4k.hdr");
-		cube_texture->loadEquirectangularCubemap("assets/newport_loft.hdr");
-		/*
-		cube_texture->loadCubemap("assets/cubemap/posx.jpg", "assets/cubemap/negx.jpg",
-		"assets/cubemap/posy.jpg", "assets/cubemap/negy.jpg",
-		"assets/cubemap/posz.jpg", "assets/cubemap/negz.jpg");
-		*/
+		cube_texture->loadEquirectangularCubemap(environment_path.c_str());
 	} else
 	{
 		cube_texture->fill();

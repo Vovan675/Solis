@@ -82,12 +82,17 @@ Every frame is described as a graph of passes and resources. The engine schedule
 - **Lighting** - deferred PBR with directional and point lights, IBL (prefiltered specular + diffuse irradiance + BRDF LUT)
 - **Shadows** - directional lights (cascaded shadow maps), point lights (cube shadow maps), with optional ray-traced shadows
 - **Path tracer** - reference path tracer, used as ground truth
+- **Mitsuba bridge** - export the scene to Mitsuba 3 and compare the frame against an external ground truth render
 - **RHI** - single abstraction over Vulkan and DX12 with bindless resources
 - **Upscaling** - NVIDIA DLSS via Streamline
 - **Tooling** - Tracy CPU + GPU profiling, console variables, debug visualizations
 - **Physics** - PhysX integration
 
 Plus SSAO, SSR, FXAA, procedural atmospheric sky, and a post-processing effects.
+
+The same scene rendered by the engine (left) and by Mitsuba 3 straight from the editor (right):
+
+![Mitsuba ground truth](.github/images/mitsuba.png)
 
 ## Coming next
 

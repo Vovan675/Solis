@@ -9,6 +9,7 @@
 #include "Renderers/SkyRenderer.h"
 #include "Renderers/DDGIRenderer.h"
 #include "Rendering/GeometryStreaming.h"
+#include "MitsubaBridge.h"
 
 class DebugPanel
 {
@@ -23,5 +24,6 @@ public:
 	SSAORenderer *ssao_renderer;
 	DDGIRenderer *ddgi_renderer;
 	GeometryStreaming *geometry_streaming;
+	MitsubaBridge *mitsuba_bridge;
 private:
 };

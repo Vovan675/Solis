@@ -15,6 +15,17 @@ float FresnelSchlick(float f0, float f90, float u)
     return f0 + (f90 - f0) * pow(1.0f - u, 5.0f);
 }
 
+// On edges shading normal may be back faced to ray direction. Simple fix is to just flip normal in this case.
+// But there is better way, without discontinuity, https://iquilezles.org/articles/dontflip
+float3 adjustShadingNormal(float3 shading_normal, float3 geometry_normal, float3 ray_direction)
+{
+	float3 reflected = reflect(ray_direction, shading_normal);
+	float k = dot(reflected, geometry_normal);
+	if (k >= 0.0)
+		return shading_normal;
+	return normalize(normalize(reflected - k * geometry_normal) - ray_direction);
+}
+
 float3 ComputeF0(float3 albedo, float metalness)
 {
 	float3 dielectric_F0 = float3(0.04, 0.04, 0.04);

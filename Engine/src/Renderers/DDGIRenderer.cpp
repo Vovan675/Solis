@@ -341,7 +341,7 @@ void DDGIRenderer::addTraceRaysPass(FrameGraph &fg, Ref<RayTracingScene> rt_scen
 			uint32_t environment_tex_id;
 		} constants;
 		constants.output_buffer_id = ray_data_buffer->getUnorderedAccessView()->getBindlessIndex();
-		constants.environment_tex_id = resources.getReadTexture(GFXRID(Sky));
+		constants.environment_tex_id = render_sky ? resources.getReadTexture(GFXRID(Sky)) : 0;
 		gDynamicRHI->setConstantBufferData(3, &constants, sizeof(constants));
 
 		cmd_list->dispatchRays(volume.rays_per_probe, probes_to_update.size(), 1);

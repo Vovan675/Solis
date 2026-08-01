@@ -132,7 +132,8 @@ void VulkanTexture::load(const char *path)
 	description.width = image.getWidth();
 	description.height = image.getHeight();
 	description.mip_levels = image.getMipLevels();
-	description.format = image.getFormat();
+	if (description.format == FORMAT_UNDEFINED || image.isCompressedFormat())
+		description.format = image.getFormat();
 	set_native_format();
 	fill(image.getRawData().data());
 

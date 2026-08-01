@@ -97,8 +97,12 @@ void RayGen()
 			} else
 		#endif
 		{
-			TextureCube environment_tex = ResourceDescriptorHeap[environment_tex_id];
-			float3 environment = environment_tex.SampleLevel(linear_clamp_sampler, ray_direction, 0).rgb;
+			float3 environment = 0;
+			if (environment_tex_id != 0)
+			{
+				TextureCube environment_tex = ResourceDescriptorHeap[environment_tex_id];
+				environment = environment_tex.SampleLevel(linear_clamp_sampler, ray_direction, 0).rgb;
+			}
 			ray_data[ray_data_index] = float4(saturate(environment), 1e27f);
 		}
 		return;
@@ -123,8 +127,7 @@ void RayGen()
 		radiance = albedo;
 
 		float3 position = mul(instance.world_transform, float4(vertex.position, 1.0)).xyz;
-		float3x3 normalMatrix = (float3x3)instance.world_transform;
-		float3 normal = normalize(mul(normalMatrix, vertex.normal));
+		float3 normal = transformNormalToWorld(vertex.normal, instance.iworld_transform);
 		bool visibility = !TraceShadowRay(tlas, position + normal * 0.01, volume.sun_dir.xyz, 10000.0);
 
 

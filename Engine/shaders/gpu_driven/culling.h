@@ -1,4 +1,5 @@
 #pragma once
+#include "../common.h"
 
 struct MeshletCandidate
 {
@@ -17,13 +18,8 @@ void transformBoundBox(inout float3 bound_center, inout float3 bound_extent, flo
 
 float getScaleFromTransform(float4x4 transform)
 {
-	float3x3 rotation_scale = (float3x3)transpose(transform);
-	float3 scale_factors = float3(
-		length(rotation_scale[0]),
-		length(rotation_scale[1]),
-		length(rotation_scale[2])
-	);
-	return max(max(scale_factors.x, scale_factors.y), scale_factors.z);
+	float3 scales = getAxisScales(transform);
+	return max(max(scales.x, scales.y), scales.z);
 }
 
 void transformBoundSphere(inout float3 bound_center, inout float bound_radius, float4x4 world_transform)

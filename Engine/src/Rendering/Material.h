@@ -5,6 +5,14 @@
 #include "Assets/AssetManager.h"
 #include "Utils/Stream.h"
 
+struct LightingOnlyMaterial
+{
+	static constexpr float albedo = 0.3f;
+	static constexpr float metalness = 0.0f;
+	static constexpr float roughness = 1.0f;
+	static constexpr float specular = 0.5f;
+};
+
 class Material : public RefCounted
 {
 public:
@@ -30,22 +38,25 @@ public:
 
 		void update()
 		{
-			auto update_texture = [](MaterialTexture &material_texture)
+			auto update_texture = [](MaterialTexture &material_texture, Format format)
 			{
 				if (material_texture.bindless_id == 0 && material_texture.asset_handle.isValid())
 				{
-					auto tex = AssetManager::getTextureAssetByGuid(material_texture.asset_handle);
+					TextureDescription desc{};
+					desc.format = format;
+					desc.usage_flags = TEXTURE_USAGE_TRANSFER_SRC;
+					auto tex = AssetManager::getTextureAssetByGuid(material_texture.asset_handle, desc);
 					if (!tex || !tex->isValid())
 						return;
 					material_texture.bindless_id = tex->getShaderResourceView()->getBindlessIndex();
 				}
 			};
 
-			update_texture(albedo_tex);
-			update_texture(metalness_tex);
-			update_texture(roughness_tex);
-			update_texture(specular_tex);
-			update_texture(normal_tex);
+			update_texture(albedo_tex, FORMAT_R8G8B8A8_SRGB);
+			update_texture(metalness_tex, FORMAT_R8G8B8A8_UNORM);
+			update_texture(roughness_tex, FORMAT_R8G8B8A8_UNORM);
+			update_texture(specular_tex, FORMAT_R8G8B8A8_UNORM);
+			update_texture(normal_tex, FORMAT_R8G8B8A8_UNORM);
 		}
 
 		void invalidateTextures()

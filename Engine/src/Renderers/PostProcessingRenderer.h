@@ -11,7 +11,7 @@ public:
 	struct FilmUBO
 	{
 		uint32_t composite_final_tex_id = 0;
-		float use_vignette = 1;
+		float use_vignette = 0;
 		float vignette_radius = 0.7;
 		float vignette_smoothness = 0.2;
 		float exposure = 2.0;

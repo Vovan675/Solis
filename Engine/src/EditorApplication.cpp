@@ -46,6 +46,9 @@ void EditorApplication::init()
 	debug_panel.ssao_renderer = &scene_renderer->ssao_renderer;
 	debug_panel.ddgi_renderer = &scene_renderer->ddgi_renderer;
 	debug_panel.geometry_streaming = &scene_renderer->geometry_streaming;
+	debug_panel.mitsuba_bridge = &mitsuba_bridge;
+	mitsuba_bridge.sky_renderer = &scene_renderer->sky_renderer;
+	mitsuba_bridge.post_renderer = &scene_renderer->post_renderer;
 
 	asset_browser_panel.init();
 }
@@ -155,6 +158,9 @@ void EditorApplication::update(float delta_time)
 		context.selected_path.clear();
 	}
 
+	if (ImGui::IsKeyPressed(ImGuiKey_M, false) && !ImGui::GetIO().WantTextInput)
+		mitsuba_bridge.runRender(context);
+
 	viewport_panel.update();
 
 	if (!ImGuizmo::IsUsing() && is_viewport_focused)
@@ -246,4 +252,5 @@ void EditorApplication::cleanupResources()
 	scene_renderer = nullptr;
 	viewport_panel.viewport_texture = nullptr;
 	asset_browser_panel = {};
+	mitsuba_bridge = {};
 }

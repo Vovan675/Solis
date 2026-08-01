@@ -14,6 +14,8 @@ AutoConVarBool render_vsync("render.vsync.enabled", "Vsync Enabled", false);
 AutoConVarBool render_path_tracing("render.path_tracing.enabled", "Path Tracing Enabled", false);
 AutoConVarBool render_path_tracing_first_frame("render.path_tracing_first_frame", "Is Path Tracing First Frame", true);
 AutoConVarBool render_ddgi("render.ddgi.enabled", "DDGI Enabled", true);
+AutoConVarBool render_sky("render.sky.enabled", "Sky Enabled", true);
+AutoConVarBool render_lighting_only("render.debug.lighting_only", "Lighting Only", false);
 AutoConVarBool render_ddgi_visualize("render.ddgi_visualize.enabled", "DDGI Visualize", true);
 AutoConVarBool render_debug_rendering("render.debug_rendering.enabled", "Debug Rendering Enabled", false, ConVarFlag::CON_VAR_FLAG_HIDDEN);
 AutoConVarInt render_debug_rendering_mode("render.debug_rendering.mode", "Debug Rendering Present Mode", 2, ConVarFlag::CON_VAR_FLAG_HIDDEN);

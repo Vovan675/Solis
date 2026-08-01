@@ -57,7 +57,7 @@ void PathTracingRenderer::addPass(FrameGraph &fg, Ref<RayTracingScene> rt_scene)
 			uint32_t accumulation_tex_id;
 		} light;
 		light.accumulation_frame = accumulation_frame;
-		light.environment_tex_id = resources.getReadTexture(GFXRID(Sky));
+		light.environment_tex_id = render_sky ? resources.getReadTexture(GFXRID(Sky)) : 0;
 		light.output_tex_id = resources.getReadWriteTexture(GFXRID(FinalNoPostTexture));
 		light.accumulation_tex_id = resources.getReadWriteTexture(GFXRID(PathTraceAccumulation));
 

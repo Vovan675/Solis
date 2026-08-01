@@ -54,6 +54,7 @@ private:
 	ParametersPanel parameters_panel;
 	HierarchyPanel hierarchy_panel;
 	DebugPanel debug_panel;
+	MitsubaBridge mitsuba_bridge;
 
 	Ref<SceneRenderer> scene_renderer;
 };

@@ -245,7 +245,8 @@ void SceneRenderer::render_deferred(Camera *camera, FrameGraph &frame_graph)
 
 	{
 		// Forward
-		sky_renderer.addCompositePasses(frame_graph);
+		if (render_sky)
+			sky_renderer.addCompositePasses(frame_graph);
 	}
 
 	if (render_ddgi && render_ddgi_visualize)
@@ -370,6 +371,15 @@ void SceneRenderer::update(Camera *camera)
 			}
 		};
 
+		static bool last_render_lighting_only = render_lighting_only;
+		if (last_render_lighting_only != render_lighting_only)
+		{
+			last_render_lighting_only = render_lighting_only;
+			for (entt::entity entity_id : scene->getEntitiesWith<MeshRendererComponent>())
+				scene->markDirty(entity_id, DIRTY_RENDER_STATE);
+			render_path_tracing_first_frame = true;
+		}
+
 		eastl::hash_set<entt::entity> moved_this_frame;
 
 		for (entt::entity entity_id : scene->getDirtyList())
@@ -412,13 +422,21 @@ void SceneRenderer::update(Camera *camera)
 						geometry_streaming.registerMesh(mesh, *file_view);
 
 					MaterialGPU material_gpu{};
-					material_gpu.albedo = material->albedo;
-					material_gpu.albedo_tex_id = material->albedo_tex.bindless_id;
-					material_gpu.metalness_tex_id = material->metalness_tex.bindless_id;
-					material_gpu.roughness_tex_id = material->roughness_tex.bindless_id;
-					material_gpu.specular_tex_id = material->specular_tex.bindless_id;
-					material_gpu.shading = glm::vec4(material->metalness, material->roughness, material->specular, 1.0f);
-					material_gpu.normal_tex_id = material->normal_tex.bindless_id;
+
+					if (render_lighting_only)
+					{
+						material_gpu.albedo = glm::vec4(glm::vec3(LightingOnlyMaterial::albedo), 1.0f);
+						material_gpu.shading = glm::vec4(LightingOnlyMaterial::metalness, LightingOnlyMaterial::roughness, LightingOnlyMaterial::specular, 1.0f);
+					} else
+					{
+						material_gpu.albedo = material->albedo;
+						material_gpu.shading = glm::vec4(material->metalness, material->roughness, material->specular, 1.0f);
+						material_gpu.albedo_tex_id = material->albedo_tex.bindless_id;
+						material_gpu.metalness_tex_id = material->metalness_tex.bindless_id;
+						material_gpu.roughness_tex_id = material->roughness_tex.bindless_id;
+						material_gpu.specular_tex_id = material->specular_tex.bindless_id;
+						material_gpu.normal_tex_id = material->normal_tex.bindless_id;
+					}
 
 					MeshGPU mesh_gpu{};
 					mesh_gpu.vertex_buffer_id = mesh->indexed && mesh->indexed->vertex_buffer ? mesh->indexed->vertex_buffer->getShaderResourceView()->getBindlessIndex() : 0;

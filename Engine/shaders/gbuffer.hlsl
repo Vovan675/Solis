@@ -41,11 +41,11 @@ PixelInput transformVertex(RawVertexData raw_vertex, Instance instance, uint att
 	float4 old_world_pos = mul(instance.old_world_transform, float4(raw_vertex.position, 1.0));
 	output.old_clip_position = mul(old_view_projection, old_world_pos);
 
-	float3x3 normal_matrix = (float3x3)instance.world_transform;
-	output.world_normal = normalize(mul(normal_matrix, raw_vertex.normal));
+	float3x3 rotation = getRotationMatrix(instance.world_transform);
+	output.world_normal = normalize(mul(rotation, raw_vertex.normal));
 	output.world_position = world_pos.xyz;
 	if (attribute_flags & MESH_ATTR_TANGENT)
-		output.world_tangent = float4(normalize(mul(normal_matrix, raw_vertex.tangent.xyz)), raw_vertex.tangent.w);
+		output.world_tangent = float4(normalize(mul(rotation, raw_vertex.tangent.xyz)), raw_vertex.tangent.w);
 	else
 		output.world_tangent = float4(0, 0, 0, 1);
 
@@ -170,8 +170,7 @@ PixelOutput PSMain(PixelInput IN)
 	#endif
 	if (use_explicit)
 	{
-		// re orthogonize in case when its very off after non uniform scale.
-		float3 T = normalize(IN.world_tangent.xyz - dot(IN.world_tangent.xyz, world_normal) * world_normal);
+		float3 T = normalize(IN.world_tangent.xyz);
 		float3 B = cross(world_normal, T) * IN.world_tangent.w;
 		tbn = float3x3(T, B, world_normal);
 	} else
@@ -180,8 +179,10 @@ PixelOutput PSMain(PixelInput IN)
 	}
 	if (material.normal_tex_id > 0)
 	{
-		float3 tangent_normal = SampleTexture(material.normal_tex_id, IN.uv).rgb * 2.0 - 1.0;
-		world_normal = normalize(mul(tangent_normal, tbn));
+		// BC5(ATI2) and other formats may even dont have blue channel, reconstruct it.
+		float2 normal_xy = SampleTexture(material.normal_tex_id, IN.uv).rg * 2.0 - 1.0;
+		float3 normal = float3(normal_xy, sqrt(saturate(1.0 - dot(normal_xy, normal_xy))));
+		world_normal = normalize(mul(normal, tbn));
 	}
 	output.normal = float4(world_normal * 0.5 + 0.5, 1.0);
 

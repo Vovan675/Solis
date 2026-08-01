@@ -3,6 +3,7 @@
 #include "imgui.h"
 #include "RHI/BindlessResources.h"
 #include "Rendering/Renderer.h"
+#include "Core/Variables.h"
 
 DefferedCompositeRenderer::DefferedCompositeRenderer()
 {
@@ -60,8 +61,8 @@ void DefferedCompositeRenderer::addPasses(FrameGraph &fg)
 			uint32_t ssr_tex_id = 0;
 		} ubo;
 
-		ubo.irradiance_tex_id = resources.getReadTexture(GFXRID(IBLIrradiance));
-		ubo.prefilter_tex_id = resources.getReadTexture(GFXRID(IBLPrefilter));
+		ubo.irradiance_tex_id = render_sky ? resources.getReadTexture(GFXRID(IBLIrradiance)) : 0;
+		ubo.prefilter_tex_id = render_sky ? resources.getReadTexture(GFXRID(IBLPrefilter)) : 0;
 		ubo.lighting_diffuse_tex_id = resources.getReadTexture(GFXRID(DiffuseLight));
 		ubo.lighting_specular_tex_id = resources.getReadTexture(GFXRID(SpecularLight));
 		ubo.albedo_tex_id = resources.getReadTexture(GFXRID(GBufferAlbedo));

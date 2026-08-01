@@ -18,6 +18,7 @@ public:
 
 	static RHITextureRef getTextureAsset(eastl::string path, TextureDescription desc);
 	static RHITextureRef getTextureAsset(eastl::string path);
+	static RHITextureRef getTextureAssetByGuid(Engine::GUID guid, TextureDescription desc);
 	static RHITextureRef getTextureAssetByGuid(Engine::GUID guid);
 	static Ref<Model> getModelAsset(eastl::string path);
 	static Ref<Model> getModelAssetByGuid(Engine::GUID guid);

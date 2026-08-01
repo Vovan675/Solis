@@ -18,6 +18,7 @@ cbuffer Light : register(b3)
 
 struct RayPayload {
 	bool hit;
+	bool front_face;
 	float depth;
 	float2 bary;
 	uint instance_id;
@@ -39,6 +40,7 @@ struct SurfaceHit
 {
 	float3 position;
 	float3 normal;
+	float3 geometry_normal;
 	float2 uv;
 	uint instance_id;
 	uint primitive_id;
@@ -61,9 +63,13 @@ SurfaceHit TraceSurface(RaytracingAccelerationStructure tlas, RayDesc ray)
 		Mesh mesh = getMesh(instance.mesh_id);
 		VertexData vertex = GetVertexData(mesh, payload.primitive_id, payload.bary);
 		
+		float facing_sign = payload.front_face ? 1.0 : -1.0;
+		float3 geometry_normal = facing_sign * transformNormalToWorld(vertex.geometry_normal, instance.iworld_transform);
+		float3 shading_normal = facing_sign * transformNormalToWorld(vertex.normal, instance.iworld_transform);
+
 		hit.position = mul(instance.world_transform, float4(vertex.position, 1.0)).xyz;
-		float3x3 normalMatrix = (float3x3)instance.world_transform;
-		hit.normal = normalize(mul(normalMatrix, vertex.normal));
+		hit.normal = adjustShadingNormal(shading_normal, geometry_normal, ray.Direction);
+		hit.geometry_normal = geometry_normal;
 		hit.uv = vertex.uv;
 		hit.instance_id = payload.instance_id;
 		hit.primitive_id = payload.primitive_id;
@@ -228,7 +234,7 @@ float3 SampleDirectLighting(RaytracingAccelerationStructure tlas, SurfaceHit hit
 	if (NdotL <= 0.0)
 		return float3(0, 0, 0);
 	
-	float3 shadow_origin = hit.position + N * 0.001;
+	float3 shadow_origin = hit.position + hit.geometry_normal * 0.001;
 	if (TraceShadowRay(tlas, shadow_origin, L, 10000.0))
 		return float3(0, 0, 0);
 	
@@ -240,6 +246,9 @@ float3 SampleDirectLighting(RaytracingAccelerationStructure tlas, SurfaceHit hit
 
 float3 SampleEnvironment(float3 direction)
 {
+	if (environment_tex_id == 0)
+		return 0;
+
 	TextureCube environment_tex = ResourceDescriptorHeap[environment_tex_id];
 	return environment_tex.SampleLevel(linear_clamp_sampler, direction, 0).rgb;
 }
@@ -301,7 +310,7 @@ void RayGen()
 	RayDesc ray = GenerateCameraRay(pixel, screen_size);
 	
 	const int MAX_BOUNCES = 12;
-	const float BASE_FIREFLY_THRESHOLD = 0.15;
+	const float BASE_FIREFLY_THRESHOLD = 3.0;
 	
 	float3 radiance = float3(0, 0, 0);
 	float3 throughput = float3(1, 1, 1);
@@ -318,7 +327,7 @@ void RayGen()
 		if (!hit.hit)
 		{
 			float3 env = throughput * SampleEnvironment(ray.Direction);
-			radiance += FireflyFilter(env, BASE_FIREFLY_THRESHOLD, fireflyFilterK);
+			radiance += bounce > 0 ? FireflyFilter(env, BASE_FIREFLY_THRESHOLD, fireflyFilterK) : env;
 			break;
 		}
 		
@@ -328,7 +337,7 @@ void RayGen()
 		
 		// Direct lighting with relaxed firefly threshold
 		float3 direct = throughput * SampleDirectLighting(tlas, hit, surface, -ray.Direction, rng);
-		radiance += FireflyFilter(direct, BASE_FIREFLY_THRESHOLD * 6.0, fireflyFilterK);
+		radiance += bounce > 0 ? FireflyFilter(direct, BASE_FIREFLY_THRESHOLD * 6.0, fireflyFilterK) : direct;
 		
 		// Sample BRDF and update path
 		MaterialSample brdf_sample = SampleBRDF(surface, -ray.Direction, hit.normal, rng);
@@ -348,7 +357,7 @@ void RayGen()
 		if (max(throughput.r, max(throughput.g, throughput.b)) < 0.001)
 			break;
 		
-		ray.Origin = hit.position + hit.normal * 0.001;
+		ray.Origin = hit.position + hit.geometry_normal * 0.001;
 		ray.Direction = brdf_sample.direction;
 		ray.TMin = 0.001;
 		ray.TMax = 10000.0;
@@ -366,6 +375,7 @@ void Miss(inout RayPayload payload) {
 [shader("closesthit")]
 void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttributes attribs) {
 	payload.hit = true;
+	payload.front_face = HitKind() == HIT_KIND_TRIANGLE_FRONT_FACE;
 	payload.depth = RayTCurrent();
 	payload.bary = attribs.barycentrics;
 	payload.instance_id = InstanceID();

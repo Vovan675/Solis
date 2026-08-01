@@ -168,4 +168,6 @@ void DebugPanel::renderImGui(EditorContext &context)
 	}
 
 	ddgi_renderer->renderImgui();
+
+	mitsuba_bridge->renderImGui(context);
 }

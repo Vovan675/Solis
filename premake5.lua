@@ -30,6 +30,7 @@ IncludeDir["CGLTF"] = "vendor/cgltf"
 IncludeDir["Meshoptimizer"] = "vendor/meshoptimizer/src"
 IncludeDir["MeshoptimizerDemo"] = "vendor/meshoptimizer/demo"
 IncludeDir["STB_IMAGE"] = "vendor/stb"
+IncludeDir["Nlohmann"] = "vendor/nlohmann"
 IncludeDir["ImGui"] = "vendor/imgui"
 IncludeDir["ImGuizmo"] = "vendor/imguizmo"
 IncludeDir["YamlCpp"] = "vendor/yaml-cpp/include"
@@ -113,6 +114,7 @@ project "Engine"
 		"%{IncludeDir.Meshoptimizer}",
 		"%{IncludeDir.MeshoptimizerDemo}",
 		"%{IncludeDir.STB_IMAGE}",
+		"%{IncludeDir.Nlohmann}",
 		"%{IncludeDir.ImGui}",
 		"%{IncludeDir.ImGuizmo}",
 		"%{IncludeDir.YamlCpp}",

@@ -25,6 +25,8 @@ public:
 	void setMode(SKY_MODE mode);
 	SKY_MODE getMode() const { return mode; }
 
+	const eastl::string &getEnvironmentPath() const { return environment_path; }
+
 	bool isDirty();
 
 	struct Uniforms
@@ -44,6 +46,7 @@ private:
 
 	Engine::Mesh *mesh;
 	SKY_MODE mode;
+	eastl::string environment_path = "assets/kloppenheim_06_puresky_4k.hdr";
 
 	Uniforms prev_uniform;
 

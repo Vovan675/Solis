@@ -49,7 +49,9 @@ PSOutput PSMain(VSInput input)
 	float3 f = FresnelSchlick(f0, 1.0f, roughness);
 	float3 kd = (1.0f - f);
 
-	float3 irradiance = irradiance_tex.Sample(linear_wrap_sampler, normal).rgb;
+	float3 irradiance = 0;
+	if (irradiance_tex_id != 0)
+		irradiance = irradiance_tex.Sample(linear_wrap_sampler, normal).rgb;
 	float3 ibl_diffuse = irradiance * albedo.rgb * kd;
 
 	float3 world_pos = GetWSPosition(input.uv, depth);
@@ -64,12 +66,14 @@ PSOutput PSMain(VSInput input)
 
 	float3 reflection = normalize(reflect(-v, normal));
 
-	uint mip_level, width, height, levels;
-	prefilter_tex.GetDimensions(mip_level, width, height, levels);
-
-	float lod = roughness * (float)levels;
-
-	float3 prefilter = prefilter_tex.SampleLevel(linear_wrap_sampler, reflection, lod).rgb;
+	float3 prefilter = 0;
+	if (prefilter_tex_id != 0)
+	{
+		uint mip_level, width, height, levels;
+		prefilter_tex.GetDimensions(mip_level, width, height, levels);
+		float lod = roughness * (float)levels;
+		prefilter = prefilter_tex.SampleLevel(linear_wrap_sampler, reflection, lod).rgb;
+	}
 
 	#if SSAO
 		float ssao = SampleTexture(ssao_tex_id, input.uv).r;

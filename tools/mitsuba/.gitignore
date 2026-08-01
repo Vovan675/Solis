@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+
+# Exported scene
+meshes/
+scene_export.json
+tex_cache/
+
+# Test scenes
+test/
+
+# Renders
+*.png
+*.exr
+*.jpg

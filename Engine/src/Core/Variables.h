@@ -29,6 +29,8 @@ extern AutoConVarBool render_vsync;
 extern AutoConVarBool render_path_tracing;
 extern AutoConVarBool render_path_tracing_first_frame;
 extern AutoConVarBool render_ddgi;
+extern AutoConVarBool render_sky;
+extern AutoConVarBool render_lighting_only;
 extern AutoConVarBool render_ddgi_visualize;
 extern AutoConVarBool render_debug_rendering;
 extern AutoConVarInt render_debug_rendering_mode;

@@ -27,7 +27,7 @@ OpaqueGeometryPass::ShaderSet OpaqueGeometryPass::ShaderSet::fromFile(const wcha
 void OpaqueGeometryPass::renderGBuffer(FrameGraph &fg, const RenderView &view, const GBufferOutput &output)
 {
 	RenderTargets targets;
-	targets.color.push_back({output.albedo, FORMAT_R8G8B8A8_UNORM});
+	targets.color.push_back({output.albedo, FORMAT_R8G8B8A8_SRGB});
 	targets.color.push_back({output.normal, FORMAT_R8G8B8A8_UNORM});
 	targets.color.push_back({output.shading, FORMAT_R8G8B8A8_UNORM});
 	targets.color.push_back({output.motion_vectors, FORMAT_R16G16_SFLOAT});

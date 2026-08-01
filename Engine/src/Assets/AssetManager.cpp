@@ -115,6 +115,14 @@ RHITextureRef AssetManager::getTextureAsset(eastl::string path)
 	return getTextureAsset(path, tex_description);
 }
 
+RHITextureRef AssetManager::getTextureAssetByGuid(Engine::GUID guid, TextureDescription desc)
+{
+	std::filesystem::path path = getPathFromGUID(guid);
+	if (path.empty())
+		return nullptr;
+	return getTextureAsset(path.string().c_str(), desc);
+}
+
 RHITextureRef AssetManager::getTextureAssetByGuid(Engine::GUID guid)
 {
 	std::filesystem::path path = getPathFromGUID(guid);

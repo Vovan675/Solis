@@ -291,6 +291,27 @@ T GetMeshVertexData(ByteAddressBuffer buffer, uint buffer_offset, uint vertex_id
 	return buffer.Load<T>(vertex_stride * vertex_id + buffer_offset);
 }
 
+float3 getAxisScales(float4x4 transform)
+{
+	float3x3 axes = (float3x3)transpose(transform);
+	return float3(length(axes[0]), length(axes[1]), length(axes[2]));
+}
+
+float3 transformNormalToWorld(float3 local_normal, float4x4 inverse_world_transform)
+{
+	return normalize(mul(local_normal, (float3x3)inverse_world_transform));
+}
+
+float3x3 getRotationMatrix(float4x4 transform)
+{
+	float3x3 axes = (float3x3)transpose(transform);
+	float3 inverse_scale = rcp(max(getAxisScales(transform), Epsilon));
+	axes[0] *= inverse_scale.x;
+	axes[1] *= inverse_scale.y;
+	axes[2] *= inverse_scale.z;
+	return transpose(axes);
+}
+
 float3 Interpolate(float3 x0, float3 x1, float3 x2, float2 bary)
 {
 	return
@@ -324,7 +345,8 @@ float3 octDecode(float2 e)
 struct VertexData
 {
 	float3 position;
-	float3 normal;
+	float3 normal; // Smoothed barycentric normal from model. Used for lighting
+	float3 geometry_normal; // Real calculated geometry normal. Used for biasing
 	float2 uv;
 };
 
@@ -349,6 +371,7 @@ VertexData GetVertexData(Mesh mesh, uint primitive_id, float2 bary)
 	VertexData vertex;
 	vertex.position = Interpolate(pos_1, pos_2, pos_3, bary);
 	vertex.normal = Interpolate(normal_1, normal_2, normal_3, bary);
+	vertex.geometry_normal = normalize(cross(pos_2 - pos_1, pos_3 - pos_1));
 	vertex.uv = Interpolate(uv_1, uv_2, uv_3, bary);
 	return vertex;
 }
@@ -526,11 +549,25 @@ float3 GetCubemapNormal(float2 resolution, uint3 globalID) {
 	return normalize(normal);
 }
 
-// Color space conversions
+#define SRGB_FAST 0
+
+// https://chilliant.blogspot.com/2012/08/srgb-approximations-for-hlsl.html?m=1
 float4 SRGBToLinear(float4 srgb) {
-	return float4(pow(srgb.rgb, 2.2), srgb.a);
+	#if SRGB_FAST
+		return float4(pow(srgb.rgb, 2.2), srgb.a);
+	#else
+		float3 low = srgb.rgb / 12.92;
+		float3 high = pow((abs(srgb.rgb) + 0.055) / 1.055, 2.4);
+		return float4(lerp(low, high, step(0.04045, srgb.rgb)), srgb.a);
+	#endif
 }
 
 float4 LinearToSRGB(float4 l) {
-	return float4(pow(l.rgb, 1.0/2.2), l.a);
+	#if SRGB_FAST
+		return float4(pow(l.rgb, 1.0 / 2.2), l.a);
+	#else
+		float3 low = l.rgb * 12.92;
+		float3 high = 1.055 * pow(abs(l.rgb), 1.0 / 2.4) - 0.055;
+		return float4(lerp(low, high, step(0.0031308, l.rgb)), l.a);
+	#endif
 }
