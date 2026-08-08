@@ -17,7 +17,7 @@ public:
 		light_component.setType(LIGHT_TYPE_DIRECTIONAL);
 		//light_component.setType(LIGHT_TYPE_POINT);
 		light_component.color = glm::vec3(253.0f / 255, 251.0f / 255, 211.0f / 255);
-		light_component.intensity = 1.0f;
+		light_component.intensity = 100'000.0f;
 		light_component.radius = 10.0f;
 
 		enum TestScene

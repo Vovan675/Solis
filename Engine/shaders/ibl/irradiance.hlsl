@@ -48,7 +48,6 @@ void CSMain(uint3 dispatchID : SV_DispatchThreadID) {
         irradiance += input_texture.SampleLevel(linear_wrap_sampler, sample_dir, 0).rgb * cosTheta;
     }
     
-    irradiance = PI * irradiance / float(samples_count);
-    
+    irradiance = PI2 * irradiance / float(samples_count);
     output_texture[dispatchID] = float4(irradiance, 1.0);
 }

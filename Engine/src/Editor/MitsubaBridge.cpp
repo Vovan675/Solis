@@ -15,6 +15,7 @@ void MitsubaBridge::renderImGui(EditorContext &context)
 		return;
 
 	ImGui::SliderFloat("Render Scale", &render_scale, 0.1f, 1.0f);
+	ImGui::SliderInt("Max Depth", &max_depth, 2, 16);
 
 	if (ImGui::Button("Render (M)"))
 		runRender(context);
@@ -162,7 +163,7 @@ static int write_lights(nlohmann::json &scene)
 	{
 		Entity entity(entity_id);
 		LightComponent &light = entity.getComponent<LightComponent>();
-		glm::vec3 radiance = light.color * light.intensity * glm::pi<float>();
+		glm::vec3 intensity = light.getPhotometricIntensity();
 
 		nlohmann::json light_json;
 		if (light.getType() == LIGHT_TYPE_DIRECTIONAL)
@@ -171,15 +172,15 @@ static int write_lights(nlohmann::json &scene)
 			light_json = {
 				{"type", "directional"},
 				{"direction", {direction.x, direction.y, direction.z}},
-				{"irradiance", { {"type", "rgb"}, {"value", {radiance.x, radiance.y, radiance.z}} }},
+				{"irradiance", { {"type", "rgb"}, {"value", {intensity.x, intensity.y, intensity.z}} }},
 			};
 		} else
 		{
 			glm::vec3 position = glm::vec3(entity.getWorldTransformMatrix()[3]);
 			light_json = {
 				{"type", "point"},
-				{"cam_pos", {position.x, position.y, position.z}},
-				{"intensity", { {"type", "rgb"}, {"value", {radiance.x, radiance.y, radiance.z}} }},
+				{"position", {position.x, position.y, position.z}},
+				{"intensity", { {"type", "rgb"}, {"value", {intensity.x, intensity.y, intensity.z}} }},
 			};
 		}
 
@@ -203,7 +204,7 @@ bool MitsubaBridge::export_scene(EditorContext &context, const std::filesystem::
 	nlohmann::json scene;
 	// Integrator and Film
 	scene["type"] = "scene";
-	scene["integrator"] = {{"type", "path"}, {"max_depth", 8}};
+	scene["integrator"] = {{"type", "path"}, {"max_depth", max_depth}};
 	scene["sensor"] = {
 		{"type", "perspective"},
 		{"fov", cam.getFov()},
@@ -227,7 +228,7 @@ bool MitsubaBridge::export_scene(EditorContext &context, const std::filesystem::
 	{
 		std::filesystem::path hdri_path = std::filesystem::absolute(sky_renderer->getEnvironmentPath().c_str());
 		glm::mat4 to_world = glm::rotate(glm::mat4(1), glm::radians(-90.0f), glm::vec3(0, 1, 0));
-		scene["environment"] = {{"type", "envmap"}, {"filename", hdri_path.generic_string()}, {"to_world", mat4_to_json_transform(to_world)}};
+		scene["environment"] = {{"type", "envmap"}, {"filename", hdri_path.generic_string()}, {"scale", sky_renderer->getSkyIntensity()}, {"to_world", mat4_to_json_transform(to_world)}};
 	}
 
 	// Meshes

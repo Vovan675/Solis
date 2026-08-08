@@ -222,7 +222,7 @@ void TowerGame::initResources()
 	light_component.setType(LIGHT_TYPE_DIRECTIONAL);
 	light_component.color = glm::vec3(253.0f / 255, 251.0f / 255, 211.0f / 255);
 	light_component.intensity = 1.0f;
-	light_component.radius = 10.0f;
+	light_component.attenuation_radius = 10.0f;
 
 	// Base
 	Entity entity = Model::createEntity(cube_model);
@@ -243,8 +243,6 @@ void TowerGame::update(float dt)
 	camera.updateMatrices();
 
 	Renderer::updateDefaultUniforms(dt);
-    scene_renderer->ssao_renderer.ubo_raw_pass.near_plane = camera.getNear();
-	scene_renderer->ssao_renderer.ubo_raw_pass.far_plane = camera.getFar();
 
 	static bool prev_down = false;
 	bool current_down = gInput.isMouseKeyDown(GLFW_MOUSE_BUTTON_2);

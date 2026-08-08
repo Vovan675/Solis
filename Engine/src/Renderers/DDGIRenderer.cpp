@@ -186,7 +186,7 @@ void DDGIRenderer::addPasses(FrameGraph & fg, Ref<RayTracingScene> rt_scene)
 			glm::decompose(light_entity.getWorldTransformMatrix(), scale, rotation, position, skew, persp);
 
 			volume.sun_dir = rotation * glm::vec4(0, 0, -1, 1);
-			volume.sun_color = glm::vec4(light_component.color * light_component.intensity, 1.0);
+			volume.sun_color = glm::vec4(light_component.getPhotometricIntensity(), 1.0);
 			break;
 		}
 	}

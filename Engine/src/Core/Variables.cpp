@@ -16,13 +16,12 @@ AutoConVarBool render_path_tracing_first_frame("render.path_tracing_first_frame"
 AutoConVarBool render_ddgi("render.ddgi.enabled", "DDGI Enabled", true);
 AutoConVarBool render_sky("render.sky.enabled", "Sky Enabled", true);
 AutoConVarBool render_lighting_only("render.debug.lighting_only", "Lighting Only", false);
-AutoConVarBool render_ddgi_visualize("render.ddgi_visualize.enabled", "DDGI Visualize", true);
 AutoConVarBool render_debug_rendering("render.debug_rendering.enabled", "Debug Rendering Enabled", false, ConVarFlag::CON_VAR_FLAG_HIDDEN);
 AutoConVarInt render_debug_rendering_mode("render.debug_rendering.mode", "Debug Rendering Present Mode", 2, ConVarFlag::CON_VAR_FLAG_HIDDEN);
 AutoConVarBool render_first_frame("render.first_frame", "Is First Frame", true);
 AutoConVarBool render_culling_hiz_debug("render.culling.hiz_debug", "Culling HiZ Debug", false);
 AutoConVarBool render_freeze_culling("render.freeze_culling", "Freeze Culling", false);
-AutoConVarBool render_shadows("render.shadows.enabled", "Shadows Enabled", false);
+AutoConVarBool render_shadows("render.shadows.enabled", "Shadows Enabled", true);
 AutoConVarBool render_ray_traced_shadows("render.ray_traced_shadows.enabled", "Ray Traced Shadows Enabled", true);
 AutoConVarBool render_ssao("render.ssao.enabled", "Screen Space Ambient Occlusion Enabled", true);
 AutoConVarBool render_ssr("render.ssr.enabled", "Screen Space Reflections Enabled", false);

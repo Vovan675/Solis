@@ -545,7 +545,7 @@ void DX12BindlessResources::recreate_sampler(uint32_t index)
 
 	D3D12_FILTER filter = D3D12_FILTER_MIN_MAG_MIP_POINT;
 	if (description.filtering == FILTER_LINEAR)
-		filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
+		filter = description.anisotropy ? D3D12_FILTER_ANISOTROPIC : D3D12_FILTER_MIN_MAG_MIP_LINEAR;
 	else if (description.filtering == FILTER_NEAREST)
 		filter = D3D12_FILTER_MIN_MAG_MIP_POINT;
 

@@ -5,14 +5,21 @@
 // Microfacet BRDF Functions
 // ============================================================================
 
+// It's maybe faster and is okay even for x < 0 where hlsl's pow gives nan
+float pow5(float x)
+{
+    float x2 = x * x;
+    return x2 * x2 * x;
+}
+
 float3 FresnelSchlick(float3 f0, float3 f90, float u)
 {
-    return f0 + (f90 - f0) * pow(1.0f - u, 5.0f);
+    return f0 + (f90 - f0) * pow5(1.0f - u);
 }
 
 float FresnelSchlick(float f0, float f90, float u)
 {
-    return f0 + (f90 - f0) * pow(1.0f - u, 5.0f);
+    return f0 + (f90 - f0) * pow5(1.0f - u);
 }
 
 // On edges shading normal may be back faced to ray direction. Simple fix is to just flip normal in this case.
@@ -26,10 +33,24 @@ float3 adjustShadingNormal(float3 shading_normal, float3 geometry_normal, float3
 	return normalize(normalize(reflected - k * geometry_normal) - ray_direction);
 }
 
-float3 ComputeF0(float3 albedo, float metalness)
+static const float MIN_PERCEPTUAL_ROUGHNESS = 0.0316; // sqrt(0.001) as mitsuba
+
+#define DIELECTRIC_F0_FROSTBITE 0
+
+float3 computeF0(float3 albedo, float metalness, float specular)
 {
-	float3 dielectric_F0 = float3(0.04, 0.04, 0.04);
+	#if DIELECTRIC_F0_FROSTBITE
+		float dielectric_F0 = 0.16 * specular * specular;
+	#else
+		float dielectric_F0 = 0.08 * specular;
+	#endif
 	return lerp(dielectric_F0, albedo, metalness);
+}
+
+// Frostbite/Filament specular occlusion approximation
+float computeSpecularAO(float NdotV, float ao, float alpha)
+{
+	return saturate(pow(NdotV + ao, exp2(-16.0 * alpha - 1.0)) - 1.0 + ao);
 }
 
 float D_GGX(float NdotH, float a2)

@@ -105,8 +105,12 @@ void SkyRenderer::addCompositePasses(FrameGraph &fg)
 		struct Constants
 		{
 			uint32_t cubemap_tex_id;
+			glm::vec4 sun_direction;
+			glm::vec4 sun_illuminance;
 		} constants;
 		constants.cubemap_tex_id = resources.getReadTexture(GFXRID(Sky));
+		constants.sun_direction = glm::vec4(glm::normalize(procedural_uniforms.sun_direction), 0.0f);
+		constants.sun_illuminance = mode == SKY_MODE_PROCEDURAL ? sun_illuminance : glm::vec4(0.0f);
 		gDynamicRHI->setConstantBufferData(0, &constants, sizeof(Constants));
 
 		cmd_list->setVertexBuffer(mesh->indexed->vertex_buffer, 0, sizeof(Engine::Vertex));
@@ -128,6 +132,11 @@ void SkyRenderer::renderImgui()
 		ConVarSystem::drawConVarImGui(render_automatic_sun_position.getDescription());
 		if (!render_automatic_sun_position)
 			ImGui::SliderFloat3("Sun Dir", procedural_uniforms.sun_direction.data.data, -1.0f, 1.0f);
+
+		ImGui::SliderFloat("Sky Luminance Scale", &procedural_uniforms.sky_luminance_scale, 1.0f, 100000.0f, "%.0f", ImGuiSliderFlags_Logarithmic);
+	} else
+	{
+		ImGui::SliderFloat("Sky Intensity", &sky_intensity, 1.0f, 100000.0f, "%.0f", ImGuiSliderFlags_Logarithmic);
 	}
 }
 
@@ -145,7 +154,8 @@ bool SkyRenderer::isDirty()
 	if (mode != SKY_MODE_PROCEDURAL)
 		return false;
 	bool dirty = is_force_dirty;
-	if (prev_uniform.sun_direction != procedural_uniforms.sun_direction)
+	if (prev_uniform.sun_direction != procedural_uniforms.sun_direction ||
+		prev_uniform.sky_luminance_scale != procedural_uniforms.sky_luminance_scale)
 		dirty = true;
 	if (render_first_frame)
 		dirty = true;

@@ -47,6 +47,9 @@ void ShadowRenderer::addShadowMapPasses(FrameGraph &fg, uint32_t max_draw_calls_
 		Entity light_entity(light_entity_id);
 		auto &light = light_entity.getComponent<LightComponent>();
 
+		if (light.getType() == LIGHT_TYPE_DIRECTIONAL && render_ray_traced_shadows && engine_ray_tracing)
+			continue;
+
 		glm::vec3 scale, position, skew;
 		glm::vec4 persp;
 		glm::quat rotation;
@@ -62,7 +65,7 @@ void ShadowRenderer::addShadowMapPasses(FrameGraph &fg, uint32_t max_draw_calls_
 				glm::lookAtLH(position, position + glm::vec3(0, 0, 1), glm::vec3(0, 1, 0)),
 				glm::lookAtLH(position, position + glm::vec3(0, 0, -1), glm::vec3(0, 1, 0)),
 			};
-			glm::mat4 light_projection = glm::perspectiveLH(glm::radians(90.0f), 1.0f, POINT_SHADOW_Z_NEAR, light.radius);
+			glm::mat4 light_projection = glm::perspectiveLH(glm::radians(90.0f), 1.0f, POINT_SHADOW_Z_NEAR, light.attenuation_radius);
 
 			GraphicsResourceName shadow_map_resource = GFXRID_ID(ShadowMap, (uint32_t)light_entity_id);
 			fg.importTexture(shadow_map_resource, light.shadow_map);
@@ -200,7 +203,7 @@ void ShadowRenderer::updateShadows(Camera *camera)
 		{
 			glm::vec3 position = glm::vec3(transform.getWorldTransform()[3]);
 			debug_renderer->addSphere(position, POINT_SHADOW_Z_NEAR, 16, glm::vec3(1, 0.4, 0));
-			debug_renderer->addSphere(position, light.radius, 32, glm::vec3(1, 1, 0));
+			debug_renderer->addSphere(position, light.attenuation_radius, 32, glm::vec3(1, 1, 0));
 		}
 	}
 }

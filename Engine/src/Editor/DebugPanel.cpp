@@ -6,6 +6,30 @@
 #include "Core/Variables.h"
 #include "Scene/Components.h"
 
+struct SensorPreset
+{
+	const char *name;
+	float width;
+	float height;
+};
+
+static const SensorPreset sensor_presets[] = {
+	{"Full Frame", 36.0f, 24.0f},
+	{"APS-C (Canon)", 22.2f, 14.8f},
+	{"APS-C (Sony/Nikon)", 23.6f, 15.7f},
+};
+
+// https://en.wikipedia.org/wiki/Focal_length
+static float focalLengthToFov(float focal_length, float sensor_size)
+{
+	return glm::degrees(2.0f * atan(sensor_size / (2.0f * focal_length)));
+}
+
+static float fovToFocalLength(float fov_deg, float sensor_size)
+{
+	return sensor_size / (2.0f * tan(glm::radians(fov_deg) / 2.0f));
+}
+
 void DebugPanel::renderImGui(EditorContext &context)
 {
 	ImGui::Begin((eastl::string(ICON_FA_CUBES) + " Debug Window###Debug Window").c_str());
@@ -125,24 +149,74 @@ void DebugPanel::renderImGui(EditorContext &context)
 	auto &camera = context.editor_camera;
 	float cam_speed = camera.getSpeed();
 	if (ImGui::SliderFloat("Camera Speed", &cam_speed, 0.1f, 10.0f))
-	{
 		camera.setSpeed(cam_speed);
-		camera.updateMatrices();
-	}
 
 	float cam_near = camera.getNear();
 	if (ImGui::SliderFloat("Camera Near", &cam_near, 0.01f, 3.5f))
-	{
 		camera.setNear(cam_near);
-		camera.updateMatrices();
-	}
 
 	float cam_far = camera.getFar();
 	if (ImGui::SliderFloat("Camera Far", &cam_far, 1.0f, 300.0f))
-	{
 		camera.setFar(cam_far);
-		camera.updateMatrices();
+
+
+	float cam_fov = camera.getFov();
+
+	if (ImGui::TreeNode("Physical Lens"))
+	{
+		static int sensor_preset = 0;
+		if (ImGui::BeginCombo("Sensor", sensor_presets[sensor_preset].name))
+		{
+			for (int i = 0; i < IM_ARRAYSIZE(sensor_presets); i++)
+			{
+				if (ImGui::Selectable(sensor_presets[i].name, sensor_preset == i))
+					sensor_preset = i;
+			}
+			ImGui::EndCombo();
+		}
+		const SensorPreset &sensor = sensor_presets[sensor_preset];
+
+		float focal_length = fovToFocalLength(cam_fov, sensor.height);
+		float previous_focal_length = focal_length;
+
+		float vertical_fov = focalLengthToFov(focal_length, sensor.height);
+		float horizontal_fov = focalLengthToFov(focal_length, sensor.width);
+
+		static bool dolly_zoom = false;
+		static float subject_distance = 15.0f;
+
+		if (ImGui::SliderFloat("Focal Length (mm)", &focal_length, 8.0f, 300.0f, "%.1f", ImGuiSliderFlags_Logarithmic))
+		{
+			vertical_fov = focalLengthToFov(focal_length, sensor.height);
+			horizontal_fov = focalLengthToFov(focal_length, sensor.width);
+			camera.setFov(vertical_fov);
+
+			if (dolly_zoom)
+			{
+				glm::vec3 forward = camera.getForward();
+				glm::vec3 pivot = camera.getPosition() + forward * subject_distance;
+				subject_distance *= focal_length / previous_focal_length;
+				camera.setPosition(pivot - forward * subject_distance);
+			}
+		}
+
+		ImGui::Checkbox("Dolly Zoom", &dolly_zoom);
+		ImGui::SliderFloat("Subject Distance", &subject_distance, 0.1f, 1000.0f, "%.2f", ImGuiSliderFlags_Logarithmic);
+
+		ImGui::BeginDisabled(!context.selected_entity);
+		if (ImGui::Button("Set Subject Distance From Selection"))
+		{
+			glm::vec3 target = glm::vec3(context.selected_entity.getWorldTransformMatrix()[3]);
+			subject_distance = glm::length(target - camera.getPosition());
+		}
+		ImGui::EndDisabled();
+
+		ImGui::Text("FOV: %.1f vertical, %.1f horizontal", vertical_fov, horizontal_fov);
+		ImGui::TreePop();
 	}
+
+	if (ImGui::SliderFloat("Camera FOV", &cam_fov, 1.0f, 120.0f))
+		camera.setFov(cam_fov);
 
 	glm::vec3 cam_pos = camera.getPosition();
 	ImGui::InputFloat3("Camera Position", cam_pos.data.data);
@@ -163,6 +237,7 @@ void DebugPanel::renderImGui(EditorContext &context)
 			if (light.getType() != LIGHT_TYPE_DIRECTIONAL)
 				continue;
 			sky_renderer->procedural_uniforms.sun_direction = entity.getLocalDirection(glm::vec3(0, 0, -1));
+			sky_renderer->sun_illuminance = glm::vec4(light.getPhotometricIntensity(), 1.0f);
 			break;
 		}
 	}

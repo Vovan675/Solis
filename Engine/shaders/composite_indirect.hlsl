@@ -38,26 +38,25 @@ PSOutput PSMain(VSInput input)
 		discard;
 
 	float4 albedo = SampleTexture(albedo_tex_id, input.uv);
-	float3 normal = normalize(SampleTexture(normal_tex_id, input.uv).rgb * 2.0f - 1.0f);
+	float3 normal = unpackGBufferNormal(SampleTexture(normal_tex_id, input.uv, point_clamp_sampler).rgb);
 
 	float4 shading = SampleTexture(shading_tex_id, input.uv);
 	float metalness = shading.r;
 	float roughness = saturate(shading.g);
 
 	// IBL
-	float3 f0 = lerp(float3(0.04f, 0.04f, 0.04f), albedo.rgb, metalness);
-	float3 f = FresnelSchlick(f0, 1.0f, roughness);
-	float3 kd = (1.0f - f);
-
-	float3 irradiance = 0;
-	if (irradiance_tex_id != 0)
-		irradiance = irradiance_tex.Sample(linear_wrap_sampler, normal).rgb;
-	float3 ibl_diffuse = irradiance * albedo.rgb * kd;
-
 	float3 world_pos = GetWSPosition(input.uv, depth);
 
 	float3 v = normalize(camera_position.xyz - world_pos.rgb);
 	float NdotV = saturate(dot(normal, v));
+
+	float3 f0 = computeF0(albedo.rgb, metalness, shading.b);
+	float3 diffuse_color = albedo.rgb * (1.0f - metalness);
+
+	float3 irradiance = 0;
+	if (irradiance_tex_id != 0)
+		irradiance = irradiance_tex.Sample(linear_wrap_sampler, normal).rgb * sky_intensity;
+	float3 ibl_diffuse = irradiance * diffuse_color / PI;
 
 	float2 brdf_uv = float2(NdotV, 1.0 - roughness);
 	
@@ -72,7 +71,7 @@ PSOutput PSMain(VSInput input)
 		uint mip_level, width, height, levels;
 		prefilter_tex.GetDimensions(mip_level, width, height, levels);
 		float lod = roughness * (float)levels;
-		prefilter = prefilter_tex.SampleLevel(linear_wrap_sampler, reflection, lod).rgb;
+		prefilter = prefilter_tex.SampleLevel(linear_wrap_sampler, reflection, lod).rgb * sky_intensity;
 	}
 
 	#if SSAO
@@ -81,12 +80,12 @@ PSOutput PSMain(VSInput input)
 		float ssao = 1.0f;
 	#endif
 
-	float3 diffuse = ibl_diffuse * ssao;
-	float3 specular = prefilter * (f0 * brdf_lut.x + brdf_lut.y);
-	float3 ibl = diffuse + specular;
+	float specular_ao = computeSpecularAO(NdotV, ssao, roughness * roughness);
 
-
-	output.ambient = float4(ibl * 0.1, 1.0);
+	float ibl_ambient_fallback_scale = 0.5;
+	float ibl_specular_fallback_scale = 0.0;
+	output.ambient = float4(ibl_diffuse * ssao * ibl_ambient_fallback_scale, 1.0);
+	output.specular = float4(prefilter * (f0 * brdf_lut.x + brdf_lut.y) * specular_ao * ibl_specular_fallback_scale, 1.0);
 
 	if (ddgi_volume_buffer_id > 0)
 	{
@@ -132,14 +131,12 @@ PSOutput PSMain(VSInput input)
 				}
 			#endif
 
-			output.ambient = float4((albedo.rgb / PI) * irradiance * volume_weight, 1.0);
+			output.ambient = float4((diffuse_color / PI) * irradiance * volume_weight * ssao, 1.0);
 			//output.ambient = float4(cascade_weight, 0, 0, 1.0);
 			//output.ambient = float4(cascade_index / 5.0, 0, 0, 1);
 			//output.ambient = float4(irradiance, 1.0);
 		}
 	}
-
-	output.specular = float4(0, 0, 0, 1.0);
 
 	#if SSR
 		float3 ssr = textures[ssr_tex_id].Sample(linear_wrap_sampler, input.uv).rgb;

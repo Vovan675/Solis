@@ -226,8 +226,9 @@ bool ParametersPanel::renderImGui(EditorContext &context, DebugRenderer &debug_r
 			}
 			light.setType((LIGHT_TYPE)light_type);
 			ImGui::ColorEdit3("Light Color", light.color.data.data);
-			ImGui::SliderFloat("Light Radius", &light.radius, 0.001f, 40.0);
-			ImGui::SliderFloat("Light Intensity", &light.intensity, 0.01f, 25);
+			ImGui::SliderFloat("Attenuation Radius", &light.attenuation_radius, 0.001f, 40.0);
+			const char *intensity_label = light_type == LIGHT_TYPE_DIRECTIONAL ? "Light Intensity (lux)" : "Light Intensity (lumens)";
+			ImGui::SliderFloat(intensity_label, &light.intensity, 0.01f, 200000.0f, "%.2f", ImGuiSliderFlags_Logarithmic);
 
 			RHITextureRef texture = light.shadow_map;
 			if (texture)

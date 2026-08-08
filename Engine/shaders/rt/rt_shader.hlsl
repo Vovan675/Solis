@@ -39,7 +39,7 @@ void RayGen() {
     RayDesc ray;
     ray.Origin = origin.xyz;
     ray.Direction = direction.xyz;
-    ray.TMin = 0.1;
+    ray.TMin = 0.005;
     ray.TMax = 10000.0;
 
     TraceRay(

@@ -14,8 +14,6 @@ public:
 		uint32_t depth_tex_id = 0;
 		uint32_t noise_tex_id = 0;
 		alignas(16) glm::vec4 kernel[64];
-		float near_plane;
-		float far_plane;
 		int samples = 64;
 		float sample_radius = 0.5f;
 	} ubo_raw_pass;
@@ -32,7 +30,7 @@ public:
 	void renderImgui();
 private:
 	RHITextureRef ssao_noise;
-	eastl::vector<glm::vec3> ssao_kernel;
+	eastl::vector<glm::vec4> ssao_kernel;
 
 	RHIShaderRef fragment_shader_raw;
 	RHIShaderRef fragment_shader_blur;

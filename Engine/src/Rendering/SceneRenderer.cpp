@@ -229,8 +229,7 @@ void SceneRenderer::render_deferred(Camera *camera, FrameGraph &frame_graph)
 		{
 			if (render_ray_traced_shadows && engine_ray_tracing)
 				shadow_renderer.addRayTracedShadowPasses(frame_graph, rt_scene);
-			else
-				shadow_renderer.addShadowMapPasses(frame_graph, indirect_draw_calls_max_count);
+			shadow_renderer.addShadowMapPasses(frame_graph, indirect_draw_calls_max_count);
 		}
 	}
 
@@ -314,7 +313,7 @@ void SceneRenderer::update(Camera *camera)
 
 				for (int face = 0; face < 6; face++)
 				{
-					frustum_data.view_projection = glm::perspectiveLH(glm::radians(90.0f), 1.0f, 0.05f, light.radius) * faces_transforms[face];
+					frustum_data.view_projection = glm::perspectiveLH(glm::radians(90.0f), 1.0f, 0.05f, light.attenuation_radius) * faces_transforms[face];
 					frustums.push_back(frustum_data);
 				}
 			} else if (light.getType() == LIGHT_TYPE_DIRECTIONAL)
@@ -549,6 +548,8 @@ void SceneRenderer::update(Camera *camera)
 	}
 
 	auto uniforms = Renderer::getDefaultUniforms();
+	uniforms.sky_intensity = sky_renderer.getSkyIntensity();
+	uniforms.camera_exposure = post_renderer.film_ubo.exposure;
 	uniforms.materials_buffer_id = materials_table.getBindlessIndex();
 	uniforms.instances_buffer_id = instances_table.getBindlessIndex();
 	uniforms.meshes_buffer_id = meshes_table.getBindlessIndex();

@@ -126,7 +126,7 @@ PSOutput PSMain(VSInput input)
 			value = float4(shading.b, shading.b, shading.b, 1.0f);
 			break;
 		case 6:
-			value = normal * 2.0f - 1.0f;
+			value = float4(unpackGBufferNormal(normal.rgb) * 0.5f + 0.5f, 1.0f);
 			break;
 		case 7:
 			value = float4(depth, depth, depth, 1.0f);

@@ -203,8 +203,6 @@ void EditorApplication::update(float delta_time)
 void EditorApplication::updateBuffers(float delta_time)
 {
 	Renderer::updateDefaultUniforms(delta_time);
-	scene_renderer->ssao_renderer.ubo_raw_pass.near_plane = context.editor_camera.getNear();
-	scene_renderer->ssao_renderer.ubo_raw_pass.far_plane = context.editor_camera.getFar();
 }
 
 

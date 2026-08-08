@@ -184,7 +184,7 @@ PixelOutput PSMain(PixelInput IN)
 		float3 normal = float3(normal_xy, sqrt(saturate(1.0 - dot(normal_xy, normal_xy))));
 		world_normal = normalize(mul(normal, tbn));
 	}
-	output.normal = float4(world_normal * 0.5 + 0.5, 1.0);
+	output.normal = float4(packGBufferNormal(world_normal), 1.0);
 
 	output.shading.r = SampleMaterialChannel(material.metalness_tex_id, IN.uv, material.shading.r);
 	output.shading.g = SampleMaterialChannel(material.roughness_tex_id, IN.uv, material.shading.g);

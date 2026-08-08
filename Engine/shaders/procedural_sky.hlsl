@@ -16,6 +16,7 @@ cbuffer UBO : register(b0)
 {
     float3 sunPosition;
     float4x4 mvp;
+    float sky_luminance_scale;
 };
 
 VertexOutput VSMain(VertexInput IN) {
@@ -26,7 +27,6 @@ VertexOutput VSMain(VertexInput IN) {
 }
 
 static const float depolarizationFactor = 0.067;
-static const float luminance = 1.0;
 static const float mieCoefficient = 0.00335;
 static const float mieDirectionalG = 0.787;
 static const float3 mieKCoefficient = float3(0.686, 0.678, 0.666);
@@ -37,10 +37,8 @@ static const float3 primaries = float3(6.8e-7, 5.5e-7, 4.5e-7);
 static const float rayleigh = 1.0;
 static const float rayleighZenithLength = 615;
 static const float refractiveIndex = 1.000317;
-static const float sunAngularDiameterDegrees = 0.00758;
 static const float sunIntensityFactor = 1111;
 static const float sunIntensityFalloffSteepness = 0.98;
-static const float tonemapWeighting = 10.0;
 static const float turbidity = 1.25;
 
 static const float3 cameraPos = float3(100000.0, -40000.0, 0.0);
@@ -73,19 +71,6 @@ float sunIntensity(float zenithAngleCos)
     return sunIntensityFactor * max(0.0, 1.0 - exp(-((cutoffAngle - acos(zenithAngleCos)) / sunIntensityFalloffSteepness)));
 }
 
-// Whitescale tonemapping calculation, see http://filmicgames.com/archives/75
-// Also see http://blenderartists.org/forum/showthread.php?321110-Shaders-and-Skybox-madness
-static const float A = 0.15;
-static const float B = 0.50;
-static const float C = 0.10;
-static const float D = 0.20;
-static const float E = 0.02;
-static const float F = 0.30;
-float3 Uncharted2Tonemap(float3 W)
-{
-    return ((W * (A * W + C * B) + D * E) / (W * (A * W + B) + D * F)) - E / F;
-}
-
 float4 PSMain(VertexOutput IN) : SV_TARGET
 {
 	// Rayleigh coefficient
@@ -114,20 +99,5 @@ float4 PSMain(VertexOutput IN) : SV_TARGET
     float3 Lin = pow(sunE * ((betaRTheta + betaMTheta) / (betaR + betaM)) * (1.0 - Fex), 1.5);
     Lin *= lerp(1.0, pow(sunE * ((betaRTheta + betaMTheta) / (betaR + betaM)) * Fex, 0.5), clamp(pow(1.0 - dot(UP, sunDirection), 5.0), 0.0, 1.0));
     
-	// Composition + solar disc
-    float sunAngularDiameterCos = cos(sunAngularDiameterDegrees);
-    float sundisk = smoothstep(sunAngularDiameterCos, sunAngularDiameterCos + 0.00002, cosTheta);
-    float3 L0 = 0.1 * Fex;
-    L0 += sunE * 19000.0 * Fex * sundisk;
-
-    float3 texColor = Lin + L0;
-    texColor *= 0.04;
-    texColor += float3(0.0, 0.001, 0.0025) * 0.3;
-    
-	// Tonemapping
-    float3 whiteScale = 1.0 / Uncharted2Tonemap(tonemapWeighting);
-    float3 curr = Uncharted2Tonemap((log2(2.0 / pow(luminance, 4.0))) * texColor);
-    float3 color = curr * whiteScale;
-    float3 retColor = pow(color, 1.0 / (1.2 + (1.2 * sunfade)));
-    return float4(retColor, 1);
+    return float4((Lin + 0.1 * Fex) * sky_luminance_scale, 1);
 }

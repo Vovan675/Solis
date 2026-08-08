@@ -43,9 +43,8 @@ cbuffer UBOTextures : register(b1)
 cbuffer PushConstants : register(b2)
 {
 	float4 light_pos;
-	float4 light_color;
-	float light_intensity;
-	float light_range_square;
+	float4 light_intensity;
+	float attenuation_radius_sqr;
 	float shadow_z_near;
 	float shadow_z_far;
 	uint shadow_map_tex_id;
@@ -192,14 +191,9 @@ float2( -0.8595296839803187f, -0.3859107698213548f ),
 	#endif
 #endif
 
-float compute_reflectance(float reflectance)
+float get_smooth_distance_att(float sqr_distance, float attenuation_radius_sqr)
 {
-	return 0.16 * reflectance * reflectance;
-}
-
-float get_smooth_distance_att(float sqr_distance, float inv_sqr_att_radius)
-{
-	float factor = sqr_distance * (1.0f / inv_sqr_att_radius);
+	float factor = sqr_distance / attenuation_radius_sqr;
 	float smooth_factor = saturate(1.0 - factor * factor);
 	return smooth_factor * smooth_factor;
 }
@@ -209,7 +203,7 @@ float get_attenuation(float3 pos)
 	float3 delta = light_pos.xyz - pos;
 	float sqr_distance = dot(delta, delta);
 	float attenuation = 1.0 / max(sqr_distance, 0.0001);
-	attenuation *= get_smooth_distance_att(sqr_distance, light_range_square);
+	attenuation *= get_smooth_distance_att(sqr_distance, attenuation_radius_sqr);
 	return attenuation;
 }
 
@@ -223,20 +217,19 @@ PSOutput PSMain(VSOutput input)
 
 	float4 shading = SampleTexture(shadingTexId, inUV);
 	float metalness = shading.r;
-	float roughness = saturate(shading.g);
-	roughness *= roughness;
+	float perceptual_roughness = max(saturate(shading.g), MIN_PERCEPTUAL_ROUGHNESS);
+	float alpha = perceptual_roughness * perceptual_roughness;
 	float specular = shading.b;
 
 	float3 albedo = SampleTexture(albedoTexId, inUV).rgb;
 	float3 diffuse_color = albedo * (1.0f - metalness);
-	float reflectance = compute_reflectance(specular);
 
-	float3 F0 = (albedo * metalness) + (reflectance * (1.0f - metalness));
+	float3 F0 = computeF0(albedo, metalness, specular);
 	float F90 = 1.0f;
 
 	float3 world_pos = GetWSPosition(inUV, depth);
 	float3 P = world_pos.xyz;
-	float3 N = normalize(SampleTexture(normalTexId, inUV).rgb * 2.0f - 1.0f);
+	float3 N = unpackGBufferNormal(SampleTexture(normalTexId, inUV, point_clamp_sampler).rgb);
 	float3 V = normalize(camera_position.xyz - P);
 	float3 L;
 	float light_attenuation = 1.0;
@@ -277,17 +270,17 @@ PSOutput PSMain(VSOutput input)
 	float NdotH = saturate(dot(N, H));
 	float LdotH = saturate(dot(L, H));
 
-	float F_diffuse = Fr_DisneyDiffuse(NdotV, NdotL, LdotH, roughness);
-	float3 diffuse = diffuse_color * F_diffuse;
+	float F_diffuse = Fr_DisneyDiffuse(NdotV, NdotL, LdotH, perceptual_roughness);
+	float3 diffuse = diffuse_color * F_diffuse / PI;
 
 	float3 F = FresnelSchlick(F0, F90, LdotH);
-	float D = D_GGX(NdotH, roughness * roughness);
-	float Viz = V_SmithGGXCorrelated(NdotV, NdotL, roughness); 
+	float D = D_GGX(NdotH, alpha * alpha);
+	float Viz = V_SmithGGXCorrelated(NdotV, NdotL, alpha);
 	float3 F_specular = D * F * Viz;
 
 	PSOutput output;
-	output.outDiffuse = shadow * NdotL * (float3(1.0f, 1.0f, 1.0f) - F) * diffuse * light_attenuation * light_intensity * light_color.rgb;
-	output.outSpecular = shadow * NdotL * F_specular * light_attenuation * light_intensity * light_color.rgb;
+	output.outDiffuse = shadow * NdotL * diffuse * light_attenuation * light_intensity.rgb;
+	output.outSpecular = shadow * NdotL * F_specular * light_attenuation * light_intensity.rgb;
 
 	//#define SHOW_CASCADES
 	#if LIGHT_TYPE == 1

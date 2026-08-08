@@ -22,7 +22,7 @@ float2 SampleUniformDiskConcentric(float2 u)
 
 float3 SampleCosineHemisphere(float2 u) {
     float2 d = SampleUniformDiskConcentric(u);
-    float z = sqrt(max(Epsilon, 1 - d.x * d.x - d.y * d.y));
+    float z = sqrt(max(0, 1 - d.x * d.x - d.y * d.y));
     return float3(d.x, d.y, z);
 }
 

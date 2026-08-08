@@ -61,11 +61,11 @@ float ComputeNewScatterFireflyFilterK(float currentK, float bouncePDF, float lob
 float3 FireflyFilter(float3 signal, float threshold, float fireflyFilterK)
 {
 	float dynamicThreshold = threshold * fireflyFilterK;
-	float avgIntensity = Average(signal);
-	
-	if (avgIntensity > dynamicThreshold)
-		signal = signal / avgIntensity * dynamicThreshold;
-	
+	float luminance = max(1e-7, Luminance(signal));
+
+	if (luminance > dynamicThreshold)
+		signal = signal / luminance * dynamicThreshold;
+
 	return signal;
 }
 

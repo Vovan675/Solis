@@ -37,7 +37,7 @@ void PathTracingRenderer::addPass(FrameGraph &fg, Ref<RayTracingScene> rt_scene)
 	fg.addCallbackPass("Path Tracing Pass",
 	[&](RenderPassBuilder &builder)
 	{
-		builder.createTexture(GFXRID(FinalNoPostTexture), Renderer::getRenderWidth(), Renderer::getRenderHeight(), FORMAT_R16G16B16A16_UNORM);
+		builder.createTexture(GFXRID(FinalNoPostTexture), Renderer::getRenderWidth(), Renderer::getRenderHeight(), FORMAT_R32G32B32A32_SFLOAT);
 		builder.writeUAVTexture(GFXRID(FinalNoPostTexture));
 		builder.writeUAVTexture(GFXRID(PathTraceAccumulation));
 		builder.readTexture(GFXRID(Sky));
@@ -73,7 +73,7 @@ void PathTracingRenderer::addPass(FrameGraph &fg, Ref<RayTracingScene> rt_scene)
 				glm::decompose(light_entity.getWorldTransformMatrix(), scale, rotation, position, skew, persp);
 
 				light.dir_light_direction = rotation * glm::vec4(0, 0, -1, 1);
-				light.dir_light_color = glm::vec4(light_component.color, 1.0f);
+				light.dir_light_color = glm::vec4(light_component.getPhotometricIntensity(), 1.0f);
 				break;
 			}
 		}

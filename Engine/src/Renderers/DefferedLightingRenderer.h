@@ -29,9 +29,8 @@ public:
 	struct PushConstant
 	{
 		glm::vec4 light_pos;
-		glm::vec4 light_color;
-		float light_intensity;
-		float light_range_square; // radius ^ 2
+		glm::vec4 light_intensity;
+		float attenuation_radius_sqr;
 		float z_near;
 		float z_far;
 		uint32_t shadow_map_tex_id;

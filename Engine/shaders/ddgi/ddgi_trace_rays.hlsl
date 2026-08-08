@@ -101,9 +101,9 @@ void RayGen()
 			if (environment_tex_id != 0)
 			{
 				TextureCube environment_tex = ResourceDescriptorHeap[environment_tex_id];
-				environment = environment_tex.SampleLevel(linear_clamp_sampler, ray_direction, 0).rgb;
+				environment = environment_tex.SampleLevel(linear_clamp_sampler, ray_direction, 0).rgb * sky_intensity;
 			}
-			ray_data[ray_data_index] = float4(saturate(environment), 1e27f);
+			ray_data[ray_data_index] = float4(environment, 1e27f);
 		}
 		return;
 	}

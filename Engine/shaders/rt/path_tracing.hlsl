@@ -30,6 +30,7 @@ struct SurfaceProperties
 	float3 albedo;
 	float metalness;
 	float roughness;
+	float specular;
 };
 
 // ============================================================================
@@ -104,7 +105,8 @@ SurfaceProperties EvaluateMaterial(Material material, float2 uv)
 	props.albedo = (material.albedo_tex_id > 0) ? SampleTextureLevel(material.albedo_tex_id, uv, 0).rgb : material.albedo.rgb;
 	props.metalness = (material.metalness_tex_id > 0) ? SampleTextureLevel(material.metalness_tex_id, uv, 0).r : material.shading.r;
 	props.roughness = (material.roughness_tex_id > 0) ? SampleTextureLevel(material.roughness_tex_id, uv, 0).r : material.shading.g;
-	props.roughness = max(props.roughness, 0.045); // Clamp for preventing division by zero
+	props.roughness = max(props.roughness, MIN_PERCEPTUAL_ROUGHNESS);
+	props.specular = (material.specular_tex_id > 0) ? SampleTextureLevel(material.specular_tex_id, uv, 0).r : material.shading.b;
 	return props;
 }
 
@@ -124,19 +126,18 @@ float3 EvaluateBRDF(SurfaceProperties surface, float3 L, float3 V, float3 N)
 	if (NdotL <= 0.0 || NdotV <= 0.0)
 		return float3(0, 0, 0);
 	
-	float3 F0 = ComputeF0(surface.albedo, surface.metalness);
+	float3 F0 = computeF0(surface.albedo, surface.metalness, surface.specular);
 	float3 F = FresnelSchlick(F0, 1.0f, VdotH);
 	
 	// Specular (Cook-Torrance)
-	float a = surface.roughness * surface.roughness;
-	float a2 = a * a;
-	float D = D_GGX(NdotH, a2);
-	float G = V_SmithGGXCorrelated(NdotV, NdotL, surface.roughness);
+	float alpha = surface.roughness * surface.roughness;
+	float D = D_GGX(NdotH, alpha * alpha);
+	float G = V_SmithGGXCorrelated(NdotV, NdotL, alpha);
 	float3 specular = F * D * G;
-	
-	// Diffuse (energy-conserving Lambertian)
-	float3 kD = (1.0 - F) * (1.0 - surface.metalness);
-	float3 diffuse = kD * surface.albedo / PI;
+
+	// Diffuse (Disney)
+	float3 diffuse_color = surface.albedo * (1.0 - surface.metalness);
+	float3 diffuse = diffuse_color * Fr_DisneyDiffuse(NdotV, NdotL, VdotH, surface.roughness) / PI;
 	
 	return diffuse + specular;
 }
@@ -156,7 +157,7 @@ MaterialSample SampleBRDF(SurfaceProperties surface, float3 V, float3 N, inout R
 	float3 T, B;
 	BuildOrthonormalBasis(N, T, B);
 	
-	float3 F0 = ComputeF0(surface.albedo, surface.metalness);
+	float3 F0 = computeF0(surface.albedo, surface.metalness, surface.specular);
 	float NdotV = max(dot(N, V), 0.0);
 	float3 F = FresnelSchlick(F0, 1.0f, NdotV);
 	
@@ -250,7 +251,7 @@ float3 SampleEnvironment(float3 direction)
 		return 0;
 
 	TextureCube environment_tex = ResourceDescriptorHeap[environment_tex_id];
-	return environment_tex.SampleLevel(linear_clamp_sampler, direction, 0).rgb;
+	return environment_tex.SampleLevel(linear_clamp_sampler, direction, 0).rgb * sky_intensity;
 }
 
 // ============================================================================
@@ -310,7 +311,8 @@ void RayGen()
 	RayDesc ray = GenerateCameraRay(pixel, screen_size);
 	
 	const int MAX_BOUNCES = 12;
-	const float BASE_FIREFLY_THRESHOLD = 3.0;
+	const float WHITE_LUMINANCE = camera_exposure > 0.0 ? 1.0 / camera_exposure : 1.0;
+	const float BASE_FIREFLY_THRESHOLD = 3.0 * WHITE_LUMINANCE;
 	
 	float3 radiance = float3(0, 0, 0);
 	float3 throughput = float3(1, 1, 1);
@@ -326,7 +328,11 @@ void RayGen()
 		
 		if (!hit.hit)
 		{
-			float3 env = throughput * SampleEnvironment(ray.Direction);
+			float3 env = SampleEnvironment(ray.Direction);
+			if (bounce == 0)
+				env += getSunDisk(ray.Direction, dir_light_direction.xyz, dir_light_color.rgb);
+
+			env *= throughput;
 			radiance += bounce > 0 ? FireflyFilter(env, BASE_FIREFLY_THRESHOLD, fireflyFilterK) : env;
 			break;
 		}
@@ -363,7 +369,8 @@ void RayGen()
 		ray.TMax = 10000.0;
 	}
 	
-	radiance = min(radiance, float3(100, 100, 100));
+
+	radiance = min(radiance, 100.0 * WHITE_LUMINANCE);
 	AccumulateAndOutput(pixel, radiance);
 }
 

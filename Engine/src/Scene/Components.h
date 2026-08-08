@@ -151,6 +151,8 @@ struct LightComponent
 		recreateTexture();
 	}
 
+	glm::vec3 getPhotometricIntensity() const;
+
 	void recreateTexture()
 	{
 		if (type == LIGHT_TYPE_POINT)
@@ -188,8 +190,9 @@ struct LightComponent
 	}
 
 	glm::vec3 color = glm::vec3(1, 1, 1);
+	// Lux for directional, lumens for point
 	float intensity = 1.0f;
-	float radius = 1.0f;
+	float attenuation_radius = 1.0f;
 
 	float shadow_map_size = 2048;
 

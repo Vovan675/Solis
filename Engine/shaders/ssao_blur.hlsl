@@ -25,12 +25,12 @@ PSOutput PSMain(VSInput input)
     int samples = 0;
     float result = 0.0f;
 
-    for (int x = -2; x <= 2; x++)
+    for (int x = -2; x < 2; x++)
     {
-        for (int y = -2; y <= 2; y++)
+        for (int y = -2; y < 2; y++)
         {
-            float2 offset = float2(float(x), float(y)) * texel_size;
-            result += SampleTexture(raw_tex_id, input.uv + offset).r;
+            float2 offset = (float2(float(x), float(y)) + 0.5f) * texel_size;
+            result += SampleTexture(raw_tex_id, input.uv + offset, linear_clamp_sampler).r;
             samples++;
         }
     }

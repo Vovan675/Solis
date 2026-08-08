@@ -33,11 +33,18 @@ public:
 	{
 		glm::vec3 sun_direction = glm::vec3(1, 0.7, 0);
 		glm::mat4 mvp;
+		float sky_luminance_scale = 1000.0f;
 	} procedural_uniforms;
+
+	glm::vec4 sun_illuminance = glm::vec4(100000.0f);
+
+	float getSkyIntensity() const { return mode == SKY_MODE_CUBEMAP ? sky_intensity : 1.0f; }
 
 	RHITextureRef cube_texture;
 private:
 	void create_mode_resources();
+
+	float sky_intensity = 15000.0f;
 
 	RHIShaderRef vertex_shader;
 	RHIShaderRef fragment_shader;

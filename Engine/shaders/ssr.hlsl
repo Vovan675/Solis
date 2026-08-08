@@ -104,8 +104,7 @@ float3 CalculateSSR(float2 uv)
 	if (scene_depth == 0.0)
 		return original;
 
-	float3 packed_normal = SampleTexture(normal_tex_id, uv, point_clamp_sampler).rgb;
-	float3 normal_ws = normalize(packed_normal * 2.0f - 1.0f);
+	float3 normal_ws = unpackGBufferNormal(SampleTexture(normal_tex_id, uv, point_clamp_sampler).rgb);
 	float3 normal_vs = normalize(mul((float3x3)view, normal_ws));
 
 	float3 view_pos = GetVSPosition(uv, scene_depth);

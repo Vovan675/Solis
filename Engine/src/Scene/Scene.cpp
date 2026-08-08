@@ -84,7 +84,7 @@ namespace YAML
 			out << YAML::Key << "Type" << YAML::Value << comp.getType();
 			out << YAML::Key << "Color" << YAML::Value << comp.color;
 			out << YAML::Key << "Intensity" << YAML::Value << comp.intensity;
-			out << YAML::Key << "Radius" << YAML::Value << comp.radius;
+			out << YAML::Key << "AttenuationRadius" << YAML::Value << comp.attenuation_radius;
 
 			out << YAML::EndMap;
 		}
@@ -286,7 +286,7 @@ void Scene::loadFile(const eastl::string &filename)
 			c.setType((LIGHT_TYPE)comp["Type"].as<int>());
 			c.color = comp["Color"].as<glm::vec3>();
 			c.intensity = comp["Intensity"].as<float>();
-			c.radius = comp["Radius"].as<float>();
+			c.attenuation_radius = comp["AttenuationRadius"].as<float>();
 		}
 
 		comp = entity["RigidBodyComponent"];

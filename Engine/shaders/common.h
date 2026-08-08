@@ -89,6 +89,8 @@ cbuffer FrameConstants : register(b32) {
 	float upscale_factor;
 	float2 jitter;
 	uint frame;
+	float sky_intensity;
+	float camera_exposure;
 	uint global_meshlets_geometry_buffer_id;
 	uint global_meshlets_lod_groups_buffer_id;
 	uint materials_buffer_id;
@@ -333,13 +335,57 @@ float2 unpackSnorm16x2(uint packed)
 	return float2((int)(packed << 16) >> 16, (int)packed >> 16) / 32767.0;
 }
 
+// Default sign(0) = 0, this -1 or 1
+float2 signNotZero(float2 v)
+{
+	return select(v >= 0.0, float2(1, 1), float2(-1, -1));
+}
+
 // Oct-decode two snorm floats to a unit float3.
 float3 octDecode(float2 e)
 {
 	float3 n = float3(e, 1.0 - abs(e.x) - abs(e.y));
 	if (n.z < 0.0)
-		n.xy = (1.0 - abs(n.yx)) * sign(n.xy);
+		n.xy = (1.0 - abs(n.yx)) * signNotZero(n.xy);
 	return normalize(n);
+}
+
+// Oct-encode a unit vector
+float2 octEncode(float3 n)
+{
+	n /= abs(n.x) + abs(n.y) + abs(n.z);
+	if (n.z < 0.0)
+		n.xy = (1.0 - abs(n.yx)) * signNotZero(n.xy);
+	return n.xy;
+}
+
+// Pack two 12 bit oct components in three unorm8 channels:
+// Format:
+// r: x high 8 bits
+// g: x low 4 bits, y high 4 bits
+// b: y low 8 bits
+// a: free
+#define OCT12_SCALE 2047.0
+
+float3 packGBufferNormal(float3 normal)
+{
+	uint2 oct = uint2(round(octEncode(normal) * OCT12_SCALE + OCT12_SCALE));
+
+	uint3 bytes;
+	bytes.x = oct.x >> 4;
+	bytes.y = ((oct.x & 0xF) << 4) | (oct.y >> 8);
+	bytes.z = oct.y & 0xFF;
+	return float3(bytes) / 255.0;
+}
+
+float3 unpackGBufferNormal(float3 packed_normal)
+{
+	uint3 bytes = uint3(round(packed_normal * 255.0));
+
+	uint2 oct;
+	oct.x = (bytes.x << 4) | (bytes.y >> 4);
+	oct.y = ((bytes.y & 0xF) << 8) | bytes.z;
+	return octDecode(float2(oct) / OCT12_SCALE - 1.0);
 }
 
 struct VertexData
@@ -515,6 +561,15 @@ float Luminance(float3 color)
 float Average(float3 color)
 {
 	return (color.r + color.g + color.b) / 3.0;
+}
+
+float3 getSunDisk(float3 view_direction, float3 sun_direction, float3 sun_illuminance)
+{
+	const float sun_angular_radius = 0.004654;
+	float cos_radius = cos(sun_angular_radius);
+	float disk = smoothstep(cos_radius, cos_radius + 0.00002, dot(view_direction, sun_direction));
+	float solid_angle = PI * sun_angular_radius * sun_angular_radius;
+	return (sun_illuminance / solid_angle) * disk;
 }
 
 // Converts cube face coordinates to a direction vector in world space

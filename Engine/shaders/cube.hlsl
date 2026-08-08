@@ -28,10 +28,14 @@ VertexOutput VSMain(VertexInput IN) {
 cbuffer Constants : register(b0)
 {
 	uint cubemap_tex_id;
+	float4 sun_direction;
+	float4 sun_illuminance;
 };
 
 float4 PSMain(VertexOutput IN) : SV_TARGET {
     TextureCube texture = ResourceDescriptorHeap[cubemap_tex_id];
-    float3 color = texture.Sample(linear_wrap_sampler, IN.dir).rgb;
+    float3 view_direction = normalize(IN.dir);
+    float3 color = texture.Sample(linear_wrap_sampler, view_direction).rgb * sky_intensity;
+    color += getSunDisk(view_direction, sun_direction.xyz, sun_illuminance.rgb);
     return float4(color, 1.0);
 }

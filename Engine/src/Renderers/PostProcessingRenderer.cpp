@@ -34,6 +34,29 @@ void PostProcessingRenderer::addPasses(FrameGraph &fg)
 	}
 }
 
+// Get how much nits would be WHITE on current "camera" when EV100 = 0
+static float getLuminanceMax()
+{
+	// https://en.wikipedia.org/wiki/Film_speed#Measurements_and_calculations
+	//float lens_attenuation = 0.78f; // ideal lens (pi/4)
+	float lens_attenuation = 0.65f; // more typical lens (pi/4 * vignette * cosine angle etc)
+
+	float iso_constant = 0.78f;
+	float luminance_max = iso_constant / lens_attenuation;
+	return luminance_max;
+}
+
+// luminance_max - maximum nits needed to fully saturate sensor
+static float EV100ToLuminance(float luminance_max, float ev100)
+{
+	return luminance_max * pow(2.0f, ev100);
+}
+
+static float luminanceToEV100(float luminance_max, float luminance)
+{
+	return log2(luminance / luminance_max);
+}
+
 void PostProcessingRenderer::renderImgui()
 {
 	if (ImGui::TreeNode("Post Processing"))
@@ -50,7 +73,29 @@ void PostProcessingRenderer::renderImgui()
 			ImGui::SliderFloat("Vignette Smoothness", &film_ubo.vignette_smoothness, 0.1f, 1.0f);
 		}
 
-		ImGui::SliderFloat("Exposure", &film_ubo.exposure, 0.1f, 4.0f);
+		{
+			//50mm f=2.8, iso 100, exposure 1/4000
+			float aperture = 2.8;
+			float shutter_speed = 1.0f / 4000.0f;
+
+			float iso = 100.0f;
+			float ev100 = log2(aperture * aperture / shutter_speed) - log2(iso / 100.0f);
+			ImGui::Text("Test EV100: %f", ev100);
+
+			float exposure = 1.0f / EV100ToLuminance(getLuminanceMax(), ev100);
+			ImGui::Text("Test Exposure: %f", exposure);
+		}
+
+		float luminance = 1.0f / film_ubo.exposure; // because exposure is multiplier of nits, so nits is 1.0/exposure
+		float cur_ev100 = luminanceToEV100(getLuminanceMax(), luminance);
+
+		ImGui::SliderFloat("Exposure", &film_ubo.exposure, 0.0f, 4.0f, "%f");
+
+		if (ImGui::SliderFloat("Exposure (EV100)", &cur_ev100, -6.0f, 20.0f))
+		{
+			float luminance = EV100ToLuminance(getLuminanceMax(), cur_ev100);
+			film_ubo.exposure = 1.0f / luminance;
+		}
 
 		const char *tonemappers[] = {"Disabled", "Uncharted2", "ACES"};
 		ImGui::Combo("Tonemapper", &film_ubo.tonemapper_mode, tonemappers, _countof(tonemappers));
