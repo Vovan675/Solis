@@ -5,7 +5,7 @@
 #include "Rendering/Model.h"
 #include "Utils/Math.h"
 #include "Core/Variables.h"
-#include <imgui.h>
+#include "Editor/UI.h"
 
 SkyRenderer::SkyRenderer(): RendererBase()
 {
@@ -123,21 +123,24 @@ void SkyRenderer::addCompositePasses(FrameGraph &fg)
 
 void SkyRenderer::renderImgui()
 {
+	int sky_mode = mode == SKY_MODE_PROCEDURAL ? 1 : 0;
+	const char *mode_items[] = {"HDRI", "Procedural"};
+	if (UI::radio("Source", &sky_mode, mode_items, IM_ARRAYSIZE(mode_items)))
+		setMode(sky_mode == 1 ? SKY_MODE_PROCEDURAL : SKY_MODE_CUBEMAP);
+
 	bool is_procedural = mode == SKY_MODE_PROCEDURAL;
-	if (ImGui::Checkbox("Procedural Sky Enabled", &is_procedural))
-		setMode(is_procedural ? SKY_MODE_PROCEDURAL : SKY_MODE_CUBEMAP);
 
-	if (is_procedural)
-	{
-		ConVarSystem::drawConVarImGui(render_automatic_sun_position.getDescription());
-		if (!render_automatic_sun_position)
-			ImGui::SliderFloat3("Sun Dir", procedural_uniforms.sun_direction.data.data, -1.0f, 1.0f);
+	ImGui::BeginDisabled(is_procedural);
+	UI::sliderFloat("HDRI Intensity", &sky_intensity, 1.0f, 100000.0f, "%.0f nits", true);
+	ImGui::EndDisabled();
 
-		ImGui::SliderFloat("Sky Luminance Scale", &procedural_uniforms.sky_luminance_scale, 1.0f, 100000.0f, "%.0f", ImGuiSliderFlags_Logarithmic);
-	} else
-	{
-		ImGui::SliderFloat("Sky Intensity", &sky_intensity, 1.0f, 100000.0f, "%.0f", ImGuiSliderFlags_Logarithmic);
-	}
+	ImGui::BeginDisabled(!is_procedural);
+	UI::sliderFloat("Procedural Luminance", &procedural_uniforms.sky_luminance_scale, 1.0f, 100000.0f, "%.0f nits", true);
+	ConVarSystem::drawConVarImGui(render_automatic_sun_position.getDescription());
+	ImGui::BeginDisabled(render_automatic_sun_position);
+	UI::dragFloat3("Sun Direction", procedural_uniforms.sun_direction.data.data, 0.01f, -1.0f, 1.0f);
+	ImGui::EndDisabled();
+	ImGui::EndDisabled();
 }
 
 void SkyRenderer::setMode(SKY_MODE mode)

@@ -14,7 +14,6 @@ public:
 
 	void addPasses(FrameGraph &fg);
 
-	void renderImgui();
 private:
 };
 

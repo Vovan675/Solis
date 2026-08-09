@@ -143,6 +143,3 @@ void DefferedLightingRenderer::renderLights(FrameGraph &fg)
 	});
 }
 
-void DefferedLightingRenderer::renderImgui()
-{
-}

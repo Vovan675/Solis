@@ -5,7 +5,7 @@
 #include "imgui/ImGuiWrapper.h"
 #include <imgui.h>
 #include <filesystem>
-#include "GuiUtils.h"
+#include "UI.h"
 
 static eastl::string get_file_entension(const eastl::string &filename)
 {
@@ -43,7 +43,7 @@ bool AssetBrowserPanel::renderImGui(EditorContext &context)
 	
 	if (current_path != root_path)
 	{
-		ImGui::PushFont(GuiUtils::roboto_regular_small);
+		ImGui::PushFont(UI::font_small);
 		if (ImGui::Button(ICON_FA_ARROW_LEFT))
 			current_path = current_path.parent_path();
 

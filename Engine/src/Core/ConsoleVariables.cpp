@@ -1,6 +1,6 @@
 #include "pch.h"
 #include "ConsoleVariables.h"
-#include "imgui.h"
+#include "Editor/UI.h"
 
 eastl::vector<ConVar<int>> ConVarSystem::int_cvars;
 eastl::vector<ConVar<float>> ConVarSystem::float_cvars;
@@ -34,41 +34,17 @@ void ConVarSystem::drawImGui()
 
 void ConVarSystem::drawConVarImGui(ConVarDescription *desc)
 {
-	int flags = desc->flags;
-
 	if (desc->type == CON_VAR_TYPE_INT)
 	{
 		auto &var = ConVarSystem::getCVar<int>(desc->index);
-		if (flags & CON_VAR_FLAG_CHECK_BOX)
-		{
-			bool checkbox = var.current_value != 0;
-			if (ImGui::Checkbox(desc->label, &checkbox))
-				var.current_value = checkbox ? 1 : 0;
-		} else if (flags & CON_VAR_FLAG_DRAG)
-		{
-			ImGui::DragInt(desc->label, &var.current_value);
-		} else
-		{
-			ImGui::InputInt(desc->label, &var.current_value);
-		}
+		UI::inputInt(desc->label, &var.current_value, desc->name);
 	} else if (desc->type == CON_VAR_TYPE_FLOAT)
 	{
 		auto &var = ConVarSystem::getCVar<float>(desc->index);
-		if (flags & CON_VAR_FLAG_CHECK_BOX)
-		{
-			bool checkbox = var.current_value != 0;
-			if (ImGui::Checkbox(desc->label, &checkbox))
-				var.current_value = checkbox ? 1 : 0;
-		} else if (flags & CON_VAR_FLAG_DRAG)
-		{
-			ImGui::DragFloat(desc->label, &var.current_value);
-		} else
-		{
-			ImGui::InputFloat(desc->label, &var.current_value);
-		}
+		UI::dragFloat(desc->label, &var.current_value, 0.01f, 0.0f, 0.0f, "%.3f", desc->name);
 	} else if (desc->type == CON_VAR_TYPE_BOOL)
 	{
 		auto &var = ConVarSystem::getCVar<bool>(desc->index);
-		ImGui::Checkbox(desc->label, &var.current_value);
+		UI::checkbox(desc->label, &var.current_value, desc->name);
 	}
 }

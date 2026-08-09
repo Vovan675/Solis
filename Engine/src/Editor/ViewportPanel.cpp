@@ -3,11 +3,54 @@
 #include "imgui/IconsFontAwesome6.h"
 #include "imgui/ImGuiWrapper.h"
 #include "Rendering/Renderer.h"
-#include "GuiUtils.h"
+#include "UI.h"
 #include <glm/gtc/type_ptr.hpp>
 #include "Application.h"
 #include "Rendering/Model.h"
 #include "Assets/AssetManager.h"
+
+static void drawStatsBar(float delta_time, ImVec2 pos)
+{
+	ImVec4 background(22.0f / 255.0f, 22.0f / 255.0f, 22.0f / 255.0f, 0.5f);
+	ImGui::SetNextWindowPos(pos);
+	ImGui::Begin("Stats Bar", NULL, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoMove);
+
+	ImGui::PushFont(UI::font_small);
+	ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 4);
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10, 5));
+	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8, 2));
+	ImGui::PushStyleColor(ImGuiCol_ChildBg, background);
+
+	ImGui::BeginChild("FPS", ImVec2(0, 0), ImGuiChildFlags_AlwaysUseWindowPadding | ImGuiChildFlags_AlwaysAutoResize | ImGuiChildFlags_AutoResizeX | ImGuiChildFlags_AutoResizeY);
+
+	static float last_fps = 0;
+	static float last_fps_timer = 0.3f;
+	last_fps_timer -= delta_time;
+	if (last_fps_timer <= 0)
+	{
+		last_fps_timer = 0.3f;
+		last_fps = 1.0f / delta_time;
+	}
+
+	glm::ivec2 render_resolution = Renderer::getRenderResolution();
+	glm::ivec2 output_resolution = Renderer::getOutputResolution();
+	const auto &stats = gDynamicRHI->getGPUStatistics();
+
+	ImGui::Text("FPS: %i (%.2f ms)", (int)last_fps, 1.0f / last_fps * 1000);
+	ImGui::Text("Render: %i x %i", render_resolution.x, render_resolution.y);
+	ImGui::Text("Output: %i x %i", output_resolution.x, output_resolution.y);
+	ImGui::Text("Frame: %i", gDynamicRHI->getFrame());
+	ImGui::Text("Triangles: %llu", stats.clipping_primitives);
+	ImGui::Text("Vertices: %llu", stats.vertex_shader_invocations + stats.mesh_shader_invocations);
+	ImGui::Text("Vertices (Mesh): %llu", stats.mesh_shader_invocations);
+
+	ImGui::EndChild();
+	ImGui::PopStyleColor();
+	ImGui::PopStyleVar(3);
+	ImGui::PopFont();
+
+	ImGui::End();
+}
 
 bool ViewportPanel::renderImGui(EditorContext &context, float delta_time)
 {
@@ -104,7 +147,7 @@ bool ViewportPanel::renderImGui(EditorContext &context, float delta_time)
 		ImGui::EndDragDropTarget();
 	}
 
-	GuiUtils::draw_stats_bar(delta_time, viewport_pos);
+	drawStatsBar(delta_time, viewport_pos);
 	ImGui::End();
 	return is_viewport_focused;
 }

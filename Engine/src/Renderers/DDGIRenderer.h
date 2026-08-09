@@ -54,8 +54,8 @@ private:
 	void addClassificationPass(FrameGraph &fg);
 	void addResetClassificationPass(FrameGraph &fg);
 
-	bool use_relocation = false;
-	bool use_classification = false;
+	bool use_relocation = true;
+	bool use_classification = true;
 
 	struct VisualizationSettings
 	{

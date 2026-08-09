@@ -1,6 +1,6 @@
 #include "pch.h"
 #include "DebugPanel.h"
-#include "imgui/IconsFontAwesome6.h"
+#include "UI.h"
 #include "Rendering/Renderer.h"
 #include "Rendering/GlobalBufferCache.h"
 #include "Core/Variables.h"
@@ -30,219 +30,260 @@ static float fovToFocalLength(float fov_deg, float sensor_size)
 	return sensor_size / (2.0f * tan(glm::radians(fov_deg) / 2.0f));
 }
 
-void DebugPanel::renderImGui(EditorContext &context)
+static Entity findDirectionalLight()
 {
-	ImGui::Begin((eastl::string(ICON_FA_CUBES) + " Debug Window###Debug Window").c_str());
-
-	ImGui::Text("RHI: %s", + gDynamicRHI->getName());
-
-	if (ImGui::Button("Recompile shaders"))
+	auto entities_id = Scene::getCurrentScene()->getEntitiesWith<LightComponent>();
+	for (entt::entity entity_id : entities_id)
 	{
-		// Wait for all operations complete
-		//vkDeviceWaitIdle(VkWrapper::device->logicalHandle);
-		//Shader::recompileAllShaders(); // TODO: implement
+		Entity entity(entity_id);
+		if (entity.getComponent<LightComponent>().getType() == LIGHT_TYPE_DIRECTIONAL)
+			return entity;
+	}
+	return Entity();
+}
+
+void DebugPanel::renderSettingsImGui(EditorContext &context)
+{
+	Entity sun = findDirectionalLight();
+	if (render_automatic_sun_position && sun)
+	{
+		LightComponent &light = sun.getComponent<LightComponent>();
+		sky_renderer->procedural_uniforms.sun_direction = sun.getLocalDirection(glm::vec3(0, 0, -1));
+		sky_renderer->sun_illuminance = glm::vec4(light.getPhotometricIntensity(), 1.0f);
 	}
 
-	if (ImGui::TreeNode("Geometry Buffers"))
+	ImGui::Begin((eastl::string(ICON_FA_SLIDERS) + " Render Settings###Render Settings").c_str());
+
+	if (ImGui::BeginTabBar("settings_tabs"))
+	{
+		if (ImGui::BeginTabItem("Render"))
+		{
+			render_tab();
+			ImGui::EndTabItem();
+		}
+		if (ImGui::BeginTabItem("Camera"))
+		{
+			camera_tab(context);
+			ImGui::EndTabItem();
+		}
+		if (ImGui::BeginTabItem("Lighting"))
+		{
+			lighting_tab();
+			ImGui::EndTabItem();
+		}
+		ImGui::EndTabBar();
+	}
+
+	ImGui::End();
+}
+
+void DebugPanel::render_tab()
+{
+	int renderer_mode = render_path_tracing ? 1 : 0;
+	const char *renderer_items[] = {"Raster", "Path Tracing"};
+	if (UI::radio("Renderer", &renderer_mode, renderer_items, IM_ARRAYSIZE(renderer_items)))
+		render_path_tracing = renderer_mode == 1;
+
+	ConVarSystem::drawConVarImGui(render_vsync.getDescription());
+
+	ImGui::SeparatorText("Upscaling");
+
+	const char *upscale_items[] = {"Off", "DLSS"};
+	int upscale_mode = render_upscale_mode;
+	if (UI::combo("Upscaler", &upscale_mode, upscale_items, IM_ARRAYSIZE(upscale_items)))
+		render_upscale_mode = upscale_mode;
+
+	const char *dlss_items[] = {"Performance", "Balanced", "Quality", "Ultra Performance", "DLAA"};
+	ImGui::BeginDisabled(render_upscale_mode != UPSCALE_MODE_DLSS);
+	int dlss_mode = render_dlss_mode;
+	if (UI::combo("DLSS Quality", &dlss_mode, dlss_items, IM_ARRAYSIZE(dlss_items)))
+		render_dlss_mode = dlss_mode;
+	ImGui::EndDisabled();
+
+	ImGui::SeparatorText("Geometry");
+	ConVarSystem::drawConVarImGui(render_meshlets_use_mesh_shaders.getDescription());
+
+	ImGui::BeginDisabled(render_path_tracing);
+
+	ImGui::SeparatorText("Screen Space");
+	ConVarSystem::drawConVarImGui(render_ssao.getDescription());
+	ImGui::BeginDisabled(!render_ssao);
+	ssao_renderer->renderImgui();
+	ImGui::EndDisabled();
+	ConVarSystem::drawConVarImGui(render_ssr.getDescription());
+
+	ImGui::SeparatorText("Anti-Aliasing");
+	ConVarSystem::drawConVarImGui(render_fxaa.getDescription());
+
+	ImGui::EndDisabled();
+}
+
+void DebugPanel::camera_tab(EditorContext &context)
+{
+	Camera &camera = context.editor_camera;
+
+	float speed = camera.getSpeed();
+	if (UI::sliderFloat("Speed", &speed, 0.1f, 10.0f, "%.2f"))
+		camera.setSpeed(speed);
+
+	float near_plane = camera.getNear();
+	if (UI::sliderFloat("Near", &near_plane, 0.01f, 3.5f, "%.2f"))
+		camera.setNear(near_plane);
+
+	float far_plane = camera.getFar();
+	if (UI::sliderFloat("Far", &far_plane, 1.0f, 300.0f, "%.1f"))
+		camera.setFar(far_plane);
+
+	glm::vec3 position = camera.getPosition();
+	UI::inputFloat3("Position", position.data.data);
+
+	ImGui::SeparatorText("Framing");
+
+	static int sensor_preset = 0;
+	const char *sensor_names[] = {sensor_presets[0].name, sensor_presets[1].name, sensor_presets[2].name};
+	UI::combo("Sensor", &sensor_preset, sensor_names, IM_ARRAYSIZE(sensor_names));
+	const SensorPreset &sensor = sensor_presets[sensor_preset];
+
+	// two views of the same value, editing either one drives the camera
+	float fov = camera.getFov();
+	if (UI::sliderFloat("Field of View", &fov, 1.0f, 120.0f, "%.1f deg"))
+		camera.setFov(fov);
+
+	float focal_length = fovToFocalLength(camera.getFov(), sensor.height);
+	float previous_focal_length = focal_length;
+
+	static bool dolly_zoom = false;
+	static float subject_distance = 15.0f;
+
+	if (UI::sliderFloat("Focal Length", &focal_length, 8.0f, 300.0f, "%.1f mm", true))
+	{
+		camera.setFov(focalLengthToFov(focal_length, sensor.height));
+
+		if (dolly_zoom)
+		{
+			glm::vec3 forward = camera.getForward();
+			glm::vec3 pivot = camera.getPosition() + forward * subject_distance;
+			subject_distance *= focal_length / previous_focal_length;
+			camera.setPosition(pivot - forward * subject_distance);
+		}
+	}
+
+	UI::text("Horizontal FOV", "%.1f deg", focalLengthToFov(focal_length, sensor.width));
+
+	UI::checkbox("Dolly Zoom", &dolly_zoom, "Keep the subject the same size while the focal length changes");
+	ImGui::BeginDisabled(!dolly_zoom);
+	UI::sliderFloat("Subject Distance", &subject_distance, 0.1f, 1000.0f, "%.2f m", true);
+	ImGui::BeginDisabled(!context.selected_entity);
+	if (ImGui::Button("Subject Distance From Selection", ImVec2(-FLT_MIN, 0)))
+	{
+		glm::vec3 target = glm::vec3(context.selected_entity.getWorldTransformMatrix()[3]);
+		subject_distance = glm::length(target - camera.getPosition());
+	}
+	ImGui::EndDisabled();
+	ImGui::EndDisabled();
+
+	post_renderer->renderImgui();
+}
+
+void DebugPanel::lighting_tab()
+{
+	ImGui::SeparatorText("Sky");
+	ConVarSystem::drawConVarImGui(render_sky.getDescription());
+	ImGui::BeginDisabled(!render_sky);
+	sky_renderer->renderImgui();
+	ImGui::EndDisabled();
+
+	ImGui::SeparatorText("Shadows");
+	ConVarSystem::drawConVarImGui(render_shadows.getDescription());
+	ImGui::BeginDisabled(!render_shadows);
+	int shadow_mode = render_ray_traced_shadows ? 1 : 0;
+	const char *shadow_items[] = {"Shadow Maps", "Ray Traced"};
+	if (UI::radio("Technique", &shadow_mode, shadow_items, IM_ARRAYSIZE(shadow_items)))
+		render_ray_traced_shadows = shadow_mode == 1;
+	ImGui::EndDisabled();
+
+	ImGui::SeparatorText("Global Illumination");
+	ConVarSystem::drawConVarImGui(render_ddgi.getDescription());
+	ImGui::BeginDisabled(!render_ddgi);
+	ddgi_renderer->renderImgui();
+	ImGui::EndDisabled();
+}
+
+void DebugPanel::renderImGui(EditorContext &context)
+{
+	ImGui::Begin((eastl::string(ICON_FA_BUG) + " Debug Window###Debug Window").c_str());
+
+	UI::text("RHI", "%s", gDynamicRHI->getName());
+
+	if (UI::section("Visualization", true))
+	{
+		ConVarSystem::drawConVarImGui(render_debug_rendering.getDescription());
+
+		if (render_debug_rendering)
+		{
+			const char *items[] = {"All", "Final Composite", "Albedo", "Metalness", "Roughness", "Specular", "Normal", "Depth", "Position", "Light Diffuse", "Light Specular", "BRDF LUT", "SSAO", "DDGI", "HiZ", "Debug Texture", "Overdraw", "Motion Vectors"};
+			int mode = render_debug_rendering_mode;
+			if (UI::combo("Preview", &mode, items, IM_ARRAYSIZE(items)))
+				render_debug_rendering_mode = mode;
+			debug_renderer->ubo.present_mode = render_debug_rendering_mode;
+		}
+
+		ConVarSystem::drawConVarImGui(render_lighting_only.getDescription());
+		ConVarSystem::drawConVarImGui(render_freeze_culling.getDescription());
+		ConVarSystem::drawConVarImGui(render_culling_hiz_debug.getDescription());
+		ConVarSystem::drawConVarImGui(render_meshlets_bvh_visualize.getDescription());
+		ImGui::BeginDisabled(!render_meshlets_bvh_visualize);
+		ConVarSystem::drawConVarImGui(render_meshlets_bvh_visualize_depth.getDescription());
+		ImGui::EndDisabled();
+	}
+
+	mitsuba_bridge->renderImGui(context);
+
+	if (UI::section("Geometry Buffers"))
 	{
 		auto toMB = [](uint64_t bytes) { return bytes / (1024.0f * 1024.0f); };
 
 		uint64_t geom_used = GlobalBufferCache::getMeshletGeometryBufferUsedSize();
 		uint64_t geom_max = GlobalBufferCache::getMeshletGeometryBufferMaxSize();
-		float geom_fraction = geom_max > 0 ? (float)geom_used / geom_max : 0.0f;
-		ImGui::Text("Meshlet Geometry: %.1f / %.0f MB", toMB(geom_used), toMB(geom_max));
-		ImGui::ProgressBar(geom_fraction, ImVec2(-1, 0));
+		UI::text("Meshlet Geometry", "%.1f / %.0f MB", toMB(geom_used), toMB(geom_max));
+
+		UI::property("Usage", [&]
+		{
+			ImGui::ProgressBar(geom_max > 0 ? (float)geom_used / geom_max : 0.0f, ImVec2(-FLT_MIN, 0));
+			return false;
+		});
 
 		if (geometry_streaming)
 		{
 			const auto &s = geometry_streaming->getStats();
-			ImGui::Separator();
-			ImGui::Text("Streaming");
-			float resident_frac = s.total_groups > 0 ? (float)s.resident_groups / s.total_groups : 0.0f;
-			ImGui::Text("Resident groups: %u / %u (%.1f%%)", s.resident_groups, s.total_groups, resident_frac * 100.0f);
-			ImGui::Text("Meshes registered: %u", s.registered_mesh_count);
-			ImGui::Text("Pending loads (queue): %u", s.pending_load_queue_size);
-			ImGui::Text("Pending frees: %u", s.pending_frees_count);
+			ImGui::SeparatorText("Streaming");
+			float resident_fraction = s.total_groups > 0 ? (float)s.resident_groups / s.total_groups : 0.0f;
+			UI::text("Resident Groups", "%u / %u (%.1f%%)", s.resident_groups, s.total_groups, resident_fraction * 100.0f);
+			UI::text("Meshes Registered", "%u", s.registered_mesh_count);
+			UI::text("Pending Loads", "%u", s.pending_load_queue_size);
+			UI::text("Pending Frees", "%u", s.pending_frees_count);
 
-			ImGui::Spacing();
-			ImGui::Text("This frame:");
-			ImGui::Text("  Loads: %u (%.2f MB)", s.loads_last_frame, toMB(s.bytes_loaded_last_frame));
-			ImGui::Text("  Unloads: %u (%.2f MB)", s.unloads_last_frame, toMB(s.bytes_unloaded_last_frame));
+			ImGui::SeparatorText("This Frame");
+			UI::text("Loads", "%u (%.2f MB)", s.loads_last_frame, toMB(s.bytes_loaded_last_frame));
+			UI::text("Unloads", "%u (%.2f MB)", s.unloads_last_frame, toMB(s.bytes_unloaded_last_frame));
 
-			ImGui::Spacing();
-			ImGui::Text("Cumulative:");
-			ImGui::Text("  Loads: %llu (%.1f MB)", s.total_loads, toMB(s.total_bytes_loaded));
-			ImGui::Text("  Unloads: %llu (%.1f MB)", s.total_unloads, toMB(s.total_bytes_unloaded));
-
+			ImGui::SeparatorText("Cumulative");
+			UI::text("Loads", "%llu (%.1f MB)", s.total_loads, toMB(s.total_bytes_loaded));
+			UI::text("Unloads", "%llu (%.1f MB)", s.total_unloads, toMB(s.total_bytes_unloaded));
 		}
-
-		ImGui::TreePop();
 	}
 
-	if (ImGui::TreeNode("Debug Info"))
+	if (UI::section("Debug Info"))
 	{
 		auto info = Renderer::getDebugInfo();
-		ImGui::Text("descriptors_count: %u", info.descriptors_count);
-		ImGui::Text("descriptor_bindings_count: %u", info.descriptor_bindings_count);
-		ImGui::Text("descriptors_max_offset: %u", info.descriptors_max_offset);
-		ImGui::Text("Draw Calls: %u", info.drawcalls);
-		ImGui::TreePop();
+		UI::text("Descriptors", "%u", info.descriptors_count);
+		UI::text("Descriptor Bindings", "%u", info.descriptor_bindings_count);
+		UI::text("Descriptors Max Offset", "%u", info.descriptors_max_offset);
+		UI::text("Draw Calls", "%u", info.drawcalls);
 	}
 
-	ConVarSystem::drawConVarImGui(render_debug_rendering.getDescription());
+	if (UI::section("Console Variables"))
+		ConVarSystem::drawImGui();
 
-	if (render_debug_rendering)
-	{
-		int mode = render_debug_rendering_mode;
-		char* items[] = { "All", "Final Composite", "Albedo", "Metalness", "Roughness", "Specular", "Normal", "Depth", "Position", "Light Diffuse", "Light Specular", "BRDF LUT", "SSAO", "DDGI", "HiZ", "Debug Texture", "Overdraw", "Motion Vectors" };
-		if (ImGui::BeginCombo("Preview Combo", items[mode]))
-		{
-			for (int n = 0; n < IM_ARRAYSIZE(items); n++)
-			{
-				bool is_selected = (mode == n);
-				if (ImGui::Selectable(items[n], is_selected))	
-					render_debug_rendering_mode = n;
-				if (is_selected)
-					ImGui::SetItemDefaultFocus();
-			}
-			ImGui::EndCombo();
-		}
-		debug_renderer->ubo.present_mode = render_debug_rendering_mode;
-	}
-
-	{
-		const char *upscale_items[] = { "Off", "DLSS" };
-		int upscale_mode = render_upscale_mode;
-		if (ImGui::BeginCombo("Upscaling", upscale_items[upscale_mode]))
-		{
-			for (int n = 0; n < IM_ARRAYSIZE(upscale_items); n++)
-			{
-				bool is_selected = upscale_mode == n;
-				if (ImGui::Selectable(upscale_items[n], is_selected))
-					render_upscale_mode = n;
-				if (is_selected)
-					ImGui::SetItemDefaultFocus();
-			}
-			ImGui::EndCombo();
-		}
-
-		const char *dlss_items[] = { "Performance", "Balanced", "Quality", "Ultra Performance", "DLAA" };
-		ImGui::BeginDisabled(render_upscale_mode != UPSCALE_MODE_DLSS);
-		int dlss_mode = render_dlss_mode;
-		if (ImGui::BeginCombo("DLSS Mode", dlss_items[dlss_mode]))
-		{
-			for (int n = 0; n < IM_ARRAYSIZE(dlss_items); n++)
-			{
-				bool is_selected = dlss_mode == n;
-				if (ImGui::Selectable(dlss_items[n], is_selected))
-					render_dlss_mode = n;
-				if (is_selected)
-					ImGui::SetItemDefaultFocus();
-			}
-			ImGui::EndCombo();
-		}
-		ImGui::EndDisabled();
-	}
-
-	ConVarSystem::drawImGui();
-
-	auto &camera = context.editor_camera;
-	float cam_speed = camera.getSpeed();
-	if (ImGui::SliderFloat("Camera Speed", &cam_speed, 0.1f, 10.0f))
-		camera.setSpeed(cam_speed);
-
-	float cam_near = camera.getNear();
-	if (ImGui::SliderFloat("Camera Near", &cam_near, 0.01f, 3.5f))
-		camera.setNear(cam_near);
-
-	float cam_far = camera.getFar();
-	if (ImGui::SliderFloat("Camera Far", &cam_far, 1.0f, 300.0f))
-		camera.setFar(cam_far);
-
-
-	float cam_fov = camera.getFov();
-
-	if (ImGui::TreeNode("Physical Lens"))
-	{
-		static int sensor_preset = 0;
-		if (ImGui::BeginCombo("Sensor", sensor_presets[sensor_preset].name))
-		{
-			for (int i = 0; i < IM_ARRAYSIZE(sensor_presets); i++)
-			{
-				if (ImGui::Selectable(sensor_presets[i].name, sensor_preset == i))
-					sensor_preset = i;
-			}
-			ImGui::EndCombo();
-		}
-		const SensorPreset &sensor = sensor_presets[sensor_preset];
-
-		float focal_length = fovToFocalLength(cam_fov, sensor.height);
-		float previous_focal_length = focal_length;
-
-		float vertical_fov = focalLengthToFov(focal_length, sensor.height);
-		float horizontal_fov = focalLengthToFov(focal_length, sensor.width);
-
-		static bool dolly_zoom = false;
-		static float subject_distance = 15.0f;
-
-		if (ImGui::SliderFloat("Focal Length (mm)", &focal_length, 8.0f, 300.0f, "%.1f", ImGuiSliderFlags_Logarithmic))
-		{
-			vertical_fov = focalLengthToFov(focal_length, sensor.height);
-			horizontal_fov = focalLengthToFov(focal_length, sensor.width);
-			camera.setFov(vertical_fov);
-
-			if (dolly_zoom)
-			{
-				glm::vec3 forward = camera.getForward();
-				glm::vec3 pivot = camera.getPosition() + forward * subject_distance;
-				subject_distance *= focal_length / previous_focal_length;
-				camera.setPosition(pivot - forward * subject_distance);
-			}
-		}
-
-		ImGui::Checkbox("Dolly Zoom", &dolly_zoom);
-		ImGui::SliderFloat("Subject Distance", &subject_distance, 0.1f, 1000.0f, "%.2f", ImGuiSliderFlags_Logarithmic);
-
-		ImGui::BeginDisabled(!context.selected_entity);
-		if (ImGui::Button("Set Subject Distance From Selection"))
-		{
-			glm::vec3 target = glm::vec3(context.selected_entity.getWorldTransformMatrix()[3]);
-			subject_distance = glm::length(target - camera.getPosition());
-		}
-		ImGui::EndDisabled();
-
-		ImGui::Text("FOV: %.1f vertical, %.1f horizontal", vertical_fov, horizontal_fov);
-		ImGui::TreePop();
-	}
-
-	if (ImGui::SliderFloat("Camera FOV", &cam_fov, 1.0f, 120.0f))
-		camera.setFov(cam_fov);
-
-	glm::vec3 cam_pos = camera.getPosition();
-	ImGui::InputFloat3("Camera Position", cam_pos.data.data);
-
-	post_renderer->renderImgui();
-	ssao_renderer->renderImgui();
-	defferred_lighting_renderer->renderImgui();
-
-	sky_renderer->renderImgui();
-	if (render_automatic_sun_position)
-	{
-		auto entities_id = Scene::getCurrentScene()->getEntitiesWith<LightComponent>();
-		for (const auto &entity_id : entities_id)
-		{
-			Entity entity(entity_id);
-
-			LightComponent &light = entity.getComponent<LightComponent>();
-			if (light.getType() != LIGHT_TYPE_DIRECTIONAL)
-				continue;
-			sky_renderer->procedural_uniforms.sun_direction = entity.getLocalDirection(glm::vec3(0, 0, -1));
-			sky_renderer->sun_illuminance = glm::vec4(light.getPhotometricIntensity(), 1.0f);
-			break;
-		}
-	}
-
-	ddgi_renderer->renderImgui();
-
-	mitsuba_bridge->renderImGui(context);
+	ImGui::End();
 }

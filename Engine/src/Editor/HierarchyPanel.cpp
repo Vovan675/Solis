@@ -154,7 +154,7 @@ void HierarchyPanel::renderImGui(EditorContext &context)
 		start_entity = entt::null;
 	}
 
-	if (ImGui::Button("Create Entity"))
+	if (ImGui::Button(ICON_FA_PLUS " Create Entity", ImVec2(-FLT_MIN, 0)))
 		Scene::getCurrentScene()->createEntity("New Entity");
 
 	ImGui::End();

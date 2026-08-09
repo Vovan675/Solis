@@ -6,18 +6,19 @@
 #include "Renderers/PostProcessingRenderer.h"
 #include "Core/Variables.h"
 #include "imgui/ImGuiWrapper.h"
+#include "UI.h"
 #include "json.hpp"
 #include <fstream>
 
 void MitsubaBridge::renderImGui(EditorContext &context)
 {
-	if (!ImGui::CollapsingHeader("Ground Truth (Mitsuba)"))
+	if (!UI::section("Ground Truth (Mitsuba)"))
 		return;
 
-	ImGui::SliderFloat("Render Scale", &render_scale, 0.1f, 1.0f);
-	ImGui::SliderInt("Max Depth", &max_depth, 2, 16);
+	UI::sliderFloat("Render Scale", &render_scale, 0.1f, 1.0f);
+	UI::sliderInt("Max Depth", &max_depth, 2, 16);
 
-	if (ImGui::Button("Render (M)"))
+	if (ImGui::Button("Render (M)", ImVec2(-FLT_MIN, 0)))
 		runRender(context);
 
 	if (!status.empty())

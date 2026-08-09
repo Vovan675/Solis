@@ -1,8 +1,7 @@
 #include "pch.h"
 #include "ParametersPanel.h"
 #include "Core/Filesystem.h"
-#include "imgui.h"
-#include "imgui/IconsFontAwesome6.h"
+#include "UI.h"
 #include "Rendering/Model.h"
 #include "imgui/ImGuiWrapper.h"
 #include "Scene/Components.h"
@@ -11,34 +10,19 @@
 template <typename C, typename F>
 static void drawComponent(Entity entity, const char *title, F func)
 {
-	if (entity.hasComponent<C>())
-	{
-		bool close = true;
-		if (ImGui::CollapsingHeader(title, &close, ImGuiTreeNodeFlags_DefaultOpen))
-		{
-			func(entity.getComponent<C>());
-		}
-		if (!close)
-		{
-			entity.removeComponent<C>();
-		}
-	}
-}
+	if (!entity.hasComponent<C>())
+		return;
 
-static void alignForWidth(float width, float alignment = 0.5f)
-{
-	float avail = ImGui::GetContentRegionAvail().x;
-	float off = (avail - width) * alignment;
-	if (off > 0.0f)
-		ImGui::SetCursorPosX(ImGui::GetCursorPosX() + off);
-}
+	bool close = true;
+	ImGui::PushFont(UI::font_bold);
+	bool open = ImGui::CollapsingHeader(title, &close, ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_FramePadding);
+	ImGui::PopFont();
 
-static bool centeredButton(const char *label, float alignment = 0.5f)
-{
-	ImGuiStyle& style = ImGui::GetStyle();
-	float width = ImGui::CalcTextSize(label).x + style.FramePadding.x * 2.0f;
-	alignForWidth(width, alignment);
-	return ImGui::Button(label);
+	if (open)
+		func(entity.getComponent<C>());
+
+	if (!close)
+		entity.removeComponent<C>();
 }
 
 template <typename C>
@@ -58,55 +42,62 @@ static std::string yamlToString(const YAML::Node &node)
 
 static bool assetReferenceField(EditorContext &context, const char *label, Engine::GUID current_handle, AssetType accepted_type, std::filesystem::path &picked_path)
 {
-	ImGui::PushID(label);
 	bool picked = false;
-
 	std::filesystem::path current_path = AssetManager::getPathFromGUID(current_handle);
-	eastl::string field_text = current_path.empty() ? "None" : current_path.filename().string().c_str();
 
-	ImGui::Text("%s", label);
-	ImGui::SameLine();
-	if (ImGui::Button(field_text.c_str()))
+	UI::property(label, [&]
 	{
-		std::filesystem::path path = Filesystem::openFileDialog().c_str();
-		if (!path.empty() && AssetManager::getAssetTypeFromExtension(path.extension().string().c_str()) == accepted_type)
-		{
-			picked_path = path;
-			picked = true;
-		}
-	}
+		eastl::string field_text = current_path.empty() ? "None" : current_path.filename().string().c_str();
 
-	if (ImGui::BeginDragDropTarget())
-	{
-		if (const ImGuiPayload *payload = ImGui::AcceptDragDropPayload("DND_ASSET_PATH"))
+		float open_button_width = ImGui::GetFrameHeight() + ImGui::GetStyle().ItemSpacing.x;
+		if (ImGui::Button(field_text.c_str(), ImVec2(-open_button_width, 0)))
 		{
-			std::filesystem::path dropped = (const char *)payload->Data;
-			if (AssetManager::getAssetTypeFromExtension(dropped.extension().string().c_str()) == accepted_type)
+			std::filesystem::path path = Filesystem::openFileDialog().c_str();
+			if (!path.empty() && AssetManager::getAssetTypeFromExtension(path.extension().string().c_str()) == accepted_type)
 			{
-				picked_path = dropped;
+				picked_path = path;
 				picked = true;
 			}
 		}
-		ImGui::EndDragDropTarget();
-	}
 
-	ImGui::SameLine();
-	ImGui::BeginDisabled(!current_handle.isValid());
-	if (ImGui::Button(ICON_FA_UP_RIGHT_FROM_SQUARE))
-	{
-		context.selected_path = current_path;
-		context.selection_type = EditorSelectionType::Asset;
-	}
-	ImGui::EndDisabled();
+		if (ImGui::BeginDragDropTarget())
+		{
+			if (const ImGuiPayload *payload = ImGui::AcceptDragDropPayload("DND_ASSET_PATH"))
+			{
+				std::filesystem::path dropped = (const char *)payload->Data;
+				if (AssetManager::getAssetTypeFromExtension(dropped.extension().string().c_str()) == accepted_type)
+				{
+					picked_path = dropped;
+					picked = true;
+				}
+			}
+			ImGui::EndDragDropTarget();
+		}
 
-	ImGui::PopID();
+		ImGui::SameLine();
+		ImGui::BeginDisabled(!current_handle.isValid());
+		if (ImGui::Button(ICON_FA_UP_RIGHT_FROM_SQUARE))
+		{
+			context.selected_path = current_path;
+			context.selection_type = EditorSelectionType::Asset;
+		}
+		ImGui::EndDisabled();
+		return picked;
+	});
+
 	return picked;
+}
+
+static void drawTexturePreview(RHITextureRef texture, int mip, int layer)
+{
+	float aspect = (float)texture->getWidth() / texture->getHeight();
+	float width = ImGui::GetContentRegionAvail().x;
+	ImGui::Image(ImGuiWrapper::getTextureId(texture, mip, layer), ImVec2(width, width / aspect));
 }
 
 bool ParametersPanel::renderImGui(EditorContext &context, DebugRenderer &debug_renderer, AssetBrowserPanel &asset_browser)
 {
 	ImGui::Begin((eastl::string(ICON_FA_PEN) + " Parameters###Parameters").c_str());
-	bool is_using_ui = ImGui::IsWindowFocused();
 
 	auto selected_path = context.selected_path;
 	Entity entity = context.selected_entity;
@@ -115,23 +106,22 @@ bool ParametersPanel::renderImGui(EditorContext &context, DebugRenderer &debug_r
 	{
 		drawComponent<TransformComponent>(entity, "Transform", [&](TransformComponent &transform_component) {
 			glm::vec3 position = transform_component.getLocalPosition();
-			if (ImGui::InputFloat3("Position", position.data.data))
+			if (UI::inputFloat3("Position", position.data.data))
 				transform_component.setPosition(position);
 
-			glm::vec3 rot = glm::degrees(transform_component.getLocalRotationEuler());
-			if(ImGui::InputFloat3("Rotation", rot.data.data))
-				transform_component.setLocalRotationEuler(glm::radians(rot));
-			
+			glm::vec3 rotation = glm::degrees(transform_component.getLocalRotationEuler());
+			if (UI::inputFloat3("Rotation", rotation.data.data))
+				transform_component.setLocalRotationEuler(glm::radians(rotation));
+
 			glm::vec3 scale = transform_component.getLocalScale();
-			if (ImGui::InputFloat3("Scale", scale.data.data))
+			if (UI::inputFloat3("Scale", scale.data.data))
 				transform_component.setLocalScale(scale);
 		});
 
 		drawComponent<MeshRendererComponent>(entity, "Mesh Renderer", [&](MeshRendererComponent &mesh_renderer)
 		{
-			ImGui::SeparatorText("Mesh Settings");
 			if (mesh_renderer.meshes.empty())
-				ImGui::TextColored(ImVec4(1, 0, 0, 1), "No mesh");
+				ImGui::TextColored(ImVec4(0.90f, 0.35f, 0.30f, 1.0f), "No mesh");
 
 			Engine::GUID model_handle = 0;
 			if (!mesh_renderer.meshes.empty())
@@ -159,105 +149,92 @@ bool ParametersPanel::renderImGui(EditorContext &context, DebugRenderer &debug_r
 				auto mat = mesh_renderer.materials[i];
 				eastl::string name = "Material " + eastl::to_string(i);
 
-				if (ImGui::TreeNode(name.c_str()))
+				if (!ImGui::TreeNodeEx(name.c_str(), ImGuiTreeNodeFlags_SpanAvailWidth))
+					continue;
+
+				bool material_changed = false;
+				auto show_texture_edit = [&context, &material_changed](Material::MaterialTexture &material_texture, const char *name)
 				{
-					bool material_changed = false;
-					auto show_texture_edit = [&context, &material_changed](Material::MaterialTexture &material_texture, const char *name)
+					bool use_texture = material_texture.bindless_id != 0;
+					eastl::string label = eastl::string("Use ") + name + " Texture";
+					if (UI::checkbox(label.c_str(), &use_texture))
 					{
-						bool use_texture = material_texture.bindless_id != 0;
-						eastl::string label = eastl::string("Use ") + name + " texture";
-						if (ImGui::Checkbox(label.c_str(), &use_texture))
-						{
-							if (!use_texture)
-								material_texture.asset_handle = 0;
-							material_texture.bindless_id = use_texture ? 1 : 0;
-							material_changed = true;
-						}
 						if (!use_texture)
-							return false;
+							material_texture.asset_handle = 0;
+						material_texture.bindless_id = use_texture ? 1 : 0;
+						material_changed = true;
+					}
+					if (!use_texture)
+						return false;
 
-						std::filesystem::path picked_texture_path;
-						if (assetReferenceField(context, name, material_texture.asset_handle, ASSET_TYPE_TEXTURE, picked_texture_path))
-						{
-							material_texture.asset_handle = AssetManager::getGUIDFromPath(picked_texture_path);
-							material_texture.bindless_id = 0;
-							material_changed = true;
-						}
-						return true;
-					};
+					std::filesystem::path picked_texture_path;
+					if (assetReferenceField(context, name, material_texture.asset_handle, ASSET_TYPE_TEXTURE, picked_texture_path))
+					{
+						material_texture.asset_handle = AssetManager::getGUIDFromPath(picked_texture_path);
+						material_texture.bindless_id = 0;
+						material_changed = true;
+					}
+					return true;
+				};
 
-					if (!show_texture_edit(mat->albedo_tex, "albedo"))
-						material_changed |= ImGui::ColorEdit4("Color", mat->albedo.data.data);
+				if (!show_texture_edit(mat->albedo_tex, "Albedo"))
+					material_changed |= UI::colorEdit4("Albedo", mat->albedo.data.data);
 
-					show_texture_edit(mat->normal_tex, "normal");
+				show_texture_edit(mat->normal_tex, "Normal");
 
-					if (!show_texture_edit(mat->metalness_tex, "metalness"))
-						material_changed |= ImGui::DragFloat("Metalness", &mat->metalness, 0.1, 0, 1.0);
+				if (!show_texture_edit(mat->metalness_tex, "Metalness"))
+					material_changed |= UI::sliderFloat("Metalness", &mat->metalness, 0.0f, 1.0f, "%.2f");
 
-					if (!show_texture_edit(mat->roughness_tex, "roughness"))
-						material_changed |= ImGui::DragFloat("Roughness", &mat->roughness, 0.1, 0, 1.0);
+				if (!show_texture_edit(mat->roughness_tex, "Roughness"))
+					material_changed |= UI::sliderFloat("Roughness", &mat->roughness, 0.0f, 1.0f, "%.2f");
 
-					if (!show_texture_edit(mat->specular_tex, "specular"))
-						material_changed |= ImGui::DragFloat("Specular", &mat->specular, 0.1, 0, 1.0);
+				if (!show_texture_edit(mat->specular_tex, "Specular"))
+					material_changed |= UI::sliderFloat("Specular", &mat->specular, 0.0f, 1.0f, "%.2f");
 
-					// TODO: mark only material as dirty, so reupload only material
-					if (material_changed)
-						entity.markDirty(DIRTY_RENDER_STATE);
+				// TODO: mark only material as dirty, so reupload only material
+				if (material_changed)
+					entity.markDirty(DIRTY_RENDER_STATE);
 
-					ImGui::TreePop();
-				}
+				ImGui::TreePop();
 			}
 		});
 
 		drawComponent<LightComponent>(entity, "Light", [](LightComponent &light) {
 			int light_type = light.getType();
-			char *items[] = {"Point", "Directional"};
-			if (ImGui::BeginCombo("Light type", items[light_type]))
-			{
-				for (int n = 0; n < IM_ARRAYSIZE(items); n++)
-				{
-					bool is_selected = (light_type == n);
-					if (ImGui::Selectable(items[n], is_selected))
-						light_type = n;
-					if (is_selected)
-						ImGui::SetItemDefaultFocus();
-				}
-				ImGui::EndCombo();
-			}
-			light.setType((LIGHT_TYPE)light_type);
-			ImGui::ColorEdit3("Light Color", light.color.data.data);
-			ImGui::SliderFloat("Attenuation Radius", &light.attenuation_radius, 0.001f, 40.0);
-			const char *intensity_label = light_type == LIGHT_TYPE_DIRECTIONAL ? "Light Intensity (lux)" : "Light Intensity (lumens)";
-			ImGui::SliderFloat(intensity_label, &light.intensity, 0.01f, 200000.0f, "%.2f", ImGuiSliderFlags_Logarithmic);
+			const char *items[] = {"Point", "Directional"};
+			if (UI::combo("Type", &light_type, items, IM_ARRAYSIZE(items)))
+				light.setType((LIGHT_TYPE)light_type);
+
+			UI::colorEdit3("Color", light.color.data.data);
+
+			const char *intensity_label = light_type == LIGHT_TYPE_DIRECTIONAL ? "Illuminance" : "Luminous Power";
+			const char *intensity_format = light_type == LIGHT_TYPE_DIRECTIONAL ? "%.0f lux" : "%.0f lm";
+			UI::sliderFloat(intensity_label, &light.intensity, 0.01f, 200000.0f, intensity_format, true);
+
+			if (light_type == LIGHT_TYPE_POINT)
+				UI::sliderFloat("Attenuation Radius", &light.attenuation_radius, 0.001f, 40.0f, "%.2f m");
 
 			RHITextureRef texture = light.shadow_map;
-			if (texture)
-			{
-				static int layer_index = 0;
-				ImGui::SliderInt("Layer/Face", &layer_index, 0, light_type == LIGHT_TYPE_POINT ? 5 : 3);
+			if (!texture)
+				return;
 
-				float aspect = (float)texture->getWidth() / (float)texture->getHeight();
-				ImVec2 viewport_size = ImGui::GetContentRegionAvail();
-				float min_size = std::min(viewport_size.x, viewport_size.y);
-				viewport_size.x = min_size;
-				viewport_size.y = min_size / aspect;
-
-				ImGui::Image(ImGuiWrapper::getTextureId(texture, 0, layer_index), viewport_size, {0, 0}, {1, 1});
-			}
+			ImGui::SeparatorText("Shadow Map");
+			static int layer_index = 0;
+			UI::sliderInt("Layer / Face", &layer_index, 0, light_type == LIGHT_TYPE_POINT ? 5 : 3);
+			drawTexturePreview(texture, 0, layer_index);
 		});
 
-
 		drawComponent<RigidBodyComponent>(entity, "Rigid Body", [&](RigidBodyComponent &rb) {
-			ImGui::Checkbox("Is Static", &rb.is_static);
-			ImGui::DragFloat("Linear Damping", &rb.linear_damping, 0.01f, 0.0f, 1.0f);
-			ImGui::DragFloat("Angular Damping", &rb.angular_damping, 0.05f, 0.0f, 1.0f);
-			ImGui::Checkbox("Use Gravity", &rb.gravity);
-			ImGui::Checkbox("Is Kinematic", &rb.is_kinematic);
+			UI::checkbox("Is Static", &rb.is_static);
+			UI::checkbox("Is Kinematic", &rb.is_kinematic);
+			UI::checkbox("Use Gravity", &rb.gravity);
+			UI::dragFloat("Linear Damping", &rb.linear_damping, 0.01f, 0.0f, 1.0f);
+			UI::dragFloat("Angular Damping", &rb.angular_damping, 0.05f, 0.0f, 1.0f);
 		});
 
 		drawComponent<BoxColliderComponent>(entity, "Box Collider", [&](BoxColliderComponent &collider) {
-			ImGui::InputFloat3("Half Extent", collider.half_extent.data.data);
-			if (ImGui::Button("Extent to Bounds"))
+			UI::inputFloat3("Half Extent", collider.half_extent.data.data);
+			if (ImGui::Button("Extent to Bounds", ImVec2(-FLT_MIN, 0)))
 			{
 				MeshRendererComponent &mesh_renderer = entity.getComponent<MeshRendererComponent>();
 				BoundBox bbox;
@@ -272,8 +249,8 @@ bool ParametersPanel::renderImGui(EditorContext &context, DebugRenderer &debug_r
 			}
 		});
 
-
-		if (centeredButton("Add component..."))
+		ImGui::Spacing();
+		if (ImGui::Button(ICON_FA_PLUS " Add Component", ImVec2(-FLT_MIN, 0)))
 			ImGui::OpenPopup("add_component_popup");
 		if (ImGui::BeginPopup("add_component_popup"))
 		{
@@ -295,8 +272,8 @@ bool ParametersPanel::renderImGui(EditorContext &context, DebugRenderer &debug_r
 			if (ImGui::SmallButton(ICON_FA_MAGNIFYING_GLASS " Show in Asset Browser"))
 				asset_browser.setCurrentAsset(selected_path);
 
-			ImGui::Text("Asset Handle: %llu", metadata.asset_handle);
-			ImGui::Text("Runtime Handle: %llu", metadata.runtime_handle);
+			UI::text("Asset Handle", "%llu", metadata.asset_handle);
+			UI::text("Runtime Handle", "%llu", metadata.runtime_handle);
 
 			static bool reimported = false;
 
@@ -313,14 +290,14 @@ bool ParametersPanel::renderImGui(EditorContext &context, DebugRenderer &debug_r
 			if (metadata.type == ASSET_TYPE_MODEL)
 			{
 				bool generate_meshlets = edited_params["generate_meshlets"].as<bool>(true);
-				if (ImGui::Checkbox("Meshlet (Nanite) geometry", &generate_meshlets))
+				if (UI::checkbox("Meshlet (Nanite) Geometry", &generate_meshlets))
 					edited_params["generate_meshlets"] = generate_meshlets;
 			}
 
 			if (metadata.type == ASSET_TYPE_TEXTURE)
 			{
 				bool generate_mipmaps = edited_params["generate_mipmaps"].as<int>(1);
-				if (ImGui::Checkbox("Generate Mipmaps", &generate_mipmaps))
+				if (UI::checkbox("Generate Mipmaps", &generate_mipmaps))
 					edited_params["generate_mipmaps"] = (int)generate_mipmaps;
 
 				auto texture = AssetManager::getTextureAsset(selected_path.string().c_str());
@@ -328,23 +305,17 @@ bool ParametersPanel::renderImGui(EditorContext &context, DebugRenderer &debug_r
 				static int mip_index = 0;
 				if (reimported)
 					mip_index = 0;
-				ImGui::SliderInt("Mip", &mip_index, 0, texture->getDescription().mip_levels - 1);
-
-				float aspect = (float)texture->getWidth() / (float)texture->getHeight();
-				ImVec2 viewport_size = ImGui::GetContentRegionAvail();
-				float min_size = std::min(viewport_size.x, viewport_size.y);
-				viewport_size.x = min_size;
-				viewport_size.y = min_size / aspect;
+				UI::sliderInt("Mip", &mip_index, 0, texture->getDescription().mip_levels - 1);
 
 				if (texture)
-					ImGui::Image(ImGuiWrapper::getTextureId(texture, mip_index), viewport_size, {0, 0}, {1, 1});
+					drawTexturePreview(texture, mip_index, -1);
 			}
 
 			bool params_dirty = yamlToString(edited_params) != base_params_string;
 			reimported = false;
 			if (params_dirty)
 				ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.8f, 0.4f, 0.0f, 1.0f));
-			if (ImGui::Button("Reimport"))
+			if (ImGui::Button("Reimport", ImVec2(-FLT_MIN, 0)))
 			{
 				reimported = true;
 				metadata.params = YAML::Clone(edited_params);

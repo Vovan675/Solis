@@ -1,5 +1,5 @@
 #include "pch.h"
-#include "imgui.h"
+#include "Editor/UI.h"
 #include "PostProcessingRenderer.h"
 #include "RHI/BindlessResources.h"
 #include "Rendering/Renderer.h"
@@ -57,49 +57,72 @@ static float luminanceToEV100(float luminance_max, float luminance)
 	return log2(luminance / luminance_max);
 }
 
+static float cameraToEV100(float aperture, float shutter_speed, float iso)
+{
+	// https://en.wikipedia.org/wiki/Exposure_value
+	return log2(aperture * aperture / shutter_speed) - log2(iso / 100.0f);
+}
+
+static const float aperture_steps_per_doubling = 2.0f;
+static const float shutter_steps_per_doubling = -1.0f;
+static const float iso_steps_per_doubling = 1.0f;
+
+static bool stopSlider(const char *label, float *value, float base, float steps_per_doubling, int min_step, int max_step, const char *display)
+{
+	int step = roundf(log2(*value / base) * steps_per_doubling);
+	bool changed = UI::property(label, [&] { return ImGui::SliderInt("##value", &step, min_step, max_step, display); });
+	if (changed)
+		*value = base * powf(2.0f, step / steps_per_doubling);
+	return changed;
+}
+
 void PostProcessingRenderer::renderImgui()
 {
-	if (ImGui::TreeNode("Post Processing"))
+	ImGui::SeparatorText("Exposure");
+
+	const char *mode_items[] = {"EV100", "Camera"};
+	UI::radio("Set By", &exposure_mode, mode_items, IM_ARRAYSIZE(mode_items));
+
+	float luminance = 1.0f / film_ubo.exposure; // because exposure is multiplier of nits, so nits is 1.0/exposure
+	float ev100 = luminanceToEV100(getLuminanceMax(), luminance);
+
+	bool is_camera_mode = exposure_mode == EXPOSURE_MODE_CAMERA;
+	ImGui::BeginDisabled(is_camera_mode);
+	if (UI::sliderFloat("EV100", &ev100, -6.0f, 20.0f, "%.2f EV", false, "Scene luminance that saturates the sensor. +1 EV halves the image brightness"))
+		film_ubo.exposure = 1.0f / EV100ToLuminance(getLuminanceMax(), ev100);
+	ImGui::EndDisabled();
+
+	ImGui::BeginDisabled(!is_camera_mode);
+
+	std::string aperture_text = aperture < 10.0f ? fmt::format("f/{:.1f}", aperture) : fmt::format("f/{:.0f}", aperture);
+	stopSlider("Aperture", &aperture, 1.0f, aperture_steps_per_doubling, 0, 10, aperture_text.c_str());
+
+	std::string shutter_text = shutter_speed >= 0.3f ? fmt::format("{:.1f} s", shutter_speed) : fmt::format("1/{:.0f} s", 1.0f / shutter_speed);
+	stopSlider("Shutter Speed", &shutter_speed, 1.0f, shutter_steps_per_doubling, 1, 14, shutter_text.c_str());
+
+	std::string iso_text = fmt::format("ISO {:.0f}", iso);
+	stopSlider("Sensitivity", &iso, 100.0f, iso_steps_per_doubling, 0, 8, iso_text.c_str());
+
+	ImGui::EndDisabled();
+
+	if (is_camera_mode)
+		film_ubo.exposure = 1.0f / EV100ToLuminance(getLuminanceMax(), cameraToEV100(aperture, shutter_speed, iso));
+
+	UI::text("Exposure Multiplier", "%.6f", film_ubo.exposure);
+
+	ImGui::SeparatorText("Film");
+
+	const char *tonemappers[] = {"Disabled", "Uncharted2", "ACES"};
+	UI::combo("Tonemapper", &film_ubo.tonemapper_mode, tonemappers, IM_ARRAYSIZE(tonemappers));
+
+	bool use_vignette = film_ubo.use_vignette > 0.5f;
+	if (UI::checkbox("Vignette", &use_vignette))
+		film_ubo.use_vignette = use_vignette ? 1.0f : 0.0f;
+
+	if (use_vignette)
 	{
-		bool use_vignette_bool = film_ubo.use_vignette > 0.5f;
-		if (ImGui::Checkbox("Vignette", &use_vignette_bool))
-		{
-			film_ubo.use_vignette = use_vignette_bool ? 1.0f : 0.0f;
-		}
-
-		if (film_ubo.use_vignette)
-		{
-			ImGui::SliderFloat("Vignette Radius", &film_ubo.vignette_radius, 0.1f, 1.0f);
-			ImGui::SliderFloat("Vignette Smoothness", &film_ubo.vignette_smoothness, 0.1f, 1.0f);
-		}
-
-		{
-			//50mm f=2.8, iso 100, exposure 1/4000
-			float aperture = 2.8;
-			float shutter_speed = 1.0f / 4000.0f;
-
-			float iso = 100.0f;
-			float ev100 = log2(aperture * aperture / shutter_speed) - log2(iso / 100.0f);
-			ImGui::Text("Test EV100: %f", ev100);
-
-			float exposure = 1.0f / EV100ToLuminance(getLuminanceMax(), ev100);
-			ImGui::Text("Test Exposure: %f", exposure);
-		}
-
-		float luminance = 1.0f / film_ubo.exposure; // because exposure is multiplier of nits, so nits is 1.0/exposure
-		float cur_ev100 = luminanceToEV100(getLuminanceMax(), luminance);
-
-		ImGui::SliderFloat("Exposure", &film_ubo.exposure, 0.0f, 4.0f, "%f");
-
-		if (ImGui::SliderFloat("Exposure (EV100)", &cur_ev100, -6.0f, 20.0f))
-		{
-			float luminance = EV100ToLuminance(getLuminanceMax(), cur_ev100);
-			film_ubo.exposure = 1.0f / luminance;
-		}
-
-		const char *tonemappers[] = {"Disabled", "Uncharted2", "ACES"};
-		ImGui::Combo("Tonemapper", &film_ubo.tonemapper_mode, tonemappers, _countof(tonemappers));
-		ImGui::TreePop();
+		UI::sliderFloat("Vignette Radius", &film_ubo.vignette_radius, 0.1f, 1.0f, "%.2f");
+		UI::sliderFloat("Vignette Smoothness", &film_ubo.vignette_smoothness, 0.1f, 1.0f, "%.2f");
 	}
 }
 

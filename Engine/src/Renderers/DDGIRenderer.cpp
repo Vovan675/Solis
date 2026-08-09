@@ -1,7 +1,7 @@
 #include "pch.h"
 #include "DDGIRenderer.h"
 #include "Rendering/Model.h"
-#include <imgui.h>
+#include "Editor/UI.h"
 #include <random>
 #include "Utils/Math.h"
 
@@ -260,21 +260,19 @@ void DDGIRenderer::addVisualizePass(FrameGraph &fg)
 
 void DDGIRenderer::renderImgui()
 {
-	if (ImGui::CollapsingHeader("DDGI Volume", ImGuiTreeNodeFlags_DefaultOpen))
-	{
-		ImGui::DragFloat3("Origin", volume.origin.data.data, 0.1f, -10, 10);
-		ImGui::DragInt3("Size", volume.size.data.data, 1.0f, 1, 10);
-		ImGui::DragFloat3("Spacing", volume.spacing.data.data, 0.05f, 0.05, 5);
+	UI::dragFloat3("Origin", volume.origin.data.data, 0.1f, -10.0f, 10.0f);
+	UI::dragInt3("Size", volume.size.data.data, 1.0f, 1, 10);
+	UI::dragFloat3("Spacing", volume.spacing.data.data, 0.05f, 0.05f, 5.0f);
+	UI::inputInt("Probes Per Frame", (int *)&probes_per_frame, nullptr, ImGuiInputTextFlags_EnterReturnsTrue);
 
-		ImGui::InputInt("Probes Per Frame", (int*)&probes_per_frame, 1, 128, ImGuiInputTextFlags_EnterReturnsTrue);
+	UI::checkbox("Use Relocation", &use_relocation);
+	UI::checkbox("Use Classification", &use_classification);
+	UI::checkbox("Use Fixed Rays", &use_fixed_rays);
+	UI::checkbox("Trace Random Direction", &trace_random_direction);
 
-		ImGui::Checkbox("Use Relocation", &use_relocation);
-		ImGui::Checkbox("Use Classification", &use_classification);
-		char* items[] = { "Irradiance", "Distance", "State", "State Not Disabled", "Cascades" };
-		ImGui::Combo("Vis Mode", &visualization_settings.mode, items, _countof(items));
-		ImGui::Checkbox("Use Fixed Rays", &use_fixed_rays);
-		ImGui::Checkbox("Trace Random Direction", &trace_random_direction);
-	}
+	ConVarSystem::drawConVarImGui(render_ddgi_visualize.getDescription());
+	const char *items[] = {"Irradiance", "Distance", "State", "State Not Disabled", "Cascades"};
+	UI::combo("Visualization", &visualization_settings.mode, items, IM_ARRAYSIZE(items));
 }
 
 eastl::vector<eastl::pair<const char *, const char *>> DDGIRenderer::calculateDefines(eastl::vector<eastl::pair<const char *, const char *>> additional)

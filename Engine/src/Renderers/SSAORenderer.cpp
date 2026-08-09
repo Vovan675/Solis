@@ -1,6 +1,6 @@
 #include "pch.h"
 #include "SSAORenderer.h"
-#include "imgui.h"
+#include "Editor/UI.h"
 #include "RHI/BindlessResources.h"
 #include "Rendering/Renderer.h"
 #include "Math.h"
@@ -128,6 +128,6 @@ void SSAORenderer::addPasses(FrameGraph &fg)
 
 void SSAORenderer::renderImgui()
 {
-	ImGui::SliderInt("SSAO Samples", &ubo_raw_pass.samples, 2, 64);
-	ImGui::SliderFloat("SSAO Sample Radius", &ubo_raw_pass.sample_radius, 0.01f, 1.0f);
+	UI::sliderInt("Samples", &ubo_raw_pass.samples, 2, 64);
+	UI::sliderFloat("Sample Radius", &ubo_raw_pass.sample_radius, 0.01f, 1.0f);
 }

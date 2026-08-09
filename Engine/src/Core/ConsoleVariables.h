@@ -5,8 +5,6 @@ enum ConVarFlag : uint32_t
 {
 	CON_VAR_FLAG_NONE = 0,
 	CON_VAR_FLAG_HIDDEN = 1 << 1,
-	CON_VAR_FLAG_CHECK_BOX = 1 << 2,
-	CON_VAR_FLAG_DRAG = 1 << 3
 };
 
 enum ConVarType

@@ -3,7 +3,7 @@
 #include "imgui/imgui_impl_vulkan.h"
 #include "imgui/imgui_impl_dx12.h"
 #include "imgui/imgui_impl_glfw.h"
-#include "Editor/GuiUtils.h"
+#include "Editor/UI.h"
 #include "Rendering/Renderer.h"
 #include "RHI/Vulkan/VulkanDynamicRHI.h"
 #include "RHI/Vulkan/VulkanUtils.h"
@@ -75,7 +75,7 @@ void ImGuiWrapper::init(GLFWwindow *window)
 							rhi->cbv_srv_uav_additional_heap->getHandle(0).getCpuHandle(), rhi->cbv_srv_uav_additional_heap->getHandle(0).getGpuHandle());
 	}
 
-	GuiUtils::init();
+	UI::init();
 }
 
 void ImGuiWrapper::shutdown()

@@ -9,7 +9,7 @@
 
 #include "Core/Variables.h"
 
-#include "Editor/GuiUtils.h"
+#include "Editor/UI.h"
 
 #include "FrameGraph/FrameGraph.h"
 #include "FrameGraph/GraphViz.h"
@@ -40,7 +40,6 @@ void EditorApplication::init()
 	scene_renderer = new SceneRenderer();
 
 	debug_panel.sky_renderer = &scene_renderer->sky_renderer;
-	debug_panel.defferred_lighting_renderer = &scene_renderer->defferred_lighting_renderer;
 	debug_panel.post_renderer = &scene_renderer->post_renderer;
 	debug_panel.debug_renderer = &scene_renderer->debug_renderer;
 	debug_panel.ssao_renderer = &scene_renderer->ssao_renderer;
@@ -69,9 +68,10 @@ void EditorApplication::update(float delta_time)
 		});
 	}
 
+	bool play_clicked = false;
+
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0);
-	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
-	ImGui::PushFont(GuiUtils::roboto_regular_small);
+	ImGui::PushFont(UI::font_small);
 	if (ImGui::BeginMainMenuBar())
 	{
 		if (ImGui::BeginMenu("Scene"))
@@ -94,16 +94,21 @@ void EditorApplication::update(float delta_time)
 			}
 			ImGui::EndMenu();
 		}
+
 		if (ImGui::BeginMenu("Options"))
 		{
-			ImGui::MenuItem("Auto refresh shaders", 0, &auto_refresh_shaders);
+			ImGui::MenuItem("Auto Refresh Shaders", nullptr, &auto_refresh_shaders);
 			ImGui::EndMenu();
 		}
+
+		play_clicked = ImGui::MenuItem(is_play ? ICON_FA_STOP " Stop" : ICON_FA_PLAY " Play");
+		if (play_clicked)
+			is_play = !is_play;
+
 		ImGui::EndMainMenuBar();
 	}
 	float menu_bar_height = ImGui::GetFrameHeight();
 	ImGui::PopFont();
-	ImGui::PopStyleVar();
 	ImGui::PopStyleVar();
 
 	//ImGui::ShowStyleEditor();
@@ -121,6 +126,7 @@ void EditorApplication::update(float delta_time)
 	ImGui::PushStyleColor(ImGuiCol_MenuBarBg, ImVec4{ 0.0f, 0.0f, 0.0f, 0.0f });
 	window_flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
 	window_flags |= ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
+	window_flags |= ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse;
 
 	ImGui::Begin("DockSpace", nullptr, window_flags);
 	ImGui::PopStyleColor();
@@ -130,22 +136,18 @@ void EditorApplication::update(float delta_time)
 	ImGui::DockSpace(ImGui::GetID("EngineDockSpace"));
 
 	// Viewport
+	ImGui::End();
+
 	static bool prev_is_viewport_focused = false;
 	bool is_viewport_focused = viewport_panel.renderImGui(context, delta_time);
 
-	// TODO: move to DebugPanel
 	// Debug Panel
 
+	debug_panel.renderSettingsImGui(context);
 	debug_panel.renderImGui(context);
-	bool play_clicked = ImGui::Checkbox("Play", &is_play);
-
-	ImGui::End();
-
 
 	// Hierarchy
 	hierarchy_panel.renderImGui(context);
-	ImGui::End();
-
 	// Parameters
 	parameters_panel.renderImGui(context, scene_renderer->debug_renderer, asset_browser_panel);
 

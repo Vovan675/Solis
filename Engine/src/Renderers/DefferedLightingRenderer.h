@@ -41,7 +41,6 @@ public:
 
 	void renderLights(FrameGraph &fg);
 
-	void renderImgui();
 public:
 	Engine::Mesh *icosphere_mesh;
 
