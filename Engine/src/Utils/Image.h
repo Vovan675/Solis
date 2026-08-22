@@ -7,7 +7,6 @@ class Image : public Asset
 {
 public:
 	Image(eastl::string path);
-	AssetType getAssetType() const override { return ASSET_TYPE_TEXTURE; };
 
 	uint32_t getWidth(int mip = 0) const { return width >> mip; }
 	uint32_t getHeight(int mip = 0) const { return height >> mip; }

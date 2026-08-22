@@ -47,7 +47,7 @@ void UpscaleRenderer::addPasses(FrameGraph &frame_graph)
 	bool reset_history = !history_valid;
 	history_valid = true;
 
-	GraphicsResourceName color_input = render_ssr ? GFXRID(SSR) : GFXRID(FinalNoPostTexture);
+	GraphicsResourceName color_input = GFXOPTIONS(ssr).enabled ? GFXRID(SSR) : GFXRID(FinalNoPostTexture);
 
 	frame_graph.addCallbackPass("DLSS Upscale",
 	[&](RenderPassBuilder &builder)

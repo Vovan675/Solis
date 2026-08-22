@@ -47,18 +47,22 @@ public:
 	~Model();
 	void cleanup();
 
-	AssetType getAssetType() const override { return ASSET_TYPE_MODEL; }
 
 	void load(const char *path);
 	void reload() override;
 
 	static Entity createEntity(Model *model);
 
+	Material *getMaterial(size_t id)
+	{
+		auto it = materials_id.find(id);
+		return it == materials_id.end() ? nullptr : it->second.getReference();
+	}
+
 	Engine::Mesh *getMesh(size_t id)
 	{
-		if (meshes_id.find(id) == meshes_id.end())
-			return nullptr;
-		return meshes_id[id];
+		auto it = meshes_id.find(id);
+		return it == meshes_id.end() ? nullptr : it->second;
 	}
 
 	void getMeshes(eastl::vector<Ref<Engine::Mesh>> &out) const
@@ -97,4 +101,5 @@ private:
 	eastl::unordered_map<size_t, Engine::MeshletFileView> file_views;
 
 	eastl::unordered_map<size_t, Ref<Engine::Mesh>> meshes_id;
+	eastl::unordered_map<size_t, Ref<Material>> materials_id;
 };

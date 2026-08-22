@@ -7,14 +7,17 @@ namespace Engine
 	class GUID
 	{
 	public:
-		GUID();
+		GUID() = default;
 		GUID(uint64_t guid);
 		GUID(const Engine::GUID &other);
+
+		static GUID generate();
 
 		operator uint64_t() { return guid; }
 		operator const uint64_t() const { return guid; }
 
 		bool operator ==(const Engine::GUID &other) const { return other.guid == guid; }
+		bool operator !=(const Engine::GUID &other) const { return other.guid != guid; }
 
 		bool isValid() const { return guid != 0; }
 

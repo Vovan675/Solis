@@ -38,7 +38,6 @@ public:
 
 	void addPasses(FrameGraph &fg, Ref<RayTracingScene> rt_scene);
 	void addVisualizePass(FrameGraph &fg);
-	void renderImgui();
 
 	DDGIVolumeGPU getVolume() const { return volume; }
 	uint32_t getVolumeBufferId() const { return volume_buffer->getShaderResourceView()->getBindlessIndex(); }
@@ -53,20 +52,6 @@ private:
 	void addResetRelocationPass(FrameGraph &fg);
 	void addClassificationPass(FrameGraph &fg);
 	void addResetClassificationPass(FrameGraph &fg);
-
-	bool use_relocation = true;
-	bool use_classification = true;
-
-	struct VisualizationSettings
-	{
-		// 0 - irradiance, 1 - distance, 2 - state, 3 - state not disabled
-		int mode = 0;
-	} visualization_settings;
-
-	bool use_fixed_rays = false;
-	bool trace_random_direction = true;
-
-	uint32_t probes_per_frame = 1024;
 
 	DDGIVolumeGPU volume;
 	RHIBufferRef volume_buffer;

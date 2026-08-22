@@ -114,11 +114,11 @@ MeshFormat::MaterialDescriptor encodeMaterial(const Material *mat)
 	d.metalness = mat->metalness;
 	d.roughness = mat->roughness;
 	d.specular = mat->specular;
-	d.albedo_tex_guid = mat->albedo_tex.asset_handle;
-	d.metalness_tex_guid = mat->metalness_tex.asset_handle;
-	d.roughness_tex_guid = mat->roughness_tex.asset_handle;
-	d.specular_tex_guid = mat->specular_tex.asset_handle;
-	d.normal_tex_guid = mat->normal_tex.asset_handle;
+	d.albedo_tex_guid = mat->albedo_tex.asset.guid;
+	d.metalness_tex_guid = mat->metalness_tex.asset.guid;
+	d.roughness_tex_guid = mat->roughness_tex.asset.guid;
+	d.specular_tex_guid = mat->specular_tex.asset.guid;
+	d.normal_tex_guid = mat->normal_tex.asset.guid;
 	return d;
 }
 
@@ -126,12 +126,14 @@ Ref<Material> decodeMaterial(const MeshFormat::MaterialDescriptor &d)
 {
 	Ref<Material> mat = new Material();
 	mat->albedo = glm::vec4(d.albedo[0], d.albedo[1], d.albedo[2], d.albedo[3]);
-	mat->metalness = d.metalness; mat->roughness = d.roughness; mat->specular = d.specular;
-	mat->albedo_tex.asset_handle = d.albedo_tex_guid;
-	mat->metalness_tex.asset_handle = d.metalness_tex_guid;
-	mat->roughness_tex.asset_handle = d.roughness_tex_guid;
-	mat->specular_tex.asset_handle = d.specular_tex_guid;
-	mat->normal_tex.asset_handle = d.normal_tex_guid;
+	mat->metalness = d.metalness;
+	mat->roughness = d.roughness;
+	mat->specular = d.specular;
+	mat->albedo_tex.asset.guid = d.albedo_tex_guid;
+	mat->metalness_tex.asset.guid = d.metalness_tex_guid;
+	mat->roughness_tex.asset.guid = d.roughness_tex_guid;
+	mat->specular_tex.asset.guid = d.specular_tex_guid;
+	mat->normal_tex.asset.guid = d.normal_tex_guid;
 	return mat;
 }
 

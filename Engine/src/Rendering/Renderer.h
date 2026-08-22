@@ -100,6 +100,8 @@ public:
 	static void addDrawCalls(size_t count) { debug_info.drawcalls += count; }
 
 	static bool isUpscalerActive();
+	static bool isFXAAEnabled();
+	static bool isRayTracedShadowsEnabled();
 
 private:
 	friend class VulkanDynamicRHI;

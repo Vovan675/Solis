@@ -47,7 +47,7 @@ void ShadowRenderer::addShadowMapPasses(FrameGraph &fg, uint32_t max_draw_calls_
 		Entity light_entity(light_entity_id);
 		auto &light = light_entity.getComponent<LightComponent>();
 
-		if (light.getType() == LIGHT_TYPE_DIRECTIONAL && render_ray_traced_shadows && engine_ray_tracing)
+		if (light.getType() == LIGHT_TYPE_DIRECTIONAL && Renderer::isRayTracedShadowsEnabled())
 			continue;
 
 		glm::vec3 scale, position, skew;
@@ -68,7 +68,7 @@ void ShadowRenderer::addShadowMapPasses(FrameGraph &fg, uint32_t max_draw_calls_
 			glm::mat4 light_projection = glm::perspectiveLH(glm::radians(90.0f), 1.0f, POINT_SHADOW_Z_NEAR, light.attenuation_radius);
 
 			GraphicsResourceName shadow_map_resource = GFXRID_ID(ShadowMap, (uint32_t)light_entity_id);
-			fg.importTexture(shadow_map_resource, light.shadow_map);
+			fg.importTexture(shadow_map_resource, light.getShadowMap());
 			shadow_passes.shadow_maps.push_back(shadow_map_resource);
 
 			OpaqueGeometryPass::ShaderSet shaders = OpaqueGeometryPass::ShaderSet::fromFile(L"shaders/lighting/shadows.hlsl");
@@ -80,7 +80,7 @@ void ShadowRenderer::addShadowMapPasses(FrameGraph &fg, uint32_t max_draw_calls_
 				view.pass_mask = PASS_MASK_POINT_SHADOW;
 				view.instance_count = max_draw_calls_count;
 				view.view_id = shadow_view_id++;
-				view.render_size = glm::ivec2(light.shadow_map->getWidth());
+				view.render_size = glm::ivec2(light.getShadowMap()->getWidth());
 				view.layer = face;
 				view.use_two_pass_occlusion = false;
 				view.use_reverse_z = false;
@@ -95,10 +95,10 @@ void ShadowRenderer::addShadowMapPasses(FrameGraph &fg, uint32_t max_draw_calls_
 		} else
 		{
 			GraphicsResourceName shadow_map_resource = GFXRID_ID(ShadowMap, (uint32_t)light_entity_id);
-			fg.importTexture(shadow_map_resource, light.shadow_map);
+			fg.importTexture(shadow_map_resource, light.getShadowMap());
 			shadow_passes.shadow_maps.push_back(shadow_map_resource);
 
-			uint32_t shadow_size = light.shadow_map->getWidth();
+			uint32_t shadow_size = light.getShadowMap()->getWidth();
 			HiZ::createOrImport(fg, cascade_hiz, GFXRID(CascadeHiZ), glm::ivec2(shadow_size / 4), SHADOW_MAP_CASCADE_COUNT);
 
 			OpaqueGeometryPass::ShaderSet shaders = OpaqueGeometryPass::ShaderSet::fromFile(L"shaders/lighting/shadows.hlsl");

@@ -24,6 +24,13 @@ void AssetBrowserPanel::init()
 
 bool AssetBrowserPanel::renderImGui(EditorContext &context)
 {
+	if (context.selected_path != last_selected_path)
+	{
+		last_selected_path = context.selected_path;
+		if (context.selection_type == EditorSelectionType::Asset && !context.selected_path.empty())
+			current_path = context.selected_path.parent_path();
+	}
+
 	auto &folder_tex = AssetManager::getTextureAsset("assets/editor/icons/folder.png");
 
 	// Asset browser
@@ -119,6 +126,10 @@ bool AssetBrowserPanel::renderImGui(EditorContext &context)
 
 	ImGui::Columns(1);
 
+	if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) && ImGui::IsKeyPressed(ImGuiKey_F2) && !context.selected_path.empty())
+		open_rename(context.selected_path);
+
+	process_create_menu(context);
 	draw_rename_popup(context);
 
 	ImGui::EndChild();
@@ -127,27 +138,62 @@ bool AssetBrowserPanel::renderImGui(EditorContext &context)
 	return is_used;
 }
 
+void AssetBrowserPanel::process_create_menu(EditorContext &context)
+{
+	if (!ImGui::BeginPopupContextWindow("CreateAsset", ImGuiPopupFlags_MouseButtonRight | ImGuiPopupFlags_NoOpenOverItems))
+		return;
+
+	if (ImGui::BeginMenu("Create"))
+	{
+		for (const AssetTypeInfo *type : AssetManager::getTypeInfos())
+		{
+			if (!type->isAuthored())
+				continue;
+
+			if (!ImGui::MenuItem(type->name))
+				continue;
+
+			std::filesystem::path path;
+			// Find not occupied by other file path
+			for (int index = 0; path.empty() || std::filesystem::exists(path); index++)
+				path = current_path / fmt::format("New{}{}{}", type->name, index > 0 ? std::to_string(index) : "", type->extensions.front().c_str());
+
+			ReflectionYaml::saveToFile(*type->structInfo, type->structInfo->defaults, path);
+			AssetManager::getOrCreateMetadata(path);
+
+			refreshCache();
+			context.selected_path = path;
+			context.selection_type = EditorSelectionType::Asset;
+		}
+		ImGui::EndMenu();
+	}
+	ImGui::EndPopup();
+}
+
 void AssetBrowserPanel::process_asset_context_menu(const std::filesystem::path &file, EditorContext &context)
 {
 	if (!ImGui::BeginPopupContextItem())
 		return;
 
-	if (ImGui::MenuItem("Rename"))
-	{
-		rename_target = file;
-		eastl::string name = file.filename().string().c_str();
-		strncpy(rename_buffer, name.c_str(), sizeof(rename_buffer) - 1);
-		rename_buffer[sizeof(rename_buffer) - 1] = 0;
-		open_rename_popup = true;
-	}
+	if (ImGui::MenuItem("Rename", "F2"))
+		open_rename(file);
 	if (ImGui::MenuItem("Delete"))
 	{
 		AssetManager::deleteAsset(file);
 		if (context.selected_path == file)
 			context.selected_path.clear();
-		directories_cache.clear();
+		refreshCache();
 	}
 	ImGui::EndPopup();
+}
+
+void AssetBrowserPanel::open_rename(const std::filesystem::path &file)
+{
+	rename_target = file;
+	eastl::string name = file.filename().string().c_str();
+	strncpy(rename_buffer, name.c_str(), sizeof(rename_buffer) - 1);
+	rename_buffer[sizeof(rename_buffer) - 1] = 0;
+	open_rename_popup = true;
 }
 
 void AssetBrowserPanel::draw_rename_popup(EditorContext &context)
@@ -161,14 +207,15 @@ void AssetBrowserPanel::draw_rename_popup(EditorContext &context)
 	if (!ImGui::BeginPopupModal("Rename Asset", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
 		return;
 
-	ImGui::InputText("Name", rename_buffer, sizeof(rename_buffer));
-	if (ImGui::Button("OK") && rename_buffer[0])
+	bool confirmed = ImGui::InputText("Name", rename_buffer, sizeof(rename_buffer), ImGuiInputTextFlags_EnterReturnsTrue);
+
+	if ((ImGui::Button("OK") || confirmed) && rename_buffer[0])
 	{
 		std::filesystem::path new_path = rename_target.parent_path() / rename_buffer;
 		AssetManager::moveAsset(rename_target, new_path);
 		if (context.selected_path == rename_target)
 			context.selected_path = new_path;
-		directories_cache.clear();
+		refreshCache();
 		ImGui::CloseCurrentPopup();
 	}
 	ImGui::SameLine();

@@ -168,7 +168,7 @@ void DX12Texture::clear(const glm::vec4 &color)
 void DX12Texture::load(const char *path)
 {
 	Image image(path);
-	asset_handle = image.asset_handle;
+	guid = image.guid;
 
 	description.width = image.getWidth();
 	description.height = image.getHeight();

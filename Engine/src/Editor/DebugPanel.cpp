@@ -4,209 +4,96 @@
 #include "Rendering/Renderer.h"
 #include "Rendering/GlobalBufferCache.h"
 #include "Core/Variables.h"
-#include "Scene/Components.h"
 
-struct SensorPreset
+// Test reflection and serialized types
+inline const char *const reflection_test_mode_items[] = {"Linear", "Constant"};
+
+struct ReflectionTestGroup
 {
-	const char *name;
-	float width;
-	float height;
+	bool enabled = false;
+	glm::vec3 color = glm::vec3(0.5f, 0.6f, 0.7f);
+	float density = 0.02f;
+	float falloff = 1.0f;
+	bool high_quality = false;
+	int samples = 8;
+	int mode = 0;
 };
 
-static const SensorPreset sensor_presets[] = {
-	{"Full Frame", 36.0f, 24.0f},
-	{"APS-C (Canon)", 22.2f, 14.8f},
-	{"APS-C (Sony/Nikon)", 23.6f, 15.7f},
+REFLECT_BEGIN(ReflectionTestGroup)
+	REFLECT_FIELD(enabled).label("Enable Group"),
+	REFLECT_FIELD(color).range(0.0f, 1.0f).format("%.2f").EDIT_IF(owner.enabled),
+	REFLECT_CATEGORY("Shape"),
+	REFLECT_FIELD(density).range(0.0f, 1.0f).format("%.3f").logarithmic().EDIT_IF(owner.enabled),
+	REFLECT_CATEGORY("Shape - Advanced"),
+	REFLECT_FIELD(high_quality).EDIT_IF(owner.enabled),
+	REFLECT_FIELD(samples).range(1.0f, 64.0f).EDIT_IF(owner.enabled && owner.high_quality),
+	REFLECT_CATEGORY("Shape"),
+	REFLECT_FIELD(falloff).range(0.1f, 4.0f).format("%.2f").EDIT_IF(owner.enabled),
+	REFLECT_CATEGORY("Debug"),
+	REFLECT_FIELD(mode).items(reflection_test_mode_items).radio().EDIT_IF(owner.enabled),
+REFLECT_END()
+
+struct ReflectionTestChildAsset : Asset
+{
+	AssetReference texture;
+	float coverage = 0.4f;
+	float altitude = 2000.0f;
 };
 
-// https://en.wikipedia.org/wiki/Focal_length
-static float focalLengthToFov(float focal_length, float sensor_size)
+REFLECT_BEGIN(ReflectionTestChildAsset)
+	REFLECT_FIELD(texture).asset<RHITexture>(),
+	REFLECT_FIELD(coverage).range(0.0f, 1.0f).format("%.2f"),
+	REFLECT_FIELD(altitude).range(100.0f, 12000.0f).format("%.0f m").logarithmic(),
+REFLECT_END()
+
+struct ReflectionTestAsset : Asset
 {
-	return glm::degrees(2.0f * atan(sensor_size / (2.0f * focal_length)));
+	AssetReference hdri;
+	float intensity = 15000.0f;
+	ReflectionTestGroup group;
+	AssetReference inherit_from;
+	AssetReference child;
+	eastl::vector<ReflectionTestGroup> group_array;
+	eastl::vector<AssetReference> texture_array;
+};
+
+REFLECT_BEGIN(ReflectionTestAsset)
+	REFLECT_FIELD(hdri).label("HDRI").asset<RHITexture>(),
+	REFLECT_FIELD(intensity).range(1.0f, 100000.0f).format("%.0f nits").logarithmic(),
+	REFLECT_FIELD(group),
+	REFLECT_FIELD(inherit_from).asset<ReflectionTestAsset>(),
+	REFLECT_FIELD(child).asset<ReflectionTestChildAsset>(),
+	REFLECT_CATEGORY("Arrays"),
+	REFLECT_FIELD(group_array),
+	REFLECT_FIELD(texture_array).asset<RHITexture>(),
+REFLECT_END()
+
+static const AssetTypeInfo *registered_test_asset_type = AssetManager::registerSerializedType<ReflectionTestAsset>(".reflectiontest");
+static const AssetTypeInfo *registered_test_child_asset_type = AssetManager::registerSerializedType<ReflectionTestChildAsset>(".reflectiontestchild");
+
+template<typename T>
+static void collect_cvars(eastl::vector<ConVarDescription *> &out)
+{
+	for (ConVar<T> &cvar : ConVarSystem::getCVars<T>())
+		if ((cvar.description.flags & CON_VAR_FLAG_HIDDEN) == 0)
+			out.push_back(&cvar.description);
 }
 
-static float fovToFocalLength(float fov_deg, float sensor_size)
+static void draw_all_cvars()
 {
-	return sensor_size / (2.0f * tan(glm::radians(fov_deg) / 2.0f));
-}
+	eastl::vector<ConVarDescription *> con_vars;
+	collect_cvars<int>(con_vars);
+	collect_cvars<float>(con_vars);
+	collect_cvars<bool>(con_vars);
+	collect_cvars<eastl::string>(con_vars);
 
-static Entity findDirectionalLight()
-{
-	auto entities_id = Scene::getCurrentScene()->getEntitiesWith<LightComponent>();
-	for (entt::entity entity_id : entities_id)
+	eastl::sort(con_vars.begin(), con_vars.end(), [](ConVarDescription *a, ConVarDescription *b)
 	{
-		Entity entity(entity_id);
-		if (entity.getComponent<LightComponent>().getType() == LIGHT_TYPE_DIRECTIONAL)
-			return entity;
-	}
-	return Entity();
-}
+		return a->name < b->name;
+	});
 
-void DebugPanel::renderSettingsImGui(EditorContext &context)
-{
-	Entity sun = findDirectionalLight();
-	if (render_automatic_sun_position && sun)
-	{
-		LightComponent &light = sun.getComponent<LightComponent>();
-		sky_renderer->procedural_uniforms.sun_direction = sun.getLocalDirection(glm::vec3(0, 0, -1));
-		sky_renderer->sun_illuminance = glm::vec4(light.getPhotometricIntensity(), 1.0f);
-	}
-
-	ImGui::Begin((eastl::string(ICON_FA_SLIDERS) + " Render Settings###Render Settings").c_str());
-
-	if (ImGui::BeginTabBar("settings_tabs"))
-	{
-		if (ImGui::BeginTabItem("Render"))
-		{
-			render_tab();
-			ImGui::EndTabItem();
-		}
-		if (ImGui::BeginTabItem("Camera"))
-		{
-			camera_tab(context);
-			ImGui::EndTabItem();
-		}
-		if (ImGui::BeginTabItem("Lighting"))
-		{
-			lighting_tab();
-			ImGui::EndTabItem();
-		}
-		ImGui::EndTabBar();
-	}
-
-	ImGui::End();
-}
-
-void DebugPanel::render_tab()
-{
-	int renderer_mode = render_path_tracing ? 1 : 0;
-	const char *renderer_items[] = {"Raster", "Path Tracing"};
-	if (UI::radio("Renderer", &renderer_mode, renderer_items, IM_ARRAYSIZE(renderer_items)))
-		render_path_tracing = renderer_mode == 1;
-
-	ConVarSystem::drawConVarImGui(render_vsync.getDescription());
-
-	ImGui::SeparatorText("Upscaling");
-
-	const char *upscale_items[] = {"Off", "DLSS"};
-	int upscale_mode = render_upscale_mode;
-	if (UI::combo("Upscaler", &upscale_mode, upscale_items, IM_ARRAYSIZE(upscale_items)))
-		render_upscale_mode = upscale_mode;
-
-	const char *dlss_items[] = {"Performance", "Balanced", "Quality", "Ultra Performance", "DLAA"};
-	ImGui::BeginDisabled(render_upscale_mode != UPSCALE_MODE_DLSS);
-	int dlss_mode = render_dlss_mode;
-	if (UI::combo("DLSS Quality", &dlss_mode, dlss_items, IM_ARRAYSIZE(dlss_items)))
-		render_dlss_mode = dlss_mode;
-	ImGui::EndDisabled();
-
-	ImGui::SeparatorText("Geometry");
-	ConVarSystem::drawConVarImGui(render_meshlets_use_mesh_shaders.getDescription());
-
-	ImGui::BeginDisabled(render_path_tracing);
-
-	ImGui::SeparatorText("Screen Space");
-	ConVarSystem::drawConVarImGui(render_ssao.getDescription());
-	ImGui::BeginDisabled(!render_ssao);
-	ssao_renderer->renderImgui();
-	ImGui::EndDisabled();
-	ConVarSystem::drawConVarImGui(render_ssr.getDescription());
-
-	ImGui::SeparatorText("Anti-Aliasing");
-	ConVarSystem::drawConVarImGui(render_fxaa.getDescription());
-
-	ImGui::EndDisabled();
-}
-
-void DebugPanel::camera_tab(EditorContext &context)
-{
-	Camera &camera = context.editor_camera;
-
-	float speed = camera.getSpeed();
-	if (UI::sliderFloat("Speed", &speed, 0.1f, 10.0f, "%.2f"))
-		camera.setSpeed(speed);
-
-	float near_plane = camera.getNear();
-	if (UI::sliderFloat("Near", &near_plane, 0.01f, 3.5f, "%.2f"))
-		camera.setNear(near_plane);
-
-	float far_plane = camera.getFar();
-	if (UI::sliderFloat("Far", &far_plane, 1.0f, 300.0f, "%.1f"))
-		camera.setFar(far_plane);
-
-	glm::vec3 position = camera.getPosition();
-	UI::inputFloat3("Position", position.data.data);
-
-	ImGui::SeparatorText("Framing");
-
-	static int sensor_preset = 0;
-	const char *sensor_names[] = {sensor_presets[0].name, sensor_presets[1].name, sensor_presets[2].name};
-	UI::combo("Sensor", &sensor_preset, sensor_names, IM_ARRAYSIZE(sensor_names));
-	const SensorPreset &sensor = sensor_presets[sensor_preset];
-
-	// two views of the same value, editing either one drives the camera
-	float fov = camera.getFov();
-	if (UI::sliderFloat("Field of View", &fov, 1.0f, 120.0f, "%.1f deg"))
-		camera.setFov(fov);
-
-	float focal_length = fovToFocalLength(camera.getFov(), sensor.height);
-	float previous_focal_length = focal_length;
-
-	static bool dolly_zoom = false;
-	static float subject_distance = 15.0f;
-
-	if (UI::sliderFloat("Focal Length", &focal_length, 8.0f, 300.0f, "%.1f mm", true))
-	{
-		camera.setFov(focalLengthToFov(focal_length, sensor.height));
-
-		if (dolly_zoom)
-		{
-			glm::vec3 forward = camera.getForward();
-			glm::vec3 pivot = camera.getPosition() + forward * subject_distance;
-			subject_distance *= focal_length / previous_focal_length;
-			camera.setPosition(pivot - forward * subject_distance);
-		}
-	}
-
-	UI::text("Horizontal FOV", "%.1f deg", focalLengthToFov(focal_length, sensor.width));
-
-	UI::checkbox("Dolly Zoom", &dolly_zoom, "Keep the subject the same size while the focal length changes");
-	ImGui::BeginDisabled(!dolly_zoom);
-	UI::sliderFloat("Subject Distance", &subject_distance, 0.1f, 1000.0f, "%.2f m", true);
-	ImGui::BeginDisabled(!context.selected_entity);
-	if (ImGui::Button("Subject Distance From Selection", ImVec2(-FLT_MIN, 0)))
-	{
-		glm::vec3 target = glm::vec3(context.selected_entity.getWorldTransformMatrix()[3]);
-		subject_distance = glm::length(target - camera.getPosition());
-	}
-	ImGui::EndDisabled();
-	ImGui::EndDisabled();
-
-	post_renderer->renderImgui();
-}
-
-void DebugPanel::lighting_tab()
-{
-	ImGui::SeparatorText("Sky");
-	ConVarSystem::drawConVarImGui(render_sky.getDescription());
-	ImGui::BeginDisabled(!render_sky);
-	sky_renderer->renderImgui();
-	ImGui::EndDisabled();
-
-	ImGui::SeparatorText("Shadows");
-	ConVarSystem::drawConVarImGui(render_shadows.getDescription());
-	ImGui::BeginDisabled(!render_shadows);
-	int shadow_mode = render_ray_traced_shadows ? 1 : 0;
-	const char *shadow_items[] = {"Shadow Maps", "Ray Traced"};
-	if (UI::radio("Technique", &shadow_mode, shadow_items, IM_ARRAYSIZE(shadow_items)))
-		render_ray_traced_shadows = shadow_mode == 1;
-	ImGui::EndDisabled();
-
-	ImGui::SeparatorText("Global Illumination");
-	ConVarSystem::drawConVarImGui(render_ddgi.getDescription());
-	ImGui::BeginDisabled(!render_ddgi);
-	ddgi_renderer->renderImgui();
-	ImGui::EndDisabled();
+	for (ConVarDescription *cvar : con_vars)
+		UI::convar(cvar);
 }
 
 void DebugPanel::renderImGui(EditorContext &context)
@@ -215,9 +102,9 @@ void DebugPanel::renderImGui(EditorContext &context)
 
 	UI::text("RHI", "%s", gDynamicRHI->getName());
 
-	if (UI::section("Visualization", true))
+	if (UI::beginSection("Visualization", true))
 	{
-		ConVarSystem::drawConVarImGui(render_debug_rendering.getDescription());
+		UI::convar(render_debug_rendering.getDescription());
 
 		if (render_debug_rendering)
 		{
@@ -228,18 +115,28 @@ void DebugPanel::renderImGui(EditorContext &context)
 			debug_renderer->ubo.present_mode = render_debug_rendering_mode;
 		}
 
-		ConVarSystem::drawConVarImGui(render_lighting_only.getDescription());
-		ConVarSystem::drawConVarImGui(render_freeze_culling.getDescription());
-		ConVarSystem::drawConVarImGui(render_culling_hiz_debug.getDescription());
-		ConVarSystem::drawConVarImGui(render_meshlets_bvh_visualize.getDescription());
+		UI::convar(render_ddgi_visualize.getDescription());
+		if (render_ddgi_visualize)
+		{
+			const char *items[] = {"Irradiance", "Distance", "State", "State Not Disabled", "Cascades"};
+			int mode = render_ddgi_visualize_mode;
+			if (UI::combo("DDGI Visualize Mode", &mode, items, IM_ARRAYSIZE(items)))
+				render_ddgi_visualize_mode = mode;
+		}
+
+		UI::convar(render_lighting_only.getDescription());
+		UI::convar(render_culling_freeze.getDescription());
+		UI::convar(render_culling_hiz_debug.getDescription());
+		UI::convar(render_meshlets_bvh_visualize.getDescription());
 		ImGui::BeginDisabled(!render_meshlets_bvh_visualize);
-		ConVarSystem::drawConVarImGui(render_meshlets_bvh_visualize_depth.getDescription());
+		UI::convar(render_meshlets_bvh_visualize_depth.getDescription());
 		ImGui::EndDisabled();
+		UI::endSection();
 	}
 
 	mitsuba_bridge->renderImGui(context);
 
-	if (UI::section("Geometry Buffers"))
+	if (UI::beginSection("Geometry Buffers"))
 	{
 		auto toMB = [](uint64_t bytes) { return bytes / (1024.0f * 1024.0f); };
 
@@ -271,19 +168,24 @@ void DebugPanel::renderImGui(EditorContext &context)
 			UI::text("Loads", "%llu (%.1f MB)", s.total_loads, toMB(s.total_bytes_loaded));
 			UI::text("Unloads", "%llu (%.1f MB)", s.total_unloads, toMB(s.total_bytes_unloaded));
 		}
+		UI::endSection();
 	}
 
-	if (UI::section("Debug Info"))
+	if (UI::beginSection("Debug Info"))
 	{
 		auto info = Renderer::getDebugInfo();
 		UI::text("Descriptors", "%u", info.descriptors_count);
 		UI::text("Descriptor Bindings", "%u", info.descriptor_bindings_count);
 		UI::text("Descriptors Max Offset", "%u", info.descriptors_max_offset);
 		UI::text("Draw Calls", "%u", info.drawcalls);
+		UI::endSection();
 	}
 
-	if (UI::section("Console Variables"))
-		ConVarSystem::drawImGui();
+	if (UI::beginSection("Console Variables"))
+	{
+		draw_all_cvars();
+		UI::endSection();
+	}
 
 	ImGui::End();
 }

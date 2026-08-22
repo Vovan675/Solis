@@ -279,15 +279,14 @@ static uint32_t extract_vertices(const cgltf_primitive *prim, eastl::vector<Engi
 	return tan_acc ? MeshFormat::MESH_ATTR_TANGENT : 0;
 }
 
-static uint64_t resolve_texture_guid(const cgltf_texture_view &view, const char *gltf_path)
+static AssetReference resolve_texture(const cgltf_texture_view &view, const char *gltf_path)
 {
 	if (!view.texture || !view.texture->image)
-		return 0;
+		return AssetReference();
 	const char *uri = view.texture->image->uri;
 	if (!uri || strncmp(uri, "data:", 5) == 0)
-		return 0;
-	auto p = std::filesystem::path(gltf_path).parent_path() / uri;
-	return AssetManager::getGUIDFromPath(p.string());
+		return AssetReference();
+	return AssetReference(std::filesystem::path(gltf_path).parent_path() / uri);
 }
 
 static Ref<Material> extract_material(const cgltf_material *mat, const char *gltf_path)
@@ -300,10 +299,10 @@ static Ref<Material> extract_material(const cgltf_material *mat, const char *glt
 	m->albedo = glm::vec4(pbr.base_color_factor[0], pbr.base_color_factor[1], pbr.base_color_factor[2], pbr.base_color_factor[3]);
 	m->metalness = pbr.metallic_factor;
 	m->roughness = pbr.roughness_factor;
-	m->albedo_tex.asset_handle = resolve_texture_guid(pbr.base_color_texture, gltf_path);
-	m->metalness_tex.asset_handle = resolve_texture_guid(pbr.metallic_roughness_texture, gltf_path);
-	m->roughness_tex.asset_handle = resolve_texture_guid(pbr.metallic_roughness_texture, gltf_path);
-	m->normal_tex.asset_handle = resolve_texture_guid(mat->normal_texture, gltf_path);
+	m->albedo_tex.asset = resolve_texture(pbr.base_color_texture, gltf_path);
+	m->metalness_tex.asset = resolve_texture(pbr.metallic_roughness_texture, gltf_path);
+	m->roughness_tex.asset = resolve_texture(pbr.metallic_roughness_texture, gltf_path);
+	m->normal_tex.asset = resolve_texture(mat->normal_texture, gltf_path);
 	return m;
 }
 
@@ -384,7 +383,7 @@ static void process_node(const cgltf_node *gltf_node, MeshNode *parent,
 
 static constexpr uint64_t AUTO_MESHLET_VERTEX_COUNT = 1'000'000;
 
-void GltfImporter::import(const char *path, Model *model, ModelImportSettings &settings)
+void GltfImporter::import(const char *path, Model *model, ModelImportSettings &settings, const std::filesystem::path &runtime_path)
 {
 	PROFILE_CPU_FUNCTION();
 
@@ -484,12 +483,12 @@ void GltfImporter::import(const char *path, Model *model, ModelImportSettings &s
 		return get_total_vertices(a.gltf_mesh) > get_total_vertices(b.gltf_mesh);
 	});
 
-	if (!settings.generate_meshlets_explicitly_set)
+	if (settings.meshlet_mode == MESHLET_MODE_AUTO)
 	{
 		uint64_t total_vertices = 0;
 		for (const MeshBuildJob &job : jobs)
 			total_vertices += get_total_vertices(job.gltf_mesh);
-		settings.generate_meshlets = total_vertices > AUTO_MESHLET_VERTEX_COUNT;
+		settings.meshlet_mode = total_vertices > AUTO_MESHLET_VERTEX_COUNT ? MESHLET_MODE_ENABLED : MESHLET_MODE_DISABLED;
 	}
 
 	// Remove some jobs for debugging
@@ -514,9 +513,8 @@ void GltfImporter::import(const char *path, Model *model, ModelImportSettings &s
 		total_buf_bytes / (1024.0 * 1024.0 * 1024.0));
 
 	// Parallel vertex data extraction, meshlet building, output file write.
-	auto mesh_path = AssetManager::getRuntimeAssetPath(std::filesystem::path(path));
-	std::filesystem::create_directories(mesh_path.parent_path());
-	auto writer = MeshSerializer::beginStream(mesh_path.string().c_str());
+	std::filesystem::create_directories(runtime_path.parent_path());
+	auto writer = MeshSerializer::beginStream(runtime_path.string().c_str());
 
 	std::atomic<int> job_counter = 0;
 	std::atomic<int> done_counter = 0;
@@ -566,7 +564,7 @@ void GltfImporter::import(const char *path, Model *model, ModelImportSettings &s
 				discard_primitive_pages(primitive);
 
 				MeshletBuildData build_data;
-				if (settings.generate_meshlets)
+				if (settings.meshlet_mode == MESHLET_MODE_ENABLED)
 				{
 					build_data = MeshletBuilder::build(res.engine_mesh, mesh_name, vertices, indices, settings);
 				} else

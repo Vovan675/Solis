@@ -22,6 +22,7 @@
 #include "Editor/ParametersPanel.h"
 #include "Editor/HierarchyPanel.h"
 #include "Editor/DebugPanel.h"
+#include "Editor/RenderSettingsPanel.h"
 #include "Application.h"
 #include "imgui.h"
 #include "ImGuizmo.h"
@@ -35,6 +36,7 @@ class EditorApplication : public Application
 {
 public:
 	EditorApplication(int argc, char *argv[]);
+	void openScene(const eastl::string &path);
 protected:
 	void init() override;
 	void update(float delta_time) override;
@@ -43,6 +45,7 @@ protected:
 	void cleanupResources() override;
 private:
 	bool auto_refresh_shaders = true;
+	bool was_window_focused = true;
 	FileWatcher shaders_watcher;
 
 	Ref<RayTracingScene> ray_tracing_scene;
@@ -54,6 +57,7 @@ private:
 	ParametersPanel parameters_panel;
 	HierarchyPanel hierarchy_panel;
 	DebugPanel debug_panel;
+	RenderSettingsPanel render_settings_panel;
 	MitsubaBridge mitsuba_bridge;
 
 	Ref<SceneRenderer> scene_renderer;

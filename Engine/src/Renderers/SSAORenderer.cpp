@@ -1,6 +1,6 @@
 #include "pch.h"
 #include "SSAORenderer.h"
-#include "Editor/UI.h"
+#include "Core/Variables.h"
 #include "RHI/BindlessResources.h"
 #include "Rendering/Renderer.h"
 #include "Math.h"
@@ -80,6 +80,8 @@ void SSAORenderer::addPasses(FrameGraph &fg)
 		ubo_raw_pass.normal_tex_id = resources.getReadTexture(GFXRID(GBufferNormal));
 		ubo_raw_pass.depth_tex_id = resources.getReadTexture(GFXRID(GBufferDepth));
 		ubo_raw_pass.noise_tex_id = resources.getReadTexture(GFXRID(SSAONoiseTexture));
+		ubo_raw_pass.samples = GFXOPTIONS(ssao).samples;
+		ubo_raw_pass.sample_radius = GFXOPTIONS(ssao).radius;
 
 		cmd_list->setRenderTargets({ssao_raw}, nullptr, -1, 0, true);
 
@@ -124,10 +126,4 @@ void SSAORenderer::addPasses(FrameGraph &fg)
 
 		cmd_list->resetRenderTargets();
 	});
-}
-
-void SSAORenderer::renderImgui()
-{
-	UI::sliderInt("Samples", &ubo_raw_pass.samples, 2, 64);
-	UI::sliderFloat("Sample Radius", &ubo_raw_pass.sample_radius, 0.01f, 1.0f);
 }

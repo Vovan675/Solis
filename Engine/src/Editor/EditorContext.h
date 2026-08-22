@@ -16,4 +16,6 @@ struct EditorContext
 	eastl::vector<entt::entity> selected_entities;
 
 	std::filesystem::path selected_path;
+
+	inline static EditorContext *current = nullptr;
 };

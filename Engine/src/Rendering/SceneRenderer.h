@@ -47,6 +47,9 @@ public:
 	void on_mesh_renderer_constructed(entt::registry &registry, entt::entity entity);
 	void on_mesh_renderer_destroyed(entt::registry &registry, entt::entity entity);
 	void free_instances(entt::entity entity);
+	void refresh_meshes(entt::entity entity_id, MeshRendererComponent &mesh_renderer);
+	void refresh_materials(entt::entity entity_id, MeshRendererComponent &mesh_renderer);
+	void refresh_transforms(entt::entity entity_id);
 
 	void on_asset_pre_reimport(Asset *asset);
 	void on_asset_post_reimport(Asset *asset);

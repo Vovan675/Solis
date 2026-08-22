@@ -127,7 +127,7 @@ void VulkanTexture::clear(const glm::vec4 &color)
 void VulkanTexture::load(const char *path)
 {
 	Image image(path);
-	asset_handle = image.asset_handle;
+	guid = image.guid;
 
 	description.width = image.getWidth();
 	description.height = image.getHeight();

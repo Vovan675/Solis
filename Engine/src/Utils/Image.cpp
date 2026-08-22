@@ -72,9 +72,9 @@ void Image::load(eastl::string path)
 
 	auto runtime_path = std::filesystem::path(path.c_str());
 
-	if (AssetManager::isRuntimeExists(path.c_str()))
+	if (AssetManager::hasValidRuntime(path.c_str()))
 	{
-		runtime_path = AssetManager::getRuntimeAssetPath(path.c_str()).string();
+		runtime_path = AssetManager::getRuntimePath(path.c_str()).string();
 	}
 	
 	std::filesystem::path tex_path(runtime_path);

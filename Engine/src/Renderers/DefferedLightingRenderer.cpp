@@ -50,7 +50,7 @@ void DefferedLightingRenderer::renderLights(FrameGraph &fg)
 				builder.readTexture(map);
 		}
 
-		if (engine_ray_tracing && render_ray_traced_shadows && render_shadows && builder.isTextureCreated(GFXRID(RayTracedVisibility)))
+		if (Renderer::isRayTracedShadowsEnabled() && builder.isTextureCreated(GFXRID(RayTracedVisibility)))
 		{
 			builder.readTexture(GFXRID(RayTracedVisibility));
 		}
@@ -70,7 +70,7 @@ void DefferedLightingRenderer::renderLights(FrameGraph &fg)
 		// Render Lights radiance
 		auto &p = gGlobalPipeline;
 
-		bool has_ray_traced_visibility = engine_ray_tracing && render_ray_traced_shadows && render_shadows && resources.has(GFXRID(RayTracedVisibility));
+		bool has_ray_traced_visibility = Renderer::isRayTracedShadowsEnabled() && resources.has(GFXRID(RayTracedVisibility));
 
 		eastl::vector<eastl::pair<const char *, const char *>> shader_defines;
 
@@ -84,7 +84,7 @@ void DefferedLightingRenderer::renderLights(FrameGraph &fg)
 			bool use_ray_traced_shadows = has_ray_traced_visibility && is_directional;
 
 			shader_defines.clear();
-			shader_defines.push_back({"USE_SHADOWS", render_shadows ? "1" : "0"});
+			shader_defines.push_back({"USE_SHADOWS", GFXOPTIONS(shadows).enabled ? "1" : "0"});
 			shader_defines.push_back({"RAY_TRACED_SHADOWS", use_ray_traced_shadows ? "1" : "0"});
 			shader_defines.push_back({"LIGHT_TYPE", is_directional ? "1" : "0"});
 
@@ -126,7 +126,7 @@ void DefferedLightingRenderer::renderLights(FrameGraph &fg)
 			constants.z_far = light.attenuation_radius;
 			constants.shadow_map_tex_id = use_ray_traced_shadows
 				? resources.getReadTexture(GFXRID(RayTracedVisibility))
-				: light.shadow_map->getShaderResourceView()->getBindlessIndex();
+				: light.getShadowMap()->getShaderResourceView()->getBindlessIndex();
 
 			gDynamicRHI->setConstantBufferData(1, &ubo, sizeof(UBO));
 			gDynamicRHI->setConstantBufferData(0, &ubo_sphere, sizeof(UniformBufferObject));

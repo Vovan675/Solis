@@ -115,5 +115,15 @@ const Renderer::DefaultUniforms Renderer::getDefaultUniforms()
 bool Renderer::isUpscalerActive()
 {
 	Upscaler *upscaler = gDynamicRHI->getUpscaler();
-	return render_upscale_mode == UPSCALE_MODE_DLSS && upscaler && upscaler->isAvailable();
+	return GFXOPTIONS(anti_aliasing).upscale == UPSCALE_MODE_DLSS && upscaler && upscaler->isAvailable();
+}
+
+bool Renderer::isFXAAEnabled()
+{
+	return GFXOPTIONS(anti_aliasing).fxaa && !isUpscalerActive();
+}
+
+bool Renderer::isRayTracedShadowsEnabled()
+{
+	return engine_ray_tracing && GFXOPTIONS(shadows).enabled && GFXOPTIONS(shadows).ray_traced;
 }

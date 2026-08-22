@@ -1,5 +1,6 @@
 ﻿#include "pch.h"
 #include "EditorApplication.h"
+#include "Assets/AssetManager.h"
 #include "Scene/Entity.h"
 #include "Rendering/Renderer.h"
 #include "imgui.h"
@@ -27,34 +28,50 @@ EditorApplication::EditorApplication(int argc, char *argv[]) : Application(argc,
 
 }
 
+static const eastl::string scenes_directory = "assets/scenes/";
+
 void EditorApplication::init()
 {
 	shaders_watcher.addPath(L"shaders", true);
 
 	context.editor_camera = Camera(glm::vec3(0, 2, 0));
 	Renderer::setCamera(&context.editor_camera);
-
-	Scene::setCurrentScene(new Scene());
-	EditorDefaultScene::createScene(&context.editor_camera);
+	EditorContext::current = &context;
 
 	scene_renderer = new SceneRenderer();
 
-	debug_panel.sky_renderer = &scene_renderer->sky_renderer;
-	debug_panel.post_renderer = &scene_renderer->post_renderer;
 	debug_panel.debug_renderer = &scene_renderer->debug_renderer;
-	debug_panel.ssao_renderer = &scene_renderer->ssao_renderer;
-	debug_panel.ddgi_renderer = &scene_renderer->ddgi_renderer;
 	debug_panel.geometry_streaming = &scene_renderer->geometry_streaming;
 	debug_panel.mitsuba_bridge = &mitsuba_bridge;
-	mitsuba_bridge.sky_renderer = &scene_renderer->sky_renderer;
-	mitsuba_bridge.post_renderer = &scene_renderer->post_renderer;
 
 	asset_browser_panel.init();
+
+	openScene("assets/scenes/" + engine_startup_scene.get() + ".scene");
+}
+
+void EditorApplication::openScene(const eastl::string &path)
+{
+	context.selected_entity = Entity();
+	context.selected_entities.clear();
+	context.selected_path.clear();
+
+	if (std::filesystem::exists(path.c_str()))
+		Scene::loadScene(path);
+	else
+		EditorDefaultScene::createScene(&context.editor_camera);
 }
 
 void EditorApplication::update(float delta_time)
 {
 	//ImGui::ShowDemoWindow();
+	bool is_window_focused = glfwGetWindowAttrib(window, GLFW_FOCUSED);
+	if (is_window_focused && !was_window_focused)
+	{
+		AssetManager::refresh();
+		asset_browser_panel.refreshCache();
+	}
+	was_window_focused = is_window_focused;
+
 	if (auto_refresh_shaders)
 	{
 		shaders_watcher.checkUpdates([](eastl::wstring path)
@@ -76,6 +93,16 @@ void EditorApplication::update(float delta_time)
 	{
 		if (ImGui::BeginMenu("Scene"))
 		{
+			for (const auto &entry : std::filesystem::directory_iterator("assets/scenes/"))
+			{
+				if (entry.path().extension() != ".scene")
+					continue;
+			
+				if (ImGui::MenuItem(entry.path().stem().string().c_str()))
+					openScene(entry.path().string().c_str());
+			}
+			ImGui::Separator();
+
 			if (ImGui::MenuItem("Save"))
 			{
 				eastl::string path = Filesystem::saveFileDialog();
@@ -87,10 +114,7 @@ void EditorApplication::update(float delta_time)
 			{
 				eastl::string path = Filesystem::openFileDialog();
 				if (!path.empty())
-				{
-					Scene::setCurrentScene(new Scene());
-					Scene::getCurrentScene()->loadFile(path);
-				}
+					openScene(path);
 			}
 			ImGui::EndMenu();
 		}
@@ -141,9 +165,7 @@ void EditorApplication::update(float delta_time)
 	static bool prev_is_viewport_focused = false;
 	bool is_viewport_focused = viewport_panel.renderImGui(context, delta_time);
 
-	// Debug Panel
-
-	debug_panel.renderSettingsImGui(context);
+	render_settings_panel.renderImGui(context);
 	debug_panel.renderImGui(context);
 
 	// Hierarchy

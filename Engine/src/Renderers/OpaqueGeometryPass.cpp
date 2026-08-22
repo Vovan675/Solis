@@ -15,7 +15,7 @@ constexpr uint32_t TRADITIONAL_CULLING_THREADGROUP_SIZE = 32;
 OpaqueGeometryPass::ShaderSet OpaqueGeometryPass::ShaderSet::fromFile(const wchar_t *file)
 {
 	ShaderSet shaders;
-	if (render_meshlets_use_mesh_shaders)
+	if (render_meshlets_mesh_shaders)
 		shaders.meshlet_mesh_shader = gDynamicRHI->createShader(file, MESH_SHADER, "MSMainMeshlet");
 	else
 		shaders.meshlet_vertex_shader = gDynamicRHI->createShader(file, VERTEX_SHADER, "VSMainMeshlet");
@@ -66,7 +66,7 @@ void OpaqueGeometryPass::render(FrameGraph &fg, const RenderView &view, const Re
 	if (view.use_two_pass_occlusion)
 	{
 		HiZ::build(fg, view.hiz, targets.depth.name, view.layer, view.use_reverse_z);
-		if (!render_freeze_culling)
+		if (!render_culling_freeze)
 		{
 			meshlet_pass.addFixCullingPasses(fg, cull);
 			render_meshlets(fg, view, targets, false);
@@ -95,7 +95,7 @@ void OpaqueGeometryPass::render_meshlets(FrameGraph &fg, const RenderView &view,
 		builder.readBuffer(GFXRID_ID(VisibleMeshlets, view.view_id));
 		builder.writeBuffer(GFXRID(GroupResidencyBuffer));
 
-		if (render_meshlets_use_mesh_shaders)
+		if (render_meshlets_mesh_shaders)
 			builder.readIndirectArgsBuffer(GFXRID_ID(DispatchMeshIndirectArgs, view.view_id));
 		else
 		{
@@ -111,7 +111,7 @@ void OpaqueGeometryPass::render_meshlets(FrameGraph &fg, const RenderView &view,
 			color_textures.push_back(resources.getTexture(color.name));
 		RHITexture *depth = resources.getTexture(targets.depth.name);
 
-		if (!render_meshlets_use_mesh_shaders)
+		if (!render_meshlets_mesh_shaders)
 		{
 			cmd_list->setVertexBuffer(resources.getBuffer(GFXRID_ID(DrawCallsInstances, view.view_id)), 0, sizeof(uint32_t), 0);
 			cmd_list->setIndexBuffer(GlobalBufferCache::getGlobalMeshletGeometryBuffer(), 0);
@@ -119,7 +119,7 @@ void OpaqueGeometryPass::render_meshlets(FrameGraph &fg, const RenderView &view,
 
 		cmd_list->setRenderTargets(color_textures, depth, targets.layer, 0, clear, view.getDepthClear());
 
-		if (render_meshlets_use_mesh_shaders)
+		if (render_meshlets_mesh_shaders)
 		{
 			gGlobalPipeline->setupMeshPipeline(cmd_list, view.shaders.meshlet_mesh_shader, view.shaders.pixel_shader, false, true, view.cull_mode);
 		} else
@@ -142,7 +142,7 @@ void OpaqueGeometryPass::render_meshlets(FrameGraph &fg, const RenderView &view,
 		constants.group_residency_buffer_id = resources.getReadWriteBuffer(GFXRID(GroupResidencyBuffer));
 		gDynamicRHI->setConstantBufferData(0, &constants, sizeof(constants));
 
-		if (render_meshlets_use_mesh_shaders)
+		if (render_meshlets_mesh_shaders)
 			cmd_list->dispatchMeshIndirect(resources.getBuffer(GFXRID_ID(DispatchMeshIndirectArgs, view.view_id)), 1);
 		else
 			cmd_list->drawIndexedIndirect(resources.getBuffer(GFXRID_ID(DrawIndexedArgs, view.view_id)), MAX_MESHLETS_PER_FRAME, resources.getBuffer(GFXRID_ID(DrawIndexedCount, view.view_id)));

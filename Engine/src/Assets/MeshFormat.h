@@ -1,6 +1,7 @@
 #pragma once
 #include "Utils/Math.h"
 #include "Core/Ref.h"
+#include "Assets/ModelImportSettings.h"
 
 // Binary .mesh format
 // Layout: Header, OffsetTable, MeshBlock[N], MaterialDescriptor[N], NodeDescriptor[N], PrimitiveRef[N], MeshEntry[N].
@@ -11,7 +12,13 @@ namespace MeshFormat
 
 static constexpr uint64_t MAGIC = 0x4853454D4E474E45ULL; // "ENGNMESH"
 static constexpr uint32_t VERSION = 1;
+static constexpr uint32_t MESHLET_VERSION = 1;
 static constexpr uint64_t ALIGNMENT = 16;
+
+inline uint32_t calcRuntimeVersion(const ModelImportSettings &import_settings)
+{
+	return import_settings.meshlet_mode != MESHLET_MODE_DISABLED ? VERSION | MESHLET_VERSION << 4 : VERSION;
+}
 
 enum MeshAttributeFlags: uint32_t
 {

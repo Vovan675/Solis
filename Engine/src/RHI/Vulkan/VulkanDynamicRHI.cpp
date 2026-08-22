@@ -10,7 +10,7 @@
 
 void VulkanDynamicRHI::init()
 {
-	if (engine_streamline_enabled)
+	if (engine_streamline)
 		StreamlineWrapper::init();
 
 	init_instance();
@@ -29,7 +29,7 @@ void VulkanDynamicRHI::init()
 
 	VulkanUtils::init();
 
-	if (engine_streamline_enabled)
+	if (engine_streamline)
 	{
 		streamline.init();
 		dlss_upscaler.init();

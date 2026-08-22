@@ -8,7 +8,7 @@
       "Items": [
         {
           "Id": "1e4baad3-53ee-4583-850d-bcf3458cdb91",
-          "Command": "-reimport_assets 1"
+          "Command": "-assets_reimport 1"
         }
       ]
     },
@@ -38,6 +38,21 @@
         {
           "Id": "d94548e4-831e-44c2-a40b-042ca70422e3",
           "Command": "-rhi_validation_break 1"
+        }
+      ]
+    },
+    {
+      "Id": "e3f51a30-c6dd-4801-8590-4d400ad6e3af",
+      "Command": "Scene",
+      "ExclusiveMode": true,
+      "Items": [
+        {
+          "Id": "311f03fb-a0be-45ee-bc72-7f068ccca814",
+          "Command": "-scene pica"
+        },
+        {
+          "Id": "4de70014-02cb-4902-b74f-886c06a668a0",
+          "Command": "-scene pbr"
         }
       ]
     }

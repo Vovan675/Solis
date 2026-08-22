@@ -9,6 +9,7 @@ enum DirtyFlags : uint32_t
 	DIRTY_TRANSFORM = 1 << 0,
 	DIRTY_RENDER_STATE = 1 << 1,
 	DIRTY_LIGHT = 1 << 2,
+	DIRTY_MATERIAL = 1 << 3,
 };
 
 class Scene : public RefCounted

@@ -130,4 +130,12 @@ private:
 	float near_plane = 0.1f;
 	float far_plane = 10000.0f;
 	float speed = 10.0f;
+
+	friend struct Reflected<Camera>;
 };
+
+REFLECT_BEGIN(Camera)
+	REFLECT_FIELD(position),
+	REFLECT_FIELD(pitch),
+	REFLECT_FIELD(yaw),
+REFLECT_END()

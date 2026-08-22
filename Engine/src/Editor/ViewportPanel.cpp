@@ -134,7 +134,7 @@ bool ViewportPanel::renderImGui(EditorContext &context, float delta_time)
 		{
 			const char *payload_str = (const char *)payload->Data;
 			eastl::string extension = std::filesystem::path(payload_str).extension().string().c_str();
-			if (AssetManager::getAssetTypeFromExtension(extension) == ASSET_TYPE_MODEL)
+			if (AssetManager::findTypeInfoByExtension(extension) == AssetManager::getTypeInfo<Model>())
 			{
 				if (payload = ImGui::AcceptDragDropPayload("DND_ASSET_PATH"))
 				{

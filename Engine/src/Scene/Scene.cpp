@@ -3,123 +3,8 @@
 #include "Components.h"
 #include "Entity.h"
 #include "Utils/YamlExtensions.h"
-#include "Rendering/Model.h"
-
-namespace YAML
-{
-	static YAML::Emitter &operator <<(YAML::Emitter &out, const MeshRendererComponent::MeshId mesh_id)
-	{
-		out << YAML::BeginMap;
-		out << YAML::Key << "ModelGuid" << YAML::Value << (uint64_t)mesh_id.model->asset_handle;
-		out << YAML::Key << "ModelPath" << YAML::Value << mesh_id.model->getPath(); // For fallback
-		out << YAML::Key << "MeshId" << YAML::Value << mesh_id.mesh_id;
-		out << YAML::EndMap;
-		return out;
-	}
-
-	template<>
-	struct convert<MeshRendererComponent::MeshId>
-	{
-		static bool decode(const Node &node, MeshRendererComponent::MeshId &mesh_id)
-		{
-			if (!node.IsMap())
-				return false;
-
-			Ref<Model> model;
-			if (node["ModelGuid"])
-				model = AssetManager::getModelAssetByGuid(node["ModelGuid"].as<uint64_t>());
-			if (!model && node["ModelPath"])
-				model = AssetManager::getModelAsset(node["ModelPath"].as<eastl::string>());
-
-			if (!model)
-				return false;
-
-			mesh_id.model = model;
-			mesh_id.mesh_id = node["MeshId"].as<size_t>();
-
-			return true;
-		}
-	};
-
-	static YAML::Emitter &operator <<(YAML::Emitter &out, const Entity entity)
-	{
-		out << YAML::BeginMap;
-		out << YAML::Key << "Entity" << YAML::Value << entity.getID();
-
-		if (entity.hasComponent<TransformComponent>())
-		{
-			out << YAML::Key << "TransformComponent" << YAML::Value;
-			out << YAML::BeginMap;
-
-			auto &comp = entity.getComponent<TransformComponent>();
-			out << YAML::Key << "Name" << YAML::Value << comp.name;
-			out << YAML::Key << "Position" << YAML::Value << comp.getLocalPosition();
-			out << YAML::Key << "Rotation" << YAML::Value << comp.getLocalRotation();
-			out << YAML::Key << "RotationEuler" << YAML::Value << comp.getLocalRotationEuler();
-			out << YAML::Key << "Scale" << YAML::Value << comp.getLocalScale();
-			out << YAML::Key << "Parent" << YAML::Value << comp.parent;
-			out << YAML::Key << "Children" << YAML::Value << comp.children;
-
-			out << YAML::EndMap;
-		}
-
-		if (entity.hasComponent<MeshRendererComponent>())
-		{
-			out << YAML::Key << "MeshRendererComponent" << YAML::Value;
-			out << YAML::BeginMap;
-
-			auto &comp = entity.getComponent<MeshRendererComponent>();
-			out << YAML::Key << "Meshes" << YAML::Value << comp.meshes;
-			out << YAML::Key << "Materials" << YAML::Value << comp.materials;
-
-			out << YAML::EndMap;
-		}
-
-		if (entity.hasComponent<LightComponent>())
-		{
-			out << YAML::Key << "LightComponent" << YAML::Value;
-			out << YAML::BeginMap;
-
-			auto &comp = entity.getComponent<LightComponent>();
-			out << YAML::Key << "Type" << YAML::Value << comp.getType();
-			out << YAML::Key << "Color" << YAML::Value << comp.color;
-			out << YAML::Key << "Intensity" << YAML::Value << comp.intensity;
-			out << YAML::Key << "AttenuationRadius" << YAML::Value << comp.attenuation_radius;
-
-			out << YAML::EndMap;
-		}
-
-		if (entity.hasComponent<RigidBodyComponent>())
-		{
-			out << YAML::Key << "RigidBodyComponent" << YAML::Value;
-			out << YAML::BeginMap;
-
-			auto &comp = entity.getComponent<RigidBodyComponent>();
-			out << YAML::Key << "IsStatic" << YAML::Value << comp.is_static;
-			out << YAML::Key << "Mass" << YAML::Value << comp.mass;
-			out << YAML::Key << "LinearDamping" << YAML::Value << comp.linear_damping;
-			out << YAML::Key << "AngularDamping" << YAML::Value << comp.angular_damping;
-			out << YAML::Key << "Gravity" << YAML::Value << comp.gravity;
-			out << YAML::Key << "IsKinematic" << YAML::Value << comp.is_kinematic;
-
-			out << YAML::EndMap;
-		}
-
-		if (entity.hasComponent<BoxColliderComponent>())
-		{
-			out << YAML::Key << "BoxColliderComponent" << YAML::Value;
-			out << YAML::BeginMap;
-
-			auto &comp = entity.getComponent<BoxColliderComponent>();
-			out << YAML::Key << "HalfExtent" << YAML::Value << comp.half_extent;
-
-			out << YAML::EndMap;
-		}
-
-		out << YAML::EndMap;
-		return out;
-	}
-}
+#include "Rendering/Renderer.h"
+#include "Core/Variables.h"
 
 Ref<Scene> Scene::current_scene;
 
@@ -205,6 +90,36 @@ void Scene::destroyEntity(entt::entity id)
 }
 
 template<typename... Component>
+static void write_components(YAML::Emitter &out, Entity entity)
+{
+	([&]()
+	{
+		if (!entity.hasComponent<Component>())
+			return;
+
+		const StructInfo &info = Reflected<Component>::getInfo();
+		out << YAML::Key << info.name << YAML::Value << YAML::BeginMap;
+		ReflectionYaml::writeFields(out, info, &entity.getComponent<Component>(), nullptr);
+		out << YAML::EndMap;
+	}(), ...);
+}
+
+template<typename... Component>
+static void read_components(const YAML::Node &node, Entity entity)
+{
+	([&]()
+	{
+		const StructInfo &info = Reflected<Component>::getInfo();
+		YAML::Node component_node = node[info.name];
+		if (!component_node)
+			return;
+
+		Component &component = entity.addComponent<Component>();
+		ReflectionYaml::readFields(component_node, info, &component);
+	}(), ...);
+}
+
+template<typename... Component>
 static void copy_component(entt::registry &src, entt::registry &dst)
 {
 	([&]()
@@ -230,7 +145,7 @@ Ref<Scene> Scene::copy()
 		scene->createEntity(transform.name, e);
 	}
 
-	copy_component<TransformComponent, MeshRendererComponent, LightComponent, RigidBodyComponent, BoxColliderComponent>(registry, scene->registry);
+	copy_component<ALL_COMPONENTS>(registry, scene->registry);
 	return scene;
 }
 
@@ -238,76 +153,61 @@ void Scene::saveFile(const eastl::string &filename)
 {
 	std::ofstream file(filename.c_str());
 	YAML::Emitter out(file);
-	
-	out << YAML::BeginSeq;
+
+	out << YAML::BeginMap;
+	out << YAML::Key << "Entities" << YAML::Value << YAML::BeginSeq;
 	for (entt::entity entity_id : registry.view<entt::entity>())
 	{
-		Entity entity(entity_id);
-		out << entity;
+		out << YAML::BeginMap;
+		out << YAML::Key << "Entity" << YAML::Value << (uint32_t)entity_id;
+		write_components<ALL_COMPONENTS>(out, Entity(entity_id));
+		out << YAML::EndMap;
 	}
 	out << YAML::EndSeq;
+
+	if (Camera *camera = Renderer::getCamera())
+	{
+		out << YAML::Key << "Camera" << YAML::Value << YAML::BeginMap;
+		ReflectionYaml::writeFields(out, Reflected<Camera>::getInfo(), camera, nullptr);
+		out << YAML::EndMap;
+	}
+
+	const StructInfo &render_settings_info = Reflected<RenderSettings>::getInfo();
+	out << YAML::Key << "Settings" << YAML::Value << YAML::BeginMap;
+	out << YAML::Key << "Render" << YAML::Value << YAML::BeginMap;
+	ReflectionYaml::writeFields(out, render_settings_info, &gRenderSettings, render_settings_info.defaults);
+	out << YAML::EndMap << YAML::EndMap;
+
+	out << YAML::EndMap;
 }
 
 void Scene::loadFile(const eastl::string &filename)
 {
-	std::ifstream file(filename.c_str());
-	YAML::Node node = YAML::LoadFile(filename.c_str());
-	
-	for (auto entity : node)
+	YAML::Node root = YAML::LoadFile(filename.c_str());
+
+	for (auto entity : root["Entities"])
 	{
-		entt::entity entity_id = entity["Entity"].as<entt::entity>();
-		Entity engine_entity = createEntity("", entity_id);
-		
-		auto comp = entity["TransformComponent"];
-		if (comp)
-		{
-			auto &c = engine_entity.addComponent<TransformComponent>();
-			c.name = comp["Name"].as<eastl::string>();
-			c.setPosition(comp["Position"].as<glm::vec3>());
-			c.setLocalRotation(comp["Rotation"].as<glm::quat>());
-			c.setLocalRotationEuler(comp["RotationEuler"].as<glm::vec3>());
-			c.setLocalScale(comp["Scale"].as<glm::vec3>());
-			c.parent = comp["Parent"].as<entt::entity>();
-			c.children = comp["Children"].as<eastl::vector<entt::entity>>();
-		}
+		entt::entity entity_id = entt::null;
+		if (YAML::Node id_node = entity["Entity"])
+			entity_id = (entt::entity)id_node.as<uint32_t>();
 
-		comp = entity["MeshRendererComponent"];
-		if (comp)
-		{
-			auto &c = engine_entity.addComponent<MeshRendererComponent>();
-			c.meshes = comp["Meshes"].as<eastl::vector<MeshRendererComponent::MeshId>>();
-			c.materials = comp["Materials"].as<eastl::vector<Ref<Material>>>();
-		}
-
-		comp = entity["LightComponent"];
-		if (comp)
-		{
-			auto &c = engine_entity.addComponent<LightComponent>();
-			c.setType((LIGHT_TYPE)comp["Type"].as<int>());
-			c.color = comp["Color"].as<glm::vec3>();
-			c.intensity = comp["Intensity"].as<float>();
-			c.attenuation_radius = comp["AttenuationRadius"].as<float>();
-		}
-
-		comp = entity["RigidBodyComponent"];
-		if (comp)
-		{
-			auto &c = engine_entity.addComponent<RigidBodyComponent>();
-			c.is_static = comp["IsStatic"].as<bool>();
-			c.mass = comp["Mass"].as<float>();
-			c.linear_damping = comp["LinearDamping"].as<float>();
-			c.angular_damping = comp["AngularDamping"].as<float>();
-			c.gravity = comp["Gravity"].as<bool>();
-			c.is_kinematic = comp["IsKinematic"].as<bool>();
-		}
-
-		comp = entity["BoxColliderComponent"];
-		if (comp)
-		{
-			auto &c = engine_entity.addComponent<BoxColliderComponent>();
-			c.half_extent = comp["HalfExtent"].as<glm::vec3>();
-		}
+		read_components<ALL_COMPONENTS>(entity, createEntity("", entity_id));
 	}
+
+	for (auto [entity_id, transform] : registry.view<TransformComponent>().each())
+	{
+		if (transform.parent == entt::null)
+			propagate_local_transforms_update(entity_id);
+	}
+
+	if (Camera *camera = Renderer::getCamera())
+	{
+		ReflectionYaml::readFields(root["Camera"], Reflected<Camera>::getInfo(), camera);
+		camera->updateMatrices();
+	}
+
+	gRenderSettings = RenderSettings();
+	ReflectionYaml::readFields(root["Settings"]["Render"], Reflected<RenderSettings>::getInfo(), &gRenderSettings);
 }
 
 Ref<Scene> Scene::loadScene(const eastl::string &filename)

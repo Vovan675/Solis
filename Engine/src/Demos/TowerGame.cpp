@@ -21,7 +21,7 @@ Block createBlock(Scene* scene, const glm::vec3& size, const glm::vec3& pos, con
     auto& mr = child.getComponent<MeshRendererComponent>();
     Ref<Material> mat = new Material();
     mat->albedo = color;
-    mr.materials[0] = mat;
+    mr.setMaterial(0, mat);
     Block block(size, pos, color);
     block.entity = entity;
     return block;
@@ -99,7 +99,7 @@ void Layer::tick(float dt, float colorTime) {
         float r = (std::sin(colorTime) + 1.0f) / 2.0f;
         float g = (std::sin(colorTime + 2.0f) + 1.0f) / 2.0f;
         float b = (std::sin(colorTime + 4.0f) + 1.0f) / 2.0f;
-        Entity(movingBlock->entity.getChildren()[0]).getComponent<MeshRendererComponent>().materials[0]->albedo = glm::vec4(r, g, b, 1.0f);
+        Entity(movingBlock->entity.getChildren()[0]).getComponent<MeshRendererComponent>().getMaterial(0)->albedo = glm::vec4(r, g, b, 1.0f);
     }
 }
 

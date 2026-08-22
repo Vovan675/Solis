@@ -1,10 +1,18 @@
 #pragma once
-#include "Core/Core.h"
-#include <yaml-cpp/yaml.h>
+#include "Core/ReflectionSerialization.h"
+
+enum MeshletMode
+{
+	MESHLET_MODE_AUTO = 0,
+	MESHLET_MODE_ENABLED,
+	MESHLET_MODE_DISABLED,
+};
+inline const char *const meshlet_mode_items[] = {"Auto", "Enabled", "Disabled"};
 
 struct ModelImportSettings
 {
 	// Meshlet generation
+	MeshletMode meshlet_mode = MESHLET_MODE_AUTO;
 	uint32_t meshlet_max_vertices = 128;
 	uint32_t meshlet_max_triangles = 128;
 
@@ -14,46 +22,17 @@ struct ModelImportSettings
 	float tangent_weight = 0.01f;
 	float uv_weight = 1.0f;
 	float color_weight = 0.0f;
-
-	bool generate_meshlets = true;
-	bool generate_meshlets_explicitly_set = false;
-
-	void loadFromYAML(const YAML::Node& node)
-	{
-		if (!node.IsDefined() || node.IsNull())
-			return;
-
-		if (node["meshlet_max_vertices"]) meshlet_max_vertices = node["meshlet_max_vertices"].as<uint32_t>();
-		if (node["meshlet_max_triangles"]) meshlet_max_triangles = node["meshlet_max_triangles"].as<uint32_t>();
-		if (node["position_weight"]) position_weight = node["position_weight"].as<float>();
-		if (node["normal_weight"]) normal_weight = node["normal_weight"].as<float>();
-		if (node["tangent_weight"]) tangent_weight = node["tangent_weight"].as<float>();
-		if (node["uv_weight"]) uv_weight = node["uv_weight"].as<float>();
-		if (node["color_weight"]) color_weight = node["color_weight"].as<float>();
-		if (node["generate_meshlets"])
-		{
-			generate_meshlets = node["generate_meshlets"].as<bool>();
-			generate_meshlets_explicitly_set = true;
-		}
-
-		meshlet_max_vertices = glm::clamp(meshlet_max_vertices, 32u, 256u);
-		meshlet_max_triangles = glm::clamp(meshlet_max_triangles, 32u, 256u);
-		normal_weight = glm::clamp(normal_weight, 0.0f, 2.0f);
-		tangent_weight = glm::clamp(tangent_weight, 0.0f, 2.0f);
-		uv_weight = glm::clamp(uv_weight, 0.0f, 2.0f);
-		color_weight = glm::clamp(color_weight, 0.0f, 2.0f);
-	}
-
-	void saveToYAML(YAML::Node& node) const
-	{
-		node["meshlet_max_vertices"] = meshlet_max_vertices;
-		node["meshlet_max_triangles"] = meshlet_max_triangles;
-		node["position_weight"] = position_weight;
-		node["normal_weight"] = normal_weight;
-		node["tangent_weight"] = tangent_weight;
-		node["uv_weight"] = uv_weight;
-		node["color_weight"] = color_weight;
-		node["generate_meshlets"] = generate_meshlets;
-	}
-
 };
+
+REFLECT_BEGIN(ModelImportSettings)
+	REFLECT_FIELD(meshlet_mode).label("Meshlet (Nanite) Geometry").items(meshlet_mode_items),
+	REFLECT_CATEGORY("Meshlets"),
+	REFLECT_FIELD(meshlet_max_vertices).range(32.0f, 256.0f).EDIT_IF(owner.meshlet_mode != MESHLET_MODE_DISABLED),
+	REFLECT_FIELD(meshlet_max_triangles).range(32.0f, 256.0f).EDIT_IF(owner.meshlet_mode != MESHLET_MODE_DISABLED),
+	REFLECT_CATEGORY("Meshlets - Simplification"),
+	REFLECT_FIELD(position_weight).range(0.0f, 2.0f).format("%.2f").EDIT_IF(owner.meshlet_mode != MESHLET_MODE_DISABLED),
+	REFLECT_FIELD(normal_weight).range(0.0f, 2.0f).format("%.2f").EDIT_IF(owner.meshlet_mode != MESHLET_MODE_DISABLED),
+	REFLECT_FIELD(tangent_weight).range(0.0f, 2.0f).format("%.2f").EDIT_IF(owner.meshlet_mode != MESHLET_MODE_DISABLED),
+	REFLECT_FIELD(uv_weight).label("UV Weight").range(0.0f, 2.0f).format("%.2f").EDIT_IF(owner.meshlet_mode != MESHLET_MODE_DISABLED),
+	REFLECT_FIELD(color_weight).range(0.0f, 2.0f).format("%.2f").EDIT_IF(owner.meshlet_mode != MESHLET_MODE_DISABLED),
+REFLECT_END()

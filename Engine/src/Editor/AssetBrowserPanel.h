@@ -17,8 +17,11 @@ public:
 	bool renderImGui(EditorContext &context);
 
 	void setCurrentAsset(const std::filesystem::path &path) { current_path = path.parent_path(); }
+	void refreshCache() { directories_cache.clear(); }
 
 private:
+	void process_create_menu(EditorContext &context);
+	void open_rename(const std::filesystem::path &file);
 	std::vector<FileEntry> get_directory_entries(const std::filesystem::path &path);
 	bool has_subdirectories(const std::filesystem::path &path);
 	void draw_directories_tree(const eastl::string &path);
@@ -32,6 +35,7 @@ private:
 	std::unordered_map<std::filesystem::path, std::vector<FileEntry>> directories_cache;
 	std::filesystem::path root_path = "assets";
 	std::filesystem::path current_path = "assets";
+	std::filesystem::path last_selected_path;
 
 	std::filesystem::path rename_target;
 	char rename_buffer[256] = {};

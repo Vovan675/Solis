@@ -408,6 +408,7 @@ bool MeshSerializer::load_from_memory(Model *model, const uint8_t *data, uint64_
 			Ref<Engine::Mesh> &mesh = meshes[ref.mesh_idx];
 			node->primitives.push_back({mesh, materials[ref.material_idx]});
 			model->meshes_id[mesh->id] = mesh;
+			model->materials_id[mesh->id] = materials[ref.material_idx];
 		}
 	}
 

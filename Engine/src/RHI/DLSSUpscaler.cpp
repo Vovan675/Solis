@@ -12,7 +12,7 @@
 
 namespace
 {
-sl::DLSSMode to_sl_dlss_mode(uint32_t quality_mode)
+sl::DLSSMode to_sl_dlss_mode(DLSSQualityMode quality_mode)
 {
 	switch (quality_mode)
 	{
@@ -28,7 +28,7 @@ sl::DLSSMode to_sl_dlss_mode(uint32_t quality_mode)
 sl::DLSSOptions get_dlss_options(glm::ivec2 output_size)
 {
 	sl::DLSSOptions options{};
-	options.mode = to_sl_dlss_mode(render_dlss_mode);
+	options.mode = to_sl_dlss_mode(GFXOPTIONS(anti_aliasing).dlss_quality);
 	options.outputWidth = output_size.x;
 	options.outputHeight = output_size.y;
 	options.colorBuffersHDR = sl::Boolean::eTrue;

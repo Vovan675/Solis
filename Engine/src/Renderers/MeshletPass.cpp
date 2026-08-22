@@ -34,7 +34,7 @@ void MeshletPass::addMainCullingPasses(FrameGraph &fg, const MeshletCullDesc &de
 	add_counter_init_pass(fg, desc, false);
 	add_instance_culling_pass(fg, desc, false);
 	add_traversal_pass(fg, desc, false);
-	if (render_meshlets_use_mesh_shaders)
+	if (render_meshlets_mesh_shaders)
 		add_dispatch_args_pass(fg, "Build Geometry Dispatch Args", GFXRID_ID(DispatchMeshIndirectArgs, desc.view_id), GFXRID_ID(VisibleMeshletsCount, desc.view_id), 1);
 }
 
@@ -51,7 +51,7 @@ void MeshletPass::addFixCullingPasses(FrameGraph &fg, const MeshletCullDesc &des
 	add_dispatch_args_pass(fg, "Build Meshlet Fix Dispatch Args", GFXRID_ID(MeshletFixDispatchArgs, desc.view_id), GFXRID_ID(OccludedMeshletsCount, desc.view_id), MESHLET_FIX_THREADGROUP_SIZE);
 	add_meshlet_fix_pass(fg, desc);
 
-	if (render_meshlets_use_mesh_shaders)
+	if (render_meshlets_mesh_shaders)
 		add_dispatch_args_pass(fg, "Build Geometry Dispatch Args", GFXRID_ID(DispatchMeshIndirectArgs, desc.view_id), GFXRID_ID(VisibleMeshletsCount, desc.view_id), 1);
 }
 
@@ -191,7 +191,7 @@ void MeshletPass::add_traversal_pass(FrameGraph &fg, const MeshletCullDesc &desc
 	{
 		if (!is_fix)
 		{
-			if (!render_meshlets_use_mesh_shaders)
+			if (!render_meshlets_mesh_shaders)
 			{
 				builder.createBuffer(GFXRID_ID(DrawIndexedArgs, view_id), sizeof(DrawIndexedIndirect), MAX_MESHLETS_PER_FRAME, BufferUsage::INDIRECT_ARGS_BUFFER | BufferUsage::SHADER_WRITE_BUFFER);
 				builder.createBuffer(GFXRID_ID(DrawCallsInstances, view_id), sizeof(uint32_t), MAX_MESHLETS_PER_FRAME, BufferUsage::VERTEX_BUFFER | BufferUsage::SHADER_WRITE_BUFFER);
@@ -208,7 +208,7 @@ void MeshletPass::add_traversal_pass(FrameGraph &fg, const MeshletCullDesc &desc
 		builder.writeBuffer(GFXRID(StreamRequestsBuffer));
 		builder.writeBuffer(GFXRID(GroupAgesBuffer));
 
-		if (!render_meshlets_use_mesh_shaders)
+		if (!render_meshlets_mesh_shaders)
 		{
 			builder.writeBuffer(GFXRID_ID(DrawIndexedArgs, view_id));
 			builder.writeBuffer(GFXRID_ID(DrawIndexedCount, view_id));
@@ -222,7 +222,7 @@ void MeshletPass::add_traversal_pass(FrameGraph &fg, const MeshletCullDesc &desc
 	{
 		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/gpu_driven/meshlet_traverse.hlsl", COMPUTE_SHADER, "CSMain",
 											  {
-												  {"USE_MESH_SHADERS", render_meshlets_use_mesh_shaders ? "1" : "0"},
+												  {"USE_MESH_SHADERS", render_meshlets_mesh_shaders ? "1" : "0"},
 												  {"IS_FIX", is_fix ? "1" : "0"},
 												  {"IS_ORTHO_FRUSTUM", desc.is_ortho ? "1" : "0"},
 												  {"REVERSE_Z", desc.reverse_z ? "1" : "0"},
@@ -261,7 +261,7 @@ void MeshletPass::add_traversal_pass(FrameGraph &fg, const MeshletCullDesc &desc
 		constants.occluded_meshlets_buffer_id = resources.getReadWriteBuffer(GFXRID_ID(OccludedMeshlets, view_id));
 		constants.occluded_meshlets_count_buffer_id = resources.getReadWriteBuffer(GFXRID_ID(OccludedMeshletsCount, view_id));
 
-		if (!render_meshlets_use_mesh_shaders)
+		if (!render_meshlets_mesh_shaders)
 		{
 			constants.draw_indexed_args_buffer_id = resources.getReadWriteBuffer(GFXRID_ID(DrawIndexedArgs, view_id));
 			constants.draw_indexed_count_buffer_id = resources.getReadWriteBuffer(GFXRID_ID(DrawIndexedCount, view_id));
@@ -296,7 +296,7 @@ void MeshletPass::add_meshlet_fix_pass(FrameGraph &fg, const MeshletCullDesc &de
 		builder.writeBuffer(GFXRID_ID(OccludedMeshlets, view_id));
 		builder.writeBuffer(GFXRID_ID(OccludedMeshletsCount, view_id));
 		builder.writeBuffer(GFXRID(GroupResidencyBuffer));
-		if (!render_meshlets_use_mesh_shaders)
+		if (!render_meshlets_mesh_shaders)
 		{
 			builder.writeBuffer(GFXRID_ID(DrawIndexedArgs, view_id));
 			builder.writeBuffer(GFXRID_ID(DrawIndexedCount, view_id));
@@ -309,7 +309,7 @@ void MeshletPass::add_meshlet_fix_pass(FrameGraph &fg, const MeshletCullDesc &de
 	{
 		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/gpu_driven/meshlet_cull_fix.hlsl", COMPUTE_SHADER, "CSMain",
 											  {
-												  {"USE_MESH_SHADERS", render_meshlets_use_mesh_shaders ? "1" : "0"},
+												  {"USE_MESH_SHADERS", render_meshlets_mesh_shaders ? "1" : "0"},
 												  {"IS_ORTHO_FRUSTUM", desc.is_ortho ? "1" : "0"},
 												  {"REVERSE_Z", desc.reverse_z ? "1" : "0"},
 												  {"USE_OCCLUSION", desc.use_occlusion ? "1" : "0"},
@@ -339,7 +339,7 @@ void MeshletPass::add_meshlet_fix_pass(FrameGraph &fg, const MeshletCullDesc &de
 		constants.occluded_meshlets_buffer_id = resources.getReadWriteBuffer(GFXRID_ID(OccludedMeshlets, view_id));
 		constants.occluded_meshlets_count_buffer_id = resources.getReadWriteBuffer(GFXRID_ID(OccludedMeshletsCount, view_id));
 
-		if (!render_meshlets_use_mesh_shaders)
+		if (!render_meshlets_mesh_shaders)
 		{
 			constants.draw_indexed_args_buffer_id = resources.getReadWriteBuffer(GFXRID_ID(DrawIndexedArgs, view_id));
 			constants.draw_indexed_count_buffer_id = resources.getReadWriteBuffer(GFXRID_ID(DrawIndexedCount, view_id));

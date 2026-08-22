@@ -52,7 +52,7 @@ def extract_channel(source, channel):
         return out
 
     index = {'r': 0, 'g': 1, 'b': 2}[channel]
-    pixels = np.array(Image.open(source))
+    pixels = np.array(Image.open(source).convert('RGB'))
     Image.fromarray(pixels[:, :, index]).save(out, compress_level=1)
     return out
 

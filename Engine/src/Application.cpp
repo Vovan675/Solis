@@ -86,9 +86,16 @@ Application::Application(int argc, char *argv[])
 				engine_rhi_validation_break = std::stoi(enabled.c_str());
 				i++;
 			}
+		} else if (arg == "-scene")
+		{
+			if (i + 1 < argc)
+			{
+				engine_startup_scene = argv[i + 1];
+				i++;
+			}
 		} else if (arg == "-reimport_assets")
 		{
-			engine_reimport_assets = true;
+			engine_assets_reimport = true;
 		}
 	}
 

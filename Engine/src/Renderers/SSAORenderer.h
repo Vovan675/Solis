@@ -26,8 +26,6 @@ public:
 	SSAORenderer();
 
 	void addPasses(FrameGraph &fg);
-
-	void renderImgui();
 private:
 	RHITextureRef ssao_noise;
 	eastl::vector<glm::vec4> ssao_kernel;

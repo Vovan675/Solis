@@ -1,9 +1,8 @@
 #pragma once
 #include "RHI/BindlessResources.h"
 #include "RHI/RHITexture.h"
-#include "Utils/YamlExtensions.h"
+#include "Core/Reflection.h"
 #include "Assets/AssetManager.h"
-#include "Utils/Stream.h"
 
 struct LightingOnlyMaterial
 {
@@ -13,199 +12,90 @@ struct LightingOnlyMaterial
 	static constexpr float specular = 0.5f;
 };
 
-class Material : public RefCounted
+struct MaterialTexture
 {
-public:
-		struct MaterialTexture
-		{
-			Engine::GUID asset_handle = 0;
-			int bindless_id = 0;
-		};
-
-		MaterialTexture albedo_tex;
-		glm::vec4 albedo = glm::vec4(1, 1, 1, 1);
-
-		MaterialTexture metalness_tex;
-		float metalness = 0.0f;
-
-		MaterialTexture roughness_tex;
-		float roughness = 0.6f;
-
-		MaterialTexture specular_tex;
-		float specular = 0.5f;
-
-		MaterialTexture normal_tex;
-
-		void update()
-		{
-			auto update_texture = [](MaterialTexture &material_texture, Format format)
-			{
-				if (material_texture.bindless_id == 0 && material_texture.asset_handle.isValid())
-				{
-					TextureDescription desc{};
-					desc.format = format;
-					desc.usage_flags = TEXTURE_USAGE_TRANSFER_SRC;
-					auto tex = AssetManager::getTextureAssetByGuid(material_texture.asset_handle, desc);
-					if (!tex || !tex->isValid())
-						return;
-					material_texture.bindless_id = tex->getShaderResourceView()->getBindlessIndex();
-				}
-			};
-
-			update_texture(albedo_tex, FORMAT_R8G8B8A8_SRGB);
-			update_texture(metalness_tex, FORMAT_R8G8B8A8_UNORM);
-			update_texture(roughness_tex, FORMAT_R8G8B8A8_UNORM);
-			update_texture(specular_tex, FORMAT_R8G8B8A8_UNORM);
-			update_texture(normal_tex, FORMAT_R8G8B8A8_UNORM);
-		}
-
-		void invalidateTextures()
-		{
-			albedo_tex.bindless_id = 0;
-			metalness_tex.bindless_id = 0;
-			roughness_tex.bindless_id = 0;
-			specular_tex.bindless_id = 0;
-			normal_tex.bindless_id = 0;
-		}
-
-		void serialize(Stream &stream)
-		{
-			stream.write(albedo);
-			stream.write(metalness);
-			stream.write(roughness);
-			stream.write(specular);
-
-			const auto write_tex = [&stream](MaterialTexture &tex)
-			{
-				stream.write(tex.asset_handle);
-			};
-
-			write_tex(albedo_tex);
-			write_tex(metalness_tex);
-			write_tex(roughness_tex);
-			write_tex(specular_tex);
-			write_tex(normal_tex);
-		}
-
-		void deserialize(Stream &stream)
-		{
-			stream.read(albedo);
-			stream.read(metalness);
-			stream.read(roughness);
-			stream.read(specular);
-
-			TextureDescription non_srgb_description = {};
-			non_srgb_description.format = FORMAT_R8G8B8A8_UNORM;
-			non_srgb_description.usage_flags = TEXTURE_USAGE_TRANSFER_SRC;
-
-			const auto read_tex = [&stream, &non_srgb_description](MaterialTexture &tex, bool non_srgb = false)
-			{
-				tex.bindless_id = 0;
-
-				Engine::GUID tex_guid;
-				stream.read(tex_guid);
-				tex.asset_handle = tex_guid;
-			};
-
-			read_tex(albedo_tex);
-			read_tex(metalness_tex, true);
-			read_tex(roughness_tex, true);
-			read_tex(specular_tex, true);
-			read_tex(normal_tex, true);
-		}
+	AssetReference asset;
+	int bindless_id = 0;
+	Engine::GUID resolved_handle = 0;
 };
 
-namespace YAML
+REFLECT_BEGIN(MaterialTexture)
+	REFLECT_FIELD(asset).label("Texture").asset<RHITexture>(),
+REFLECT_END()
+
+class Material : public Asset
 {
-	static YAML::Emitter &operator <<(YAML::Emitter &out, const Ref<Material> &mat)
+public:
+	MaterialTexture albedo_tex;
+	glm::vec4 albedo = glm::vec4(1, 1, 1, 1);
+
+	MaterialTexture metalness_tex;
+	float metalness = 0.0f;
+
+	MaterialTexture roughness_tex;
+	float roughness = 0.6f;
+
+	MaterialTexture specular_tex;
+	float specular = 0.5f;
+
+	MaterialTexture normal_tex;
+
+	void update()
 	{
-		out << YAML::BeginMap;
-		out << YAML::Key << "Albedo" << YAML::Value << mat->albedo;
-		out << YAML::Key << "Metalness" << YAML::Value << mat->metalness;
-		out << YAML::Key << "Roughness" << YAML::Value << mat->roughness;
-		out << YAML::Key << "Specular" << YAML::Value << mat->specular;
-		out << YAML::Key << "Normal" << YAML::Value << mat->specular;
-		
-		eastl::string no_texture = "no";
-		if (mat->albedo_tex.bindless_id != 0)
-			out << YAML::Key << "AlbedoTexture" << YAML::Value << gDynamicRHI->getBindlessResources()->getTexture(mat->albedo_tex.bindless_id)->asset_handle;
+		auto update_texture = [](MaterialTexture &material_texture, Format format)
+		{
+			if (material_texture.resolved_handle != material_texture.asset.guid)
+			{
+				material_texture.bindless_id = 0;
+				material_texture.resolved_handle = material_texture.asset.guid;
+			}
 
-		if (mat->metalness_tex.bindless_id != 0)
-			out << YAML::Key << "MetalnessTexture" << YAML::Value << gDynamicRHI->getBindlessResources()->getTexture(mat->metalness_tex.bindless_id)->asset_handle;
+			if (material_texture.bindless_id == 0 && material_texture.asset.isValid())
+			{
+				TextureDescription desc{};
+				desc.format = format;
+				desc.usage_flags = TEXTURE_USAGE_TRANSFER_SRC;
+				auto tex = AssetManager::getTextureAsset(material_texture.asset, desc);
+				if (!tex || !tex->isValid())
+					return;
+				material_texture.bindless_id = tex->getShaderResourceView()->getBindlessIndex();
+			}
+		};
 
-		if (mat->roughness_tex.bindless_id != 0)
-			out << YAML::Key << "RoughnessTexture" << YAML::Value << gDynamicRHI->getBindlessResources()->getTexture(mat->roughness_tex.bindless_id)->asset_handle;
-
-		if (mat->specular_tex.bindless_id != 0)
-			out << YAML::Key << "SpecularTexture" << YAML::Value << gDynamicRHI->getBindlessResources()->getTexture(mat->specular_tex.bindless_id)->asset_handle;
-
-		if (mat->normal_tex.bindless_id != 0)
-			out << YAML::Key << "NormalTexture" << YAML::Value << gDynamicRHI->getBindlessResources()->getTexture(mat->normal_tex.bindless_id)->asset_handle;
-		out << YAML::EndMap;
-		return out;
+		update_texture(albedo_tex, FORMAT_R8G8B8A8_SRGB);
+		update_texture(metalness_tex, FORMAT_R8G8B8A8_UNORM);
+		update_texture(roughness_tex, FORMAT_R8G8B8A8_UNORM);
+		update_texture(specular_tex, FORMAT_R8G8B8A8_UNORM);
+		update_texture(normal_tex, FORMAT_R8G8B8A8_UNORM);
 	}
 
-	template<>
-	struct convert<Ref<Material>>
+	bool usesTexture(Engine::GUID guid) const
 	{
-		static bool decode(const Node &node, Ref<Material> &mat)
-		{
-			if (!node.IsMap())
-				return false;
+		return albedo_tex.asset.guid == guid ||
+			metalness_tex.asset.guid == guid ||
+			roughness_tex.asset.guid == guid ||
+			specular_tex.asset.guid == guid ||
+			normal_tex.asset.guid == guid;
+	}
 
-			mat = new Material();
-			mat->albedo = node["Albedo"].as<glm::vec4>();
-			mat->metalness = node["Metalness"].as<float>();
-			mat->roughness = node["Roughness"].as<float>();
-			mat->specular = node["Specular"].as<float>();
+	void invalidateTextures()
+	{
+		albedo_tex.bindless_id = 0;
+		metalness_tex.bindless_id = 0;
+		roughness_tex.bindless_id = 0;
+		specular_tex.bindless_id = 0;
+		normal_tex.bindless_id = 0;
+	}
+};
 
-			if (node["AlbedoTexture"])
-			{
-				auto tex = AssetManager::getTextureAsset(node["AlbedoTexture"].as<eastl::string>());
-				mat->albedo_tex.bindless_id = tex->getShaderResourceView()->getBindlessIndex();
-			}
-
-			if (node["MetalnessTexture"])
-			{
-				TextureDescription tex_description{};
-				tex_description.format = FORMAT_R8G8B8A8_UNORM;
-				tex_description.usage_flags = TEXTURE_USAGE_TRANSFER_SRC;
-
-				auto tex = AssetManager::getTextureAsset(node["MetalnessTexture"].as<eastl::string>(), tex_description);
-				mat->metalness_tex.bindless_id = tex->getShaderResourceView()->getBindlessIndex();
-			}
-
-			if (node["RoughnessTexture"])
-			{
-				TextureDescription tex_description{};
-				tex_description.format = FORMAT_R8G8B8A8_UNORM;
-				tex_description.usage_flags = TEXTURE_USAGE_TRANSFER_SRC;
-
-				auto tex = AssetManager::getTextureAsset(node["RoughnessTexture"].as<eastl::string>(), tex_description);
-				mat->roughness_tex.bindless_id = tex->getShaderResourceView()->getBindlessIndex();
-			}
-
-			if (node["SpecularTexture"])
-			{
-				TextureDescription tex_description{};
-				tex_description.format = FORMAT_R8G8B8A8_UNORM;
-				tex_description.usage_flags = TEXTURE_USAGE_TRANSFER_SRC;
-
-				auto tex = AssetManager::getTextureAsset(node["SpecularTexture"].as<eastl::string>(), tex_description);
-				mat->specular_tex.bindless_id = tex->getShaderResourceView()->getBindlessIndex();
-			}
-
-			if (node["NormalTexture"])
-			{
-				TextureDescription tex_description{};
-				tex_description.format = FORMAT_R8G8B8A8_UNORM;
-				tex_description.usage_flags = TEXTURE_USAGE_TRANSFER_SRC;
-
-				auto tex = AssetManager::getTextureAsset(node["NormalTexture"].as<eastl::string>(), tex_description);
-				mat->normal_tex.bindless_id = tex->getShaderResourceView()->getBindlessIndex();
-			}
-
-			return true;
-		}
-	};
-}
+REFLECT_BEGIN(Material)
+	REFLECT_FIELD(albedo).label("Base Color").color(),
+	REFLECT_FIELD(albedo_tex).label("Base Color Texture"),
+	REFLECT_FIELD(metalness).range(0.0f, 1.0f).format("%.2f"),
+	REFLECT_FIELD(metalness_tex).label("Metalness Texture"),
+	REFLECT_FIELD(roughness).range(0.0f, 1.0f).format("%.2f"),
+	REFLECT_FIELD(roughness_tex).label("Roughness Texture"),
+	REFLECT_FIELD(specular).range(0.0f, 1.0f).format("%.2f"),
+	REFLECT_FIELD(specular_tex).label("Specular Texture"),
+	REFLECT_FIELD(normal_tex).label("Normal Texture"),
+REFLECT_END()

@@ -1,15 +1,17 @@
 #include "pch.h"
 #include "RHITexture.h"
+#include "Assets/AssetManager.h"
+#include "Utils/Image.h"
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 #define TINYDDSLOADER_IMPLEMENTATION
 #include "tinyddsloader.h"
 #include "Utils/Math.h"
-#include "Assets/AssetManager.h"
+#include "Assets/TextureImportSettings.h"
 
 void RHITexture::reload()
 {
-	std::filesystem::path current = AssetManager::getPathFromGUID(asset_handle);
+	std::filesystem::path current = AssetManager::getPath(guid);
 	if (current.empty())
 		current = path.c_str();
 	if (current.empty())
@@ -60,3 +62,28 @@ uint32_t RHITexture::get_slice_size(Format format, uint32_t width, uint32_t heig
 	}
 	return getFormatSize(format) * width * height;
 }
+
+static Ref<Asset> load_texture(const std::filesystem::path &path)
+{
+	TextureDescription description{};
+	description.format = FORMAT_R8G8B8A8_UNORM;
+	description.usage_flags = TEXTURE_USAGE_TRANSFER_SRC;
+
+	RHITextureRef texture = gDynamicRHI->createTexture(description);
+	texture->load(path.string().c_str());
+	return texture;
+}
+
+static void cook_texture(const AssetMetadata &metadata, const std::filesystem::path &runtime_path)
+{
+	Ref<Image> image = new Image(metadata.sourcePath.string().c_str());
+	if (metadata.getImportSettings<TextureImportSettings>().generate_mipmaps)
+		image->createMipmaps();
+
+	image->save(runtime_path);
+}
+
+static const AssetTypeInfo *registered_texture_type = AssetManager::registerType<RHITexture>({
+	"Texture", {".dds", ".png", ".jpg", ".jpeg", ".hdr", ".tga"}, load_texture,
+	".dds", cook_texture, &Reflected<TextureImportSettings>::getInfo(),
+});

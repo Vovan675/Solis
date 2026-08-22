@@ -48,7 +48,7 @@ DebugRenderer::~DebugRenderer()
 
 bool DebugRenderer::isEnabled() const
 {
-	return !render_path_tracing;
+	return !GFXOPTIONS(path_tracing);
 }
 
 void DebugRenderer::addPasses(FrameGraph &fg)

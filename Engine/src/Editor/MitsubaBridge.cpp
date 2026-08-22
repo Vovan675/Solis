@@ -2,8 +2,6 @@
 #include "MitsubaBridge.h"
 #include "EditorContext.h"
 #include "Scene/Scene.h"
-#include "Renderers/SkyRenderer.h"
-#include "Renderers/PostProcessingRenderer.h"
 #include "Core/Variables.h"
 #include "imgui/ImGuiWrapper.h"
 #include "UI.h"
@@ -12,7 +10,7 @@
 
 void MitsubaBridge::renderImGui(EditorContext &context)
 {
-	if (!UI::section("Ground Truth (Mitsuba)"))
+	if (!UI::beginSection("Ground Truth (Mitsuba)"))
 		return;
 
 	UI::sliderFloat("Render Scale", &render_scale, 0.1f, 1.0f);
@@ -30,6 +28,8 @@ void MitsubaBridge::renderImGui(EditorContext &context)
 		float aspect = (float)result_texture->getHeight() / result_texture->getWidth();
 		ImGui::Image(ImGuiWrapper::getTextureId(result_texture), ImVec2(width, width * aspect));
 	}
+
+	UI::endSection();
 }
 
 void MitsubaBridge::runRender(EditorContext &context)
@@ -121,11 +121,9 @@ static nlohmann::json material_to_json_bsdf(Material *material)
 	bsdf_json["type"] = "principled";
 	bsdf_json["specular"] = material->specular;
 
-	auto get_texture_path = [](const Material::MaterialTexture &material_texture) -> std::string
+	auto get_texture_path = [](MaterialTexture &material_texture) -> std::string
 	{
-		if (!material_texture.asset_handle.isValid())
-			return "";
-		std::filesystem::path path = AssetManager::getPathFromGUID(material_texture.asset_handle);
+		std::filesystem::path path = AssetManager::getPath(material_texture.asset);
 		if (path.empty())
 			return "";
 		return std::filesystem::absolute(path).generic_string();
@@ -219,17 +217,16 @@ bool MitsubaBridge::export_scene(EditorContext &context, const std::filesystem::
 		{"film", { {"type", "hdrfilm"}, {"width", width}, {"height", height} }},
 		{"sampler", { {"type", "independent"}, {"sample_count", 64} }},
 	};
-	if (post_renderer)
-		scene["tonemap"] = {{"exposure", post_renderer->film_ubo.exposure}, {"tonemapper", post_renderer->film_ubo.tonemapper_mode}};
+	scene["tonemap"] = {{"exposure", GFXOPTIONS(film).getExposure()}, {"tonemapper", GFXOPTIONS(film).tonemapper}};
 
 	// Lights
 	int lights = write_lights(scene);
 
-	if (render_sky && sky_renderer && sky_renderer->getMode() == SKY_MODE_CUBEMAP)
+	if (GFXOPTIONS(sky).enabled && GFXOPTIONS(sky).mode == SKY_MODE_CUBEMAP)
 	{
-		std::filesystem::path hdri_path = std::filesystem::absolute(sky_renderer->getEnvironmentPath().c_str());
+		std::filesystem::path hdri_path = std::filesystem::absolute(AssetManager::getPath(GFXOPTIONS(sky).hdri));
 		glm::mat4 to_world = glm::rotate(glm::mat4(1), glm::radians(-90.0f), glm::vec3(0, 1, 0));
-		scene["environment"] = {{"type", "envmap"}, {"filename", hdri_path.generic_string()}, {"scale", sky_renderer->getSkyIntensity()}, {"to_world", mat4_to_json_transform(to_world)}};
+		scene["environment"] = {{"type", "envmap"}, {"filename", hdri_path.generic_string()}, {"scale", GFXOPTIONS(sky).getIntensity()}, {"to_world", mat4_to_json_transform(to_world)}};
 	}
 
 	// Meshes
@@ -259,7 +256,7 @@ bool MitsubaBridge::export_scene(EditorContext &context, const std::filesystem::
 				continue;
 			}
 
-			Material *material = i < mesh_renderer.materials.size() ? mesh_renderer.materials[i].getReference() : nullptr;
+			Material *material = mesh_renderer.getMaterial(i);
 			glm::mat4 world = transform.getWorldTransform() * mesh->root_transform;
 			scene["mesh_" + std::to_string(exported)] = {
 				{"type", "ply"},

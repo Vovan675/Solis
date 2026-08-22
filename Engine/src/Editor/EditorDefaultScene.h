@@ -2,7 +2,6 @@
 #include "Scene/Scene.h"
 #include "Rendering/Model.h"
 #include "Scene/Components.h"
-#include "Assets/MeshSerializer.h"
 
 static class EditorDefaultScene
 {
@@ -10,6 +9,8 @@ public:
 	// later it will be just .world file
 	static void createScene(Camera *camera)
 	{
+		Scene::setCurrentScene(new Scene());
+
 		Entity light = Scene::getCurrentScene()->createEntity("Directional Light");
 		light.getTransform().setPosition(glm::vec3(0, 1, 0));
 		light.getTransform().setLocalRotationEuler(glm::radians(glm::vec3(-111.0f, 0.0f, 175.0f)));
@@ -18,7 +19,7 @@ public:
 		//light_component.setType(LIGHT_TYPE_POINT);
 		light_component.color = glm::vec3(253.0f / 255, 251.0f / 255, 211.0f / 255);
 		light_component.intensity = 100'000.0f;
-		light_component.radius = 10.0f;
+		light_component.attenuation_radius = 10.0f;
 
 		enum TestScene
 		{

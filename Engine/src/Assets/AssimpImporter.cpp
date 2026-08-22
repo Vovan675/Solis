@@ -93,7 +93,7 @@ void AssimpImporter::processNode(MeshNode *mesh_node, aiNode *node, const aiScen
 		Ref<Engine::Mesh> engine_mesh = new Engine::Mesh();
 		if (mesh->HasTangentsAndBitangents())
 			engine_mesh->attribute_flags |= MeshFormat::MESH_ATTR_TANGENT;
-		if (settings.generate_meshlets)
+		if (settings.meshlet_mode == MESHLET_MODE_ENABLED)
 			build_data_map[engine_mesh.getReference()] = MeshletBuilder::build(engine_mesh, mesh->mName.C_Str(), vertices, indices, settings);
 
 		if (!engine_mesh->useMeshlets())
@@ -128,7 +128,7 @@ void AssimpImporter::processNode(MeshNode *mesh_node, aiNode *node, const aiScen
 			{
 				std::filesystem::path result_path(source_path.c_str());
 				result_path = result_path.remove_filename().concat(texture_path.C_Str());
-				engine_material->albedo_tex.asset_handle = AssetManager::getGUIDFromPath(result_path.string());
+				engine_material->albedo_tex.asset = AssetReference(result_path);
 			}
 		}
 
@@ -140,7 +140,7 @@ void AssimpImporter::processNode(MeshNode *mesh_node, aiNode *node, const aiScen
 			{
 				std::filesystem::path result_path(source_path.c_str());
 				result_path = result_path.remove_filename().concat(texture_path.C_Str());
-				engine_material->metalness_tex.asset_handle = AssetManager::getGUIDFromPath(result_path.string());
+				engine_material->metalness_tex.asset = AssetReference(result_path);
 			}
 		}
 
@@ -152,7 +152,7 @@ void AssimpImporter::processNode(MeshNode *mesh_node, aiNode *node, const aiScen
 			{
 				std::filesystem::path result_path(source_path.c_str());
 				result_path = result_path.remove_filename().concat(texture_path.C_Str());
-				engine_material->roughness_tex.asset_handle = AssetManager::getGUIDFromPath(result_path.string());
+				engine_material->roughness_tex.asset = AssetReference(result_path);
 			}
 		}
 
@@ -164,7 +164,7 @@ void AssimpImporter::processNode(MeshNode *mesh_node, aiNode *node, const aiScen
 			{
 				std::filesystem::path result_path(source_path.c_str());
 				result_path = result_path.remove_filename().concat(texture_path.C_Str());
-				engine_material->specular_tex.asset_handle = AssetManager::getGUIDFromPath(result_path.string());
+				engine_material->specular_tex.asset = AssetReference(result_path);
 			}
 		}
 
@@ -176,7 +176,7 @@ void AssimpImporter::processNode(MeshNode *mesh_node, aiNode *node, const aiScen
 			{
 				std::filesystem::path result_path(source_path.c_str());
 				result_path = result_path.remove_filename().concat(texture_path.C_Str());
-				engine_material->normal_tex.asset_handle = AssetManager::getGUIDFromPath(result_path.string());
+				engine_material->normal_tex.asset = AssetReference(result_path);
 			}
 		}
 
@@ -202,12 +202,12 @@ void AssimpImporter::processNode(MeshNode *mesh_node, aiNode *node, const aiScen
 
 static constexpr uintmax_t AUTO_MESHLET_SOURCE_SIZE = 1024ull * 1024 * 1024;
 
-void AssimpImporter::import(const char *path, Model *model, ModelImportSettings &settings)
+void AssimpImporter::import(const char *path, Model *model, ModelImportSettings &settings, const std::filesystem::path &runtime_path)
 {
 	PROFILE_CPU_FUNCTION();
 
-	if (!settings.generate_meshlets_explicitly_set)
-		settings.generate_meshlets = std::filesystem::file_size(path) > AUTO_MESHLET_SOURCE_SIZE;
+	if (settings.meshlet_mode == MESHLET_MODE_AUTO)
+		settings.meshlet_mode = std::filesystem::file_size(path) > AUTO_MESHLET_SOURCE_SIZE ? MESHLET_MODE_ENABLED : MESHLET_MODE_DISABLED;
 
 	Assimp::Importer importer;
 	const aiScene *scene = importer.ReadFile(path,
@@ -234,7 +234,6 @@ void AssimpImporter::import(const char *path, Model *model, ModelImportSettings 
 	processNode(model->root_node, scene->mRootNode, scene, settings, path, model, meshes_seen, build_data_map);
 	model->root_node->updateTransform();
 
-	auto mesh_path = AssetManager::getRuntimeAssetPath(std::filesystem::path(path));
-	std::filesystem::create_directories(mesh_path.parent_path());
-	MeshSerializer::save(model, mesh_path.string().c_str(), &build_data_map);
+	std::filesystem::create_directories(runtime_path.parent_path());
+	MeshSerializer::save(model, runtime_path.string().c_str(), &build_data_map);
 }

@@ -1,19 +1,11 @@
 #include "pch.h"
 #include "DDGIRenderer.h"
 #include "Rendering/Model.h"
-#include "Editor/UI.h"
 #include <random>
 #include "Utils/Math.h"
+#include "Core/Variables.h"
 
-//static uint32_t cascade_size_xz = 16;
-//static uint32_t cascade_size_y = 8;
-//static uint32_t cascades_count = 4;
-
-static uint32_t cascade_size_xz = 16;
-static uint32_t cascade_size_y = 8;
 static uint32_t cascades_count = 4;
-
-// Cascades have same size, so we can calculate cascade index easily
 
 // 12x12 pixels for one probe (should be enough, AC shadows uses this)
 static int distance_probe_texels = 10;
@@ -26,36 +18,10 @@ static int radiance_probe_texels = 14;
 
 DDGIRenderer::DDGIRenderer()
 {
-	// Dense
-	volume.origin = {0.0f, 0.5f, -2.0f};
-	//volume.size = {8, 4, 6};
-	volume.spacing = {1, 1, 1};
-	volume.rays_per_probe = 128;
-
-	// Less dense
-	volume.origin = {-5.5f, 0.5f, -3.5f};
-	//volume.size = {8, 4, 6};
-	volume.spacing = {2, 2, 2};
-	volume.rays_per_probe = 128;
-
-	volume.origin = {-14.0f, 0.0f, -6.0f};
-	volume.origin = {-10.0f, 10.0f, -4.4f};
-	volume.origin = {0.0f, 5.0f, 0.0f};
-	volume.size = {cascade_size_xz, cascade_size_y, cascade_size_xz, cascade_size_xz * cascade_size_xz * cascade_size_y};
-	volume.spacing = {0.5, 1.0, 0.5};
-	//volume.spacing = {1.0, 2.0, 1.0};
 	volume.rays_per_probe = 20 * 20;
 	volume.cascades_count = cascades_count;
 
 	BufferDescription desc;
-	desc.size = sizeof(uint32_t) * volume.getProbesCount();
-	desc.usage = BufferUsage::SHADER_READ_BUFFER;
-	desc.use_staging_buffer = false;
-	desc.storage_stride = sizeof(uint32_t);
-	probes_to_update_buffer = gDynamicRHI->createBuffer(desc);
-	probes_to_update_buffer->setDebugName("DDGI Update Buffer");
-	volume.probes_to_update_buffer_id = probes_to_update_buffer->getShaderResourceView()->getBindlessIndex();
-
 	desc.size = sizeof(volume);
 	desc.usage = BufferUsage::SHADER_READ_BUFFER;
 	desc.use_staging_buffer = false;
@@ -74,6 +40,13 @@ void DDGIRenderer::addPasses(FrameGraph & fg, Ref<RayTracingScene> rt_scene)
 {
 	if (!engine_ray_tracing)
 		return;
+
+	const DDGISettings &ddgi = GFXOPTIONS(ddgi);
+	volume.origin = ddgi.origin;
+	volume.size = glm::ivec4(ddgi.size, ddgi.size.x * ddgi.size.y * ddgi.size.z);
+	volume.spacing = ddgi.spacing;
+	volume.use_relocation = ddgi.use_relocation;
+	volume.use_classification = ddgi.use_classification;
 
 	int border_size = 1;
 	int layers = volume.size.y;
@@ -143,8 +116,18 @@ void DDGIRenderer::addPasses(FrameGraph & fg, Ref<RayTracingScene> rt_scene)
 		volume.ray_data_buffer_id = ray_data_buffer->getShaderResourceView()->getBindlessIndex();
 	}
 
-	volume.use_relocation = use_relocation;
-	volume.use_classification = use_classification;
+	int probes_to_update_size = sizeof(uint32_t) * volume.getProbesCount();
+	if (!probes_to_update_buffer || probes_to_update_buffer->getSize() != probes_to_update_size)
+	{
+		BufferDescription desc;
+		desc.size = probes_to_update_size;
+		desc.usage = BufferUsage::SHADER_READ_BUFFER;
+		desc.use_staging_buffer = false;
+		desc.storage_stride = sizeof(uint32_t);
+		probes_to_update_buffer = gDynamicRHI->createBuffer(desc);
+		probes_to_update_buffer->setDebugName("DDGI Update Buffer");
+		volume.probes_to_update_buffer_id = probes_to_update_buffer->getShaderResourceView()->getBindlessIndex();
+	}
 
 	fg.importTexture(GFXRID(DDGIDistance), distance_atlas_texture);
 	fg.importTexture(GFXRID(DDGIIrradiance), irradiance_atlas_texture);
@@ -193,29 +176,29 @@ void DDGIRenderer::addPasses(FrameGraph & fg, Ref<RayTracingScene> rt_scene)
 
 	volume_buffer->fill(&volume);
 
-	if (!Math::isPowerOfTwo(probes_per_frame))
+	if (!Math::isPowerOfTwo(ddgi.probes_per_frame))
 	{
 		CORE_ERROR("DDGIRenderer::addPasses() skipped because probes_per_frame must be power of two!");
 		return;
 	}
 
 	static bool prev_use_relocation = false;
-	if (use_relocation != prev_use_relocation)
+	if (ddgi.use_relocation != prev_use_relocation)
 		addResetRelocationPass(fg);
-	prev_use_relocation = use_relocation;
+	prev_use_relocation = ddgi.use_relocation;
 
 	static bool prev_use_classification = false;
-	if (use_classification != prev_use_classification)
+	if (ddgi.use_classification != prev_use_classification)
 		addResetClassificationPass(fg);
-	prev_use_classification = use_classification;
+	prev_use_classification = ddgi.use_classification;
 
 	update_probes();
 	addTraceRaysPass(fg, rt_scene);
 	addUpdatePass(fg);
 
-	if (use_relocation)
+	if (ddgi.use_relocation)
 		addRelocationPass(fg);
-	if (use_classification)
+	if (ddgi.use_classification)
 		addClassificationPass(fg);
 }
 
@@ -232,7 +215,7 @@ void DDGIRenderer::addVisualizePass(FrameGraph &fg)
 
 		builder.readTexture(GFXRID(DDGIIrradiance));
 		builder.readTexture(GFXRID(DDGIDistance));
-		if (use_relocation || use_classification)
+		if (GFXOPTIONS(ddgi).use_relocation || GFXOPTIONS(ddgi).use_classification)
 			builder.readTexture(GFXRID(DDGIMetadata));
 	},
 	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
@@ -247,7 +230,7 @@ void DDGIRenderer::addVisualizePass(FrameGraph &fg)
 		gGlobalPipeline->setDepthFunc(COMPARE_FUNC_GREATER_EQUAL);
 		gGlobalPipeline->flushAndBind(cmd_list);
 
-		gDynamicRHI->setConstantBufferData(1, &visualization_settings, sizeof(visualization_settings));
+		gDynamicRHI->setConstantBufferData(1, render_ddgi_visualize_mode.getPtr(), sizeof(int));
 
 		cmd_list->setVertexBuffer(sphere_mesh->indexed->vertex_buffer, 0, sizeof(Engine::Vertex));
 		cmd_list->setIndexBuffer(sphere_mesh->indexed->index_buffer, 0);
@@ -258,33 +241,16 @@ void DDGIRenderer::addVisualizePass(FrameGraph &fg)
 	});
 }
 
-void DDGIRenderer::renderImgui()
-{
-	UI::dragFloat3("Origin", volume.origin.data.data, 0.1f, -10.0f, 10.0f);
-	UI::dragInt3("Size", volume.size.data.data, 1.0f, 1, 10);
-	UI::dragFloat3("Spacing", volume.spacing.data.data, 0.05f, 0.05f, 5.0f);
-	UI::inputInt("Probes Per Frame", (int *)&probes_per_frame, nullptr, ImGuiInputTextFlags_EnterReturnsTrue);
-
-	UI::checkbox("Use Relocation", &use_relocation);
-	UI::checkbox("Use Classification", &use_classification);
-	UI::checkbox("Use Fixed Rays", &use_fixed_rays);
-	UI::checkbox("Trace Random Direction", &trace_random_direction);
-
-	ConVarSystem::drawConVarImGui(render_ddgi_visualize.getDescription());
-	const char *items[] = {"Irradiance", "Distance", "State", "State Not Disabled", "Cascades"};
-	UI::combo("Visualization", &visualization_settings.mode, items, IM_ARRAYSIZE(items));
-}
-
 eastl::vector<eastl::pair<const char *, const char *>> DDGIRenderer::calculateDefines(eastl::vector<eastl::pair<const char *, const char *>> additional)
 {
 	eastl::vector<eastl::pair<const char *, const char *>> defines;
 	for (auto &define : additional)
 		defines.emplace_back(define);
 
-	if (use_fixed_rays)
+	if (GFXOPTIONS(ddgi).use_fixed_rays)
 		defines.push_back({"USE_FIXED_RAYS", "1"});
 
-	if (trace_random_direction)
+	if (GFXOPTIONS(ddgi).trace_random_direction)
 		defines.push_back({"TRACE_RANDOM_DIRECTION", "1"});
 	return defines;
 }
@@ -300,7 +266,7 @@ void DDGIRenderer::update_probes()
 			probes_to_update.push_back(i);
 	} else
 	{
-		uint32_t budget_per_cascade = probes_per_frame / volume.cascades_count;
+		uint32_t budget_per_cascade = GFXOPTIONS(ddgi).probes_per_frame / volume.cascades_count;
 
 		for (int c = 0; c < volume.cascades_count; c++)
 		{
@@ -325,7 +291,7 @@ void DDGIRenderer::addTraceRaysPass(FrameGraph &fg, Ref<RayTracingScene> rt_scen
 	{
 		builder.setSideEffect(true);
 		builder.readTexture(GFXRID(Sky));
-		if (use_relocation || use_classification)
+		if (GFXOPTIONS(ddgi).use_relocation || GFXOPTIONS(ddgi).use_classification)
 			builder.readTexture(GFXRID(DDGIMetadata));
 	},
 	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
@@ -339,7 +305,7 @@ void DDGIRenderer::addTraceRaysPass(FrameGraph &fg, Ref<RayTracingScene> rt_scen
 			uint32_t environment_tex_id;
 		} constants;
 		constants.output_buffer_id = ray_data_buffer->getUnorderedAccessView()->getBindlessIndex();
-		constants.environment_tex_id = render_sky ? resources.getReadTexture(GFXRID(Sky)) : 0;
+		constants.environment_tex_id = GFXOPTIONS(sky).enabled ? resources.getReadTexture(GFXRID(Sky)) : 0;
 		gDynamicRHI->setConstantBufferData(3, &constants, sizeof(constants));
 
 		cmd_list->dispatchRays(volume.rays_per_probe, probes_to_update.size(), 1);
@@ -352,7 +318,7 @@ void DDGIRenderer::addUpdatePass(FrameGraph & fg)
 	[&](RenderPassBuilder &builder)
 	{
 		builder.writeUAVTexture(GFXRID(DDGIIrradiance));
-		if (use_relocation || use_classification)
+		if (GFXOPTIONS(ddgi).use_relocation || GFXOPTIONS(ddgi).use_classification)
 			builder.readTexture(GFXRID(DDGIMetadata));
 	},
 	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
@@ -371,7 +337,7 @@ void DDGIRenderer::addUpdatePass(FrameGraph & fg)
 	[&](RenderPassBuilder &builder)
 	{
 		builder.writeUAVTexture(GFXRID(DDGIDistance));
-		if (use_relocation || use_classification)
+		if (GFXOPTIONS(ddgi).use_relocation || GFXOPTIONS(ddgi).use_classification)
 			builder.readTexture(GFXRID(DDGIMetadata));
 	},
 	[=](const RenderPassResources &resources, RHICommandList *cmd_list)

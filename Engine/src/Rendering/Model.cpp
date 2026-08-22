@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "Rendering/Model.h"
 #include "Assets/MeshSerializer.h"
+#include "Assets/ModelImporter.h"
 #include "Assets/AssetManager.h"
 #include "Rendering/Material.h"
 #include "Scene/Components.h"
@@ -26,13 +27,13 @@ void Model::load(const char *path)
 	PROFILE_CPU_FUNCTION();
 
 	this->path = path;
-	auto mesh_path = AssetManager::getRuntimeAssetPath(std::filesystem::path(path));
+	auto mesh_path = AssetManager::getRuntimePath(std::filesystem::path(path));
 	MeshSerializer::load(this, mesh_path.string().c_str());
 }
 
 void Model::reload()
 {
-	std::filesystem::path current = AssetManager::getPathFromGUID(asset_handle);
+	std::filesystem::path current = AssetManager::getPath(guid);
 	if (current.empty())
 		current = path.c_str();
 
@@ -73,10 +74,9 @@ Entity Model::create_entity_node(Model *model, MeshNode *node, Scene *scene)
 		for (const MeshNode::Primitive &prim : node->primitives)
 		{
 			MeshRendererComponent::MeshId mesh_id;
-			mesh_id.model = model;
+			mesh_id.model_asset = AssetReference(model);
 			mesh_id.mesh_id = prim.mesh->id;
 			mesh_renderer.meshes.push_back(mesh_id);
-			mesh_renderer.materials.push_back(prim.material);
 		}
 		entity.markDirty(DIRTY_RENDER_STATE);
 	}
@@ -92,3 +92,27 @@ Entity Model::create_entity_node(Model *model, MeshNode *node, Scene *scene)
 	}
 	return entity;
 }
+
+static Ref<Asset> load_model(const std::filesystem::path &path)
+{
+	Ref<Model> model = new Model();
+	model->load(path.string().c_str());
+	return model;
+}
+
+static void cook_model(const AssetMetadata &metadata, const std::filesystem::path &runtime_path)
+{
+	ModelImportSettings settings = metadata.getImportSettings<ModelImportSettings>();
+	Ref<Model> model = new Model();
+	ModelImporter::import(metadata.sourcePath.string().c_str(), model, settings, runtime_path);
+}
+
+static uint32_t model_runtime_version(const AssetMetadata &metadata)
+{
+	return MeshFormat::calcRuntimeVersion(metadata.getImportSettings<ModelImportSettings>());
+}
+
+static const AssetTypeInfo *registered_model_type = AssetManager::registerType<Model>({
+	"Model", {".fbx", ".obj", ".gltf", ".glb"}, load_model,
+	".mesh", cook_model, &Reflected<ModelImportSettings>::getInfo(), model_runtime_version,
+});

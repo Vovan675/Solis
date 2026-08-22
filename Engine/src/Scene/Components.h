@@ -106,22 +106,65 @@ public:
 	}
 protected:
 	friend class Scene;
+	friend struct Reflected<TransformComponent>;
 };
+
+REFLECT_BEGIN(TransformComponent)
+	REFLECT_FIELD(name),
+	REFLECT_FIELD(local_position),
+	REFLECT_FIELD(local_rotation),
+	REFLECT_FIELD(local_rotation_euler),
+	REFLECT_FIELD(local_scale),
+	REFLECT_FIELD(parent),
+	REFLECT_FIELD(children),
+REFLECT_END()
 
 struct MeshRendererComponent
 {
 	struct MeshId
 	{
-		Model *model;
+		AssetReference model_asset;
 		size_t mesh_id = 0;
 
+		Model *getModel();
 		Engine::Mesh *getMesh();
-	};
-	eastl::vector<MeshId> meshes;
-	eastl::vector<Ref<Material>> materials;
 
+	private:
+		Model *model = nullptr;
+	};
+
+	struct MaterialSlot
+	{
+		AssetReference material_asset;
+
+		Material *getMaterial();
+		void setMaterial(Ref<Material> mat);
+
+	private:
+		Ref<Material> material;
+	};
+
+	eastl::vector<MeshId> meshes;
+	eastl::vector<MaterialSlot> materials;
+
+	Material *getMaterial(int index);
+	void setMaterial(int index, Ref<Material> material);
 	void setFromMeshNode(Ref<Model> model, MeshNode *mesh_node);
 };
+
+REFLECT_BEGIN(MeshRendererComponent::MeshId)
+	REFLECT_FIELD(model_asset).asset<Model>(),
+	REFLECT_FIELD(mesh_id),
+REFLECT_END()
+
+REFLECT_BEGIN(MeshRendererComponent::MaterialSlot)
+	REFLECT_FIELD(material_asset).asset<Material>(),
+REFLECT_END()
+
+REFLECT_BEGIN(MeshRendererComponent)
+	REFLECT_FIELD(meshes),
+	REFLECT_FIELD(materials),
+REFLECT_END()
 
 enum LIGHT_TYPE
 {
@@ -132,29 +175,27 @@ enum LIGHT_TYPE
 #define SHADOW_MAP_CASCADE_COUNT 4
 #define POINT_SHADOW_Z_NEAR 0.05f
 
+inline const char *const light_type_items[] = {"Point", "Directional"};
+
 struct LightComponent
 {
-	LightComponent()
-	{
-		recreateTexture();
-	}
-	~LightComponent()
-	{
-	}
-
 	LIGHT_TYPE getType() const { return type; };
-	void setType(LIGHT_TYPE type)
+	void setType(LIGHT_TYPE new_type) { type = new_type; }
+
+	RHITextureRef getShadowMap()
 	{
-		if (this->type == type)
-			return;
-		this->type = type;
-		recreateTexture();
+		if (!shadow_map || created_type != type || created_shadow_map_size != shadow_map_size)
+			recreateTexture();
+		return shadow_map;
 	}
 
 	glm::vec3 getPhotometricIntensity() const;
 
 	void recreateTexture()
 	{
+		created_type = type;
+		created_shadow_map_size = shadow_map_size;
+
 		if (type == LIGHT_TYPE_POINT)
 		{
 			TextureDescription description;
@@ -194,17 +235,19 @@ struct LightComponent
 	float intensity = 1.0f;
 	float attenuation_radius = 1.0f;
 
-	float shadow_map_size = 2048;
-
-	RHITextureRef shadow_map = nullptr;
+	int shadow_map_size = 2048;
 
 	glm::mat4 getCascadeViewProj(int cascade) { return cascades[cascade].viewProjMatrix; }
 
 private:
 	LIGHT_TYPE type = LIGHT_TYPE_POINT;
+	LIGHT_TYPE created_type = LIGHT_TYPE_POINT;
+	int created_shadow_map_size = 0;
+	RHITextureRef shadow_map = nullptr;
 	friend class EditorApplication;
 	friend class DefferedLightingRenderer;
 	friend class ShadowRenderer;
+	friend struct Reflected<LightComponent>;
 	struct CascadeData
 	{
 		glm::mat4 viewProjMatrix;
@@ -213,6 +256,15 @@ private:
 	};
 	eastl::array<CascadeData, SHADOW_MAP_CASCADE_COUNT> cascades;
 };
+
+REFLECT_BEGIN(LightComponent)
+	REFLECT_FIELD(type).items(light_type_items).radio(),
+	REFLECT_FIELD(color).color(),
+	REFLECT_FIELD(intensity).range(0.01f, 200000.0f).logarithmic(),
+	REFLECT_FIELD(attenuation_radius).range(0.001f, 40.0f).format("%.2f m")
+		.EDIT_IF(owner.getType() == LIGHT_TYPE_POINT),
+	REFLECT_FIELD(shadow_map_size),
+REFLECT_END()
 
 
 // Physics
@@ -228,7 +280,22 @@ struct RigidBodyComponent
 	bool is_kinematic = false;
 };
 
+REFLECT_BEGIN(RigidBodyComponent)
+	REFLECT_FIELD(is_static),
+	REFLECT_FIELD(mass),
+	REFLECT_FIELD(linear_damping).range(0.0f, 1.0f),
+	REFLECT_FIELD(angular_damping).range(0.0f, 1.0f),
+	REFLECT_FIELD(gravity).label("Use Gravity"),
+	REFLECT_FIELD(is_kinematic),
+REFLECT_END()
+
 struct BoxColliderComponent
 {
 	glm::vec3 half_extent = {0.5f, 0.5f, 0.5f};
 };
+
+REFLECT_BEGIN(BoxColliderComponent)
+	REFLECT_FIELD(half_extent),
+REFLECT_END()
+
+#define ALL_COMPONENTS TransformComponent, MeshRendererComponent, LightComponent, RigidBodyComponent, BoxColliderComponent

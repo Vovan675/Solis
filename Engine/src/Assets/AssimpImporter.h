@@ -13,7 +13,7 @@ namespace Engine { class Mesh; }
 class AssimpImporter
 {
 public:
-	static void import(const char *path, Model *model, ModelImportSettings &settings);
+	static void import(const char *path, Model *model, ModelImportSettings &settings, const std::filesystem::path &runtime_path);
 
 private:
 	static void processNode(MeshNode *mesh_node, aiNode *node, const aiScene *scene,

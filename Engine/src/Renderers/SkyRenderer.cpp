@@ -3,14 +3,14 @@
 #include "RHI/BindlessResources.h"
 #include "Rendering/Renderer.h"
 #include "Rendering/Model.h"
+#include "Scene/Scene.h"
+#include "Scene/Entity.h"
+#include "Scene/Components.h"
 #include "Utils/Math.h"
 #include "Core/Variables.h"
-#include "Editor/UI.h"
 
 SkyRenderer::SkyRenderer(): RendererBase()
 {
-	setMode(SKY_MODE_CUBEMAP);
-
 	auto model = AssetManager::getModelAsset("assets/cube.fbx");
 	mesh = model->getRootNode()->children[0]->primitives[0].mesh;
 
@@ -23,15 +23,24 @@ SkyRenderer::SkyRenderer(): RendererBase()
 
 void SkyRenderer::addProceduralPasses(FrameGraph &fg)
 {
-	if (!cube_texture || !cube_texture->isValid())
-		create_mode_resources();
+	const SkySettings &sky = GFXOPTIONS(sky);
+
+	is_dirty = update_resources() || render_first_frame;
+	update_sun_from_scene();
 
 	fg.importTexture(GFXRID(Sky), cube_texture);
 
-	if (mode != SKY_MODE_PROCEDURAL)
+	procedural_uniforms.sky_luminance_scale = sky.procedural_luminance;
+	procedural_uniforms.sun_direction = sky.sun_direction;
+
+	if (sky.mode != SKY_MODE_PROCEDURAL)
 		return;
 
-	if (!isDirty())
+	if (prev_uniform.sun_direction != procedural_uniforms.sun_direction ||
+		prev_uniform.sky_luminance_scale != procedural_uniforms.sky_luminance_scale)
+		is_dirty = true;
+
+	if (!is_dirty)
 		return;
 	prev_uniform = procedural_uniforms;
 
@@ -71,11 +80,6 @@ void SkyRenderer::addProceduralPasses(FrameGraph &fg)
 
 void SkyRenderer::addCompositePasses(FrameGraph &fg)
 {
-	if (!cube_texture || !cube_texture->isValid())
-		create_mode_resources();
-		
-
-	is_force_dirty = false;
 	fg.addCallbackPass("Sky Pass",
 	[&](RenderPassBuilder &builder)
 	{
@@ -110,7 +114,7 @@ void SkyRenderer::addCompositePasses(FrameGraph &fg)
 		} constants;
 		constants.cubemap_tex_id = resources.getReadTexture(GFXRID(Sky));
 		constants.sun_direction = glm::vec4(glm::normalize(procedural_uniforms.sun_direction), 0.0f);
-		constants.sun_illuminance = mode == SKY_MODE_PROCEDURAL ? sun_illuminance : glm::vec4(0.0f);
+		constants.sun_illuminance = GFXOPTIONS(sky).mode == SKY_MODE_PROCEDURAL ? sun_illuminance : glm::vec4(0.0f);
 		gDynamicRHI->setConstantBufferData(0, &constants, sizeof(Constants));
 
 		cmd_list->setVertexBuffer(mesh->indexed->vertex_buffer, 0, sizeof(Engine::Vertex));
@@ -121,52 +125,31 @@ void SkyRenderer::addCompositePasses(FrameGraph &fg)
 	});
 }
 
-void SkyRenderer::renderImgui()
+void SkyRenderer::update_sun_from_scene()
 {
-	int sky_mode = mode == SKY_MODE_PROCEDURAL ? 1 : 0;
-	const char *mode_items[] = {"HDRI", "Procedural"};
-	if (UI::radio("Source", &sky_mode, mode_items, IM_ARRAYSIZE(mode_items)))
-		setMode(sky_mode == 1 ? SKY_MODE_PROCEDURAL : SKY_MODE_CUBEMAP);
+	for (entt::entity entity_id : Scene::getCurrentScene()->getEntitiesWith<LightComponent>())
+	{
+		Entity entity(entity_id);
+		LightComponent &light = entity.getComponent<LightComponent>();
+		if (light.getType() != LIGHT_TYPE_DIRECTIONAL)
+			continue;
 
-	bool is_procedural = mode == SKY_MODE_PROCEDURAL;
-
-	ImGui::BeginDisabled(is_procedural);
-	UI::sliderFloat("HDRI Intensity", &sky_intensity, 1.0f, 100000.0f, "%.0f nits", true);
-	ImGui::EndDisabled();
-
-	ImGui::BeginDisabled(!is_procedural);
-	UI::sliderFloat("Procedural Luminance", &procedural_uniforms.sky_luminance_scale, 1.0f, 100000.0f, "%.0f nits", true);
-	ConVarSystem::drawConVarImGui(render_automatic_sun_position.getDescription());
-	ImGui::BeginDisabled(render_automatic_sun_position);
-	UI::dragFloat3("Sun Direction", procedural_uniforms.sun_direction.data.data, 0.01f, -1.0f, 1.0f);
-	ImGui::EndDisabled();
-	ImGui::EndDisabled();
-}
-
-void SkyRenderer::setMode(SKY_MODE mode)
-{
-	if (this->mode == mode)
+		if (GFXOPTIONS(sky).automatic_sun_position)
+			GFXOPTIONS(sky).sun_direction = entity.getLocalDirection(glm::vec3(0, 0, -1));
+		sun_illuminance = glm::vec4(light.getPhotometricIntensity(), 1.0f);
 		return;
-
-	this->mode = mode;
-	create_mode_resources();
+	}
 }
 
-bool SkyRenderer::isDirty()
+bool SkyRenderer::update_resources()
 {
-	if (mode != SKY_MODE_PROCEDURAL)
+	const SkySettings &sky = GFXOPTIONS(sky);
+	if (cube_texture && cube_texture->isValid() && created_mode == sky.mode && created_hdri == sky.hdri)
 		return false;
-	bool dirty = is_force_dirty;
-	if (prev_uniform.sun_direction != procedural_uniforms.sun_direction ||
-		prev_uniform.sky_luminance_scale != procedural_uniforms.sky_luminance_scale)
-		dirty = true;
-	if (render_first_frame)
-		dirty = true;
-	return dirty;
-}
 
-void SkyRenderer::create_mode_resources()
-{
+	created_mode = sky.mode;
+	created_hdri = sky.hdri;
+
 	TextureDescription tex_description{};
 	tex_description.width = 1024;
 	tex_description.height = 1024;
@@ -176,13 +159,13 @@ void SkyRenderer::create_mode_resources()
 
 	cube_texture = gDynamicRHI->createTexture(tex_description);
 
-	if (mode == SKY_MODE_CUBEMAP)
+	if (created_mode == SKY_MODE_CUBEMAP)
 	{
-		cube_texture->loadEquirectangularCubemap(environment_path.c_str());
+		cube_texture->loadEquirectangularCubemap(AssetManager::getPath(created_hdri).string().c_str());
 	} else
 	{
 		cube_texture->fill();
 	}
 	cube_texture->setDebugName("Sky Texture");
-	is_force_dirty = true;
+	return true;
 }

@@ -8,12 +8,12 @@ class Model;
 
 namespace ModelImporter
 {
-	inline void import(const char* path, Model* model, ModelImportSettings& settings)
+	inline void import(const char* path, Model* model, ModelImportSettings& settings, const std::filesystem::path &runtime_path)
 	{
 		std::string ext = std::filesystem::path(path).extension().string();
 		if (ext == ".gltf" || ext == ".glb")
-			GltfImporter::import(path, model, settings);
+			GltfImporter::import(path, model, settings, runtime_path);
 		else
-			AssimpImporter::import(path, model, settings);
+			AssimpImporter::import(path, model, settings, runtime_path);
 	}
 }

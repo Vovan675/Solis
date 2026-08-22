@@ -1,14 +1,12 @@
 #include "pch.h"
 #include "AssetManager.h"
-#include "ModelImporter.h"
-#include "ModelImportSettings.h"
 #include "RHI/RHITexture.h"
 #include "Rendering/Model.h"
 #include "Core/Filesystem.h"
 #include "Core/Variables.h"
 
 eastl::unordered_map<Engine::GUID, AssetMetadata> AssetManager::guid_to_metadata;
-eastl::unordered_map<eastl::string, Ref<Asset>> AssetManager::cache_key_to_asset;
+eastl::unordered_map<Engine::GUID, Ref<Asset>> AssetManager::guid_to_asset;
 eastl::unordered_map<eastl::string, Engine::GUID> AssetManager::path_to_guid;
 std::filesystem::path AssetManager::assets_root = "assets";
 entt::sigh<void(Asset *)> AssetManager::pre_reimport_signal;
@@ -22,59 +20,69 @@ static std::filesystem::path calc_meta_path(const std::filesystem::path &source_
 	return path.replace_extension(source_path.extension().string() + ".meta");
 }
 
-static eastl::string calc_cache_key(const AssetMetadata &metadata, const std::filesystem::path &path)
-{
-	if (metadata.isValid())
-		return eastl::string("guid:") + eastl::to_string((uint64_t)metadata.asset_handle);
-	return path.string().c_str();
-}
-
 static bool read_metadata_file(const std::filesystem::path &meta_path, const std::filesystem::path &source_path, AssetMetadata &out)
 {
 	YAML::Node node = YAML::LoadFile(meta_path.string());
-	out.asset_handle = node["guid"].as<uint64_t>(0);
-	out.runtime_handle = node["runtime_guid"].as<uint64_t>(0);
-	out.type = (AssetType)node["type"].as<int>(ASSET_TYPE_UNDEFINED);
-	out.params = node["Parameters"];
-	out.source_path = source_path;
-	return out.asset_handle.isValid();
+	out.guid = node["guid"].as<uint64_t>(0);
+	out.runtimeGuid = node["runtime_guid"].as<uint64_t>(0);
+	out.runtimeVersion = node["runtime_version"].as<uint32_t>(0);
+	out.type = AssetManager::findTypeInfoByName(node["type"].as<std::string>("").c_str());
+	out.sourcePath = source_path;
+	if (!out.guid.isValid() || !out.type)
+		return false;
+
+	const StructInfo *info = out.type->importSettingsInfo;
+	if (info)
+	{
+		const uint8_t *default_settings = (const uint8_t *)info->defaults;
+		out.importSettings.assign(default_settings, default_settings + info->size);
+		ReflectionYaml::readFields(node["Parameters"], *info, out.importSettings.data());
+	}
+	return true;
 }
 
 template<class T, class Loader>
-Ref<T> AssetManager::get_or_load(const eastl::string &path, Loader &&loader)
+Ref<T> AssetManager::get_or_load(const std::filesystem::path &path, Loader &&loader)
 {
-	const AssetMetadata &metadata = getOrCreateMetadata(path.c_str());
-	eastl::string key = calc_cache_key(metadata, path.c_str());
+	const AssetMetadata &metadata = getOrCreateMetadata(path);
+	if (!metadata.isValid())
+		return nullptr;
 
-	auto it = cache_key_to_asset.find(key);
-	if (it != cache_key_to_asset.end())
+	auto it = guid_to_asset.find(metadata.guid);
+	if (it != guid_to_asset.end())
 		return it->second;
 
-	if (metadata.isValid() && (engine_reimport_assets || !isRuntimeExists(path.c_str())))
-		recreateRuntime(path.c_str());
+	if (engine_assets_reimport || !hasValidRuntime(path))
+		recreateRuntime(path);
 
 	Ref<Asset> new_asset = loader();
-	new_asset->asset_handle = metadata.asset_handle;
-	cache_key_to_asset[key] = new_asset;
+	if (!new_asset)
+		return nullptr;
+
+	new_asset->guid = metadata.guid;
+	new_asset->type = metadata.type;
+	guid_to_asset[metadata.guid] = new_asset;
 	return new_asset;
+}
+
+Ref<Asset> AssetManager::get_or_load(const std::filesystem::path &path, const AssetTypeInfo *type)
+{
+	return get_or_load<Asset>(path, [&] { return type->load(path); });
 }
 
 void AssetManager::init()
 {
-	index_assets(assets_root);
+	refresh();
 }
 
-void AssetManager::shutdown()
+void AssetManager::refresh()
 {
-	cache_key_to_asset.clear();
-}
-
-void AssetManager::index_assets(const std::filesystem::path &root)
-{
-	if (!std::filesystem::exists(root))
+	if (!std::filesystem::exists(assets_root))
 		return;
 
-	for (auto it = std::filesystem::recursive_directory_iterator(root); it != std::filesystem::recursive_directory_iterator(); ++it)
+	eastl::vector<std::filesystem::path> junk_metas;
+
+	for (auto it = std::filesystem::recursive_directory_iterator(assets_root); it != std::filesystem::recursive_directory_iterator(); ++it)
 	{
 		if (it->is_directory())
 		{
@@ -82,116 +90,69 @@ void AssetManager::index_assets(const std::filesystem::path &root)
 				it.disable_recursion_pending();
 			continue;
 		}
-		if (it->path().extension() != ".meta")
+
+		if (it->path().extension() == ".meta")
+		{
+			std::filesystem::path source_path = it->path();
+			source_path.replace_extension();
+			if (!std::filesystem::exists(source_path))
+				junk_metas.push_back(it->path());
 			continue;
+		}
 
-		std::filesystem::path source_path = it->path();
-		source_path.replace_extension();
-
-		AssetMetadata metadata;
-		if (read_metadata_file(it->path(), source_path, metadata))
-			register_metadata(metadata);
+		getOrCreateMetadata(it->path());
 	}
+
+	for (const std::filesystem::path &meta : junk_metas)
+		std::filesystem::remove(meta);
 }
 
-AssetMetadata &AssetManager::register_metadata(const AssetMetadata &metadata)
+void AssetManager::shutdown()
 {
-	guid_to_metadata[metadata.asset_handle] = metadata;
-	AssetMetadata &stored = guid_to_metadata[metadata.asset_handle];
-	path_to_guid[Filesystem::canonicalPath(stored.source_path)] = stored.asset_handle;
-	return stored;
+	guid_to_asset.clear();
+}
+
+Ref<Asset> AssetManager::getAsset(const std::filesystem::path &path, const AssetTypeInfo *type)
+{
+	if (path.empty() || !type)
+		return nullptr;
+
+	if (findTypeInfoByExtension(path.extension().string().c_str()) != type)
+	{
+		CORE_ERROR("{} is not a {} asset", path.string(), type->name);
+		return nullptr;
+	}
+
+	return get_or_load(path, type);
 }
 
 RHITextureRef AssetManager::getTextureAsset(eastl::string path, TextureDescription desc)
 {
-	return get_or_load<RHITexture>(path, [&] { return load_texture_asset(path, desc); });
+	return get_or_load<RHITexture>(path.c_str(), [&]() -> Ref<Asset>
+	{
+		RHITextureRef texture = gDynamicRHI->createTexture(desc);
+		texture->load(path.c_str());
+		return texture;
+	});
 }
 
-RHITextureRef AssetManager::getTextureAsset(eastl::string path)
+RHITextureRef AssetManager::getTextureAsset(const AssetReference &reference, TextureDescription desc)
 {
-	TextureDescription tex_description{};
-	tex_description.format = FORMAT_R8G8B8A8_UNORM;
-	tex_description.usage_flags = TEXTURE_USAGE_TRANSFER_SRC;
-	return getTextureAsset(path, tex_description);
-}
-
-RHITextureRef AssetManager::getTextureAssetByGuid(Engine::GUID guid, TextureDescription desc)
-{
-	std::filesystem::path path = getPathFromGUID(guid);
+	std::filesystem::path path = getPath(reference);
 	if (path.empty())
 		return nullptr;
 	return getTextureAsset(path.string().c_str(), desc);
 }
 
-RHITextureRef AssetManager::getTextureAssetByGuid(Engine::GUID guid)
+RHITextureRef AssetManager::getTextureAsset(eastl::string path) { return getAsset<RHITexture>(path.c_str()); }
+Ref<Model> AssetManager::getModelAsset(eastl::string path) { return getAsset<Model>(path.c_str()); }
+
+std::filesystem::path AssetManager::getPath(const AssetReference &reference)
 {
-	std::filesystem::path path = getPathFromGUID(guid);
-	if (path.empty())
-		return nullptr;
-	return getTextureAsset(path.string().c_str());
-}
-
-Ref<Model> AssetManager::getModelAsset(eastl::string path)
-{
-	auto std_path = std::filesystem::path(path.c_str());
-	if (getAssetTypeFromExtension(std_path.extension().string().c_str()) != ASSET_TYPE_MODEL)
-	{
-		CORE_ERROR("Model extension not supported %s", path.c_str());
-		return nullptr;
-	}
-
-	return get_or_load<Model>(path, [&] { return load_model_asset(path); });
-}
-
-Ref<Model> AssetManager::getModelAssetByGuid(Engine::GUID guid)
-{
-	std::filesystem::path path = getPathFromGUID(guid);
-	if (path.empty())
-		return nullptr;
-	return getModelAsset(path.string().c_str());
-}
-
-const AssetMetadata &AssetManager::getOrCreateMetadata(const std::filesystem::path &source_path)
-{
-	const AssetMetadata &existing = getMetadata(source_path);
-	if (existing.isValid())
-		return existing;
-
-	if (!std::filesystem::exists(source_path))
-		return invalid_metadata;
-
-	AssetMetadata new_metadata;
-
-	std::filesystem::path metadata_path = calc_meta_path(source_path);
-	if (std::filesystem::exists(metadata_path))
-	{
-		if (!read_metadata_file(metadata_path, source_path, new_metadata))
-			return invalid_metadata;
-	} else
-	{
-		AssetType asset_type = getAssetTypeFromExtension(source_path.extension().string().c_str());
-		if (asset_type == ASSET_TYPE_UNDEFINED)
-			return invalid_metadata;
-
-		CORE_INFO("Importing {}", source_path.string());
-		new_metadata.source_path = source_path;
-		new_metadata.asset_handle = Engine::GUID();
-		new_metadata.runtime_handle = Engine::GUID();
-		new_metadata.type = asset_type;
-
-		if (asset_type == ASSET_TYPE_TEXTURE)
-		{
-			new_metadata.params["generate_mipmaps"] = 1;
-			new_metadata.params["format"] = "FORMAT_R8G8B8A8_SRGB";
-		} else
-		{
-			ModelImportSettings defaults;
-			defaults.saveToYAML(new_metadata.params);
-		}
-		saveMetadata(new_metadata);
-	}
-
-	return register_metadata(new_metadata);
+	std::filesystem::path path = getPath(reference.guid);
+	if (!path.empty())
+		return path;
+	return reference.path.empty() ? std::filesystem::path() : std::filesystem::path(reference.path.c_str());
 }
 
 void AssetManager::reimport(const std::filesystem::path &source_path)
@@ -200,8 +161,8 @@ void AssetManager::reimport(const std::filesystem::path &source_path)
 	if (!metadata.isValid())
 		return;
 
-	auto it = cache_key_to_asset.find(calc_cache_key(metadata, source_path));
-	if (it == cache_key_to_asset.end())
+	auto it = guid_to_asset.find(metadata.guid);
+	if (it == guid_to_asset.end())
 	{
 		recreateRuntime(source_path);
 		return;
@@ -223,10 +184,10 @@ void AssetManager::moveAsset(const std::filesystem::path &from, const std::files
 	std::filesystem::rename(from, to);
 	std::filesystem::rename(calc_meta_path(from), calc_meta_path(to));
 
-	metadata.source_path = to;
+	metadata.sourcePath = to;
 
 	path_to_guid.erase(old_key);
-	path_to_guid[Filesystem::canonicalPath(to)] = metadata.asset_handle;
+	path_to_guid[Filesystem::canonicalPath(to)] = metadata.guid;
 }
 
 void AssetManager::deleteAsset(const std::filesystem::path &source_path)
@@ -235,13 +196,12 @@ void AssetManager::deleteAsset(const std::filesystem::path &source_path)
 	if (!metadata.isValid())
 		return;
 
-	Engine::GUID guid = metadata.asset_handle;
-	eastl::string cache_key = calc_cache_key(metadata, source_path);
+	Engine::GUID guid = metadata.guid;
 	eastl::string path_key = Filesystem::canonicalPath(source_path);
-	std::filesystem::path runtime_path = getRuntimeAssetPath(source_path);
+	std::filesystem::path runtime_path = calc_runtime_path(metadata);
 	std::filesystem::path meta_path = calc_meta_path(source_path);
 
-	cache_key_to_asset.erase(cache_key);
+	guid_to_asset.erase(guid);
 	path_to_guid.erase(path_key);
 	guid_to_metadata.erase(guid);
 
@@ -250,18 +210,50 @@ void AssetManager::deleteAsset(const std::filesystem::path &source_path)
 	std::filesystem::remove(runtime_path);
 }
 
-std::filesystem::path AssetManager::getPathFromGUID(Engine::GUID guid)
+AssetMetadata &AssetManager::getOrCreateMetadata(const std::filesystem::path &source_path)
 {
-	auto metadata = guid_to_metadata.find(guid);
-	if (metadata != guid_to_metadata.end())
-		return metadata->second.source_path;
+	AssetMetadata &existing = getMetadata(source_path);
+	if (existing.isValid())
+		return existing;
 
-	return std::filesystem::path();
-}
+	if (!std::filesystem::exists(source_path))
+		return invalid_metadata;
 
-Engine::GUID AssetManager::getGUIDFromPath(const std::filesystem::path &path)
-{
-	return getOrCreateMetadata(path).asset_handle;
+	AssetMetadata new_metadata;
+
+	std::filesystem::path metadata_path = calc_meta_path(source_path);
+	if (std::filesystem::exists(metadata_path))
+	{
+		if (!read_metadata_file(metadata_path, source_path, new_metadata))
+			return invalid_metadata;
+	} else
+	{
+		new_metadata.type = findTypeInfoByExtension(source_path.extension().string().c_str());
+		if (!new_metadata.type)
+			return invalid_metadata;
+
+		new_metadata.sourcePath = source_path;
+		new_metadata.guid = Engine::GUID::generate();
+
+		if (new_metadata.type->isImported())
+		{
+			CORE_INFO("Importing {}", source_path.string());
+			new_metadata.runtimeGuid = Engine::GUID::generate();
+		}
+
+		const StructInfo *info = new_metadata.type->importSettingsInfo;
+		if (info)
+		{
+			const uint8_t *default_settings = (const uint8_t *)info->defaults;
+			new_metadata.importSettings.assign(default_settings, default_settings + info->size);
+		}
+		saveMetadata(new_metadata);
+	}
+
+	AssetMetadata &stored = guid_to_metadata[new_metadata.guid];
+	stored = new_metadata;
+	path_to_guid[Filesystem::canonicalPath(stored.sourcePath)] = stored.guid;
+	return stored;
 }
 
 AssetMetadata &AssetManager::getMetadata(const std::filesystem::path &source_path)
@@ -270,127 +262,100 @@ AssetMetadata &AssetManager::getMetadata(const std::filesystem::path &source_pat
 	if (it == path_to_guid.end())
 		return invalid_metadata;
 
-	auto meta = guid_to_metadata.find(it->second);
-	if (meta == guid_to_metadata.end())
-	{
-		path_to_guid.erase(it);
-		return invalid_metadata;
-	}
-	return meta->second;
+	return getMetadata(it->second);
+}
+
+AssetMetadata &AssetManager::getMetadata(Engine::GUID guid)
+{
+	auto it = guid_to_metadata.find(guid);
+	return it != guid_to_metadata.end() ? it->second : invalid_metadata;
 }
 
 void AssetManager::saveMetadata(const AssetMetadata &metadata)
 {
-	std::filesystem::path metadata_path = calc_meta_path(metadata.source_path);
-
-	YAML::Node node;
-	node["guid"] = (uint64_t)metadata.asset_handle;
-	node["runtime_guid"] = (uint64_t)metadata.runtime_handle;
-	node["type"] = (int)metadata.type;
-	node["Parameters"] = metadata.params;
-
-	std::ofstream file(metadata_path);
+	std::ofstream file(calc_meta_path(metadata.sourcePath));
 	YAML::Emitter out(file);
-	out << node;
+
+	out << YAML::BeginMap;
+	out << YAML::Key << "guid" << YAML::Value << (uint64_t)metadata.guid;
+	out << YAML::Key << "runtime_guid" << YAML::Value << (uint64_t)metadata.runtimeGuid;
+	out << YAML::Key << "runtime_version" << YAML::Value << metadata.runtimeVersion;
+	out << YAML::Key << "type" << YAML::Value << metadata.type->name;
+
+	const StructInfo *info = metadata.type->importSettingsInfo;
+	const void *settings = metadata.importSettings.data();
+	if (info && !info->isDefault(settings, info->defaults))
+	{
+		out << YAML::Key << "Parameters" << YAML::Value << YAML::BeginMap;
+		ReflectionYaml::writeFields(out, *info, settings, info->defaults);
+		out << YAML::EndMap;
+	}
+	out << YAML::EndMap;
 }
 
-std::filesystem::path AssetManager::getRuntimeAssetPath(const std::filesystem::path &path)
+std::filesystem::path AssetManager::calc_runtime_path(const AssetMetadata &metadata)
 {
-	const AssetMetadata &metadata = getMetadata(path);
-	if (metadata.isValid() && metadata.runtime_handle != 0)
-		return compute_runtime_path(path, metadata.runtime_handle, get_runtime_extension(metadata.type));
-	return std::filesystem::path();
+	if (!metadata.isValid() || !metadata.runtimeGuid.isValid())
+		return std::filesystem::path();
+
+	const std::filesystem::path &source_path = metadata.sourcePath;
+	bool is_in_assets = source_path.generic_string().rfind(assets_root.generic_string() + "/", 0) == 0;
+	std::filesystem::path runtimes = is_in_assets ? assets_root / ".runtimes" : source_path.parent_path() / ".runtimes";
+	eastl::string name = eastl::to_string(metadata.runtimeGuid) + metadata.type->runtimeExtension;
+	return runtimes / name.c_str();
 }
 
-bool AssetManager::isRuntimeExists(const std::filesystem::path &source_path)
+std::filesystem::path AssetManager::getRuntimePath(const std::filesystem::path &source_path)
 {
-	return std::filesystem::exists(getRuntimeAssetPath(source_path));
+	return calc_runtime_path(getMetadata(source_path));
+}
+
+bool AssetManager::hasValidRuntime(const std::filesystem::path &source_path)
+{
+	const AssetMetadata &metadata = getMetadata(source_path);
+	if (!metadata.isValid() || metadata.runtimeVersion != metadata.type->getRuntimeVersion(metadata))
+		return false;
+	return std::filesystem::exists(calc_runtime_path(metadata));
 }
 
 void AssetManager::recreateRuntime(const std::filesystem::path &source_path)
 {
-	const AssetMetadata &metadata = getMetadata(source_path);
-	if (!metadata.isValid() || metadata.type == ASSET_TYPE_UNDEFINED)
+	AssetMetadata &metadata = getMetadata(source_path);
+	if (!metadata.isValid() || !metadata.type->isImported() || !metadata.runtimeGuid.isValid())
 		return;
 
 	CORE_INFO("Recreating Runtime for {}", source_path.string());
 
-	std::filesystem::path runtime_path = getRuntimeAssetPath(source_path);
+	std::filesystem::path runtime_path = calc_runtime_path(metadata);
 	std::filesystem::remove(runtime_path);
+	metadata.type->cook(metadata, runtime_path);
 
-	if (metadata.type == ASSET_TYPE_TEXTURE)
+	uint32_t runtime_version = metadata.type->getRuntimeVersion(metadata);
+	if (metadata.runtimeVersion != runtime_version)
 	{
-		int generate_mipmaps = metadata.params["generate_mipmaps"].as<int>(1);
-
-		Ref<Image> image = new Image(source_path.string().c_str());
-
-		if (generate_mipmaps)
-			image->createMipmaps();
-
-		std::filesystem::create_directories(runtime_path.parent_path());
-		image->save(runtime_path);
-	} else if (metadata.type == ASSET_TYPE_MODEL)
-	{
-		ModelImportSettings mesh_settings;
-		mesh_settings.loadFromYAML(metadata.params);
-
-		Ref<Model> model = new Model();
-		ModelImporter::import(source_path.string().c_str(), model, mesh_settings);
+		metadata.runtimeVersion = runtime_version;
+		saveMetadata(metadata);
 	}
 }
 
-// Assets inside assets folder share one runtimes folder. External assets create runtimes folder near to them
-std::filesystem::path AssetManager::compute_runtime_path(const std::filesystem::path &source_path, Engine::GUID runtime_guid, const eastl::string &extension)
+const AssetTypeInfo *AssetManager::findTypeInfoByExtension(const eastl::string &extension)
 {
-	std::string root = assets_root.generic_string() + "/";
-	std::string src = source_path.generic_string();
-	bool is_in_assets = src.rfind(root, 0) == 0;
-	std::filesystem::path runtimes = is_in_assets
-		? assets_root / ".runtimes"
-		: source_path.parent_path() / ".runtimes";
-	eastl::string name = eastl::to_string(runtime_guid) + extension;
-	return runtimes / name.c_str();
-}
-
-eastl::string AssetManager::get_runtime_extension(AssetType asset_type)
-{
-	switch (asset_type)
+	eastl::string lower = extension;
+	lower.make_lower();
+	for (const AssetTypeInfo *type : get_type_infos())
 	{
-		case ASSET_TYPE_TEXTURE: return ".dds";
-		case ASSET_TYPE_MODEL: return ".mesh";
-		default: return "";
+		if (eastl::find(type->extensions.begin(), type->extensions.end(), lower) != type->extensions.end())
+			return type;
 	}
+	return nullptr;
 }
 
-AssetType AssetManager::getAssetTypeFromExtension(eastl::string extension)
+const AssetTypeInfo *AssetManager::findTypeInfoByName(const char *name)
 {
-	extension.make_lower();
-	static eastl::unordered_map<eastl::string, AssetType> extension_to_type =
+	for (const AssetTypeInfo *type : get_type_infos())
 	{
-		{".dds", ASSET_TYPE_TEXTURE},
-		{".png", ASSET_TYPE_TEXTURE},
-		{".jpg", ASSET_TYPE_TEXTURE},
-		{".jpeg", ASSET_TYPE_TEXTURE},
-		{".fbx",  ASSET_TYPE_MODEL},
-		{".obj",  ASSET_TYPE_MODEL},
-		{".gltf", ASSET_TYPE_MODEL},
-		{".glb",  ASSET_TYPE_MODEL},
-	};
-
-	auto it = extension_to_type.find(extension);
-	return it == extension_to_type.end() ? ASSET_TYPE_UNDEFINED : it->second;
-}
-
-Ref<Asset> AssetManager::load_texture_asset(eastl::string path, TextureDescription desc)
-{
-	auto tex = gDynamicRHI->createTexture(desc);
-	tex->load(path.c_str());
-	return tex;
-}
-
-Ref<Asset> AssetManager::load_model_asset(eastl::string path)
-{
-	auto model = new Model();
-	model->load(path.c_str());
-	return model;
+		if (strcmp(type->name, name) == 0)
+			return type;
+	}
+	return nullptr;
 }

@@ -76,4 +76,33 @@ namespace Math
 		return {halton(index, 2), halton(index, 3)};
 	}
 
+	// Get how much nits would be WHITE on current "camera" when EV100 = 0
+	inline float getLuminanceMax()
+	{
+		// https://en.wikipedia.org/wiki/Film_speed#Measurements_and_calculations
+		//float lens_attenuation = 0.78f; // ideal lens (pi/4)
+		float lens_attenuation = 0.65f; // more typical lens (pi/4 * vignette * cosine angle etc)
+
+		float iso_constant = 0.78f;
+		float luminance_max = iso_constant / lens_attenuation;
+		return luminance_max;
+	}
+
+	// luminance_max - maximum nits needed to fully saturate sensor
+	inline float ev100ToLuminance(float luminance_max, float ev100)
+	{
+		return luminance_max * pow(2.0f, ev100);
+	}
+
+	inline float luminanceToEV100(float luminance_max, float luminance)
+	{
+		return log2(luminance / luminance_max);
+	}
+
+	inline float cameraToEV100(float aperture, float shutter_speed, float iso)
+	{
+		// https://en.wikipedia.org/wiki/Exposure_value
+		return log2(aperture * aperture / shutter_speed) - log2(iso / 100.0f);
+	}
+
 }

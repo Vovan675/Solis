@@ -11,7 +11,7 @@ static UINT64 fenceValues[MAX_FRAMES_IN_FLIGHT] = {};
 
 void DX12DynamicRHI::init()
 {
-	if (engine_streamline_enabled)
+	if (engine_streamline)
 		StreamlineWrapper::init();
 
 	// Factory
@@ -78,7 +78,7 @@ void DX12DynamicRHI::init()
 	}
 	#endif
 
-	if (engine_streamline_enabled)
+	if (engine_streamline)
 	{
 		streamline.init();
 		dlss_upscaler.init();
