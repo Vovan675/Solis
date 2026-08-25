@@ -1,5 +1,6 @@
 workspace "RenderingEngine"
 	architecture "x64"
+	startproject "Engine"
 
 	configurations
 	{

@@ -12,6 +12,8 @@ download_temp
 **/obj
 .runtimes/
 
+!vendor/Compressonator/lib/bin/
+
 # Big assets, downloaded using tools/get_assets.py
 Engine/assets/models/bistro
 Engine/assets/models/cerberus
