@@ -1,0 +1,5 @@
+Model Information:
+* title:	PICA PICA - Mini Diorama 01
+* source:	https://sketchfab.com/3d-models/pica-pica-mini-diorama-01-45e26a4ea7874c15b91bd659e656e30d
+* author:	SEED.EA (https://sketchfab.com/SEED.EA)
+* license:	CC-BY-NC-4.0 (https://creativecommons.org/licenses/by-nc/4.0/)

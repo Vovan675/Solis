@@ -140,7 +140,6 @@ bool ViewportPanel::renderImGui(EditorContext &context, float delta_time)
 				{
 					auto model = AssetManager::getModelAsset(payload_str);
 					Entity entity = model->createEntity(model);
-					entity.getTransform().setLocalScale(glm::vec3(0.01));
 				}
 			}
 		}

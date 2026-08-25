@@ -1,0 +1,5 @@
+Model Information:
+* title:	Sponza
+* source:	https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/Sponza
+* author:	Crytek
+* license:	Cryengine Limited License Agreement (https://www.cryengine.com/ce-terms)

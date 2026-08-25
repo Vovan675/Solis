@@ -5,7 +5,7 @@
 #include "RHI/Vulkan/Descriptors.h"
 #include "RHI/Vulkan/VulkanResources.h"
 
-static const int MAX_BINDLESS_RESOURCES = 4096;
+static const int MAX_BINDLESS_RESOURCES = 65536;
 static const int MAX_BINDLESS_SAMPLERS = 2048;
 
 static const int BINDLESS_RESOURCES_BINDING = 0;

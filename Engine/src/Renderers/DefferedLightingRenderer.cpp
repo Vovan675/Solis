@@ -10,7 +10,7 @@
 
 DefferedLightingRenderer::DefferedLightingRenderer()
 {
-	auto model = AssetManager::getModelAsset("assets/icosphere_3.fbx");
+	auto model = AssetManager::getModelAsset("assets/models/primitives/icosphere_3.fbx");
 	icosphere_mesh = model->getRootNode()->children[0]->primitives[0].mesh;
 }
 

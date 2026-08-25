@@ -1,0 +1,6 @@
+Font Information:
+* title:	Roboto
+* source:	https://github.com/googlefonts/roboto
+* version:	2.137 (2017)
+* copyright:	Copyright 2011 Google Inc. All Rights Reserved.
+* license:	Apache-2.0, full text in LICENSE.txt

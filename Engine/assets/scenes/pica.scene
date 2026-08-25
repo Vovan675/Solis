@@ -1,0 +1,4595 @@
+Entities:
+  - Entity: 337
+    TransformComponent:
+      Name: Floor_Junk_Cluster_01_Clip2_Coated_Black_Glossy_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 335
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 17663721343755
+      Materials:
+        []
+  - Entity: 336
+    TransformComponent:
+      Name: Floor_Junk_Cluster_01_Clip2_Metal_Aluminium_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 335
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 13587970720745
+      Materials:
+        []
+  - Entity: 335
+    TransformComponent:
+      Name: Floor_Junk_Cluster_01_Clip2
+      LocalPosition: {X: -3.9423399, Y: 0, Z: 8.7577734}
+      LocalRotation: {X: 0, Y: 0.183567569, Z: 0, W: 0.983007133}
+      LocalRotationEuler: {X: 0, Y: 0.369228959, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 336
+        - 337
+  - Entity: 334
+    TransformComponent:
+      Name: Wax_Pastel_02_Wax_Pastel_Label_02_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 332
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 13623110268536
+      Materials:
+        []
+  - Entity: 333
+    TransformComponent:
+      Name: Wax_Pastel_02_Wax_Pastel_Blue_01_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 332
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 28016696566140
+      Materials:
+        []
+  - Entity: 332
+    TransformComponent:
+      Name: Wax_Pastel_02
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 328
+      Children:
+        - 333
+        - 334
+  - Entity: 331
+    TransformComponent:
+      Name: Wax_Pastel_03_Wax_Pastel_Yellow_01_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 329
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 28319700662815
+      Materials:
+        []
+  - Entity: 330
+    TransformComponent:
+      Name: Wax_Pastel_03_Wax_Pastel_Label_02_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 329
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 13214253087887
+      Materials:
+        []
+  - Entity: 329
+    TransformComponent:
+      Name: Wax_Pastel_03
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 328
+      Children:
+        - 330
+        - 331
+  - Entity: 328
+    TransformComponent:
+      Name: group68
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 329
+        - 332
+  - Entity: 327
+    TransformComponent:
+      Name: Floor_Junk_Cluster_01_Pin3_Plastic_White_Matte_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 324
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 24979544706360
+      Materials:
+        []
+  - Entity: 326
+    TransformComponent:
+      Name: Floor_Junk_Cluster_01_Pin3_Metal_Aluminium_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 324
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 20752283723314
+      Materials:
+        []
+  - Entity: 325
+    TransformComponent:
+      Name: Floor_Junk_Cluster_01_Pin3_Plastic_Red_Transparent_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 324
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 21191032828288
+      Materials:
+        []
+  - Entity: 324
+    TransformComponent:
+      Name: Floor_Junk_Cluster_01_Pin3
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 309
+      Children:
+        - 325
+        - 326
+        - 327
+  - Entity: 323
+    TransformComponent:
+      Name: Floor_Junk_Cluster_01_Pin2_Plastic_White_Matte_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 320
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 25248125543433
+      Materials:
+        []
+  - Entity: 322
+    TransformComponent:
+      Name: Floor_Junk_Cluster_01_Pin2_Metal_Aluminium_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 320
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 16995792961873
+      Materials:
+        []
+  - Entity: 321
+    TransformComponent:
+      Name: Floor_Junk_Cluster_01_Pin2_Plastic_Red_Transparent_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 320
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 21506241428532
+      Materials:
+        []
+  - Entity: 320
+    TransformComponent:
+      Name: Floor_Junk_Cluster_01_Pin2
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 309
+      Children:
+        - 321
+        - 322
+        - 323
+  - Entity: 319
+    TransformComponent:
+      Name: Floor_Junk_Cluster_01_Pin1_Plastic_White_Matte_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 316
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 14743439110479
+      Materials:
+        []
+  - Entity: 318
+    TransformComponent:
+      Name: Floor_Junk_Cluster_01_Pin1_Metal_Aluminium_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 316
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 16996974445865
+      Materials:
+        []
+  - Entity: 317
+    TransformComponent:
+      Name: Floor_Junk_Cluster_01_Pin1_Plastic_Red_Transparent_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 316
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 17643524251451
+      Materials:
+        []
+  - Entity: 316
+    TransformComponent:
+      Name: Floor_Junk_Cluster_01_Pin1
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 309
+      Children:
+        - 317
+        - 318
+        - 319
+  - Entity: 315
+    TransformComponent:
+      Name: Floor_Junk_Cluster_01_Bolt3_Metal_Blue_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 314
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 11365071748729
+      Materials:
+        []
+  - Entity: 314
+    TransformComponent:
+      Name: Floor_Junk_Cluster_01_Bolt3
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 309
+      Children:
+        - 315
+  - Entity: 313
+    TransformComponent:
+      Name: Floor_Junk_Cluster_01_Bolt2_Metal_Blue_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 312
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 28134369291601
+      Materials:
+        []
+  - Entity: 312
+    TransformComponent:
+      Name: Floor_Junk_Cluster_01_Bolt2
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 309
+      Children:
+        - 313
+  - Entity: 311
+    TransformComponent:
+      Name: Floor_Junk_Cluster_01_Bolt1_Metal_Blue_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 310
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 11479522405595
+      Materials:
+        []
+  - Entity: 310
+    TransformComponent:
+      Name: Floor_Junk_Cluster_01_Bolt1
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 309
+      Children:
+        - 311
+  - Entity: 309
+    TransformComponent:
+      Name: Floor_Junk_Cluster1
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 310
+        - 312
+        - 314
+        - 316
+        - 320
+        - 324
+  - Entity: 308
+    TransformComponent:
+      Name: Body_Plastic_White_Matte_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 305
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 15359832825643
+      Materials:
+        []
+  - Entity: 307
+    TransformComponent:
+      Name: Body_Plastic_Blue_ExtraLight_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 305
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 18728404261935
+      Materials:
+        []
+  - Entity: 306
+    TransformComponent:
+      Name: Body_Plastic_Dark_Matte_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 305
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 18064354687698
+      Materials:
+        []
+  - Entity: 305
+    TransformComponent:
+      Name: Body
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 272
+      Children:
+        - 306
+        - 307
+        - 308
+  - Entity: 304
+    TransformComponent:
+      Name: Screw_02_Metal_Aluminium_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 303
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 25295643223701
+      Materials:
+        []
+  - Entity: 303
+    TransformComponent:
+      Name: Screw_02
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 272
+      Children:
+        - 304
+  - Entity: 302
+    TransformComponent:
+      Name: Screw_01_Metal_Aluminium_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 301
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 18183963892386
+      Materials:
+        []
+  - Entity: 301
+    TransformComponent:
+      Name: Screw_01
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 272
+      Children:
+        - 302
+  - Entity: 300
+    TransformComponent:
+      Name: Led_Wire_03_Metal_Aluminium_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 299
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 27458394830187
+      Materials:
+        []
+  - Entity: 299
+    TransformComponent:
+      Name: Led_Wire_03
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 272
+      Children:
+        - 300
+  - Entity: 298
+    TransformComponent:
+      Name: Led_Wire_02_Metal_Aluminium_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 297
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 27552709488074
+      Materials:
+        []
+  - Entity: 297
+    TransformComponent:
+      Name: Led_Wire_02
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 272
+      Children:
+        - 298
+  - Entity: 296
+    TransformComponent:
+      Name: Led_Wire_01_Metal_Aluminium_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 295
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 20162214811930
+      Materials:
+        []
+  - Entity: 295
+    TransformComponent:
+      Name: Led_Wire_01
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 272
+      Children:
+        - 296
+  - Entity: 294
+    TransformComponent:
+      Name: Led_03_Glass_Dark_01_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 293
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 25853423788966
+      Materials:
+        []
+  - Entity: 293
+    TransformComponent:
+      Name: Led_03
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 272
+      Children:
+        - 294
+  - Entity: 292
+    TransformComponent:
+      Name: Led_02_Glass_Dark_01_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 291
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 11573644856063
+      Materials:
+        []
+  - Entity: 291
+    TransformComponent:
+      Name: Led_02
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 272
+      Children:
+        - 292
+  - Entity: 290
+    TransformComponent:
+      Name: Led_01_Glass_Dark_01_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 289
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 15369724572627
+      Materials:
+        []
+  - Entity: 289
+    TransformComponent:
+      Name: Led_01
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 272
+      Children:
+        - 290
+  - Entity: 288
+    TransformComponent:
+      Name: Leg_Holder_03_Plastic_White_Matte_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 287
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 20500017192816
+      Materials:
+        []
+  - Entity: 287
+    TransformComponent:
+      Name: Leg_Holder_03
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 272
+      Children:
+        - 288
+  - Entity: 286
+    TransformComponent:
+      Name: Leg_Holder_02_Plastic_White_Matte_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 285
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 15541432515363
+      Materials:
+        []
+  - Entity: 285
+    TransformComponent:
+      Name: Leg_Holder_02
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 272
+      Children:
+        - 286
+  - Entity: 284
+    TransformComponent:
+      Name: Leg_Holder_01_Plastic_White_Matte_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 283
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 28619940695923
+      Materials:
+        []
+  - Entity: 283
+    TransformComponent:
+      Name: Leg_Holder_01
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 272
+      Children:
+        - 284
+  - Entity: 282
+    TransformComponent:
+      Name: Panel_02_Decal_Keyboard_01_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 280
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 23143031688411
+      Materials:
+        []
+  - Entity: 281
+    TransformComponent:
+      Name: Panel_02_Plastic_Blue_Satin_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 280
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 19393166820884
+      Materials:
+        []
+  - Entity: 280
+    TransformComponent:
+      Name: Panel_02
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 272
+      Children:
+        - 281
+        - 282
+  - Entity: 279
+    TransformComponent:
+      Name: Panel_01_Decal_Keyboard_01_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 277
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 15558957165458
+      Materials:
+        []
+  - Entity: 278
+    TransformComponent:
+      Name: Panel_01_Plastic_Blue_Satin_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 277
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 15766304933870
+      Materials:
+        []
+  - Entity: 277
+    TransformComponent:
+      Name: Panel_01
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 272
+      Children:
+        - 278
+        - 279
+  - Entity: 276
+    TransformComponent:
+      Name: Interior_Metal_Aluminium_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 275
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 13862740003507
+      Materials:
+        []
+  - Entity: 275
+    TransformComponent:
+      Name: Interior
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 272
+      Children:
+        - 276
+  - Entity: 274
+    TransformComponent:
+      Name: Inlet_Plastic_Grey_Dark_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 273
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 12191007530614
+      Materials:
+        []
+  - Entity: 273
+    TransformComponent:
+      Name: Inlet
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 272
+      Children:
+        - 274
+  - Entity: 272
+    TransformComponent:
+      Name: Machine_014
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 273
+        - 275
+        - 277
+        - 280
+        - 283
+        - 285
+        - 287
+        - 289
+        - 291
+        - 293
+        - 295
+        - 297
+        - 299
+        - 301
+        - 303
+        - 305
+  - Entity: 271
+    TransformComponent:
+      Name: Wall_Prop_Clock_01_Minute_Hand_Plastic_Dark_Matte_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 270
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 11514148165636
+      Materials:
+        []
+  - Entity: 270
+    TransformComponent:
+      Name: Wall_Prop_Clock_01_Minute_Hand
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 263
+      Children:
+        - 271
+  - Entity: 269
+    TransformComponent:
+      Name: Wall_Prop_Clock_01_Hour_Hand_Plastic_Dark_Matte_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 268
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 23261280137542
+      Materials:
+        []
+  - Entity: 268
+    TransformComponent:
+      Name: Wall_Prop_Clock_01_Hour_Hand
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 263
+      Children:
+        - 269
+  - Entity: 267
+    TransformComponent:
+      Name: Wall_Prop_Clock_01_Face_Plastic_White_Matte_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 266
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 19358388929247
+      Materials:
+        []
+  - Entity: 266
+    TransformComponent:
+      Name: Wall_Prop_Clock_01_Face
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 263
+      Children:
+        - 267
+  - Entity: 265
+    TransformComponent:
+      Name: Wall_Prop_Clock_01_Frame_Plastic_Red_Matte_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 264
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 20954664049507
+      Materials:
+        []
+  - Entity: 264
+    TransformComponent:
+      Name: Wall_Prop_Clock_01_Frame
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 263
+      Children:
+        - 265
+  - Entity: 263
+    TransformComponent:
+      Name: Wall_Prop_Clock_01
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 264
+        - 266
+        - 268
+        - 270
+  - Entity: 262
+    TransformComponent:
+      Name: Decal_Floor_Caution_Line_Plastic_Decals_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 261
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 19787910238587
+      Materials:
+        []
+  - Entity: 261
+    TransformComponent:
+      Name: Decal_Floor_Caution_Line
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 254
+      Children:
+        - 262
+  - Entity: 260
+    TransformComponent:
+      Name: pCube93_Plastic_Decals_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 259
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 16976004578742
+      Materials:
+        []
+  - Entity: 259
+    TransformComponent:
+      Name: pCube93
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 254
+      Children:
+        - 260
+  - Entity: 258
+    TransformComponent:
+      Name: pCube91_Plastic_Decals_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 257
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 12556177035301
+      Materials:
+        []
+  - Entity: 257
+    TransformComponent:
+      Name: pCube91
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 254
+      Children:
+        - 258
+  - Entity: 256
+    TransformComponent:
+      Name: pCube92_Plastic_Decals_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 255
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 15430095498667
+      Materials:
+        []
+  - Entity: 255
+    TransformComponent:
+      Name: pCube92
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 254
+      Children:
+        - 256
+  - Entity: 254
+    TransformComponent:
+      Name: group66
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 255
+        - 257
+        - 259
+        - 261
+  - Entity: 253
+    TransformComponent:
+      Name: pCube195_Plastic_Decals_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 252
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 25187752946529
+      Materials:
+        []
+  - Entity: 252
+    TransformComponent:
+      Name: pCube195
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 245
+      Children:
+        - 253
+  - Entity: 251
+    TransformComponent:
+      Name: pCube188_Decal_Caution_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 249
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 13252410926786
+      Materials:
+        []
+  - Entity: 250
+    TransformComponent:
+      Name: pCube188_Plastic_Decals_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 249
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 22193841148996
+      Materials:
+        []
+  - Entity: 249
+    TransformComponent:
+      Name: pCube188
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 245
+      Children:
+        - 250
+        - 251
+  - Entity: 248
+    TransformComponent:
+      Name: pCube190_Decal_Caution_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 246
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 18947588661535
+      Materials:
+        []
+  - Entity: 247
+    TransformComponent:
+      Name: pCube190_Plastic_Decals_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 246
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 25352642159968
+      Materials:
+        []
+  - Entity: 246
+    TransformComponent:
+      Name: pCube190
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 245
+      Children:
+        - 247
+        - 248
+  - Entity: 245
+    TransformComponent:
+      Name: Shelf_Guard_01
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 246
+        - 249
+        - 252
+  - Entity: 244
+    TransformComponent:
+      Name: pCylinder164_Metal_Aluminium_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 243
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 19683474639315
+      Materials:
+        []
+  - Entity: 243
+    TransformComponent:
+      Name: pCylinder164
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 228
+      Children:
+        - 244
+  - Entity: 242
+    TransformComponent:
+      Name: pCylinder163_Metal_Aluminium_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 241
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 28227794104779
+      Materials:
+        []
+  - Entity: 241
+    TransformComponent:
+      Name: pCylinder163
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 228
+      Children:
+        - 242
+  - Entity: 240
+    TransformComponent:
+      Name: Bolt17_Metal_Aluminium_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 239
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 14797784433607
+      Materials:
+        []
+  - Entity: 239
+    TransformComponent:
+      Name: Bolt17
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 228
+      Children:
+        - 240
+  - Entity: 238
+    TransformComponent:
+      Name: Bolt16_Metal_Aluminium_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 237
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 29026121221024
+      Materials:
+        []
+  - Entity: 237
+    TransformComponent:
+      Name: Bolt16
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 228
+      Children:
+        - 238
+  - Entity: 236
+    TransformComponent:
+      Name: Bolt15_Metal_Aluminium_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 235
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 21021219321148
+      Materials:
+        []
+  - Entity: 235
+    TransformComponent:
+      Name: Bolt15
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 228
+      Children:
+        - 236
+  - Entity: 234
+    TransformComponent:
+      Name: pCylinder162_Metal_Aluminium_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 233
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 18806851551725
+      Materials:
+        []
+  - Entity: 233
+    TransformComponent:
+      Name: pCylinder162
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 228
+      Children:
+        - 234
+  - Entity: 232
+    TransformComponent:
+      Name: Bolt14_Metal_Aluminium_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 231
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 25214414325514
+      Materials:
+        []
+  - Entity: 231
+    TransformComponent:
+      Name: Bolt14
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 228
+      Children:
+        - 232
+  - Entity: 230
+    TransformComponent:
+      Name: pCylinder161_Metal_Aluminium_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 229
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 27857958632901
+      Materials:
+        []
+  - Entity: 229
+    TransformComponent:
+      Name: pCylinder161
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 228
+      Children:
+        - 230
+  - Entity: 228
+    TransformComponent:
+      Name: group44
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 225
+      Children:
+        - 229
+        - 231
+        - 233
+        - 235
+        - 237
+        - 239
+        - 241
+        - 243
+  - Entity: 227
+    TransformComponent:
+      Name: pTorus5_Plastic_Pink_Details_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 226
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 18160884644811
+      Materials:
+        []
+  - Entity: 226
+    TransformComponent:
+      Name: pTorus5
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 225
+      Children:
+        - 227
+  - Entity: 225
+    TransformComponent:
+      Name: group45
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 222
+      Children:
+        - 226
+        - 228
+  - Entity: 224
+    TransformComponent:
+      Name: Machine_04_Inlet_Trim_03_Metal_Aluminium_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 223
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 19321496118951
+      Materials:
+        []
+  - Entity: 223
+    TransformComponent:
+      Name: Machine_04_Inlet_Trim_03
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 222
+      Children:
+        - 224
+  - Entity: 222
+    TransformComponent:
+      Name: Outlet_03
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 223
+        - 225
+  - Entity: 221
+    TransformComponent:
+      Name: pCylinder164_Metal_Aluminium_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 220
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 19683474639324
+      Materials:
+        []
+  - Entity: 220
+    TransformComponent:
+      Name: pCylinder164
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 205
+      Children:
+        - 221
+  - Entity: 219
+    TransformComponent:
+      Name: pCylinder163_Metal_Aluminium_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 218
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 28227794104776
+      Materials:
+        []
+  - Entity: 218
+    TransformComponent:
+      Name: pCylinder163
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 205
+      Children:
+        - 219
+  - Entity: 217
+    TransformComponent:
+      Name: Bolt17_Metal_Aluminium_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 216
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 14797784433606
+      Materials:
+        []
+  - Entity: 216
+    TransformComponent:
+      Name: Bolt17
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 205
+      Children:
+        - 217
+  - Entity: 215
+    TransformComponent:
+      Name: Bolt16_Metal_Aluminium_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 214
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 29026121221027
+      Materials:
+        []
+  - Entity: 214
+    TransformComponent:
+      Name: Bolt16
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 205
+      Children:
+        - 215
+  - Entity: 213
+    TransformComponent:
+      Name: Bolt15_Metal_Aluminium_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 212
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 21021219321151
+      Materials:
+        []
+  - Entity: 212
+    TransformComponent:
+      Name: Bolt15
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 205
+      Children:
+        - 213
+  - Entity: 211
+    TransformComponent:
+      Name: pCylinder162_Metal_Aluminium_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 210
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 18806851551724
+      Materials:
+        []
+  - Entity: 210
+    TransformComponent:
+      Name: pCylinder162
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 205
+      Children:
+        - 211
+  - Entity: 209
+    TransformComponent:
+      Name: Bolt14_Metal_Aluminium_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 208
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 25214414325515
+      Materials:
+        []
+  - Entity: 208
+    TransformComponent:
+      Name: Bolt14
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 205
+      Children:
+        - 209
+  - Entity: 207
+    TransformComponent:
+      Name: pCylinder161_Metal_Aluminium_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 206
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 27857958632900
+      Materials:
+        []
+  - Entity: 206
+    TransformComponent:
+      Name: pCylinder161
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 205
+      Children:
+        - 207
+  - Entity: 205
+    TransformComponent:
+      Name: group44
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 202
+      Children:
+        - 206
+        - 208
+        - 210
+        - 212
+        - 214
+        - 216
+        - 218
+        - 220
+  - Entity: 204
+    TransformComponent:
+      Name: pTorus5_Plastic_Pink_Details_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 203
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 18160884644810
+      Materials:
+        []
+  - Entity: 203
+    TransformComponent:
+      Name: pTorus5
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 202
+      Children:
+        - 204
+  - Entity: 202
+    TransformComponent:
+      Name: group45
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 197
+      Children:
+        - 203
+        - 205
+  - Entity: 201
+    TransformComponent:
+      Name: Machine_04_Inlet_Trim_03_Metal_Aluminium_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 200
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 19321496118944
+      Materials:
+        []
+  - Entity: 200
+    TransformComponent:
+      Name: Machine_04_Inlet_Trim_03
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 197
+      Children:
+        - 201
+  - Entity: 199
+    TransformComponent:
+      Name: pCylinder143_Plastic_Blue_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 198
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 16309087929023
+      Materials:
+        []
+  - Entity: 198
+    TransformComponent:
+      Name: pCylinder143
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 197
+      Children:
+        - 199
+  - Entity: 197
+    TransformComponent:
+      Name: Outlet_01
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 198
+        - 200
+        - 202
+  - Entity: 196
+    TransformComponent:
+      Name: Mesh8_Plastic_Blue_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 195
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 13475834949327
+      Materials:
+        []
+  - Entity: 195
+    TransformComponent:
+      Name: Mesh8
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 196
+  - Entity: 194
+    TransformComponent:
+      Name: pCube187_Plastic_Blue_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 193
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 12994070432472
+      Materials:
+        []
+  - Entity: 193
+    TransformComponent:
+      Name: pCube187
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 188
+      Children:
+        - 194
+  - Entity: 192
+    TransformComponent:
+      Name: pCube179_Plastic_White_Matte_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 191
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 22022208857769
+      Materials:
+        []
+  - Entity: 191
+    TransformComponent:
+      Name: pCube179
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 188
+      Children:
+        - 192
+  - Entity: 190
+    TransformComponent:
+      Name: pCube177_Plastic_White_Matte_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 189
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 15396883681298
+      Materials:
+        []
+  - Entity: 189
+    TransformComponent:
+      Name: pCube177
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 188
+      Children:
+        - 190
+  - Entity: 188
+    TransformComponent:
+      Name: group34
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 173
+      Children:
+        - 189
+        - 191
+        - 193
+  - Entity: 187
+    TransformComponent:
+      Name: pCube187_Plastic_Blue_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 186
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 12994070432473
+      Materials:
+        []
+  - Entity: 186
+    TransformComponent:
+      Name: pCube187
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 181
+      Children:
+        - 187
+  - Entity: 185
+    TransformComponent:
+      Name: pCube179_Plastic_White_Matte_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 184
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 22022208857770
+      Materials:
+        []
+  - Entity: 184
+    TransformComponent:
+      Name: pCube179
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 181
+      Children:
+        - 185
+  - Entity: 183
+    TransformComponent:
+      Name: pCube177_Plastic_White_Matte_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 182
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 15396883681299
+      Materials:
+        []
+  - Entity: 182
+    TransformComponent:
+      Name: pCube177
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 181
+      Children:
+        - 183
+  - Entity: 181
+    TransformComponent:
+      Name: group22
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 173
+      Children:
+        - 182
+        - 184
+        - 186
+  - Entity: 180
+    TransformComponent:
+      Name: pCube187_Plastic_Blue_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 179
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 12994070432478
+      Materials:
+        []
+  - Entity: 179
+    TransformComponent:
+      Name: pCube187
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 174
+      Children:
+        - 180
+  - Entity: 178
+    TransformComponent:
+      Name: pCube179_Plastic_White_Matte_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 177
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 22022208857771
+      Materials:
+        []
+  - Entity: 177
+    TransformComponent:
+      Name: pCube179
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 174
+      Children:
+        - 178
+  - Entity: 176
+    TransformComponent:
+      Name: pCube177_Plastic_White_Matte_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 175
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 15396883681296
+      Materials:
+        []
+  - Entity: 175
+    TransformComponent:
+      Name: pCube177
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 174
+      Children:
+        - 176
+  - Entity: 174
+    TransformComponent:
+      Name: group21
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 173
+      Children:
+        - 175
+        - 177
+        - 179
+  - Entity: 173
+    TransformComponent:
+      Name: Lockers
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 174
+        - 181
+        - 188
+  - Entity: 172
+    TransformComponent:
+      Name: Broom_Handle_Plastic_Brown_Dark_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 171
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 13577151350775
+      Materials:
+        []
+  - Entity: 171
+    TransformComponent:
+      Name: Broom_Handle
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 166
+      Children:
+        - 172
+  - Entity: 170
+    TransformComponent:
+      Name: Broom_Head_Plastic_Brown_Dark_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 169
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 19410904049650
+      Materials:
+        []
+  - Entity: 169
+    TransformComponent:
+      Name: Broom_Head
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 166
+      Children:
+        - 170
+  - Entity: 168
+    TransformComponent:
+      Name: Broom_Bristles_Plastic_Dark_Matte_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 167
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 12012853591399
+      Materials:
+        []
+  - Entity: 167
+    TransformComponent:
+      Name: Broom_Bristles
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 166
+      Children:
+        - 168
+  - Entity: 166
+    TransformComponent:
+      Name: Broom2
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 167
+        - 169
+        - 171
+  - Entity: 165
+    TransformComponent:
+      Name: pCylinder96_Plastic_Grey_Dark_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 164
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 20041770003507
+      Materials:
+        []
+  - Entity: 164
+    TransformComponent:
+      Name: pCylinder96
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 161
+      Children:
+        - 165
+  - Entity: 163
+    TransformComponent:
+      Name: pCylinder97_Plastic_Grey_Dark_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 162
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 12182217305425
+      Materials:
+        []
+  - Entity: 162
+    TransformComponent:
+      Name: pCylinder97
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 161
+      Children:
+        - 163
+  - Entity: 161
+    TransformComponent:
+      Name: Bin2
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 162
+        - 164
+  - Entity: 160
+    TransformComponent:
+      Name: pCylinder93_Plastic_Red_Matte_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 159
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 27879272863301
+      Materials:
+        []
+  - Entity: 159
+    TransformComponent:
+      Name: pCylinder93
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 150
+      Children:
+        - 160
+  - Entity: 158
+    TransformComponent:
+      Name: pCylinder94_Plastic_Grey_Dark_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 157
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 15651580476252
+      Materials:
+        []
+  - Entity: 157
+    TransformComponent:
+      Name: pCylinder94
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 150
+      Children:
+        - 158
+  - Entity: 156
+    TransformComponent:
+      Name: pCube18_Plastic_Grey_Dark_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 155
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 24817039142805
+      Materials:
+        []
+  - Entity: 155
+    TransformComponent:
+      Name: pCube18
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 150
+      Children:
+        - 156
+  - Entity: 154
+    TransformComponent:
+      Name: pCube19_Plastic_Grey_Dark_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 153
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 13079689819386
+      Materials:
+        []
+  - Entity: 153
+    TransformComponent:
+      Name: pCube19
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 150
+      Children:
+        - 154
+  - Entity: 152
+    TransformComponent:
+      Name: pCylinder95_Plastic_Grey_Dark_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 151
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 24285849887998
+      Materials:
+        []
+  - Entity: 151
+    TransformComponent:
+      Name: pCylinder95
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 150
+      Children:
+        - 152
+  - Entity: 150
+    TransformComponent:
+      Name: FireExtinguisher3
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 151
+        - 153
+        - 155
+        - 157
+        - 159
+  - Entity: 149
+    TransformComponent:
+      Name: First_Aid_Wall_Kit2_Decal_First_Aid_Kit_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 147
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 15726319595740
+      Materials:
+        []
+  - Entity: 148
+    TransformComponent:
+      Name: First_Aid_Wall_Kit2_Plastic_White_Matte_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 147
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 16421009870567
+      Materials:
+        []
+  - Entity: 147
+    TransformComponent:
+      Name: First_Aid_Wall_Kit2
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 148
+        - 149
+  - Entity: 146
+    TransformComponent:
+      Name: pCube244_Decal_Note_01_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 144
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 17658856323023
+      Materials:
+        []
+  - Entity: 145
+    TransformComponent:
+      Name: pCube244_Paper_StickyNote_01_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 144
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 15604425418888
+      Materials:
+        []
+  - Entity: 144
+    TransformComponent:
+      Name: pCube244
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 145
+        - 146
+  - Entity: 143
+    TransformComponent:
+      Name: pCube212_Plastic_MediumGrey_Glossy_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 142
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 21251744334698
+      Materials:
+        []
+  - Entity: 142
+    TransformComponent:
+      Name: pCube212
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 143
+  - Entity: 141
+    TransformComponent:
+      Name: pCube211_Plastic_Grey_Dark_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 140
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 13068846405050
+      Materials:
+        []
+  - Entity: 140
+    TransformComponent:
+      Name: pCube211
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 141
+  - Entity: 139
+    TransformComponent:
+      Name: pCube210_Plastic_Grey_Dark_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 138
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 26408989758240
+      Materials:
+        []
+  - Entity: 138
+    TransformComponent:
+      Name: pCube210
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 139
+  - Entity: 137
+    TransformComponent:
+      Name: pCube209_Plastic_Grey_Dark_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 136
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 22112937743426
+      Materials:
+        []
+  - Entity: 136
+    TransformComponent:
+      Name: pCube209
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 137
+  - Entity: 135
+    TransformComponent:
+      Name: pCube208_Plastic_Grey_Dark_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 134
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 27354585975320
+      Materials:
+        []
+  - Entity: 134
+    TransformComponent:
+      Name: pCube208
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 135
+  - Entity: 133
+    TransformComponent:
+      Name: pCube207_Plastic_MediumGrey_Glossy_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 132
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 18060380821982
+      Materials:
+        []
+  - Entity: 132
+    TransformComponent:
+      Name: pCube207
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 133
+  - Entity: 131
+    TransformComponent:
+      Name: pCube263_Plastic_Brown_Dark_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 130
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 13135457500167
+      Materials:
+        []
+  - Entity: 130
+    TransformComponent:
+      Name: pCube263
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 131
+  - Entity: 129
+    TransformComponent:
+      Name: pCube262_Plastic_Brown_Dark_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 128
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 17842398750662
+      Materials:
+        []
+  - Entity: 128
+    TransformComponent:
+      Name: pCube262
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 129
+  - Entity: 127
+    TransformComponent:
+      Name: pCube261_Plastic_Brown_Dark_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 126
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 20608054152664
+      Materials:
+        []
+  - Entity: 126
+    TransformComponent:
+      Name: pCube261
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 127
+  - Entity: 125
+    TransformComponent:
+      Name: pCube260_Plastic_Brown_Dark_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 124
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 14584997226148
+      Materials:
+        []
+  - Entity: 124
+    TransformComponent:
+      Name: pCube260
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 125
+  - Entity: 123
+    TransformComponent:
+      Name: pCube259_Plastic_Brown_Dark_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 122
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 28589716433296
+      Materials:
+        []
+  - Entity: 122
+    TransformComponent:
+      Name: pCube259
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 123
+  - Entity: 121
+    TransformComponent:
+      Name: pCube258_Plastic_Brown_Dark_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 120
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 20602409831492
+      Materials:
+        []
+  - Entity: 120
+    TransformComponent:
+      Name: pCube258
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 121
+  - Entity: 119
+    TransformComponent:
+      Name: pCube257_Plastic_Brown_Dark_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 118
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 12458979011390
+      Materials:
+        []
+  - Entity: 118
+    TransformComponent:
+      Name: pCube257
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 119
+  - Entity: 117
+    TransformComponent:
+      Name: pCube256_Plastic_Brown_Dark_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 116
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 16203903440369
+      Materials:
+        []
+  - Entity: 116
+    TransformComponent:
+      Name: pCube256
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 117
+  - Entity: 115
+    TransformComponent:
+      Name: pCube255_Plastic_Brown_Dark_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 114
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 18238972951363
+      Materials:
+        []
+  - Entity: 114
+    TransformComponent:
+      Name: pCube255
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 115
+  - Entity: 113
+    TransformComponent:
+      Name: pCube254_Plastic_Brown_Dark_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 112
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 27861493554481
+      Materials:
+        []
+  - Entity: 112
+    TransformComponent:
+      Name: pCube254
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 113
+  - Entity: 111
+    TransformComponent:
+      Name: pCube253_Plastic_Brown_Dark_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 110
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 27224351477026
+      Materials:
+        []
+  - Entity: 110
+    TransformComponent:
+      Name: pCube253
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 111
+  - Entity: 109
+    TransformComponent:
+      Name: pCube62_Plastic_Brown_Dark_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 108
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 17047137653945
+      Materials:
+        []
+  - Entity: 108
+    TransformComponent:
+      Name: pCube62
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 109
+  - Entity: 107
+    TransformComponent:
+      Name: pCube252_Plastic_Brown_Dark_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 106
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 25809785139387
+      Materials:
+        []
+  - Entity: 106
+    TransformComponent:
+      Name: pCube252
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 107
+  - Entity: 105
+    TransformComponent:
+      Name: pCube251_Plastic_Brown_Dark_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 104
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 22804725671284
+      Materials:
+        []
+  - Entity: 104
+    TransformComponent:
+      Name: pCube251
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 105
+  - Entity: 103
+    TransformComponent:
+      Name: pCube250_Plastic_Brown_Dark_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 102
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 27282310360873
+      Materials:
+        []
+  - Entity: 102
+    TransformComponent:
+      Name: pCube250
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 103
+  - Entity: 101
+    TransformComponent:
+      Name: pCube249_Plastic_Brown_Dark_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 100
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 20054870864959
+      Materials:
+        []
+  - Entity: 100
+    TransformComponent:
+      Name: pCube249
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 101
+  - Entity: 99
+    TransformComponent:
+      Name: pCube201_Plastic_MediumGrey_Glossy_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 98
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 22736807785384
+      Materials:
+        []
+  - Entity: 98
+    TransformComponent:
+      Name: pCube201
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 99
+  - Entity: 97
+    TransformComponent:
+      Name: pCube196_Plastic_MediumGrey_Glossy_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 96
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 18239631436224
+      Materials:
+        []
+  - Entity: 96
+    TransformComponent:
+      Name: pCube196
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 97
+  - Entity: 95
+    TransformComponent:
+      Name: pCube203_Plastic_Grey_Dark_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 94
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 14248945332728
+      Materials:
+        []
+  - Entity: 94
+    TransformComponent:
+      Name: pCube203
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 95
+  - Entity: 93
+    TransformComponent:
+      Name: pCube202_Plastic_Grey_Dark_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 92
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 20711864445112
+      Materials:
+        []
+  - Entity: 92
+    TransformComponent:
+      Name: pCube202
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 93
+  - Entity: 91
+    TransformComponent:
+      Name: Box_036_Plastic_Brown_Satin_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 90
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 19278532187217
+      Materials:
+        []
+  - Entity: 90
+    TransformComponent:
+      Name: Box_036
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 91
+  - Entity: 89
+    TransformComponent:
+      Name: Box_035_Plastic_Tape_Glossy_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 87
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 24421400122086
+      Materials:
+        []
+  - Entity: 88
+    TransformComponent:
+      Name: Box_035_Plastic_Brown_Satin_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 87
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 21927957814501
+      Materials:
+        []
+  - Entity: 87
+    TransformComponent:
+      Name: Box_035
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 88
+        - 89
+  - Entity: 86
+    TransformComponent:
+      Name: Box_034_Plastic_Tape_Glossy_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 84
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 13700016614637
+      Materials:
+        []
+  - Entity: 85
+    TransformComponent:
+      Name: Box_034_Plastic_Brown_Satin_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 84
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 12330950053412
+      Materials:
+        []
+  - Entity: 84
+    TransformComponent:
+      Name: Box_034
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 85
+        - 86
+  - Entity: 83
+    TransformComponent:
+      Name: Box_033_Plastic_Tape_Glossy_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 81
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 28375610539033
+      Materials:
+        []
+  - Entity: 82
+    TransformComponent:
+      Name: Box_033_Plastic_Brown_Satin_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 81
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 18750679468911
+      Materials:
+        []
+  - Entity: 81
+    TransformComponent:
+      Name: Box_033
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 82
+        - 83
+  - Entity: 80
+    TransformComponent:
+      Name: Box_032_Plastic_Tape_Glossy_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 78
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 19966948160824
+      Materials:
+        []
+  - Entity: 79
+    TransformComponent:
+      Name: Box_032_Plastic_Brown_Satin_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 78
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 20668065450339
+      Materials:
+        []
+  - Entity: 78
+    TransformComponent:
+      Name: Box_032
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 79
+        - 80
+  - Entity: 77
+    TransformComponent:
+      Name: Box_031_Plastic_Tape_Glossy_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 75
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 13398274493485
+      Materials:
+        []
+  - Entity: 76
+    TransformComponent:
+      Name: Box_031_Plastic_Brown_Satin_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 75
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 28424118478904
+      Materials:
+        []
+  - Entity: 75
+    TransformComponent:
+      Name: Box_031
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 76
+        - 77
+  - Entity: 74
+    TransformComponent:
+      Name: Box_030_Plastic_Tape_Glossy_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 72
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 14678043626952
+      Materials:
+        []
+  - Entity: 73
+    TransformComponent:
+      Name: Box_030_Plastic_Brown_Satin_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 72
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 11807028702063
+      Materials:
+        []
+  - Entity: 72
+    TransformComponent:
+      Name: Box_030
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 73
+        - 74
+  - Entity: 71
+    TransformComponent:
+      Name: Box_029_Plastic_Tape_Glossy_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 69
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 23414856219797
+      Materials:
+        []
+  - Entity: 70
+    TransformComponent:
+      Name: Box_029_Plastic_Brown_Satin_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 69
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 18006861430963
+      Materials:
+        []
+  - Entity: 69
+    TransformComponent:
+      Name: Box_029
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 70
+        - 71
+  - Entity: 68
+    TransformComponent:
+      Name: Box_028_Plastic_Tape_Glossy_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 66
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 18706034764206
+      Materials:
+        []
+  - Entity: 67
+    TransformComponent:
+      Name: Box_028_Plastic_Brown_Satin_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 66
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 23886420315336
+      Materials:
+        []
+  - Entity: 66
+    TransformComponent:
+      Name: Box_028
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 67
+        - 68
+  - Entity: 65
+    TransformComponent:
+      Name: Box_027_Plastic_Brown_Satin_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 64
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 25549073305591
+      Materials:
+        []
+  - Entity: 64
+    TransformComponent:
+      Name: Box_027
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 65
+  - Entity: 63
+    TransformComponent:
+      Name: Box_026_Plastic_Brown_Satin_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 62
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 18139443074256
+      Materials:
+        []
+  - Entity: 62
+    TransformComponent:
+      Name: Box_026
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 63
+  - Entity: 61
+    TransformComponent:
+      Name: Box_025_Plastic_Brown_Satin_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 60
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 14656992080692
+      Materials:
+        []
+  - Entity: 60
+    TransformComponent:
+      Name: Box_025
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 61
+  - Entity: 59
+    TransformComponent:
+      Name: Box_024_Plastic_Brown_Satin_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 58
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 17980964909549
+      Materials:
+        []
+  - Entity: 58
+    TransformComponent:
+      Name: Box_024
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 59
+  - Entity: 57
+    TransformComponent:
+      Name: Box_023_Plastic_Brown_Satin_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 56
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 14736276087650
+      Materials:
+        []
+  - Entity: 56
+    TransformComponent:
+      Name: Box_023
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 57
+  - Entity: 55
+    TransformComponent:
+      Name: Box_022_Plastic_Brown_Satin_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 54
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 13869906480335
+      Materials:
+        []
+  - Entity: 54
+    TransformComponent:
+      Name: Box_022
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 55
+  - Entity: 53
+    TransformComponent:
+      Name: pCube57_Plastic_Brown_Dark_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 52
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 25138655556002
+      Materials:
+        []
+  - Entity: 52
+    TransformComponent:
+      Name: pCube57
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 53
+  - Entity: 51
+    TransformComponent:
+      Name: pCube59_Plastic_Brown_Dark_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 50
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 24236396479994
+      Materials:
+        []
+  - Entity: 50
+    TransformComponent:
+      Name: pCube59
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 51
+  - Entity: 49
+    TransformComponent:
+      Name: pCube60_Plastic_Brown_Dark_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 48
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 22146879893335
+      Materials:
+        []
+  - Entity: 48
+    TransformComponent:
+      Name: pCube60
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 49
+  - Entity: 47
+    TransformComponent:
+      Name: pCube61_Plastic_Brown_Dark_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 46
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 20614078395288
+      Materials:
+        []
+  - Entity: 46
+    TransformComponent:
+      Name: pCube61
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 47
+  - Entity: 45
+    TransformComponent:
+      Name: pCube63_Plastic_Brown_Dark_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 44
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 14938001465797
+      Materials:
+        []
+  - Entity: 44
+    TransformComponent:
+      Name: pCube63
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 45
+  - Entity: 43
+    TransformComponent:
+      Name: pCube64_Plastic_Brown_Dark_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 42
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 11782675573429
+      Materials:
+        []
+  - Entity: 42
+    TransformComponent:
+      Name: pCube64
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 43
+  - Entity: 41
+    TransformComponent:
+      Name: pCube65_Plastic_Brown_Dark_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 40
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 24627907666221
+      Materials:
+        []
+  - Entity: 40
+    TransformComponent:
+      Name: pCube65
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 41
+  - Entity: 39
+    TransformComponent:
+      Name: pCube66_Plastic_Brown_Dark_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 38
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 12833961669711
+      Materials:
+        []
+  - Entity: 38
+    TransformComponent:
+      Name: pCube66
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 39
+  - Entity: 37
+    TransformComponent:
+      Name: pCube67_Plastic_Brown_Dark_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 36
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 16691562185789
+      Materials:
+        []
+  - Entity: 36
+    TransformComponent:
+      Name: pCube67
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 37
+  - Entity: 35
+    TransformComponent:
+      Name: pCube68_Plastic_Brown_Dark_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 34
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 18349613435359
+      Materials:
+        []
+  - Entity: 34
+    TransformComponent:
+      Name: pCube68
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 35
+  - Entity: 33
+    TransformComponent:
+      Name: pCube69_Plastic_Brown_Dark_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 32
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 13175620726848
+      Materials:
+        []
+  - Entity: 32
+    TransformComponent:
+      Name: pCube69
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 33
+  - Entity: 31
+    TransformComponent:
+      Name: Recycle4_Plastic_Orange_Satin_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 30
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 19878989217952
+      Materials:
+        []
+  - Entity: 30
+    TransformComponent:
+      Name: Recycle4
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 31
+  - Entity: 29
+    TransformComponent:
+      Name: pCylinder96_Plastic_Grey_Dark_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 28
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 20041770003508
+      Materials:
+        []
+  - Entity: 28
+    TransformComponent:
+      Name: pCylinder96
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 29
+  - Entity: 27
+    TransformComponent:
+      Name: pCylinder97_Plastic_Grey_Dark_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 26
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 12182217305430
+      Materials:
+        []
+  - Entity: 26
+    TransformComponent:
+      Name: pCylinder97
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 27
+  - Entity: 25
+    TransformComponent:
+      Name: Box25_Plastic_Brown_Satin_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 24
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 15915900481329
+      Materials:
+        []
+  - Entity: 24
+    TransformComponent:
+      Name: Box25
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 25
+  - Entity: 23
+    TransformComponent:
+      Name: Box24_Plastic_Brown_Satin_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 22
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 18487348765759
+      Materials:
+        []
+  - Entity: 22
+    TransformComponent:
+      Name: Box24
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 23
+  - Entity: 21
+    TransformComponent:
+      Name: pCube248_Plastic_MediumGrey_Glossy_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 20
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 21170846543875
+      Materials:
+        []
+  - Entity: 20
+    TransformComponent:
+      Name: pCube248
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 21
+  - Entity: 19
+    TransformComponent:
+      Name: pCube164_Plastic_MediumGrey_Glossy_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 18
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 19831792372346
+      Materials:
+        []
+  - Entity: 18
+    TransformComponent:
+      Name: pCube164
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 19
+  - Entity: 17
+    TransformComponent:
+      Name: pCylinder143_Plastic_Blue_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 16
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 16309087929016
+      Materials:
+        []
+  - Entity: 16
+    TransformComponent:
+      Name: pCylinder143
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 17
+  - Entity: 15
+    TransformComponent:
+      Name: pCylinder93_Plastic_Red_Matte_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 14
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 27879272863300
+      Materials:
+        []
+  - Entity: 14
+    TransformComponent:
+      Name: pCylinder93
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 15
+  - Entity: 13
+    TransformComponent:
+      Name: pCylinder94_Plastic_Grey_Dark_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 12
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 15651580476243
+      Materials:
+        []
+  - Entity: 12
+    TransformComponent:
+      Name: pCylinder94
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 13
+  - Entity: 11
+    TransformComponent:
+      Name: pCube18_Plastic_Grey_Dark_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 10
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 24817039142804
+      Materials:
+        []
+  - Entity: 10
+    TransformComponent:
+      Name: pCube18
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 11
+  - Entity: 2097534
+    TransformComponent:
+      Name: pCube19_Plastic_Grey_Dark_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097533
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 13079689819385
+      Materials:
+        []
+  - Entity: 2097533
+    TransformComponent:
+      Name: pCube19
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 2097534
+  - Entity: 2097532
+    TransformComponent:
+      Name: pCylinder95_Plastic_Grey_Dark_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097531
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 24285849887997
+      Materials:
+        []
+  - Entity: 2097531
+    TransformComponent:
+      Name: pCylinder95
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 2097532
+  - Entity: 2097530
+    TransformComponent:
+      Name: Walls_Plastic_Wall_Only_0
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097529
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 15267747930496746919, Path: assets/models/pica/scene.gltf}
+          MeshId: 24815613516490
+      Materials:
+        []
+  - Entity: 2097529
+    TransformComponent:
+      Name: Walls
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097528
+      Children:
+        - 2097530
+  - Entity: 2097528
+    TransformComponent:
+      Name: Diorama
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097527
+      Children:
+        - 2097529
+        - 2097531
+        - 2097533
+        - 10
+        - 12
+        - 14
+        - 16
+        - 18
+        - 20
+        - 22
+        - 24
+        - 26
+        - 28
+        - 30
+        - 32
+        - 34
+        - 36
+        - 38
+        - 40
+        - 42
+        - 44
+        - 46
+        - 48
+        - 50
+        - 52
+        - 54
+        - 56
+        - 58
+        - 60
+        - 62
+        - 64
+        - 66
+        - 69
+        - 72
+        - 75
+        - 78
+        - 81
+        - 84
+        - 87
+        - 90
+        - 92
+        - 94
+        - 96
+        - 98
+        - 100
+        - 102
+        - 104
+        - 106
+        - 108
+        - 110
+        - 112
+        - 114
+        - 116
+        - 118
+        - 120
+        - 122
+        - 124
+        - 126
+        - 128
+        - 130
+        - 132
+        - 134
+        - 136
+        - 138
+        - 140
+        - 142
+        - 144
+        - 147
+        - 150
+        - 161
+        - 166
+        - 173
+        - 195
+        - 197
+        - 222
+        - 245
+        - 254
+        - 263
+        - 272
+        - 309
+        - 328
+        - 335
+  - Entity: 2097527
+    TransformComponent:
+      Name: RootNode
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 2097526
+      Children:
+        - 2097528
+  - Entity: 2097526
+    TransformComponent:
+      Name: 5a174a9db4f94280a298e075478d761a.fbx
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0.707106769, Y: 0, Z: 0, W: 0.707106769}
+      LocalRotationEuler: {X: 1.57079637, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 3145729
+      Children:
+        - 2097527
+  - Entity: 3145729
+    TransformComponent:
+      Name: Sketchfab_model
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: -0.707106769, Y: 0, Z: 0, W: 0.707106769}
+      LocalRotationEuler: {X: -1.57079637, Y: 0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 4294967295
+      Children:
+        - 2097526
+  - Entity: 0
+    TransformComponent:
+      Name: Directional Light
+      LocalPosition: {X: 0, Y: 1, Z: 0}
+      LocalRotation: {X: -0.0359479338, Y: -0.823341787, Z: 0.565867186, W: 0.024706332}
+      LocalRotationEuler: {X: -1.93731546, Y: 0, Z: 3.05432606}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 4294967295
+      Children:
+        []
+    LightComponent:
+      Type: 1
+      Color: {X: 0.992156863, Y: 0.984313726, Z: 0.827450991}
+      Intensity: 100000
+      AttenuationRadius: 10
+      ShadowMapSize: 2048
+Camera:
+  Position: {X: -8.93121529, Y: 21.8285255, Z: 39.9844742}
+  Pitch: -0.396001101
+  Yaw: -6.42299271
+Settings:
+  Render:
+    Sky:
+      Hdri: {Guid: 0}
+      SunDirection: {X: 0.0813670307, Y: 0.930027902, Z: 0.358367801}

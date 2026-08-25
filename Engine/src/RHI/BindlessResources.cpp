@@ -39,7 +39,7 @@ void RHIBindlessResources::init()
 	addSampler(shadowWrapSampler);
 	addSampler(shadowClampSampler);
 
-	invalid_texture = AssetManager::getTextureAsset("assets/invalid_texture.png");
+	invalid_texture = AssetManager::getTextureAsset("assets/textures/core/invalid_texture.png");
 	for (int i = MAX_BINDLESS_RESOURCES - 2; i >= 0; i--)
 		set_invalid_texture(i);
 }

@@ -1,0 +1,119 @@
+Entities:
+  - Entity: 1048582
+    TransformComponent:
+      Name: New Entity
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0.635800481, Y: 0.577580214, Z: -0.138026178, W: 0.493059397}
+      LocalRotationEuler: {X: 2.36483479, Y: 0.840650141, Z: 1.1131444}
+      LocalScale: {X: 0.999999046, Y: 0.999997437, Z: 1.00000012}
+      Parent: 4294967295
+      Children:
+        []
+    LightComponent:
+      Type: 1
+      Color: {X: 1, Y: 1, Z: 1}
+      Intensity: 100000
+      AttenuationRadius: 1
+      ShadowMapSize: 2048
+  - Entity: 1048578
+    TransformComponent:
+      Name: Cube.003
+      LocalPosition: {X: -8.53932953, Y: 1.18724179, Z: 4.2887454}
+      LocalRotation: {X: -0.707106888, Y: 0, Z: 0, W: 0.70710665}
+      LocalRotationEuler: {X: -1.57079673, Y: 0, Z: 0}
+      LocalScale: {X: 1, Y: 3.67327404, Z: 1}
+      Parent: 1048576
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 2345609230793924790, Path: assets/models/demo_scene/demo_scene.fbx}
+          MeshId: 12555473684781
+      Materials:
+        []
+  - Entity: 1048579
+    TransformComponent:
+      Name: Cube.002
+      LocalPosition: {X: 3.07948351, Y: 5.04750299, Z: -3.288831}
+      LocalRotation: {X: -0.707106888, Y: 0, Z: 0, W: 0.70710665}
+      LocalRotationEuler: {X: -1.57079673, Y: 0, Z: 0}
+      LocalScale: {X: 1.8291955, Y: 1.8291955, Z: 1.8291955}
+      Parent: 1048576
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 2345609230793924790, Path: assets/models/demo_scene/demo_scene.fbx}
+          MeshId: 12555473683118
+      Materials:
+        []
+  - Entity: 1048580
+    TransformComponent:
+      Name: Cube.001
+      LocalPosition: {X: -2.07717657, Y: 1.18724179, Z: -5.71963072}
+      LocalRotation: {X: -0.707106888, Y: 0, Z: 0, W: 0.70710665}
+      LocalRotationEuler: {X: -1.57079673, Y: 0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 1048576
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 2345609230793924790, Path: assets/models/demo_scene/demo_scene.fbx}
+          MeshId: 12555473711678
+      Materials:
+        []
+  - Entity: 1048581
+    TransformComponent:
+      Name: Cube
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: -0.707106888, Y: 0, Z: 0, W: 0.70710665}
+      LocalRotationEuler: {X: -1.57079673, Y: 0, Z: 0}
+      LocalScale: {X: 77.3840866, Y: 77.3840866, Z: 0.0329602212}
+      Parent: 1048576
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 2345609230793924790, Path: assets/models/demo_scene/demo_scene.fbx}
+          MeshId: 16828173257670
+      Materials:
+        []
+  - Entity: 1048576
+    TransformComponent:
+      Name: RootNode
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 4294967295
+      Children:
+        - 1048581
+        - 1048580
+        - 1048579
+        - 1048578
+        - 1048577
+  - Entity: 1048577
+    TransformComponent:
+      Name: Cube.004
+      LocalPosition: {X: -3.23873711, Y: 1.18724179, Z: 13.5938215}
+      LocalRotation: {X: -0.707106888, Y: 0, Z: 0, W: 0.70710665}
+      LocalRotationEuler: {X: -1.57079673, Y: 0, Z: 0}
+      LocalScale: {X: 1, Y: 3.67327404, Z: 1}
+      Parent: 1048576
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 2345609230793924790, Path: assets/models/demo_scene/demo_scene.fbx}
+          MeshId: 12555473691983
+      Materials:
+        []
+Camera:
+  Position: {X: 15.8141632, Y: 13.8119812, Z: 23.1790466}
+  Pitch: -0.393001646
+  Yaw: -5.51700497
+Settings:
+  Render:
+    Sky:
+      SunDirection: {X: -0.394048631, Y: 0.786417305, Z: 0.475682259}

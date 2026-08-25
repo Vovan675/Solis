@@ -73,14 +73,14 @@ void UI::init()
 
 	ImWchar icon_ranges[] = { ICON_MIN_FA, ICON_MAX_FA, 0 };
 
-	font_regular = io.Fonts->AddFontFromFileTTF("assets/fonts/Roboto-Regular.ttf", 18);
-	io.Fonts->AddFontFromFileTTF("assets/fonts/fa-solid-900.ttf", 18, &config, icon_ranges);
+	font_regular = io.Fonts->AddFontFromFileTTF("assets/fonts/roboto/Roboto-Regular.ttf", 18);
+	io.Fonts->AddFontFromFileTTF("assets/fonts/font_awesome/fa-solid-900.ttf", 18, &config, icon_ranges);
 
-	font_bold = io.Fonts->AddFontFromFileTTF("assets/fonts/Roboto-Medium.ttf", 18);
-	io.Fonts->AddFontFromFileTTF("assets/fonts/fa-solid-900.ttf", 18, &config, icon_ranges);
+	font_bold = io.Fonts->AddFontFromFileTTF("assets/fonts/roboto/Roboto-Medium.ttf", 18);
+	io.Fonts->AddFontFromFileTTF("assets/fonts/font_awesome/fa-solid-900.ttf", 18, &config, icon_ranges);
 
-	font_small = io.Fonts->AddFontFromFileTTF("assets/fonts/Roboto-Regular.ttf", 14);
-	io.Fonts->AddFontFromFileTTF("assets/fonts/fa-solid-900.ttf", 14, &config, icon_ranges);
+	font_small = io.Fonts->AddFontFromFileTTF("assets/fonts/roboto/Roboto-Regular.ttf", 14);
+	io.Fonts->AddFontFromFileTTF("assets/fonts/font_awesome/fa-solid-900.ttf", 14, &config, icon_ranges);
 	io.FontDefault = font_regular;
 	io.Fonts->Build();
 }

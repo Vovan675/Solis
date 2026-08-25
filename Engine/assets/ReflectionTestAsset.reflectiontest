@@ -1,0 +1,38 @@
+Type: ReflectionTestAsset
+Hdri: {Guid: 0, Path: ""}
+Intensity: 7969
+Group:
+  Enabled: true
+  Color: {X: 1, Y: 0.600000024, Z: 0.699999988}
+  Density: 0.0199999996
+  HighQuality: false
+  Samples: 8
+  Falloff: 1
+  Mode: 0
+InheritFrom: {Guid: 1936025531715283142, Path: assets/ReflectionTestAsset.reflectiontest}
+Child: {Guid: 14805757821031007466, Path: assets/NewReflectionTestChildAsset.reflectiontestchild}
+GroupArray:
+  - Enabled: true
+    Color: {X: 0.550000012, Y: 0.600000024, Z: 0.699999988}
+    Density: 0.0199999996
+    HighQuality: false
+    Samples: 13
+    Falloff: 1.00999999
+    Mode: 0
+  - Enabled: true
+    Color: {X: 0.649999976, Y: 0.600000024, Z: 0.699999988}
+    Density: 0.0199999996
+    HighQuality: false
+    Samples: 8
+    Falloff: 1
+    Mode: 0
+  - Enabled: false
+    Color: {X: 0.5, Y: 0.600000024, Z: 0.699999988}
+    Density: 0.0199999996
+    HighQuality: false
+    Samples: 8
+    Falloff: 1
+    Mode: 0
+TextureArray:
+  - {Guid: 6873269484853320190, Path: assets/other_sponza/15295713303328085182.dds}
+  - {Guid: 0, Path: ""}

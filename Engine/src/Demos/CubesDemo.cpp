@@ -98,7 +98,7 @@ void CubesDemo::initResources()
 	for (size_t i = 0; i < 5; i++)
 	{
 		auto texture = gDynamicRHI->createTexture(tex_desc);
-		texture->load((std::string("assets/demo/checker_") + std::to_string(i + 1) + ".png").c_str());
+		texture->load((std::string("assets/textures/checker/checker_") + std::to_string(i + 1) + ".png").c_str());
 		checker_textures.push_back(texture);
 	}
 
@@ -223,8 +223,8 @@ void RenderTargetsDemo::initResources()
 	vertex_shader_quad = gDynamicRHI->createShader(L"shaders/demos/quad.hlsl", VERTEX_SHADER, "VSMain");
 	pixel_shader_quad = gDynamicRHI->createShader(L"shaders/demos/quad.hlsl", FRAGMENT_SHADER, "PSMain");
 
-	model.load("assets/demo_scene.fbx");
-	//model.load("assets/cube.fbx");
+	model.load("assets/models/demo_scene/demo_scene.fbx");
+	//model.load("assets/models/primitives/cube.glb");
 }
 
 void RenderTargetsDemo::render(RHICommandList *cmd_list)

@@ -11,8 +11,8 @@
 
 SkyRenderer::SkyRenderer(): RendererBase()
 {
-	auto model = AssetManager::getModelAsset("assets/cube.fbx");
-	mesh = model->getRootNode()->children[0]->primitives[0].mesh;
+	auto model = AssetManager::getModelAsset("assets/models/primitives/cube.glb");
+	mesh = model->getRootNode()->primitives[0].mesh;
 
 	vertex_shader = gDynamicRHI->createShader(L"shaders/cube.hlsl", VERTEX_SHADER);
 	fragment_shader = gDynamicRHI->createShader(L"shaders/cube.hlsl", FRAGMENT_SHADER);

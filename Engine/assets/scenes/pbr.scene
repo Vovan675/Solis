@@ -1,0 +1,182 @@
+Entities:
+  - Entity: 1048950
+    TransformComponent:
+      Name: Text.015
+      LocalPosition: {X: 3223.85791, Y: -755.836182, Z: -0.000101553291}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 340.018036, Y: 340.018036, Z: 340.018036}
+      Parent: 2097153
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 10847930101666653937, Path: assets/models/pbr_reference/source/Ref.fbx}
+          MeshId: 23522320271104
+      Materials:
+        []
+  - Entity: 1048951
+    TransformComponent:
+      Name: Text.001
+      LocalPosition: {X: -3906.23389, Y: -8.38435255e-07, Z: 35.3001404}
+      LocalRotation: {X: 4.80540407e-08, Y: -0.626825452, Z: 5.9732379e-08, W: 0.779159725}
+      LocalRotationEuler: {X: -3.31750686e-14, Y: -1.35494447, Z: 1.53325161e-07}
+      LocalScale: {X: 1177.84924, Y: 1177.84924, Z: 1177.84924}
+      Parent: 2097153
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 10847930101666653937, Path: assets/models/pbr_reference/source/Ref.fbx}
+          MeshId: 23294920123786
+      Materials:
+        []
+  - Entity: 1048952
+    TransformComponent:
+      Name: Text.000
+      LocalPosition: {X: -14.6238327, Y: -4.36499448e-07, Z: 29.4370975}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1177.84924, Y: 1177.84924, Z: 1177.84924}
+      Parent: 2097153
+      Children:
+        []
+  - Entity: 1048953
+    TransformComponent:
+      Name: Text.002
+      LocalPosition: {X: -1942.94287, Y: -8.38435255e-07, Z: 35.3001404}
+      LocalRotation: {X: 4.80540407e-08, Y: -0.626825452, Z: 5.9732379e-08, W: 0.779159725}
+      LocalRotationEuler: {X: -3.31750686e-14, Y: -1.35494447, Z: 1.53325161e-07}
+      LocalScale: {X: 1177.84924, Y: 1177.84924, Z: 1177.84924}
+      Parent: 2097153
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 10847930101666653937, Path: assets/models/pbr_reference/source/Ref.fbx}
+          MeshId: 23288435769348
+      Materials:
+        []
+  - Entity: 1048954
+    TransformComponent:
+      Name: Text.003
+      LocalPosition: {X: -10.26437, Y: -8.38435255e-07, Z: 35.3001404}
+      LocalRotation: {X: 4.80540407e-08, Y: -0.626825452, Z: 5.9732379e-08, W: 0.779159725}
+      LocalRotationEuler: {X: -3.31750686e-14, Y: -1.35494447, Z: 1.53325161e-07}
+      LocalScale: {X: 1177.84924, Y: 1177.84924, Z: 1177.84924}
+      Parent: 2097153
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 10847930101666653937, Path: assets/models/pbr_reference/source/Ref.fbx}
+          MeshId: 23288435773492
+      Materials:
+        []
+  - Entity: 1048955
+    TransformComponent:
+      Name: Text.004
+      LocalPosition: {X: 1922.41309, Y: -8.38435255e-07, Z: 35.3001404}
+      LocalRotation: {X: 4.80540407e-08, Y: -0.626825452, Z: 5.9732379e-08, W: 0.779159725}
+      LocalRotationEuler: {X: -3.31750686e-14, Y: -1.35494447, Z: 1.53325161e-07}
+      LocalScale: {X: 1177.84924, Y: 1177.84924, Z: 1177.84924}
+      Parent: 2097153
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 10847930101666653937, Path: assets/models/pbr_reference/source/Ref.fbx}
+          MeshId: 23288435757379
+      Materials:
+        []
+  - Entity: 1048956
+    TransformComponent:
+      Name: Text.005
+      LocalPosition: {X: 3855.09082, Y: -9.84088388e-07, Z: 35.3001175}
+      LocalRotation: {X: 4.80540407e-08, Y: -0.626825452, Z: 5.9732379e-08, W: 0.779159725}
+      LocalRotationEuler: {X: -3.31750686e-14, Y: -1.35494447, Z: 1.53325161e-07}
+      LocalScale: {X: 1177.84924, Y: 1177.84924, Z: 1177.84924}
+      Parent: 2097153
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 10847930101666653937, Path: assets/models/pbr_reference/source/Ref.fbx}
+          MeshId: 23288435762373
+      Materials:
+        []
+  - Entity: 1048957
+    TransformComponent:
+      Name: Text.006
+      LocalPosition: {X: 5644.83447, Y: -9.84088388e-07, Z: 35.3001175}
+      LocalRotation: {X: 4.80540407e-08, Y: -0.626825452, Z: 5.9732379e-08, W: 0.779159725}
+      LocalRotationEuler: {X: -3.31750686e-14, Y: -1.35494447, Z: 1.53325161e-07}
+      LocalScale: {X: 1177.84924, Y: 1177.84924, Z: 1177.84924}
+      Parent: 2097153
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 10847930101666653937, Path: assets/models/pbr_reference/source/Ref.fbx}
+          MeshId: 23287366260688
+      Materials:
+        []
+  - Entity: 1048958
+    TransformComponent:
+      Name: Text.010
+      LocalPosition: {X: -2904.77173, Y: 8.01702663e-06, Z: 8.94069672e-06}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1177.84924, Y: 1177.84924, Z: 1177.84924}
+      Parent: 2097153
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 10847930101666653937, Path: assets/models/pbr_reference/source/Ref.fbx}
+          MeshId: 23631011345799
+      Materials:
+        []
+  - Entity: 2097153
+    TransformComponent:
+      Name: RootNode
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 0.00999999978, Y: 0.00999999978, Z: 0.00999999978}
+      Parent: 4294967295
+      Children:
+        - 1048958
+        - 1048957
+        - 1048956
+        - 1048955
+        - 1048954
+        - 1048953
+        - 1048952
+        - 1048951
+        - 1048950
+  - Entity: 0
+    TransformComponent:
+      Name: Directional Light
+      LocalPosition: {X: 0, Y: 1, Z: 0}
+      LocalRotation: {X: -0.0359479338, Y: -0.823341787, Z: 0.565867186, W: 0.024706332}
+      LocalRotationEuler: {X: -1.93731546, Y: 0, Z: 3.05432606}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 4294967295
+      Children:
+        []
+    LightComponent:
+      Type: 1
+      Color: {X: 0.992156863, Y: 0.984313726, Z: 0.827450991}
+      Intensity: 100000
+      AttenuationRadius: 10
+      ShadowMapSize: 2048
+Camera:
+  Position: {X: -54.7251358, Y: 11.7654791, Z: 47.3739471}
+  Pitch: -0.177000314
+  Yaw: -6.97199678
+Settings:
+  Render:
+    Sky:
+      Hdri: {Guid: 0}
+      SunDirection: {X: 0.0813670307, Y: 0.930027902, Z: 0.358367801}

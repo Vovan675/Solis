@@ -94,6 +94,22 @@ The same scene rendered by the engine (left) and by Mitsuba 3 straight from the 
 
 ![Mitsuba ground truth](.github/images/mitsuba.png)
 
+## Building
+
+Windows only for now. Using premake5 and Visual Studio as primary IDE. Needed [Vulkan SDK](https://vulkan.lunarg.com/) and a GPU with mesh shader and ray tracing support.
+
+```
+git clone --recurse-submodules https://github.com/Vovan675/RenderingEngine
+cd RenderingEngine
+CreateSolution.bat
+```
+
+Big models and other heavy content should be downloaded from releases using script.
+
+```
+download_assets.bat
+```
+
 ## Coming next
 
 - **RTX Mega Geometry** - use meshlet cluster data in ray tracing

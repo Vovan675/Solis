@@ -1,0 +1,7 @@
+Font Information:
+* title:	Font Awesome 6 Free
+* source:	https://github.com/FortAwesome/Font-Awesome/tree/6.6.0
+* version:	6.6.0
+* copyright:	Copyright (c) 2024 Fonticons, Inc.
+* license:	SIL OFL 1.1 for the fonts, CC-BY-4.0 for the icons, MIT for the code,
+		full text in LICENSE.txt

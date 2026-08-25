@@ -1,0 +1,72 @@
+Entities:
+  - Entity: 3146104
+    TransformComponent:
+      Name: Cerberus00_Fixed
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 3146103
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 8130572841951754213, Path: assets/models/cerberus/Cerberus_LP.FBX}
+          MeshId: 14580590745844
+      Materials:
+        []
+  - Entity: 3146103
+    TransformComponent:
+      Name: Cerberus00_Fixed_$AssimpFbx$_GeometricTranslation
+      LocalPosition: {X: 2.25598455e-06, Y: 93.7201614, Z: 4.09663835e-06}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 3146102
+      Children:
+        - 3146104
+  - Entity: 3146102
+    TransformComponent:
+      Name: Cerberus00_Fixed_$AssimpFbx$_PreRotation
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: -0.707106769, Y: 0, Z: 0, W: 0.707106769}
+      LocalRotationEuler: {X: -1.57079637, Y: 0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 4194305
+      Children:
+        - 3146103
+  - Entity: 4194305
+    TransformComponent:
+      Name: RootNode
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: -0, Z: 0}
+      LocalScale: {X: 0.100000001, Y: 0.100000001, Z: 0.100000001}
+      Parent: 4294967295
+      Children:
+        - 3146102
+  - Entity: 0
+    TransformComponent:
+      Name: Directional Light
+      LocalPosition: {X: 0, Y: 1, Z: 0}
+      LocalRotation: {X: -0.0359479338, Y: -0.823341787, Z: 0.565867186, W: 0.024706332}
+      LocalRotationEuler: {X: -1.93731546, Y: 0, Z: 3.05432606}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 4294967295
+      Children:
+        []
+    LightComponent:
+      Type: 1
+      Color: {X: 0.992156863, Y: 0.984313726, Z: 0.827450991}
+      Intensity: 100000
+      AttenuationRadius: 10
+      ShadowMapSize: 2048
+Camera:
+  Position: {X: -12.6725378, Y: 4.18905497, Z: 3.29429603}
+  Pitch: -0.357001483
+  Yaw: -7.39798832
+Settings:
+  Render:
+    Sky:
+      Hdri: {Guid: 0}
+      SunDirection: {X: 0.0813670307, Y: 0.930027902, Z: 0.358367801}

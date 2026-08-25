@@ -48,7 +48,7 @@ struct SkySettings
 {
 	bool enabled = true;
 	SkyMode mode = SKY_MODE_CUBEMAP;
-	AssetReference hdri = AssetReference("assets/kloppenheim_06_puresky_4k.hdr");
+	AssetReference hdri = AssetReference("assets/textures/hdri/kloppenheim_06_puresky_4k.hdr");
 	float intensity = 15000.0f;
 	float procedural_luminance = 1000.0f;
 	bool automatic_sun_position = true;

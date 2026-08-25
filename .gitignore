@@ -1,6 +1,7 @@
 .vs
 bin
 bin-int
+download_temp
 *.sln
 *.vcxproj
 *.vcxproj.filters
@@ -9,3 +10,11 @@ bin-int
 *.user
 *.log
 **/obj
+.runtimes/
+
+# Big assets, downloaded using tools/get_assets.py
+Engine/assets/models/bistro
+Engine/assets/models/cerberus
+
+# Local only assets 
+Engine/assets/models/skull

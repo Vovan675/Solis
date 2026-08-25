@@ -37,21 +37,21 @@ public:
 
 		if (scene == SPONZA)
 		{
-			auto model = AssetManager::getModelAsset("assets/sponza/sponza.obj");
-			//auto model = AssetManager::getModelAsset("assets/other_sponza/Sponza.gltf");
+			auto model = AssetManager::getModelAsset("assets/models/sponza_crytek/sponza.obj");
+			//auto model = AssetManager::getModelAsset("assets/models/sponza_pbr/Sponza.gltf");
 
 			Entity entity = model->createEntity(model);
 			entity.getTransform().setLocalScale(glm::vec3(0.003));
 		} else if (scene == BISTRO)
 		{
-			auto model = AssetManager::getModelAsset("assets/bistro/BistroExterior.fbx");
-			//auto model = AssetManager::getModelAsset("assets/bistro/BistroExterior.gltf");
+			auto model = AssetManager::getModelAsset("assets/models/bistro/BistroExterior.fbx");
+			//auto model = AssetManager::getModelAsset("assets/models/bistro/BistroExterior.gltf");
 
 			Entity entity = model->createEntity(model);
 			entity.getTransform().setLocalScale(glm::vec3(0.1));
 		} else if (scene == LOTS_OF_DUPLICATES)
 		{
-			auto model = AssetManager::getModelAsset("assets/sponza/sponza.obj");
+			auto model = AssetManager::getModelAsset("assets/models/sponza_crytek/sponza.obj");
 
 			for (int x = -3; x <= 3; x++)
 			{
@@ -64,7 +64,7 @@ public:
 			}
 		} else if (scene == LOTS_OF_DUPLICATES_HARD)
 		{
-			auto model = AssetManager::getModelAsset("assets/bistro/BistroExterior.fbx");
+			auto model = AssetManager::getModelAsset("assets/models/bistro/BistroExterior.fbx");
 
 			for (int x = -3; x <= 3; x++)
 			{
@@ -77,15 +77,15 @@ public:
 			}
 		} else if (scene == SIMPLE)
 		{
-			//auto model = AssetManager::getModelAsset("assets/demo_scene.fbx");
-			//auto model = AssetManager::getModelAsset("assets/pbr/source/Ref.fbx");
-			auto model = AssetManager::getModelAsset("assets/pbr/source/untitled_sub.gltf");
+			//auto model = AssetManager::getModelAsset("assets/models/demo_scene/demo_scene.fbx");
+			//auto model = AssetManager::getModelAsset("assets/models/pbr_reference/source/Ref.fbx");
+			auto model = AssetManager::getModelAsset("assets/models/pbr_reference/source/untitled_sub.gltf");
 
 			Entity entity = model->createEntity(model);
 			entity.getTransform().setLocalScale(glm::vec3(1));
 		} else if (scene == CULLING)
 		{
-			auto model = AssetManager::getModelAsset("assets/cube.glb");
+			auto model = AssetManager::getModelAsset("assets/models/primitives/cube.glb");
 			
 			camera->setPosition(glm::vec3(0, 0, 0));
 			camera->setRotation(glm::vec3(0, 0.01, 0.01));
@@ -105,20 +105,20 @@ public:
 			}
 		} else if (scene == MESHLET)
 		{
-			//auto model = AssetManager::getModelAsset("assets/meshlet/bunny.gltf");
+			//auto model = AssetManager::getModelAsset("assets/models/lod_tests/bunny.gltf");
 			//Entity entity = model->createEntity(model);
 
 			if (1)
 			{
-				auto model = AssetManager::getModelAsset("assets/meshlet/bunny.gltf");
+				auto model = AssetManager::getModelAsset("assets/models/lod_tests/bunny.gltf");
 				Entity entity = model->createEntity(model);
 			} else
 			{
-				//auto model = AssetManager::getModelAsset("assets/meshlet/napoleon.OBJ");
-				auto model = AssetManager::getModelAsset("assets/meshlet/monkey_subdiv_0.fbx");
-				//auto model = AssetManager::getModelAsset("assets/meshlet/uv_sphere.fbx");
-				//auto model = AssetManager::getModelAsset("assets/meshlet/ico_sphere_5_sep.fbx");
-				//auto model = AssetManager::getModelAsset("assets/meshlet/cube.fbx");
+				//auto model = AssetManager::getModelAsset("assets/models/lod_tests/napoleon.OBJ");
+				auto model = AssetManager::getModelAsset("assets/models/lod_tests/monkey_subdiv_0.fbx");
+				//auto model = AssetManager::getModelAsset("assets/models/lod_tests/uv_sphere.fbx");
+				//auto model = AssetManager::getModelAsset("assets/models/lod_tests/ico_sphere_5_sep.fbx");
+				//auto model = AssetManager::getModelAsset("assets/models/lod_tests/cube.fbx");
 				Entity entity = model->createEntity(model);
 				entity.getTransform().setLocalScale(glm::vec3(0.01));
 				entity.getTransform().setLocalRotationEuler(glm::radians(glm::vec3(-90.0f, 0.0f, 0.0f)));
@@ -127,7 +127,7 @@ public:
 			/*
 			MeshSerializer::save(model.getReference(), "test_save.mesh");
 
-			//model = AssetManager::getModelAsset("assets/meshlet/monkey_subdiv_1.fbx");
+			//model = AssetManager::getModelAsset("assets/models/lod_tests/monkey_subdiv_1.fbx");
 			MeshSerializer::load(model.getReference(), "test_save.mesh");
 			Entity entity2 = model->createEntity(model);
 			entity2.getTransform().setLocalScale(glm::vec3(0.01));
@@ -135,7 +135,7 @@ public:
 			*/
 			{
 				/*
-				auto model = AssetManager::getModelAsset("assets/meshlet/monkey_subdiv_4.fbx");
+				auto model = AssetManager::getModelAsset("assets/models/lod_tests/monkey_subdiv_4.fbx");
 				Entity entity = model->createEntity(model);
 				entity.getTransform().setLocalScale(glm::vec3(0.01));
 				entity.getTransform().setLocalRotationEuler(glm::radians(glm::vec3(-90.0f, 0.0f, 0.0f)));
@@ -191,23 +191,23 @@ public:
 		}
 
 		//return;
-		//Scene::getCurrentScene()->loadFile("assets/demo_scene.scene");
-		//Scene::getCurrentScene()->loadFile("assets/cerberus/cerberus.scene");
+		//Scene::getCurrentScene()->loadFile("assets/scenes/demo_scene.scene");
+		//Scene::getCurrentScene()->loadFile("assets/scenes/cerberus.scene");
 		//return;
 		// Demo Scene
-		//auto model = AssetManager::getModelAsset("assets/demo_scene.fbx");
-		//auto model = AssetManager::getModelAsset("assets/cube.fbx");
+		//auto model = AssetManager::getModelAsset("assets/models/demo_scene/demo_scene.fbx");
+		//auto model = AssetManager::getModelAsset("assets/models/primitives/cube.glb");
 		//auto model = AssetManager::getModelAsset("assets/game/map.fbx");
-		//auto model = AssetManager::getModelAsset("assets/sponza/sponza.obj");
-		//auto model = AssetManager::getModelAsset("assets/big_city_2/scene.gltf");
+		//auto model = AssetManager::getModelAsset("assets/models/sponza_crytek/sponza.obj");
+		//auto model = AssetManager::getModelAsset("assets/models/big_city_2/scene.gltf");
 		//auto model = AssetManager::getModelAsset("assets/new_sponza/NewSponza_Main_Yup_002.fbx");
-		//auto model = AssetManager::getModelAsset("assets/bistro/BistroExterior.fbx");
+		//auto model = AssetManager::getModelAsset("assets/models/bistro/BistroExterior.fbx");
 		//auto model = AssetManager::getModelAsset("assets/hideout/source/FullSceneSubstance.fbx");
-		//auto model = AssetManager::getModelAsset("assets/pbr/source/Ref.fbx");
-		//auto model = AssetManager::getModelAsset("assets/level/Isometric_Game_Level_Low_Poly.obj");
-		//auto model = AssetManager::getModelAsset("assets/other_sponza/Sponza.gltf");
-		//auto model = AssetManager::getModelAsset("assets/pica/scene.gltf");
-		//auto model = AssetManager::getModelAsset("assets/axis.fbx");
+		//auto model = AssetManager::getModelAsset("assets/models/pbr_reference/source/Ref.fbx");
+		//auto model = AssetManager::getModelAsset("assets/models/isometric_level/Isometric_Game_Level_Low_Poly.obj");
+		//auto model = AssetManager::getModelAsset("assets/models/sponza_pbr/Sponza.gltf");
+		//auto model = AssetManager::getModelAsset("assets/models/pica/scene.gltf");
+		//auto model = AssetManager::getModelAsset("assets/models/primitives/axis.fbx");
 		//model->saveFile("test_model.mesh");
 		//model->loadFile("test_model.mesh");
 		//Entity entity = model->createEntity(model);

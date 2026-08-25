@@ -29,7 +29,7 @@ DDGIRenderer::DDGIRenderer()
 	volume_buffer = gDynamicRHI->createBuffer(desc);
 	volume_buffer->setDebugName("DDGI Volume Buffer");
 
-	auto model = AssetManager::getModelAsset("assets/icosphere_3.fbx");
+	auto model = AssetManager::getModelAsset("assets/models/primitives/icosphere_3.fbx");
 	sphere_mesh = model->getRootNode()->children[0]->primitives[0].mesh;
 
 	visualize_vertex_shader = gDynamicRHI->createShader(L"shaders/ddgi/ddgi_visualize.hlsl", VERTEX_SHADER);

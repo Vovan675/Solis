@@ -1,0 +1,5 @@
+Model Information:
+* title:	Isometric Game Level Low Poly
+* source:	https://sketchfab.com/3d-models/isometric-game-level-low-poly-ff26ac263bc746ceab92382ab267199b
+* author:	Karthik Naidu (https://sketchfab.com/Karthiknaidu97)
+* license:	CC-BY-4.0 (https://creativecommons.org/licenses/by/4.0/)

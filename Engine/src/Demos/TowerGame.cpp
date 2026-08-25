@@ -214,7 +214,7 @@ void TowerGame::initResources()
 	scene_renderer = new SceneRenderer();
 	scene_renderer->setScene(scene);
 
-	cube_model = AssetManager::getModelAsset("assets/cube.fbx");
+	cube_model = AssetManager::getModelAsset("assets/models/primitives/cube.glb");
 
 	Entity light = Scene::getCurrentScene()->createEntity("Point Light");
 	light.getTransform().setLocalTransform(glm::eulerAngleXYX(3.14 / 4.0, 3.14 / 4.0, 0.0));

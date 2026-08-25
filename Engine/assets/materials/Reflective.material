@@ -1,0 +1,15 @@
+Type: Material
+Albedo: [1, 1, 1, 1]
+AlbedoTex:
+  Asset: {Guid: 0, Path: ""}
+Metalness: 0.839999974
+MetalnessTex:
+  Asset: {Guid: 0, Path: ""}
+Roughness: 0.0900000036
+RoughnessTex:
+  Asset: {Guid: 0, Path: ""}
+Specular: 0.5
+SpecularTex:
+  Asset: {Guid: 0, Path: ""}
+NormalTex:
+  Asset: {Guid: 0, Path: ""}

@@ -1,0 +1,79 @@
+Entities:
+  - Entity: 1048577
+    TransformComponent:
+      Name: Cube
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: -0.707106829, Y: 0, Z: 0, W: 0.707106709}
+      LocalRotationEuler: {X: -1.57079649, Y: 0, Z: 0}
+      LocalScale: {X: 100, Y: 100, Z: 100}
+      Parent: 2097152
+      Children:
+        []
+    MeshRendererComponent:
+      Meshes:
+        - ModelAsset: {Guid: 17414398008686708031, Path: assets/models/primitives/axis.fbx}
+          MeshId: 16828173257670
+        - ModelAsset: {Guid: 17414398008686708031, Path: assets/models/primitives/axis.fbx}
+          MeshId: 16828173257671
+        - ModelAsset: {Guid: 17414398008686708031, Path: assets/models/primitives/axis.fbx}
+          MeshId: 16828173257668
+        - ModelAsset: {Guid: 17414398008686708031, Path: assets/models/primitives/axis.fbx}
+          MeshId: 16828173257669
+      Materials:
+        []
+  - Entity: 1048578
+    TransformComponent:
+      Name: Camera
+      LocalPosition: {X: 735.88916, Y: 495.830933, Z: 692.579102}
+      LocalRotation: {X: -0.212557271, Y: 0.904797018, Z: -0.0843893737, W: 0.359221697}
+      LocalRotationEuler: {X: -2.74420214, Y: 0.661334217, Z: -2.54209852}
+      LocalScale: {X: 100, Y: 100.000008, Z: 100}
+      Parent: 2097152
+      Children:
+        []
+  - Entity: 1048579
+    TransformComponent:
+      Name: Light
+      LocalPosition: {X: 407.624542, Y: 590.38623, Z: -100.545395}
+      LocalRotation: {X: 0.169075727, Y: 0.755880296, Z: -0.272171289, W: 0.570947528}
+      LocalRotationEuler: {X: -2.31197548, Y: 1.27023721, Z: -2.95408034}
+      LocalScale: {X: 100.000008, Y: 100.000008, Z: 100.000015}
+      Parent: 2097152
+      Children:
+        []
+  - Entity: 2097152
+    TransformComponent:
+      Name: RootNode
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0.707106769, Y: 0, Z: 0, W: 0.707106769}
+      LocalRotationEuler: {X: 1.57079637, Y: -0, Z: 0}
+      LocalScale: {X: 0.00999999978, Y: 0.00999999978, Z: 0.00999999978}
+      Parent: 4294967295
+      Children:
+        - 1048579
+        - 1048578
+        - 1048577
+  - Entity: 4
+    TransformComponent:
+      Name: Point Light
+      LocalPosition: {X: 0, Y: 0, Z: 0}
+      LocalRotation: {X: 0, Y: 0, Z: 0, W: 1}
+      LocalRotationEuler: {X: 0, Y: 0, Z: 0}
+      LocalScale: {X: 1, Y: 1, Z: 1}
+      Parent: 4294967295
+      Children:
+        []
+    LightComponent:
+      Type: 1
+      Color: {X: 1, Y: 1, Z: 1}
+      Intensity: 1
+      AttenuationRadius: 1
+      ShadowMapSize: 2048
+Camera:
+  Position: {X: 33.2621117, Y: 31.992794, Z: 48.1227684}
+  Pitch: -0.489000857
+  Yaw: -5.72701073
+Settings:
+  Render:
+    Sky:
+      SunDirection: {X: 0, Y: 0, Z: -1}

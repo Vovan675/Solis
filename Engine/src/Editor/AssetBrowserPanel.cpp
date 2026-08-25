@@ -17,9 +17,9 @@ void AssetBrowserPanel::init()
 	root_path = AssetManager::getAssetsRoot();
 	current_path = root_path;
 
-	file_texture = AssetManager::getTextureAsset("assets/editor/icons/file.png");
-	scene_texture = AssetManager::getTextureAsset("assets/editor/icons/scene.png");
-	texture_texture = AssetManager::getTextureAsset("assets/editor/icons/texture.png");
+	file_texture = AssetManager::getTextureAsset("assets/textures/icons/file.png");
+	scene_texture = AssetManager::getTextureAsset("assets/textures/icons/scene.png");
+	texture_texture = AssetManager::getTextureAsset("assets/textures/icons/texture.png");
 }
 
 bool AssetBrowserPanel::renderImGui(EditorContext &context)
@@ -31,7 +31,7 @@ bool AssetBrowserPanel::renderImGui(EditorContext &context)
 			current_path = context.selected_path.parent_path();
 	}
 
-	auto &folder_tex = AssetManager::getTextureAsset("assets/editor/icons/folder.png");
+	auto &folder_tex = AssetManager::getTextureAsset("assets/textures/icons/folder.png");
 
 	// Asset browser
 	ImGui::Begin((eastl::string(ICON_FA_FOLDER) + " Asset Browser###Asset Browser").c_str());
