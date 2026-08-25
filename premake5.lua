@@ -171,8 +171,12 @@ project "Engine"
 		copy_file_to_target_dir("%{wks.location}%{IncludeDir.DirectX}/../dlls/D3D12", "D3D12/", "d3d12SDKLayers.pdb")
 		-- WinPixRuntime
 		copy_file_to_target_dir("%{wks.location}%{IncludeDir.WinPixRuntime}/dlls/", "/", "WinPixEventRuntime.dll")
-		-- Streamline
-		copy_dir_to_target_dir("%{wks.location}vendor/streamline/bin/x64/development", "NVStreamline/")
+		-- Streamline, optional
+		if os.isdir("vendor/streamline/bin/x64/development") then
+			copy_dir_to_target_dir("%{wks.location}vendor/streamline/bin/x64/development", "NVStreamline/")
+		else
+			print("Streamline binaries not found in vendor/streamline/bin/x64/development, DLSS will be unavailable")
+		end
 
 	filter "configurations:Debug"
 		editandcontinue "On"

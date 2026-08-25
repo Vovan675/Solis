@@ -37,8 +37,7 @@ public:
 
 		if (scene == SPONZA)
 		{
-			auto model = AssetManager::getModelAsset("assets/models/sponza_crytek/sponza.obj");
-			//auto model = AssetManager::getModelAsset("assets/models/sponza_pbr/Sponza.gltf");
+			auto model = AssetManager::getModelAsset("assets/models/sponza_pbr/Sponza.gltf");
 
 			Entity entity = model->createEntity(model);
 			entity.getTransform().setLocalScale(glm::vec3(0.003));
@@ -51,7 +50,7 @@ public:
 			entity.getTransform().setLocalScale(glm::vec3(0.1));
 		} else if (scene == LOTS_OF_DUPLICATES)
 		{
-			auto model = AssetManager::getModelAsset("assets/models/sponza_crytek/sponza.obj");
+			auto model = AssetManager::getModelAsset("assets/models/sponza_pbr/Sponza.gltf");
 
 			for (int x = -3; x <= 3; x++)
 			{
