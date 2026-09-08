@@ -1,4 +1,4 @@
-workspace "RenderingEngine"
+workspace "Solis"
 	architecture "x64"
 	startproject "Engine"
 

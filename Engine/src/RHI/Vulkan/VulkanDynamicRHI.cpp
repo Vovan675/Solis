@@ -361,8 +361,8 @@ void VulkanDynamicRHI::init_instance()
 	// Instance creation
 	VkApplicationInfo appInfo{};
 	appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-	appInfo.pApplicationName = "Vulkan Application";
-	appInfo.pEngineName = "Vulkan engine";
+	appInfo.pApplicationName = "Solis";
+	appInfo.pEngineName = "Solis";
 	appInfo.apiVersion = VK_API_VERSION_1_3;
 
 	VkInstanceCreateInfo info{};

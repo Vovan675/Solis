@@ -10,7 +10,7 @@ import zipfile
 
 release = "assets-v1"
 models_names = ["bistro", "cerberus"]
-default_repository = "Vovan675/RenderingEngine"
+default_repository = "Vovan675/Solis"
 
 root_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 models_path = os.path.join(root_path, "Engine", "assets", "models")

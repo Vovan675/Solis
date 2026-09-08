@@ -1,4 +1,4 @@
-# RenderingEngine
+# Solis
 
 > A Vulkan / DirectX 12 engine with GPU-driven, Nanite-style geometry and hardware ray-traced global illumination.
 
@@ -99,8 +99,8 @@ The same scene rendered by the engine (left) and by Mitsuba 3 straight from the 
 Windows only for now. Using premake5 and Visual Studio as primary IDE. Needed [Vulkan SDK](https://vulkan.lunarg.com/) and a GPU with mesh shader and ray tracing support.
 
 ```
-git clone --recurse-submodules https://github.com/Vovan675/RenderingEngine
-cd RenderingEngine
+git clone --recurse-submodules https://github.com/Vovan675/Solis
+cd Solis
 CreateSolution.bat
 ```
 

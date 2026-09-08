@@ -34,7 +34,7 @@ Application::Application(int argc, char *argv[])
 	// Create Window
 	glfwInit();
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-	window = glfwCreateWindow(1920, 1080, "RenderingEngine", nullptr, nullptr);
+	window = glfwCreateWindow(1920, 1080, "Solis", nullptr, nullptr);
 	glfwSwapInterval(0);
 
 	glfwSetWindowUserPointer(window, this);
