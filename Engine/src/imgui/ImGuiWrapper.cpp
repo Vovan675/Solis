@@ -5,6 +5,7 @@
 #include "imgui/imgui_impl_glfw.h"
 #include "Editor/UI.h"
 #include "Rendering/Renderer.h"
+#include "Core/Platform.h"
 #include "RHI/Vulkan/VulkanDynamicRHI.h"
 #include "RHI/Vulkan/VulkanUtils.h"
 #include "RHI/DX12/DX12DynamicRHI.h"
@@ -93,6 +94,11 @@ void ImGuiWrapper::shutdown()
 
 void ImGuiWrapper::begin()
 {
+	if (Platform::isCursorOverWindowFrame())
+		ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
+	else
+		ImGui::GetIO().ConfigFlags &= ~ImGuiConfigFlags_NoMouseCursorChange;
+
 	if (gDynamicRHI->isVulkan())
 	{
 		eastl::vector<VkImageView> deleted_keys;

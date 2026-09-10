@@ -187,5 +187,15 @@ void DebugPanel::renderImGui(EditorContext &context)
 		UI::endSection();
 	}
 
+	static bool show_imgui_demo = false;
+	UI::checkbox("Show ImGUI Demo", &show_imgui_demo);
+	if (show_imgui_demo)
+		ImGui::ShowDemoWindow();
+
+	static bool show_imgui_style_editor = false;
+	UI::checkbox("Show ImGUI Style Editor", &show_imgui_style_editor);
+	if (show_imgui_style_editor)
+		ImGui::ShowStyleEditor();
+
 	ImGui::End();
 }

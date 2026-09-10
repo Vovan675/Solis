@@ -11,4 +11,8 @@ namespace Platform
 
 	// Apply specific window settings (for example dark mode)
 	void configureNativeWindow(GLFWwindow* window);
+
+	void setTitleBarDragRect(uint32_t min_x, uint32_t max_x, uint32_t height);
+	void setMaximizeButtonRect(uint32_t min_x, uint32_t min_y, uint32_t max_x, uint32_t max_y);
+	bool isCursorOverWindowFrame();
 }

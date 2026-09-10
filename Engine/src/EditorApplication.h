@@ -44,6 +44,9 @@ protected:
 	void recordCommands(RHICommandList *cmd_list) override;
 	void cleanupResources() override;
 private:
+	float draw_top_bar();
+	void toggle_play();
+
 	bool auto_refresh_shaders = true;
 	bool was_window_focused = true;
 	FileWatcher shaders_watcher;
