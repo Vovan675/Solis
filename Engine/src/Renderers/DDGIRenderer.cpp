@@ -157,23 +157,6 @@ void DDGIRenderer::addPasses(FrameGraph & fg, Ref<RayTracingScene> rt_scene)
 		volume.cascades[i].min = glm::vec4(center - volume_size / 2.0f, 0.0f);
 	}
 
-	auto lights = Scene::getCurrentScene()->getEntitiesWith<LightComponent>().each();
-	for (auto &&[entity, light_component]: lights)
-	{
-		if (light_component.getType() == LIGHT_TYPE_DIRECTIONAL)
-		{
-			Entity light_entity(entity);
-			glm::vec3 scale, position, skew;
-			glm::vec4 persp;
-			glm::quat rotation;
-			glm::decompose(light_entity.getWorldTransformMatrix(), scale, rotation, position, skew, persp);
-
-			volume.sun_dir = rotation * glm::vec4(0, 0, -1, 1);
-			volume.sun_color = glm::vec4(light_component.getPhotometricIntensity(), 1.0);
-			break;
-		}
-	}
-
 	volume_buffer->fill(&volume);
 
 	if (!Math::isPowerOfTwo(ddgi.probes_per_frame))

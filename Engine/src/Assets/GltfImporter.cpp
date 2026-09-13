@@ -303,6 +303,8 @@ static Ref<Material> extract_material(const cgltf_material *mat, const char *glt
 	m->metalness_tex.asset = resolve_texture(pbr.metallic_roughness_texture, gltf_path);
 	m->roughness_tex.asset = resolve_texture(pbr.metallic_roughness_texture, gltf_path);
 	m->normal_tex.asset = resolve_texture(mat->normal_texture, gltf_path);
+	if (mat->has_specular)
+		m->specular = 0.5f * mat->specular.specular_factor;
 	return m;
 }
 

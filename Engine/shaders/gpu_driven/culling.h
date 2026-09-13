@@ -38,8 +38,12 @@ struct FrustumCullData
 	bool is_visible;
 };
 
-FrustumCullData getFrustumCullDataOrtho(float3 bound_center, float3 bound_extent, float4x4 view_projection)
+FrustumCullData getFrustumCullDataOrtho(float3 bound_center, float3 bound_extent, float4x4 view_projection, bool near_clip = true)
 {
+	#if DISABLE_NEAR_CLIP
+		near_clip = false;
+	#endif
+
 	FrustumCullData data;
 
 	// Transform center to clip space
@@ -53,11 +57,11 @@ FrustumCullData getFrustumCullDataOrtho(float3 bound_center, float3 bound_extent
 	data.rect_min = center_clip - clip_delta;
 	data.rect_max = center_clip + clip_delta;
 
-	data.is_visible = data.rect_max.z < 1.0f;
-
 	// Frustum side culling
-	bool frustum_culled = any(data.rect_max.xy < -1.0f);
-	data.is_visible = data.is_visible && !frustum_culled;
+	bool before_near = near_clip && data.rect_max.z < 0.0f;
+	bool after_far = data.rect_min.z > 1.0f;
+	bool outside_sides = any(data.rect_max.xy < -1.0f) || any(data.rect_min.xy > 1.0f);
+	data.is_visible = !before_near && !after_far && !outside_sides;
 
 	return data;
 }

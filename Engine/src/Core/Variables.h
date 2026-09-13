@@ -140,12 +140,14 @@ struct ShadowSettings
 {
 	bool enabled = true;
 	bool ray_traced = true;
+	float cascades_distance = 200.0f;
 };
 
 REFLECT_BEGIN(ShadowSettings)
 	REFLECT_CATEGORY("Shadows"),
 	REFLECT_FIELD(enabled).label("Enable Shadows"),
 	REFLECT_FIELD(ray_traced).label("Ray Traced Shadows").EDIT_IF(owner.enabled),
+	REFLECT_FIELD(cascades_distance).range(10.0f, 3000.0f).format("%.0f m").EDIT_IF(owner.enabled && !owner.ray_traced),
 REFLECT_END()
 
 struct SSRSettings

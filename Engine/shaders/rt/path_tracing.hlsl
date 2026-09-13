@@ -5,11 +5,11 @@
 #include "../shading.h"
 #include "../random.h"
 #include "../path_tracing_utils.h"
+#include "../lighting/lighting.h"
 
-cbuffer Light : register(b3)
+cbuffer Constants : register(b3)
 {
-	float4 dir_light_direction;
-	float4 dir_light_color;
+	uint sun_light_index;
 	uint accumulation_frame;
 	uint environment_tex_id;
 	uint output_tex_id;
@@ -103,8 +103,8 @@ SurfaceProperties EvaluateMaterial(Material material, float2 uv)
 {
 	SurfaceProperties props;
 	props.albedo = (material.albedo_tex_id > 0) ? SampleTextureLevel(material.albedo_tex_id, uv, 0).rgb : material.albedo.rgb;
-	props.metalness = (material.metalness_tex_id > 0) ? SampleTextureLevel(material.metalness_tex_id, uv, 0).r : material.shading.r;
-	props.roughness = (material.roughness_tex_id > 0) ? SampleTextureLevel(material.roughness_tex_id, uv, 0).r : material.shading.g;
+	props.metalness = (material.metalness_tex_id > 0) ? SampleTextureLevel(material.metalness_tex_id, uv, 0).b : material.shading.r;
+	props.roughness = (material.roughness_tex_id > 0) ? SampleTextureLevel(material.roughness_tex_id, uv, 0).g : material.shading.g;
 	props.roughness = max(props.roughness, MIN_PERCEPTUAL_ROUGHNESS);
 	props.specular = (material.specular_tex_id > 0) ? SampleTextureLevel(material.specular_tex_id, uv, 0).r : material.shading.b;
 	return props;
@@ -226,23 +226,30 @@ MaterialSample SampleBRDF(SurfaceProperties surface, float3 V, float3 N, inout R
 // Lighting
 // ============================================================================
 
-float3 SampleDirectLighting(RaytracingAccelerationStructure tlas, SurfaceHit hit, SurfaceProperties surface, float3 V, inout RandomState rng)
+float3 SampleDirectLighting(RaytracingAccelerationStructure tlas, SurfaceHit hit, SurfaceProperties surface, float3 V)
 {
-	float3 L = dir_light_direction.xyz;
 	float3 N = hit.normal;
-	
-	float NdotL = dot(N, L);
-	if (NdotL <= 0.0)
-		return float3(0, 0, 0);
-	
 	float3 shadow_origin = hit.position + hit.geometry_normal * 0.001;
-	if (TraceShadowRay(tlas, shadow_origin, L, 10000.0))
-		return float3(0, 0, 0);
+
+	float3 radiance = 0;
+	for (uint light_index = 0; light_index < lights_count; light_index++)
+	{
+		Light light = getLight(light_index);
+		float3 L;
+		float attenuation = getLightAttenuation(light, hit.position, L);
+		float NdotL = saturate(dot(N, L));
+		if (attenuation * NdotL <= 0.0)
+			continue;
+
+		float max_distance = light.type == LIGHT_TYPE_DIRECTIONAL ? 10000.0 : distance(light.position.xyz, hit.position);
+		if (TraceShadowRay(tlas, shadow_origin, L, max_distance))
+			continue;
+
+		float3 brdf = EvaluateBRDF(surface, L, V, N);
+		radiance += brdf * NdotL * attenuation * light.radiance.rgb;
+	}
 	
-	float3 brdf = EvaluateBRDF(surface, L, V, N);
-	float3 light_color = dir_light_color.rgb;
-	
-	return brdf * light_color * NdotL;
+	return radiance;
 }
 
 float3 SampleEnvironment(float3 direction)
@@ -329,8 +336,11 @@ void RayGen()
 		if (!hit.hit)
 		{
 			float3 env = SampleEnvironment(ray.Direction);
-			if (bounce == 0)
-				env += getSunDisk(ray.Direction, dir_light_direction.xyz, dir_light_color.rgb);
+			if (bounce == 0 && sun_light_index != INVALID_LIGHT_INDEX)
+			{
+				Light sun = getLight(sun_light_index);
+				env += getSunDisk(ray.Direction, normalize(sun.direction.xyz), sun.radiance.rgb);
+			}
 
 			env *= throughput;
 			radiance += bounce > 0 ? FireflyFilter(env, BASE_FIREFLY_THRESHOLD, fireflyFilterK) : env;
@@ -342,7 +352,7 @@ void RayGen()
 		SurfaceProperties surface = EvaluateMaterial(material, hit.uv);
 		
 		// Direct lighting with relaxed firefly threshold
-		float3 direct = throughput * SampleDirectLighting(tlas, hit, surface, -ray.Direction, rng);
+		float3 direct = throughput * SampleDirectLighting(tlas, hit, surface, -ray.Direction);
 		radiance += bounce > 0 ? FireflyFilter(direct, BASE_FIREFLY_THRESHOLD * 6.0, fireflyFilterK) : direct;
 		
 		// Sample BRDF and update path

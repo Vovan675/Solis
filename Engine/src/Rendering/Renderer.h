@@ -57,6 +57,8 @@ public:
 		uint32_t frame = 0;
 		float sky_intensity = 1.0f;
 		float camera_exposure = 1.0f;
+		uint32_t lights_buffer_id = 0;
+		uint32_t lights_count = 0;
 		uint32_t global_meshlets_geometry_buffer_id;
 		uint32_t global_meshlets_lod_groups_buffer_id;
 		uint32_t materials_buffer_id;

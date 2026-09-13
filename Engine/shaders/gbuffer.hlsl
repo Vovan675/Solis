@@ -56,11 +56,6 @@ PixelInput transformVertex(RawVertexData raw_vertex, Instance instance, uint att
 	return output;
 }
 
-float SampleMaterialChannel(uint tex_id, float2 uv, float fallback_value)
-{
-	return (tex_id > 0) ? SampleTexture(tex_id, uv).r : fallback_value;
-}
-
 static ByteAddressBuffer lod_groups_buffer = ResourceDescriptorHeap[global_meshlets_lod_groups_buffer_id];
 
 [NumThreads(32, 1, 1)]
@@ -186,9 +181,9 @@ PixelOutput PSMain(PixelInput IN)
 	}
 	output.normal = float4(packGBufferNormal(world_normal), 1.0);
 
-	output.shading.r = SampleMaterialChannel(material.metalness_tex_id, IN.uv, material.shading.r);
-	output.shading.g = SampleMaterialChannel(material.roughness_tex_id, IN.uv, material.shading.g);
-	output.shading.b = SampleMaterialChannel(material.specular_tex_id, IN.uv, material.shading.b);
+	output.shading.r = (material.metalness_tex_id > 0) ? SampleTexture(material.metalness_tex_id, IN.uv).b : material.shading.r;
+	output.shading.g = (material.roughness_tex_id > 0) ? SampleTexture(material.roughness_tex_id, IN.uv).g : material.shading.g;
+	output.shading.b = (material.specular_tex_id > 0) ? SampleTexture(material.specular_tex_id, IN.uv).r : material.shading.b;
 	output.shading.a = 1.0;
 
 	float2 current_uv = (IN.position.xy + jitter) / render_resolution.xy;

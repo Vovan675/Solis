@@ -296,7 +296,7 @@ void VulkanPipeline::create(const PipelineDescription &description)
 		// Rasterizer state
 		VkPipelineRasterizationStateCreateInfo rasterizer_info{};
 		rasterizer_info.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-		rasterizer_info.depthClampEnable = VK_FALSE;
+		rasterizer_info.depthClampEnable = !description.depth_clip;
 		rasterizer_info.rasterizerDiscardEnable = VK_FALSE;
 		rasterizer_info.polygonMode = VK_POLYGON_MODE_FILL;
 		rasterizer_info.lineWidth = 1;

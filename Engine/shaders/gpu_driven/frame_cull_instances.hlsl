@@ -15,7 +15,8 @@ struct FrustumData
 	float4x4 view_projection;
 	uint pass_mask;
 	bool is_ortho;
-	uint pad[2];
+	bool near_clip;
+	uint pad;
 };
 
 static StructuredBuffer<FrustumData> frustums_buffer = ResourceDescriptorHeap[frustums_buffer_id];
@@ -30,7 +31,7 @@ uint Cull(float3 bound_center, float3 bound_extent)
 
 		FrustumCullData cull_data;
 		if(frustum.is_ortho)
-			cull_data = getFrustumCullDataOrtho(bound_center, bound_extent, frustum.view_projection);
+			cull_data = getFrustumCullDataOrtho(bound_center, bound_extent, frustum.view_projection, frustum.near_clip);
 		else
 			cull_data = getFrustumCullData(bound_center, bound_extent, frustum.view_projection);
 

@@ -290,6 +290,7 @@ void DX12Pipeline::create(const PipelineDescription &description)
 			pso_desc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
 			pso_desc.RasterizerState.FrontCounterClockwise = true;
 			pso_desc.RasterizerState.CullMode = cull_mode;
+			pso_desc.RasterizerState.DepthClipEnable = description.depth_clip;
 			pso_desc.BlendState = blend_state;
 			pso_desc.DepthStencilState = depth_stencil_desc;
 			pso_desc.SampleMask = UINT_MAX;
@@ -321,6 +322,7 @@ void DX12Pipeline::create(const PipelineDescription &description)
 			pso_desc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
 			pso_desc.RasterizerState.FrontCounterClockwise = true;
 			pso_desc.RasterizerState.CullMode = cull_mode;
+			pso_desc.RasterizerState.DepthClipEnable = description.depth_clip;
 			pso_desc.DepthStencilState = depth_stencil_desc;
 			pso_desc.PrimitiveTopologyType = topology;
 

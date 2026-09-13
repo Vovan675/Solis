@@ -63,15 +63,18 @@ public:
 	GeometryStreaming geometry_streaming;
 
 	eastl::vector<FrustumDataGPU> frustums;
+	eastl::vector<LightGPU> lights;
+	uint32_t sun_light_index = INVALID_LIGHT_INDEX;
 
 	struct InstanceRange { uint32_t start; uint32_t count; };
 	eastl::hash_map<entt::entity, InstanceRange> entity_instances;
 	eastl::hash_set<entt::entity> moved_last_frame_entities;
 
 	GpuTable<FrustumDataGPU> frustums_table;
+	GpuTable<LightGPU> lights_table;
 	GpuTable<MaterialGPU> materials_table;
-	GpuTable<MeshGPU> meshes_table;
 	GpuTable<InstanceGPU> instances_table;
+	GpuTable<MeshGPU> meshes_table;
 
 	uint32_t indirect_draw_calls_max_count;
 

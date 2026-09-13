@@ -17,7 +17,8 @@ static constexpr uint64_t ALIGNMENT = 16;
 
 inline uint32_t calcRuntimeVersion(const ModelImportSettings &import_settings)
 {
-	return import_settings.meshlet_mode != MESHLET_MODE_DISABLED ? VERSION | MESHLET_VERSION << 4 : VERSION;
+	uint32_t version = import_settings.meshlet_mode != MESHLET_MODE_DISABLED ? VERSION | MESHLET_VERSION << 4 : VERSION;
+	return version | import_settings.specular_texture_layout << 8;
 }
 
 enum MeshAttributeFlags: uint32_t

@@ -12,7 +12,7 @@ public:
 	ShadowRenderer();
 
 	void addShadowMapPasses(FrameGraph &fg, uint32_t max_draw_calls_count);
-	void addRayTracedShadowPasses(FrameGraph &fg, Ref<RayTracingScene> rt_scene);
+	void addRayTracedShadowPasses(FrameGraph &fg, Ref<RayTracingScene> rt_scene, uint32_t sun_light_index);
 
 	// TODO: remove from it, do itsomehow else
 	DebugRenderer *debug_renderer;

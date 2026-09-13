@@ -91,6 +91,8 @@ cbuffer FrameConstants : register(b32) {
 	uint frame;
 	float sky_intensity;
 	float camera_exposure;
+	uint lights_buffer_id;
+	uint lights_count;
 	uint global_meshlets_geometry_buffer_id;
 	uint global_meshlets_lod_groups_buffer_id;
 	uint materials_buffer_id;

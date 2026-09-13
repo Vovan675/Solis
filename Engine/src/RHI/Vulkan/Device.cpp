@@ -185,6 +185,7 @@ void Device::CreateLogicalDevice()
 	enabledFeatures.features.samplerAnisotropy = true;
 	enabledFeatures.features.pipelineStatisticsQuery = true;
 	enabledFeatures.features.vertexPipelineStoresAndAtomics = true;
+	enabledFeatures.features.depthClamp = true;
 	enabledFeatures.pNext = &features13;
 	info.pNext = &enabledFeatures;
 

@@ -65,7 +65,7 @@ void ShadowRenderer::addShadowMapPasses(FrameGraph &fg, uint32_t max_draw_calls_
 				glm::lookAtLH(position, position + glm::vec3(0, 0, 1), glm::vec3(0, 1, 0)),
 				glm::lookAtLH(position, position + glm::vec3(0, 0, -1), glm::vec3(0, 1, 0)),
 			};
-			glm::mat4 light_projection = glm::perspectiveLH(glm::radians(90.0f), 1.0f, POINT_SHADOW_Z_NEAR, light.attenuation_radius);
+			glm::mat4 light_projection = glm::perspectiveLH(glm::radians(90.0f), 1.0f, light.attenuation_radius, POINT_SHADOW_Z_NEAR); // Swapped intentionally, Inverse-Z
 
 			GraphicsResourceName shadow_map_resource = GFXRID_ID(ShadowMap, (uint32_t)light_entity_id);
 			fg.importTexture(shadow_map_resource, light.getShadowMap());
@@ -83,7 +83,6 @@ void ShadowRenderer::addShadowMapPasses(FrameGraph &fg, uint32_t max_draw_calls_
 				view.render_size = glm::ivec2(light.getShadowMap()->getWidth());
 				view.layer = face;
 				view.use_two_pass_occlusion = false;
-				view.use_reverse_z = false;
 				view.cull_mode = CULL_MODE_FRONT;
 				view.shaders = shaders;
 
@@ -115,7 +114,9 @@ void ShadowRenderer::addShadowMapPasses(FrameGraph &fg, uint32_t max_draw_calls_
 				view.layer = cascade;
 				view.use_two_pass_occlusion = true;
 				view.ortho_frustum = true;
+				view.near_clip = false;
 				view.use_reverse_z = false;
+				view.depth_clip = false;
 				view.cull_mode = CULL_MODE_FRONT;
 				view.shaders = shaders;
 
@@ -128,9 +129,9 @@ void ShadowRenderer::addShadowMapPasses(FrameGraph &fg, uint32_t max_draw_calls_
 	}
 }
 
-void ShadowRenderer::addRayTracedShadowPasses(FrameGraph & fg, Ref<RayTracingScene> rt_scene)
+void ShadowRenderer::addRayTracedShadowPasses(FrameGraph & fg, Ref<RayTracingScene> rt_scene, uint32_t sun_light_index)
 {
-	if (!rt_scene || !rt_scene->getTopLevelAS())
+	if (!rt_scene || !rt_scene->getTopLevelAS() || sun_light_index == INVALID_LIGHT_INDEX)
 		return;
 
 	fg.addCallbackPass("Ray Traced Shadows Pass",
@@ -148,35 +149,16 @@ void ShadowRenderer::addRayTracedShadowPasses(FrameGraph & fg, Ref<RayTracingSce
 		gGlobalPipeline->setupRayTracing(raygen_shader, miss_shader, closest_hit_shader);
 		gGlobalPipeline->flushAndBind(cmd_list);
 
-		struct LightUBO
+		struct Constants
 		{
-			glm::vec4 dir_light_direction;
+			uint32_t light_index;
 			uint32_t depth_texture_id;
 			uint32_t output_texture_id;
-		} ubo_light;
-
-		auto lights = Scene::getCurrentScene()->getEntitiesWith<LightComponent>();
-		for (auto entity_id : lights)
-		{
-			Entity light_entity(entity_id);
-			if (light_entity.getComponent<LightComponent>().getType() == LIGHT_TYPE_DIRECTIONAL)
-			{
-				glm::vec3 scale, position, skew;
-				glm::vec4 persp;
-				glm::quat rotation;
-				glm::decompose(light_entity.getWorldTransformMatrix(), scale, rotation, position, skew, persp);
-
-				ubo_light.dir_light_direction = rotation * glm::vec4(0, 0, -1, 1);
-				break;
-			}
-		}
-
-		ubo_light.depth_texture_id = resources.getReadTexture(GFXRID(GBufferDepth));
-
-		auto ray_traced_lighting = visiblity;
-		ubo_light.output_texture_id = ray_traced_lighting->getUnorderedAccessView()->getBindlessIndex();
-
-		gDynamicRHI->setConstantBufferData(1, &ubo_light, sizeof(LightUBO));
+		} constants;
+		constants.light_index = sun_light_index;
+		constants.depth_texture_id = resources.getReadTexture(GFXRID(GBufferDepth));
+		constants.output_texture_id = visiblity->getUnorderedAccessView()->getBindlessIndex();
+		gDynamicRHI->setConstantBufferData(1, &constants, sizeof(constants));
 
 		cmd_list->dispatchRays(Renderer::getRenderResolution().x, Renderer::getRenderResolution().y, 1);
 
@@ -214,7 +196,7 @@ void ShadowRenderer::update_cascades(LightComponent &light, glm::vec3 light_dir,
 
 	float nearClip = std::min(camera->getNear(), camera->getFar());
 	float farClip = std::max(camera->getFar(), camera->getNear());
-	farClip = std::min(farClip, (float)3000.0f);
+	farClip = std::min(farClip, GFXOPTIONS(shadows).cascades_distance);
 
 
 	glm::mat4 camera_projections[SHADOW_MAP_CASCADE_COUNT];
@@ -308,10 +290,9 @@ void ShadowRenderer::update_cascades(LightComponent &light, glm::vec3 light_dir,
 
 
 		// Fix shimmering
-		float shadow_map_size = 4096;
-		glm::vec2 shadow_origin = (lightOrthoMatrix * lightViewMatrix * glm::vec4(0, 0, 0, 1)) * shadow_map_size / 2.0f;
+		glm::vec2 shadow_origin = (lightOrthoMatrix * lightViewMatrix * glm::vec4(0, 0, 0, 1)) * (float)light.shadow_map_size / 2.0f;
 		glm::vec2 round_offset = glm::round(shadow_origin) - shadow_origin;
-		round_offset = round_offset * 2.0f / shadow_map_size;
+		round_offset = round_offset * 2.0f / (float)light.shadow_map_size;
 		lightOrthoMatrix[3] += glm::vec4(round_offset, 0, 0);
 
 		// Store split distance and matrix in cascade

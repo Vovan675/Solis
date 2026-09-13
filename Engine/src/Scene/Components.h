@@ -173,7 +173,7 @@ enum LIGHT_TYPE
 };
 
 #define SHADOW_MAP_CASCADE_COUNT 4
-#define POINT_SHADOW_Z_NEAR 0.05f
+#define POINT_SHADOW_Z_NEAR 0.01f
 
 inline const char *const light_type_items[] = {"Point", "Directional"};
 
@@ -206,7 +206,7 @@ struct LightComponent
 			description.is_cube = true;
 			description.mip_levels = 1;
 			description.filtering = FILTER_NEAREST;
-			description.depth_clear_value = 1.0f;
+			description.depth_clear_value = 0.0f;
 			shadow_map = gDynamicRHI->createTexture(description);
 			shadow_map->fill();
 			shadow_map->setDebugName("Cube Shadow Map");
@@ -245,8 +245,8 @@ private:
 	int created_shadow_map_size = 0;
 	RHITextureRef shadow_map = nullptr;
 	friend class EditorApplication;
-	friend class DefferedLightingRenderer;
 	friend class ShadowRenderer;
+	friend class SceneRenderer;
 	friend struct Reflected<LightComponent>;
 	struct CascadeData
 	{

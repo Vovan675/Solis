@@ -130,6 +130,7 @@ void MeshletPass::add_instance_culling_pass(FrameGraph &fg, const MeshletCullDes
 											  {
 												  {"IS_FIX", is_fix ? "1" : "0"},
 												  {"IS_ORTHO_FRUSTUM", desc.is_ortho ? "1" : "0"},
+												  {"DISABLE_NEAR_CLIP", desc.near_clip ? "0" : "1"},
 												  {"REVERSE_Z", desc.reverse_z ? "1" : "0"},
 												  {"USE_OCCLUSION", desc.use_occlusion ? "1" : "0"},
 												  {"HIZ_OCCLUSION_DEBUG", render_culling_hiz_debug ? "1" : "0"},
@@ -225,6 +226,7 @@ void MeshletPass::add_traversal_pass(FrameGraph &fg, const MeshletCullDesc &desc
 												  {"USE_MESH_SHADERS", render_meshlets_mesh_shaders ? "1" : "0"},
 												  {"IS_FIX", is_fix ? "1" : "0"},
 												  {"IS_ORTHO_FRUSTUM", desc.is_ortho ? "1" : "0"},
+												  {"DISABLE_NEAR_CLIP", desc.near_clip ? "0" : "1"},
 												  {"REVERSE_Z", desc.reverse_z ? "1" : "0"},
 												  {"USE_OCCLUSION", desc.use_occlusion ? "1" : "0"},
 												  {"THREADGROUP_SIZE", std::to_string(MESHLET_CULLING_THREADGROUP_SIZE).c_str()}
@@ -311,6 +313,7 @@ void MeshletPass::add_meshlet_fix_pass(FrameGraph &fg, const MeshletCullDesc &de
 											  {
 												  {"USE_MESH_SHADERS", render_meshlets_mesh_shaders ? "1" : "0"},
 												  {"IS_ORTHO_FRUSTUM", desc.is_ortho ? "1" : "0"},
+												  {"DISABLE_NEAR_CLIP", desc.near_clip ? "0" : "1"},
 												  {"REVERSE_Z", desc.reverse_z ? "1" : "0"},
 												  {"USE_OCCLUSION", desc.use_occlusion ? "1" : "0"},
 												  {"THREADGROUP_SIZE", std::to_string(MESHLET_FIX_THREADGROUP_SIZE).c_str()}

@@ -11,6 +11,7 @@ struct MeshletCullDesc
 	GraphicsResourceName hiz;
 	uint32_t hiz_layer = 0;
 	bool is_ortho = false;
+	bool near_clip = true;
 	bool reverse_z = true;
 	bool use_occlusion = true;
 };

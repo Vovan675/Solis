@@ -1,4 +1,5 @@
 #include "common.h"
+#include "lighting/lighting.h"
 
 struct VertexInput {
     float3 position : POSITION;
@@ -28,14 +29,17 @@ VertexOutput VSMain(VertexInput IN) {
 cbuffer Constants : register(b0)
 {
 	uint cubemap_tex_id;
-	float4 sun_direction;
-	float4 sun_illuminance;
+	uint sun_light_index;
 };
 
 float4 PSMain(VertexOutput IN) : SV_TARGET {
     TextureCube texture = ResourceDescriptorHeap[cubemap_tex_id];
     float3 view_direction = normalize(IN.dir);
     float3 color = texture.Sample(linear_wrap_sampler, view_direction).rgb * sky_intensity;
-    color += getSunDisk(view_direction, sun_direction.xyz, sun_illuminance.rgb);
+    if (sun_light_index != INVALID_LIGHT_INDEX)
+    {
+        Light sun = getLight(sun_light_index);
+        color += getSunDisk(view_direction, normalize(sun.direction.xyz), sun.radiance.rgb);
+    }
     return float4(color, 1.0);
 }

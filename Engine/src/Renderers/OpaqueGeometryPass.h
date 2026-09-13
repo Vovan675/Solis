@@ -28,7 +28,9 @@ public:
 		uint32_t layer = 0;
 		bool use_two_pass_occlusion = true;
 		bool ortho_frustum = false;
+		bool near_clip = true;
 		bool use_reverse_z = true;
+		bool depth_clip = true;
 		CullMode cull_mode = CULL_MODE_BACK;
 		ShaderSet shaders;
 

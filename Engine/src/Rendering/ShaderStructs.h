@@ -16,6 +16,20 @@ struct MaterialGPU
 	uint32_t normal_tex_id = 0;
 };
 
+#define INVALID_LIGHT_INDEX 0xFFFFFFFFu
+
+struct LightGPU
+{
+	glm::vec4 position;
+	glm::vec4 direction;
+	glm::vec4 radiance;
+	glm::mat4 cascade_view_projection[4];
+	glm::vec4 cascade_splits;
+	uint32_t type;
+	float attenuation_radius;
+	uint32_t shadow_map_tex_id;
+};
+
 #define INSTANCE_FLAG_INVALID 0x1
 
 struct InstanceGPU
@@ -125,7 +139,8 @@ struct FrustumDataGPU
 	glm::mat4 view_projection;
 	uint32_t pass_mask;
 	uint32_t is_ortho = 0;
-	uint32_t pad[2];
+	uint32_t near_clip = 1;
+	uint32_t pad;
 };
 
 struct DrawIndexedIndirect

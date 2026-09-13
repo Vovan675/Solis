@@ -7,13 +7,14 @@
 #include "FrameGraph/FrameGraphRHIResources.h"
 #include "FrameGraph/FrameGraphUtils.h"
 #include "Core/Variables.h"
+#include "Rendering/ShaderStructs.h"
 
 class SkyRenderer: public RendererBase
 {
 public:
 	SkyRenderer();
 	~SkyRenderer() {}
-	void addProceduralPasses(FrameGraph &fg);
+	void addProceduralPasses(FrameGraph &fg, const eastl::vector<LightGPU> &lights, uint32_t sun_light_index);
 	void addCompositePasses(FrameGraph &fg);
 
 	bool isDirty() const { return is_dirty; }
@@ -27,7 +28,6 @@ public:
 
 	RHITextureRef cube_texture;
 private:
-	void update_sun_from_scene();
 	bool update_resources();
 
 	RHIShaderRef vertex_shader;
@@ -41,7 +41,7 @@ private:
 
 	Uniforms prev_uniform;
 
-	glm::vec4 sun_illuminance = glm::vec4(100000.0f);
+	uint32_t sun_light_index = INVALID_LIGHT_INDEX;
 
 	bool is_dirty = false;
 };

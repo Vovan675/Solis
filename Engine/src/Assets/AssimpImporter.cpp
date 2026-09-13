@@ -119,65 +119,28 @@ void AssimpImporter::processNode(MeshNode *mesh_node, aiNode *node, const aiScen
 		Ref<Material> engine_material = new Material();
 		mesh_node->primitives.push_back({engine_mesh, engine_material});
 
-		// Textures
-		unsigned int diffuse_count = mat->GetTextureCount(aiTextureType_DIFFUSE);
-		if (diffuse_count > 0)
+		auto get_texture = [&](aiTextureType type, aiTextureType fallback_type = aiTextureType_NONE) -> AssetReference
 		{
 			aiString texture_path;
-			if (mat->GetTexture(aiTextureType_DIFFUSE, 0, &texture_path) == aiReturn_SUCCESS)
-			{
-				std::filesystem::path result_path(source_path.c_str());
-				result_path = result_path.remove_filename().concat(texture_path.C_Str());
-				engine_material->albedo_tex.asset = AssetReference(result_path);
-			}
-		}
+			if (mat->GetTexture(type, 0, &texture_path) != aiReturn_SUCCESS && mat->GetTexture(fallback_type, 0, &texture_path) != aiReturn_SUCCESS)
+				return AssetReference();
+			std::filesystem::path result_path(source_path.c_str());
+			return AssetReference(result_path.remove_filename().concat(texture_path.C_Str()));
+		};
 
-		unsigned int metalness_count = mat->GetTextureCount(aiTextureType_METALNESS);
-		if (metalness_count > 0 && false) ////////////////////////////
-		{
-			aiString texture_path;
-			if (mat->GetTexture(aiTextureType_METALNESS, 0, &texture_path) == aiReturn_SUCCESS)
-			{
-				std::filesystem::path result_path(source_path.c_str());
-				result_path = result_path.remove_filename().concat(texture_path.C_Str());
-				engine_material->metalness_tex.asset = AssetReference(result_path);
-			}
-		}
+		engine_material->albedo_tex.asset = get_texture(aiTextureType_DIFFUSE, aiTextureType_BASE_COLOR);
+		engine_material->normal_tex.asset = get_texture(aiTextureType_NORMALS);
+		engine_material->metalness_tex.asset = get_texture(aiTextureType_METALNESS);
+		engine_material->roughness_tex.asset = get_texture(aiTextureType_DIFFUSE_ROUGHNESS, aiTextureType_SHININESS);
 
-		unsigned int roughness_count = mat->GetTextureCount(aiTextureType_SHININESS);
-		if (roughness_count > 0)
+		AssetReference specular = get_texture(aiTextureType_SPECULAR);
+		if (settings.specular_texture_layout == SPECULAR_TEXTURE_OCCLUSION_ROUGHNESS_METALNESS)
 		{
-			aiString texture_path;
-			if (mat->GetTexture(aiTextureType_SHININESS, 0, &texture_path) == aiReturn_SUCCESS)
-			{
-				std::filesystem::path result_path(source_path.c_str());
-				result_path = result_path.remove_filename().concat(texture_path.C_Str());
-				engine_material->roughness_tex.asset = AssetReference(result_path);
-			}
-		}
-
-		unsigned int specular_count = mat->GetTextureCount(aiTextureType_SPECULAR);
-		if (specular_count > 0)
+			engine_material->metalness_tex.asset = specular;
+			engine_material->roughness_tex.asset = specular;
+		} else
 		{
-			aiString texture_path;
-			if (mat->GetTexture(aiTextureType_SPECULAR, 0, &texture_path) == aiReturn_SUCCESS)
-			{
-				std::filesystem::path result_path(source_path.c_str());
-				result_path = result_path.remove_filename().concat(texture_path.C_Str());
-				engine_material->specular_tex.asset = AssetReference(result_path);
-			}
-		}
-
-		unsigned int normals_count = mat->GetTextureCount(aiTextureType_NORMALS);
-		if (normals_count > 0)
-		{
-			aiString texture_path;
-			if (mat->GetTexture(aiTextureType_NORMALS, 0, &texture_path) == aiReturn_SUCCESS)
-			{
-				std::filesystem::path result_path(source_path.c_str());
-				result_path = result_path.remove_filename().concat(texture_path.C_Str());
-				engine_material->normal_tex.asset = AssetReference(result_path);
-			}
+			engine_material->specular_tex.asset = specular;
 		}
 
 		// Parameters

@@ -17,8 +17,6 @@ public:
 		glm::vec3 origin;
 		glm::ivec4 size;
 		glm::vec3 spacing;
-		glm::vec3 sun_dir;
-		glm::vec4 sun_color;
 		glm::vec3 random_vector;
 		float random_angle;
 		float use_relocation;

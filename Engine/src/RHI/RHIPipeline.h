@@ -115,6 +115,7 @@ struct PipelineDescription
 	Blend dst_alpha_blend = BLEND_ONE_MINUS_SRC_ALPHA;
 	BlendOp alpha_blend_op = BLEND_OP_ADD;
 	CullMode cull_mode = CULL_MODE_BACK;
+	bool depth_clip = true;
 	Topology primitive_topology = TOPOLOGY_TRIANGLE_LIST;
 
 	PipelineType pipeline_type = PipelineType::Graphics;
@@ -171,6 +172,7 @@ struct PipelineDescription
 		hashCombine(hash, dst_alpha_blend);
 		hashCombine(hash, alpha_blend_op);
 		hashCombine(hash, cull_mode);
+		hashCombine(hash, depth_clip);
 		hashCombine(hash, primitive_topology);
 		hashCombine(hash, (int)pipeline_type);
 		return hash;

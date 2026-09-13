@@ -1,6 +1,6 @@
 #include "../common.h"
 #include "../bindless.h"
-#include "../shading.h"
+#include "../lighting/lighting.h"
 #include "ddgi_common.hlsl"
 
 // Always trace infinite rays, as last cascade
@@ -115,35 +115,42 @@ void RayGen()
 		return;
 	}
 
+	Instance instance = getInstance(payload.instance_id);
+	Material material = getMaterial(instance.material_id);
+
+	Mesh mesh = getMesh(instance.mesh_id);
+	VertexData vertex = GetVertexData(mesh, payload.primitive_id, payload.bary);
+	float3 albedo = (material.albedo_tex_id > 0) ? SampleTextureLevel(material.albedo_tex_id, vertex.uv, 0).rgb : material.albedo.rgb;
+	
+	float3 position = mul(instance.world_transform, float4(vertex.position, 1.0)).xyz;
+	float3 normal = transformNormalToWorld(vertex.normal, instance.iworld_transform);
+	
+	float3 diffuse = LambertDiffuse(albedo);
+	float3 shadow_origin = position + normal * 0.01;
+
 	float3 radiance = 0;
-	if (payload.hit)
+	for (uint light_index = 0; light_index < lights_count; light_index++)
 	{
-		Instance instance = getInstance(payload.instance_id);
-		Material material = getMaterial(instance.material_id);
+		Light light = getLight(light_index);
+		float3 L;
+		float attenuation = getLightAttenuation(light, position, L);
+		float NdotL = saturate(dot(normal, L));
+		if (attenuation * NdotL <= 0.0)
+			continue;
 
-		Mesh mesh = getMesh(instance.mesh_id);
-		VertexData vertex = GetVertexData(mesh, payload.primitive_id, payload.bary);
-		float3 albedo = (material.albedo_tex_id > 0) ? SampleTextureLevel(material.albedo_tex_id, vertex.uv, 0).rgb : material.albedo.rgb;
-		radiance = albedo;
+		float max_distance = light.type == LIGHT_TYPE_DIRECTIONAL ? 10000.0 : distance(light.position.xyz, position);
+		if (TraceShadowRay(tlas, shadow_origin, L, max_distance))
+			continue;
 
-		float3 position = mul(instance.world_transform, float4(vertex.position, 1.0)).xyz;
-		float3 normal = transformNormalToWorld(vertex.normal, instance.iworld_transform);
-		bool visibility = !TraceShadowRay(tlas, position + normal * 0.01, volume.sun_dir.xyz, 10000.0);
+		radiance += diffuse * NdotL * attenuation * light.radiance.rgb;
+	}
 
-
-		float3 diffuse = saturate(dot(normal, volume.sun_dir.xyz)) * LambertDiffuse(albedo);
-		radiance = diffuse * visibility * volume.sun_color.rgb;
-		//radiance = albedo;
-		//radiance = visibility;
-
-		float volume_weight = GetVolumeWeight(position, volume);
-		if (volume_weight > 0.0f)
-		{
-			float3 surface_bias = GetSurfaceBias(normal, ray.Origin, position, volume, cascade_id);
-			float3 irradiance = SampleIrradiance(position, normal, surface_bias, volume, cascade_id);
-			radiance += (min(albedo, 0.9f) / PI) * irradiance * volume_weight;
-		}
-		//radiance = position;
+	float volume_weight = GetVolumeWeight(position, volume);
+	if (volume_weight > 0.0f)
+	{
+		float3 surface_bias = GetSurfaceBias(normal, ray.Origin, position, volume, cascade_id);
+		float3 irradiance = SampleIrradiance(position, normal, surface_bias, volume, cascade_id);
+		radiance += (min(albedo, 0.9f) / PI) * irradiance * volume_weight;
 	}
 
 	ray_data[ray_data_index] = float4(radiance, payload.depth);

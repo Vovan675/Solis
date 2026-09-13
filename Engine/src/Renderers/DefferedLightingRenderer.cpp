@@ -1,12 +1,8 @@
 #include "pch.h"
 #include "DefferedLightingRenderer.h"
-#include "imgui.h"
 #include "RHI/BindlessResources.h"
 #include "Rendering/Renderer.h"
-#include "Scene/Entity.h"
 #include "Rendering/Model.h"
-#include "Core/Variables.h"
-#include "Scene/Components.h"
 
 DefferedLightingRenderer::DefferedLightingRenderer()
 {
@@ -18,16 +14,8 @@ DefferedLightingRenderer::~DefferedLightingRenderer()
 {
 }
 
-void DefferedLightingRenderer::renderLights(FrameGraph &fg)
+void DefferedLightingRenderer::renderLights(FrameGraph &fg, uint32_t lights_count)
 {
-	struct LightingPassData
-	{
-		FrameGraphTextureId albedo;
-		FrameGraphTextureId normal;
-		FrameGraphTextureId depth;
-		FrameGraphTextureId shading;
-	};
-
 	auto *shadow_passes_data = fg.getBlackboard().tryGet<ShadowPasses>();
 
 	fg.addCallbackPass("Deffered Lighting Pass",
@@ -62,84 +50,33 @@ void DefferedLightingRenderer::renderLights(FrameGraph &fg)
 
 		cmd_list->setRenderTargets({diffuse, specular}, nullptr, -1, 0, true);
 
-		ubo.albedo_tex_id = resources.getReadTexture(GFXRID(GBufferAlbedo));
-		ubo.normal_tex_id = resources.getReadTexture(GFXRID(GBufferNormal));
-		ubo.depth_tex_id = resources.getReadTexture(GFXRID(GBufferDepth));
-		ubo.shading_tex_id = resources.getReadTexture(GFXRID(GBufferShading));
-
-		// Render Lights radiance
 		auto &p = gGlobalPipeline;
+		p->setupGraphicsPipeline(cmd_list,
+								  gDynamicRHI->createShader(L"shaders/lighting/deferred_lighting.hlsl", VERTEX_SHADER, "VSMain"),
+								  gDynamicRHI->createShader(L"shaders/lighting/deferred_lighting.hlsl", FRAGMENT_SHADER, "PSMain"),
+								  Engine::Vertex::GetVertexInputsDescription(),
+								  true, false, CULL_MODE_FRONT);
+		p->setBlendMode(BLEND_ONE, BLEND_ONE, BLEND_OP_ADD,
+						BLEND_ONE, BLEND_ONE, BLEND_OP_ADD);
+		p->flushAndBind(cmd_list);
 
 		bool has_ray_traced_visibility = Renderer::isRayTracedShadowsEnabled() && resources.has(GFXRID(RayTracedVisibility));
 
-		eastl::vector<eastl::pair<const char *, const char *>> shader_defines;
+		constants.albedo_tex_id = resources.getReadTexture(GFXRID(GBufferAlbedo));
+		constants.normal_tex_id = resources.getReadTexture(GFXRID(GBufferNormal));
+		constants.depth_tex_id = resources.getReadTexture(GFXRID(GBufferDepth));
+		constants.shading_tex_id = resources.getReadTexture(GFXRID(GBufferShading));
+		constants.ray_traced_visibility_tex_id = has_ray_traced_visibility ? resources.getReadTexture(GFXRID(RayTracedVisibility)) : 0;
 
-		auto entities_id = Scene::getCurrentScene()->getEntitiesWith<LightComponent>();
-		for (entt::entity entity_id : entities_id)
+		cmd_list->setVertexBuffer(icosphere_mesh->indexed->vertex_buffer, 0, sizeof(Engine::Vertex));
+		cmd_list->setIndexBuffer(icosphere_mesh->indexed->index_buffer, 0, IndexFormat::UINT32);
+
+		for (uint32_t light_index = 0; light_index < lights_count; light_index++)
 		{
-			Entity entity(entity_id);
-			auto &light = entity.getComponent<LightComponent>();
-
-			bool is_directional = light.getType() == LIGHT_TYPE_DIRECTIONAL;
-			bool use_ray_traced_shadows = has_ray_traced_visibility && is_directional;
-
-			shader_defines.clear();
-			shader_defines.push_back({"USE_SHADOWS", GFXOPTIONS(shadows).enabled ? "1" : "0"});
-			shader_defines.push_back({"RAY_TRACED_SHADOWS", use_ray_traced_shadows ? "1" : "0"});
-			shader_defines.push_back({"LIGHT_TYPE", is_directional ? "1" : "0"});
-
-			p->setupGraphicsPipeline(cmd_list,
-									  gDynamicRHI->createShader(L"shaders/lighting/deferred_lighting.hlsl", VERTEX_SHADER, "VSMain", shader_defines),
-									  gDynamicRHI->createShader(L"shaders/lighting/deferred_lighting.hlsl", FRAGMENT_SHADER, "PSMain", shader_defines),
-									  Engine::Vertex::GetVertexInputsDescription(),
-									  true, false, CULL_MODE_FRONT);
-			p->setBlendMode(BLEND_ONE, BLEND_ONE, BLEND_OP_ADD,
-							BLEND_ONE, BLEND_ONE, BLEND_OP_ADD);
-			p->flushAndBind(cmd_list);
-
-			glm::vec3 scale, position, skew;
-			glm::vec4 persp;
-			glm::quat rotation;
-			glm::decompose(entity.getWorldTransformMatrix(), scale, rotation, position, skew, persp);
-
-			if (is_directional)
-			{
-				const auto uniforms = Renderer::getDefaultUniforms();
-				ubo_sphere.model = glm::translate(glm::mat4(1), glm::vec3(uniforms.camera_position));
-
-				for (uint32_t i = 0; i < SHADOW_MAP_CASCADE_COUNT; i++)
-				{
-					ubo_sphere.cascade_splits[i] = light.cascades[i].splitDepth;
-					ubo_sphere.light_matrix[i] = light.cascades[i].viewProjMatrix;
-				}
-				constants.light_pos = glm::vec4(entity.getLocalDirection(glm::vec3(0, 0, -1)), 1.0);
-			} else
-			{
-				ubo_sphere.model = glm::translate(glm::mat4(1), position) *
-					glm::scale(glm::mat4(1), glm::vec3(light.attenuation_radius));
-				constants.light_pos = glm::vec4(position, 1.0f);
-			}
-
-			constants.light_intensity = glm::vec4(light.getPhotometricIntensity(), 1.0);
-			constants.attenuation_radius_sqr = pow(light.attenuation_radius, 2);
-			constants.z_near = POINT_SHADOW_Z_NEAR;
-			constants.z_far = light.attenuation_radius;
-			constants.shadow_map_tex_id = use_ray_traced_shadows
-				? resources.getReadTexture(GFXRID(RayTracedVisibility))
-				: light.getShadowMap()->getShaderResourceView()->getBindlessIndex();
-
-			gDynamicRHI->setConstantBufferData(1, &ubo, sizeof(UBO));
-			gDynamicRHI->setConstantBufferData(0, &ubo_sphere, sizeof(UniformBufferObject));
-
-			gDynamicRHI->setConstantBufferData(2, &constants, sizeof(PushConstant));
-
-			// Render mesh
-			cmd_list->setVertexBuffer(icosphere_mesh->indexed->vertex_buffer, 0, sizeof(Engine::Vertex));
-			cmd_list->setIndexBuffer(icosphere_mesh->indexed->index_buffer, 0, IndexFormat::UINT32);
+			constants.light_index = light_index;
+			gDynamicRHI->setConstantBufferData(0, &constants, sizeof(constants));
 			cmd_list->drawIndexedInstanced(icosphere_mesh->indexed->indices.size(), 1, 0, 0, 0);
-
 		}
 		cmd_list->resetRenderTargets();
 	});
 }
-

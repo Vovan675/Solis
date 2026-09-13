@@ -9,8 +9,17 @@ enum MeshletMode
 };
 inline const char *const meshlet_mode_items[] = {"Auto", "Enabled", "Disabled"};
 
+enum SpecularTextureLayout
+{
+	SPECULAR_TEXTURE_SPECULAR = 0,
+	SPECULAR_TEXTURE_OCCLUSION_ROUGHNESS_METALNESS,
+};
+inline const char *const specular_texture_layout_items[] = {"Specular", "Occlusion / Roughness / Metalness"};
+
 struct ModelImportSettings
 {
+	SpecularTextureLayout specular_texture_layout = SPECULAR_TEXTURE_SPECULAR;
+
 	// Meshlet generation
 	MeshletMode meshlet_mode = MESHLET_MODE_AUTO;
 	uint32_t meshlet_max_vertices = 128;
@@ -25,6 +34,7 @@ struct ModelImportSettings
 };
 
 REFLECT_BEGIN(ModelImportSettings)
+	REFLECT_FIELD(specular_texture_layout).label("Specular Texture Layout").items(specular_texture_layout_items),
 	REFLECT_FIELD(meshlet_mode).label("Meshlet (Nanite) Geometry").items(meshlet_mode_items),
 	REFLECT_CATEGORY("Meshlets"),
 	REFLECT_FIELD(meshlet_max_vertices).range(32.0f, 256.0f).EDIT_IF(owner.meshlet_mode != MESHLET_MODE_DISABLED),

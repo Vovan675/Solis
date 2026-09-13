@@ -14,9 +14,10 @@ SceneRenderer::SceneRenderer()
 	geometry_streaming.init();
 
 	frustums_table.init("Frustums Buffer", 64, ReplicationPolicy::Copy);
+	lights_table.init("Lights Buffer", 512, ReplicationPolicy::Copy);
 	materials_table.init("Materials Buffer", 512, ReplicationPolicy::DirtyRows);
-	meshes_table.init("Meshes Buffer", 4096, ReplicationPolicy::DirtyRows);
 	instances_table.init("Instances Buffer", 65536, ReplicationPolicy::DirtyRows);
+	meshes_table.init("Meshes Buffer", 4096, ReplicationPolicy::DirtyRows);
 
 	AssetManager::onPreReimport().connect<&SceneRenderer::on_asset_pre_reimport>(this);
 	AssetManager::onPostReimport().connect<&SceneRenderer::on_asset_post_reimport>(this);
@@ -49,8 +50,8 @@ void SceneRenderer::setScene(Ref<Scene> scene)
 	}
 
 	entity_instances.clear();
-	instances_table.reset();
 	materials_table.reset();
+	instances_table.reset();
 	meshes_table.reset();
 
 	if (!scene)
@@ -299,8 +300,9 @@ void SceneRenderer::render(Camera *camera, RHITextureRef result_texture)
 	geometry_streaming.importBuffers(frame_graph);
 
 	frustums_table.upload(frame_graph);
-	instances_table.upload(frame_graph);
+	lights_table.upload(frame_graph);
 	materials_table.upload(frame_graph);
+	instances_table.upload(frame_graph);
 	meshes_table.upload(frame_graph);
 
 	if (render_first_frame)
@@ -309,7 +311,7 @@ void SceneRenderer::render(Camera *camera, RHITextureRef result_texture)
 		lut_renderer.addPasses(frame_graph);
 	}
 
-	sky_renderer.addProceduralPasses(frame_graph);
+	sky_renderer.addProceduralPasses(frame_graph, lights, sun_light_index);
 
 	frame_graph.importTexture(GFXRID(IBLIrradiance), irradiance_renderer.irradiance_texture);
 	frame_graph.importTexture(GFXRID(IBLPrefilter), prefilter_renderer.prefilter_texture);
@@ -360,7 +362,7 @@ void SceneRenderer::render_deferred(Camera *camera, FrameGraph &frame_graph)
 		if (GFXOPTIONS(shadows).enabled)
 		{
 			if (Renderer::isRayTracedShadowsEnabled())
-				shadow_renderer.addRayTracedShadowPasses(frame_graph, rt_scene);
+				shadow_renderer.addRayTracedShadowPasses(frame_graph, rt_scene, sun_light_index);
 			shadow_renderer.addShadowMapPasses(frame_graph, indirect_draw_calls_max_count);
 		}
 	}
@@ -369,7 +371,7 @@ void SceneRenderer::render_deferred(Camera *camera, FrameGraph &frame_graph)
 
 	{
 		// Lighting
-		defferred_lighting_renderer.renderLights(frame_graph);
+		defferred_lighting_renderer.renderLights(frame_graph, lights.size());
 
 		deffered_composite_renderer.addPasses(frame_graph);
 	}
@@ -398,7 +400,7 @@ void SceneRenderer::render_deferred(Camera *camera, FrameGraph &frame_graph)
 
 void SceneRenderer::render_path_traced(Camera *camera, FrameGraph &frame_graph)
 {
-	path_tracing_renderer.addPass(frame_graph, rt_scene);
+	path_tracing_renderer.addPass(frame_graph, rt_scene, sun_light_index);
 	post_renderer.addPasses(frame_graph);
 }
 
@@ -413,6 +415,8 @@ void SceneRenderer::update(Camera *camera)
 		PROFILE_CPU_SCOPE("SceneRenderer update render data");
 
 		frustums.clear();
+		lights.clear();
+		sun_light_index = INVALID_LIGHT_INDEX;
 
 		FrustumDataGPU frustum_data;
 		frustum_data.view_projection = camera->getProj() * camera->getView();
@@ -430,6 +434,20 @@ void SceneRenderer::update(Camera *camera)
 			glm::quat rotation;
 			glm::decompose(light_entity.getWorldTransformMatrix(), scale, rotation, position, skew, persp);
 
+			LightGPU light_gpu{};
+			light_gpu.position = glm::vec4(position, 1.0f);
+			light_gpu.direction = glm::vec4(light_entity.getLocalDirection(glm::vec3(0, 0, -1)), 0.0f);
+			light_gpu.radiance = glm::vec4(light.getPhotometricIntensity(), 1.0f);
+			light_gpu.type = light.getType();
+			light_gpu.attenuation_radius = light.attenuation_radius;
+			light_gpu.shadow_map_tex_id = GFXOPTIONS(shadows).enabled ? light.getShadowMap()->getShaderResourceView()->getBindlessIndex() : 0;
+			for (int i = 0; i < SHADOW_MAP_CASCADE_COUNT; i++)
+			{
+				light_gpu.cascade_view_projection[i] = light.getCascadeViewProj(i);
+				light_gpu.cascade_splits[i] = light.cascades[i].splitDepth;
+			}
+			lights.push_back(light_gpu);
+
 			if (light.getType() == LIGHT_TYPE_POINT)
 			{
 				FrustumDataGPU frustum_data;
@@ -445,14 +463,18 @@ void SceneRenderer::update(Camera *camera)
 
 				for (int face = 0; face < 6; face++)
 				{
-					frustum_data.view_projection = glm::perspectiveLH(glm::radians(90.0f), 1.0f, 0.05f, light.attenuation_radius) * faces_transforms[face];
+					frustum_data.view_projection = glm::perspectiveLH(glm::radians(90.0f), 1.0f, POINT_SHADOW_Z_NEAR, light.attenuation_radius) * faces_transforms[face];
 					frustums.push_back(frustum_data);
 				}
 			} else if (light.getType() == LIGHT_TYPE_DIRECTIONAL)
 			{
+				if (sun_light_index == INVALID_LIGHT_INDEX)
+					sun_light_index = lights.size() - 1;
+
 				FrustumDataGPU frustum_data;
 				frustum_data.pass_mask = PASS_MASK_DIRECTIONAL_SHADOW;
 				frustum_data.is_ortho = true;
+				frustum_data.near_clip = 0;
 
 				for (int i = 0; i < SHADOW_MAP_CASCADE_COUNT; i++)
 				{
@@ -463,6 +485,7 @@ void SceneRenderer::update(Camera *camera)
 		}
 
 		frustums_table.setArray(0, eastl::span<const FrustumDataGPU>(frustums.data(), frustums.size()));
+		lights_table.setArray(0, eastl::span<const LightGPU>(lights.data(), lights.size()));
 
 		geometry_streaming.update();
 
@@ -584,6 +607,8 @@ void SceneRenderer::update(Camera *camera)
 	auto uniforms = Renderer::getDefaultUniforms();
 	uniforms.sky_intensity = GFXOPTIONS(sky).getIntensity();
 	uniforms.camera_exposure = GFXOPTIONS(film).getExposure();
+	uniforms.lights_buffer_id = lights_table.getBindlessIndex();
+	uniforms.lights_count = lights.size();
 	uniforms.materials_buffer_id = materials_table.getBindlessIndex();
 	uniforms.instances_buffer_id = instances_table.getBindlessIndex();
 	uniforms.meshes_buffer_id = meshes_table.getBindlessIndex();

@@ -3,9 +3,6 @@
 #include "RHI/BindlessResources.h"
 #include "Rendering/Renderer.h"
 #include "Rendering/Model.h"
-#include "Scene/Scene.h"
-#include "Scene/Entity.h"
-#include "Scene/Components.h"
 #include "Utils/Math.h"
 #include "Core/Variables.h"
 
@@ -21,12 +18,14 @@ SkyRenderer::SkyRenderer(): RendererBase()
 	fragment_procedural_shader = gDynamicRHI->createShader(L"shaders/procedural_sky.hlsl", FRAGMENT_SHADER);
 }
 
-void SkyRenderer::addProceduralPasses(FrameGraph &fg)
+void SkyRenderer::addProceduralPasses(FrameGraph &fg, const eastl::vector<LightGPU> &lights, uint32_t sun_light_index)
 {
-	const SkySettings &sky = GFXOPTIONS(sky);
+	SkySettings &sky = GFXOPTIONS(sky);
 
 	is_dirty = update_resources() || render_first_frame;
-	update_sun_from_scene();
+	this->sun_light_index = sun_light_index;
+	if (sun_light_index != INVALID_LIGHT_INDEX && sky.automatic_sun_position)
+		sky.sun_direction = glm::vec3(lights[sun_light_index].direction);
 
 	fg.importTexture(GFXRID(Sky), cube_texture);
 
@@ -109,12 +108,10 @@ void SkyRenderer::addCompositePasses(FrameGraph &fg)
 		struct Constants
 		{
 			uint32_t cubemap_tex_id;
-			glm::vec4 sun_direction;
-			glm::vec4 sun_illuminance;
+			uint32_t sun_light_index;
 		} constants;
 		constants.cubemap_tex_id = resources.getReadTexture(GFXRID(Sky));
-		constants.sun_direction = glm::vec4(glm::normalize(procedural_uniforms.sun_direction), 0.0f);
-		constants.sun_illuminance = GFXOPTIONS(sky).mode == SKY_MODE_PROCEDURAL ? sun_illuminance : glm::vec4(0.0f);
+		constants.sun_light_index = GFXOPTIONS(sky).mode == SKY_MODE_PROCEDURAL ? sun_light_index : INVALID_LIGHT_INDEX;
 		gDynamicRHI->setConstantBufferData(0, &constants, sizeof(Constants));
 
 		cmd_list->setVertexBuffer(mesh->indexed->vertex_buffer, 0, sizeof(Engine::Vertex));
@@ -123,22 +120,6 @@ void SkyRenderer::addCompositePasses(FrameGraph &fg)
 
 		cmd_list->resetRenderTargets();
 	});
-}
-
-void SkyRenderer::update_sun_from_scene()
-{
-	for (entt::entity entity_id : Scene::getCurrentScene()->getEntitiesWith<LightComponent>())
-	{
-		Entity entity(entity_id);
-		LightComponent &light = entity.getComponent<LightComponent>();
-		if (light.getType() != LIGHT_TYPE_DIRECTIONAL)
-			continue;
-
-		if (GFXOPTIONS(sky).automatic_sun_position)
-			GFXOPTIONS(sky).sun_direction = entity.getLocalDirection(glm::vec3(0, 0, -1));
-		sun_illuminance = glm::vec4(light.getPhotometricIntensity(), 1.0f);
-		return;
-	}
 }
 
 bool SkyRenderer::update_resources()

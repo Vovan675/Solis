@@ -11,8 +11,6 @@ struct DDGIVolume
 	int4 size; // cascade size (xyz), probes in cascade (w)
 	float3 spacing;
 	float pad2;
-	float4 sun_dir;
-	float4 sun_color;
 	float3 random_vector;
 	float pad3;
 	float random_angle;

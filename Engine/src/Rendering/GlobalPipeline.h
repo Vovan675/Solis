@@ -22,6 +22,7 @@ public:
 	void setDepthWrite(bool depth_write) { current_description.use_depth_write = depth_write; }
 	void setDepthFunc(CompareFunc func) { current_description.depth_compare_func = func; }
 	void setCullMode(CullMode cull_mode) { current_description.cull_mode = cull_mode; }
+	void setDepthClip(bool depth_clip) { current_description.depth_clip = depth_clip; }
 	void setPrimitiveTopology(Topology topology) { current_description.primitive_topology = topology; }
 	void setComputeShader(RHIShaderRef shader) { current_description.compute_shader = shader; }
 	void setRayGenerationShader(RHIShaderRef shader) { current_description.ray_generation_shader = shader; }

@@ -54,6 +54,7 @@ void OpaqueGeometryPass::render(FrameGraph &fg, const RenderView &view, const Re
 	cull.hiz = view.hiz;
 	cull.hiz_layer = view.layer;
 	cull.is_ortho = view.ortho_frustum;
+	cull.near_clip = view.near_clip;
 	cull.reverse_z = view.use_reverse_z;
 	cull.use_occlusion = view.use_two_pass_occlusion;
 
@@ -129,6 +130,7 @@ void OpaqueGeometryPass::render_meshlets(FrameGraph &fg, const RenderView &view,
 			gGlobalPipeline->setupGraphicsPipeline(cmd_list, view.shaders.meshlet_vertex_shader, view.shaders.pixel_shader, inputs, false, true, view.cull_mode);
 		}
 		gGlobalPipeline->setDepthFunc(view.getDepthFunc());
+		gGlobalPipeline->setDepthClip(view.depth_clip);
 		gGlobalPipeline->flushAndBind(cmd_list);
 
 		struct
@@ -172,6 +174,7 @@ void OpaqueGeometryPass::cull_traditional(FrameGraph &fg, const RenderView &view
 		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/gpu_driven/traditional_cull_instances.hlsl", COMPUTE_SHADER, "CSMain",
 											  {
 												  {"IS_ORTHO_FRUSTUM", view.ortho_frustum ? "1" : "0"},
+												  {"DISABLE_NEAR_CLIP", view.near_clip ? "0" : "1"},
 												  {"THREADGROUP_SIZE", std::to_string(TRADITIONAL_CULLING_THREADGROUP_SIZE).c_str()}
 											  }));
 		gGlobalPipeline->flushAndBind(cmd_list);
@@ -227,6 +230,7 @@ void OpaqueGeometryPass::render_traditional(FrameGraph &fg, const RenderView &vi
 		inputs.inputs.push_back({"INSTANCE_ID", 0, FORMAT_R32_UINT, true});
 		gGlobalPipeline->setupGraphicsPipeline(cmd_list, view.shaders.traditional_vertex_shader, view.shaders.pixel_shader, inputs, false, true, view.cull_mode);
 		gGlobalPipeline->setDepthFunc(view.getDepthFunc());
+		gGlobalPipeline->setDepthClip(view.depth_clip);
 		gGlobalPipeline->flushAndBind(cmd_list);
 
 		struct
