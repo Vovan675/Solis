@@ -253,6 +253,7 @@ struct TextureDescription
 	bool is_cube = false;
 	uint32_t width;
 	uint32_t height;
+	uint32_t depth = 1;
 	uint32_t mip_levels = 1;
 	uint32_t array_levels = 1;
 	SampleCount sample_count = SAMPLE_COUNT_1;
@@ -271,6 +272,7 @@ struct TextureDescription
 		Engine::Math::hashCombine(hash, is_cube);
 		Engine::Math::hashCombine(hash, width);
 		Engine::Math::hashCombine(hash, height);
+		Engine::Math::hashCombine(hash, depth);
 		Engine::Math::hashCombine(hash, mip_levels);
 		Engine::Math::hashCombine(hash, array_levels);
 		Engine::Math::hashCombine(hash, sample_count);

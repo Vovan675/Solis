@@ -104,7 +104,10 @@ struct FrameGraphTexture : public FrameGraphResource<FrameGraphResourceType::TEX
 	eastl::string toString() const
 	{
 		std::ostringstream out;
-		out << desc.width << "x" << desc.height << " (" << getFormatName(desc.format) << ")";
+		if (desc.depth > 1)
+			out << desc.width << "x" << desc.height << "x" << desc.depth << " (" << getFormatName(desc.format) << ")";
+		else
+			out << desc.width << "x" << desc.height << " (" << getFormatName(desc.format) << ")";
 		return out.str().c_str();
 	}
 };

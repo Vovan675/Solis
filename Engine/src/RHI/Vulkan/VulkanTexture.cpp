@@ -44,10 +44,10 @@ void VulkanTexture::fill()
 
 	VkImageCreateInfo imageInfo{};
 	imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-	imageInfo.imageType = VK_IMAGE_TYPE_2D;
+	imageInfo.imageType = is3D() ? VK_IMAGE_TYPE_3D : VK_IMAGE_TYPE_2D;
 	imageInfo.extent.width = description.width;
 	imageInfo.extent.height = description.height;
-	imageInfo.extent.depth = 1;
+	imageInfo.extent.depth = description.depth;
 	imageInfo.mipLevels = description.mip_levels;
 	imageInfo.arrayLayers = description.is_cube ? 6 : description.array_levels;
 	imageInfo.flags = description.is_cube ? VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT : 0;
@@ -513,7 +513,11 @@ VulkanTextureView::VulkanTextureView(TextureViewDescription description): RHITex
 	viewInfo.subresourceRange.levelCount = description.mip == -1 ? native_texture->getMipLevels() : 1;
 
 	// -1 = all layers
-	if (native_texture->getDescription().is_cube)
+	if (native_texture->is3D())
+	{
+		viewInfo.viewType = VK_IMAGE_VIEW_TYPE_3D;
+		viewInfo.subresourceRange.layerCount = 1;
+	} else if (native_texture->getDescription().is_cube)
 	{
 		if (description.view_type == TextureViewType::SHADER_RESOURCE_STORAGE)
 		{

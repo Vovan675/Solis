@@ -70,6 +70,7 @@ public:
 		return false;
 	}
 
+	bool is3D() const { return description.depth > 1; }
 	bool isUAV() const { return description.usage_flags & TEXTURE_USAGE_STORAGE; }
 	bool isRenderTargetTexture() const { return description.usage_flags & TEXTURE_USAGE_ATTACHMENT; }
 

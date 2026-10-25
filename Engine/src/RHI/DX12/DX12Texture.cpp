@@ -43,10 +43,10 @@ void DX12Texture::fill()
 	resource_desc.Width = description.width;
 	resource_desc.Height = description.height;
 	resource_desc.Flags = get_resource_flags();
-	resource_desc.DepthOrArraySize = description.is_cube ? 6 : description.array_levels;
+	resource_desc.DepthOrArraySize = is3D() ? description.depth : description.is_cube ? 6 : description.array_levels;
 	resource_desc.SampleDesc.Count = sample_count;
 	resource_desc.SampleDesc.Quality = 0;
-	resource_desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+	resource_desc.Dimension = is3D() ? D3D12_RESOURCE_DIMENSION_TEXTURE3D : D3D12_RESOURCE_DIMENSION_TEXTURE2D;
 
 	D3D12_CLEAR_VALUE clear_value{};
 	clear_value.Format = native_format;
@@ -438,7 +438,12 @@ DX12TextureView::DX12TextureView(TextureViewDescription description): RHITexture
 		D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
 		srv_desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 		srv_desc.Format = srv_format;
-		if (native_texture->getDescription().is_cube && description.layer == -1)
+		if (native_texture->is3D())
+		{
+			srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE3D;
+			srv_desc.Texture3D.MipLevels = mip_count;
+			srv_desc.Texture3D.MostDetailedMip = mip_base;
+		} else if (native_texture->getDescription().is_cube && description.layer == -1)
 		{
 			srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBE;
 			srv_desc.TextureCube.MipLevels = mip_count;
@@ -479,7 +484,13 @@ DX12TextureView::DX12TextureView(TextureViewDescription description): RHITexture
 
 		D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc = {};
 		uav_desc.Format = native_format;
-		if (native_texture->getDescription().is_cube)
+		if (native_texture->is3D())
+		{
+			uav_desc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE3D;
+			uav_desc.Texture3D.MipSlice = mip_base;
+			uav_desc.Texture3D.FirstWSlice = 0;
+			uav_desc.Texture3D.WSize = native_texture->getDescription().depth >> mip_base;
+		} else if (native_texture->getDescription().is_cube)
 		{
 			uav_desc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2DARRAY;
 			uav_desc.Texture2DArray.MipSlice = mip_base;

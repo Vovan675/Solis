@@ -643,12 +643,16 @@ float4 SRGBToLinear(float4 srgb) {
 	#endif
 }
 
-float4 LinearToSRGB(float4 l) {
+float3 LinearToSRGB(float3 l) {
 	#if SRGB_FAST
-		return float4(pow(l.rgb, 1.0 / 2.2), l.a);
+		return pow(l.rgb, 1.0 / 2.2);
 	#else
 		float3 low = l.rgb * 12.92;
 		float3 high = 1.055 * pow(abs(l.rgb), 1.0 / 2.4) - 0.055;
-		return float4(lerp(low, high, step(0.0031308, l.rgb)), l.a);
+		return lerp(low, high, step(0.0031308, l.rgb));
 	#endif
+}
+
+float4 LinearToSRGB(float4 l) {
+	return float4(LinearToSRGB(l.rgb), l.a);
 }

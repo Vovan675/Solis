@@ -60,6 +60,8 @@
 
 #define Bloom
 
+#define TonemapLUT
+
 #define CompositeIndirectAmbient
 #define CompositeIndirectSpecular
 

@@ -10,6 +10,8 @@ void PostProcessingRenderer::addPasses(FrameGraph &fg)
 	if (Renderer::isUpscalerActive())
 		last_output = GFXRID(UpscaledColor);
 
+	addTonemapLutPass(fg);
+
 	if (GFXOPTIONS(path_tracing))
 	{
 		if (GFXOPTIONS(bloom).enabled)
@@ -29,6 +31,41 @@ void PostProcessingRenderer::addPasses(FrameGraph &fg)
 		if (Renderer::isFXAAEnabled())
 			addFxaaPass(fg);
 	}
+}
+
+void PostProcessingRenderer::addTonemapLutPass(FrameGraph &fg)
+{
+	const uint32_t lut_size = 32;
+
+	fg.addCallbackPass("Tonemap LUT",
+	[=](RenderPassBuilder &builder)
+	{
+		TextureDescription lut_desc;
+		lut_desc.width = lut_size;
+		lut_desc.height = lut_size;
+		lut_desc.depth = lut_size;
+		lut_desc.format = FORMAT_R16G16B16A16_SFLOAT;
+		builder.createTexture(GFXRID(TonemapLUT), lut_desc);
+
+		builder.writeUAVTexture(GFXRID(TonemapLUT));
+	},
+	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
+	{
+		struct
+		{
+			uint32_t output_tex_id;
+			int tonemapper_mode;
+		} constants;
+		constants.output_tex_id = resources.getReadWriteTexture(GFXRID(TonemapLUT));
+		constants.tonemapper_mode = GFXOPTIONS(film).tonemapper;
+
+		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/build_lut.hlsl", COMPUTE_SHADER));
+		gGlobalPipeline->flushAndBind(cmd_list);
+
+		gDynamicRHI->setConstantBufferData(0, &constants, sizeof(constants));
+
+		cmd_list->dispatch(lut_size / 4, lut_size / 4, lut_size / 4);
+	});
 }
 
 void PostProcessingRenderer::addBloomPass(FrameGraph &fg)
@@ -129,6 +166,7 @@ void PostProcessingRenderer::addFilmPass(FrameGraph &fg)
 		}
 		builder.writeTexture(output);
 		builder.readTexture(last_output);
+		builder.readTexture(GFXRID(TonemapLUT));
 		if (GFXOPTIONS(bloom).enabled)
 			builder.readTexture(GFXRID(Bloom));
 
@@ -147,7 +185,7 @@ void PostProcessingRenderer::addFilmPass(FrameGraph &fg)
 		const FilmSettings &film = GFXOPTIONS(film);
 		film_ubo.composite_final_tex_id = resources.getReadTexture(data.input);
 		film_ubo.exposure = film.getExposure();
-		film_ubo.tonemapper_mode = film.tonemapper;
+		film_ubo.tonemap_lut_tex_id = resources.getReadTexture(GFXRID(TonemapLUT));
 		film_ubo.use_vignette = film.vignette ? 1.0f : 0.0f;
 		film_ubo.vignette_radius = film.vignette_radius;
 		film_ubo.vignette_smoothness = film.vignette_smoothness;
