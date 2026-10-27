@@ -39,10 +39,12 @@ inline const char *const exposure_mode_items[] = {"EV100", "Camera"};
 enum TonemapperMode
 {
 	TONEMAPPER_DISABLED = 0,
-	TONEMAPPER_UNCHARTED2,
+	TONEMAPPER_PBR_NEUTRAL,
 	TONEMAPPER_ACES,
+	TONEMAPPER_UCHIMURA,
+	TONEMAPPER_AGX,
 };
-inline const char *const tonemapper_items[] = {"Disabled", "Uncharted 2", "ACES"};
+inline const char *const tonemapper_items[] = {"Disabled", "Khronos PBR Neutral", "ACES", "Uchimura (GT Sport)", "AgX"};
 
 struct SkySettings
 {
@@ -77,6 +79,25 @@ REFLECT_BEGIN(SkySettings)
 		.EDIT_IF(owner.enabled && owner.mode == SKY_MODE_PROCEDURAL && !owner.automatic_sun_position),
 REFLECT_END()
 
+struct UchimuraSettings
+{
+	float max_brightness = 1.0f;
+	float contrast = 1.0f;
+	float linear_section_start = 0.22f;
+	float linear_section_length = 0.4f;
+	float black_tightness = 1.33f;
+	float pedestal = 0.0f;
+};
+
+REFLECT_BEGIN(UchimuraSettings)
+	REFLECT_FIELD(max_brightness).range(0.5f, 2.0f),
+	REFLECT_FIELD(contrast).range(0.5f, 2.0f),
+	REFLECT_FIELD(linear_section_start).range(0.01f, 0.5f),
+	REFLECT_FIELD(linear_section_length).range(0.0f, 0.9f),
+	REFLECT_FIELD(black_tightness).range(1.0f, 2.0f),
+	REFLECT_FIELD(pedestal).range(0.0f, 0.1f),
+REFLECT_END()
+
 struct FilmSettings
 {
 	ExposureMode exposure_mode = EXPOSURE_MODE_EV100;
@@ -85,6 +106,7 @@ struct FilmSettings
 	float shutter_speed = 1.0f / 8192.0f;
 	float iso = 100.0f;
 	TonemapperMode tonemapper = TONEMAPPER_DISABLED;
+	UchimuraSettings uchimura;
 	bool vignette = false;
 	float vignette_radius = 0.7f;
 	float vignette_smoothness = 0.2f;
@@ -115,6 +137,7 @@ REFLECT_BEGIN(FilmSettings)
 		.EDIT_IF(owner.exposure_mode == EXPOSURE_MODE_CAMERA),
 	REFLECT_CATEGORY("Film"),
 	REFLECT_FIELD(tonemapper).items(tonemapper_items),
+	REFLECT_FIELD(uchimura).label("Uchimura").EDIT_IF(owner.tonemapper == TONEMAPPER_UCHIMURA),
 	REFLECT_FIELD(vignette),
 	REFLECT_FIELD(vignette_radius).range(0.1f, 1.0f).format("%.2f")
 		.EDIT_IF(owner.vignette),

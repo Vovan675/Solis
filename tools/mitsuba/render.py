@@ -127,7 +127,7 @@ else:
     scene = mi.load_dict(build_transforms(scene_dict))
 
 rendered = np.array(mi.render(scene, spp=256))
-rendered = apply_tonemap(rendered, tonemap['exposure'], tonemap['tonemapper'])
+rendered = apply_tonemap(rendered, tonemap['exposure'], tonemap['tonemapper'], tonemap.get('uchimura'))
 
 bitmap = mi.Bitmap(np.ascontiguousarray(rendered.astype(np.float32)))
 bitmap.convert(mi.Bitmap.PixelFormat.RGB, mi.Struct.Type.UInt8, srgb_gamma=False).write(out_path)

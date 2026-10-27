@@ -234,7 +234,19 @@ bool MitsubaBridge::export_scene(EditorContext &context, const std::filesystem::
 		{"film", { {"type", "hdrfilm"}, {"width", width}, {"height", height} }},
 		{"sampler", { {"type", "independent"}, {"sample_count", 64} }},
 	};
-	scene["tonemap"] = {{"exposure", GFXOPTIONS(film).getExposure()}, {"tonemapper", GFXOPTIONS(film).tonemapper}};
+	const UchimuraSettings &uchimura = GFXOPTIONS(film).uchimura;
+	scene["tonemap"] = {
+		{"exposure", GFXOPTIONS(film).getExposure()},
+		{"tonemapper", GFXOPTIONS(film).tonemapper},
+		{"uchimura", {
+			{"max_brightness", uchimura.max_brightness},
+			{"contrast", uchimura.contrast},
+			{"linear_section_start", uchimura.linear_section_start},
+			{"linear_section_length", uchimura.linear_section_length},
+			{"black_tightness", uchimura.black_tightness},
+			{"pedestal", uchimura.pedestal},
+		}},
+	};
 
 	// Lights
 	int lights = write_lights(scene);
