@@ -3,17 +3,17 @@
 
 #define TONEMAP_LUT_SIZE 32
 
-static const float TONEMAP_LUT_MIDDLE_GREY = 0.18;
+static const float MIDDLE_GREY = 0.18;
 static const float TONEMAP_LUT_STOPS = 20.0;
 
 float3 linearToLog(float3 linear_color)
 {
-	return saturate(log2(linear_color / TONEMAP_LUT_MIDDLE_GREY) / TONEMAP_LUT_STOPS + 0.5);
+	return saturate(log2(linear_color / MIDDLE_GREY) / TONEMAP_LUT_STOPS + 0.5);
 }
 
 float3 logToLinear(float3 log_color)
 {
-	return TONEMAP_LUT_MIDDLE_GREY * exp2((log_color - 0.5) * TONEMAP_LUT_STOPS);
+	return MIDDLE_GREY * exp2((log_color - 0.5) * TONEMAP_LUT_STOPS);
 }
 
 float3 sampleTonemapLut(uint lut_tex_id, float3 linear_color)
@@ -69,6 +69,80 @@ static const float3x3 D60_TO_D65 =
 
 static const float3x3 REC709_TO_AP1 = mul(XYZ_TO_AP1, mul(D65_TO_D60, REC709_TO_XYZ));
 static const float3x3 AP1_TO_REC709 = mul(XYZ_TO_REC709, mul(D60_TO_D65, AP1_TO_XYZ));
+
+// Bradford LMS (standartly used, because this LMS adjusted to human perception)
+// Matrix Reference: http://www.brucelindbloom.com/index.html?Eqn_ChromAdapt.html
+static const float3x3 XYZ_TO_BRADFORD_LMS =
+{
+	{ 0.8951, 0.2664, -0.1614 },
+	{ -0.7502, 1.7135, 0.0367 },
+	{ 0.0389, -0.0685, 1.0296 }
+};
+
+static const float3x3 BRADFORD_LMS_TO_XYZ =
+{
+	{ 0.9869929, -0.1470543, 0.1599627 },
+	{ 0.4323053, 0.5183603, 0.0492912 },
+	{ -0.0085287, 0.0400428, 0.9684867 }
+};
+
+// CIE 1960 uv to CIE 1931 xy, https://en.wikipedia.org/wiki/CIE_1960_color_space#Relation_to_CIE_XYZ
+float2 uvToXY(float2 uv)
+{
+	return float2(3.0 * uv.x, 2.0 * uv.y) / (2.0 * uv.x - 8.0 * uv.y + 4.0);
+}
+
+// xy to XYZ with Y = 1, https://en.wikipedia.org/wiki/CIE_1931_color_space#CIE_xyY_color_space
+float3 xyToXYZ(float2 xy)
+{
+	return float3(xy.x / xy.y, 1.0, (1.0 - xy.x - xy.y) / xy.y);
+}
+
+// Planck's locus approximation in CIE 1960 color space, 1000K-15000K,
+// Reference: https://en.wikipedia.org/wiki/Planckian_locus#Approximation
+float2 planckianLocusUV(float temperature)
+{
+	float t = temperature;
+	float u = (0.860117757 + 1.54118254e-4 * t + 1.28641212e-7 * t * t) / (1.0 + 8.42420235e-4 * t + 7.08145163e-7 * t * t);
+	float v = (0.317398726 + 4.22806245e-5 * t + 4.20481691e-8 * t * t) / (1.0 - 2.89741816e-5 * t + 1.61456053e-7 * t * t);
+	return float2(u, v);
+}
+
+// Derivative of planckianLocusUV, Wolfram Alpha used
+float2 planckianLocusUVDerivative(float temperature)
+{
+	float t = temperature;
+	float u_denominator = 1.41213984e6 + 1189.61518 * t + t * t;
+	float v_denominator = 6.19363586e6 - 179.45553 * t + t * t;
+	float du = (-1.13758118e9 - 1.91615621e6 * t - 1.53177002 * t * t) / (u_denominator * u_denominator);
+	float dv = (1.97471537e9 - 705674.106 * t - 308.606584 * t * t) / (v_denominator * v_denominator);
+	return float2(du, dv);
+}
+
+// White of a black body using temperature and moved tint
+float3 whiteXYZ(float temperature, float tint)
+{
+	float2 uv = planckianLocusUV(temperature);
+	float2 tangent = normalize(planckianLocusUVDerivative(temperature));
+	uv += float2(tangent.y, -tangent.x) * tint * 0.05f;
+
+	return xyToXYZ(uvToXY(uv));
+}
+
+// The task is to convert current color temperature (given as argument) to be like D65 (WHITE) color
+// This is done using 'Von Kries' method. It needs colors in LMS (long, medium, short) color space
+// https://en.wikipedia.org/wiki/Color_balance#Von_Kries's_method
+float3 whiteBalance(float3 color, float temperature, float tint)
+{
+	float3 source_white_lms = mul(XYZ_TO_BRADFORD_LMS, whiteXYZ(temperature, tint));
+	float3 destination_white_lms = mul(XYZ_TO_BRADFORD_LMS, whiteXYZ(6500.0, 0.0));
+
+	float3 color_lms = mul(XYZ_TO_BRADFORD_LMS, mul(REC709_TO_XYZ, color));
+
+	color_lms *= destination_white_lms / source_white_lms;
+
+	return mul(XYZ_TO_REC709, mul(BRADFORD_LMS_TO_XYZ, color_lms));
+}
 
 // Reference: aces-dev lib/ACESlib.Utilities_Color.ctl (calc_sat_adjust_matrix)
 float3x3 ap1SaturationMatrix(float saturation)

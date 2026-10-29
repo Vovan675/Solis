@@ -56,10 +56,12 @@ void PostProcessingRenderer::addTonemapLutPass(FrameGraph &fg)
 			uint32_t output_tex_id;
 			int tonemapper_mode;
 			alignas(16) UchimuraSettings uchimura;
+			alignas(16) ColorGradingSettings color_grading;
 		} constants;
 		constants.output_tex_id = resources.getReadWriteTexture(GFXRID(TonemapLUT));
 		constants.tonemapper_mode = GFXOPTIONS(film).tonemapper;
 		constants.uchimura = GFXOPTIONS(film).uchimura;
+		constants.color_grading = GFXOPTIONS(color_grading);
 
 		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/build_lut.hlsl", COMPUTE_SHADER));
 		gGlobalPipeline->flushAndBind(cmd_list);

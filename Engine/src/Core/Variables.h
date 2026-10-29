@@ -145,6 +145,28 @@ REFLECT_BEGIN(FilmSettings)
 		.EDIT_IF(owner.vignette),
 REFLECT_END()
 
+struct ColorGradingSettings
+{
+	float temperature = 6500.0f;
+	float tint = 0.0f;
+	float contrast = 1.0f;
+	float saturation = 1.0f;
+	float shadows = 0.0f;
+	float midtones = 0.0f;
+	float highlights = 0.0f;
+};
+
+REFLECT_BEGIN(ColorGradingSettings)
+	REFLECT_CATEGORY("Color Grading"),
+	REFLECT_FIELD(temperature).range(4000.0f, 10000.0f).format("%.0f K"),
+	REFLECT_FIELD(tint).range(-0.5f, 0.5f),
+	REFLECT_FIELD(contrast).range(0.5f, 1.5f),
+	REFLECT_FIELD(saturation).range(0.0f, 2.0f),
+	REFLECT_FIELD(shadows).range(-2.0f, 2.0f).format("%.2f EV"),
+	REFLECT_FIELD(midtones).range(-2.0f, 2.0f).format("%.2f EV"),
+	REFLECT_FIELD(highlights).range(-2.0f, 2.0f).format("%.2f EV"),
+REFLECT_END()
+
 struct BloomSettings
 {
 	bool enabled = false;
@@ -380,6 +402,7 @@ struct RenderSettings
 
 	SkySettings sky;
 	FilmSettings film;
+	ColorGradingSettings color_grading;
 	BloomSettings bloom;
 	LightingSettings lighting;
 	SSAOSettings ssao;
@@ -393,6 +416,7 @@ REFLECT_BEGIN(RenderSettings)
 	REFLECT_FIELD(path_tracing),
 	REFLECT_FIELD(sky),
 	REFLECT_FIELD(film),
+	REFLECT_FIELD(color_grading),
 	REFLECT_FIELD(bloom),
 	REFLECT_FIELD(lighting),
 	REFLECT_FIELD(ssao),

@@ -20,6 +20,14 @@ def smoothstep(edge0, edge1, x):
 def step(edge, x):
     return (x >= edge).astype(x.dtype)
 
+def dot(color, weights):
+    return np.sum(color * weights, axis=-1, keepdims=True)
+
+def normalize(v):
+    return v / np.linalg.norm(v)
+
+MIDDLE_GREY = 0.18
+
 # Color spaces
 REC709_TO_XYZ = np.array([
     [0.4123907993, 0.3575843394, 0.1804807884],
@@ -53,6 +61,64 @@ D60_TO_D65 = np.array([
 
 REC709_TO_AP1 = XYZ_TO_AP1 @ (D65_TO_D60 @ REC709_TO_XYZ)
 AP1_TO_REC709 = XYZ_TO_REC709 @ (D60_TO_D65 @ AP1_TO_XYZ)
+
+# Bradford LMS (standartly used, because this LMS adjusted to human perception)
+# Matrix Reference: http://www.brucelindbloom.com/index.html?Eqn_ChromAdapt.html
+XYZ_TO_BRADFORD_LMS = np.array([
+    [0.8951, 0.2664, -0.1614],
+    [-0.7502, 1.7135, 0.0367],
+    [0.0389, -0.0685, 1.0296]])
+
+BRADFORD_LMS_TO_XYZ = np.array([
+    [0.9869929, -0.1470543, 0.1599627],
+    [0.4323053, 0.5183603, 0.0492912],
+    [-0.0085287, 0.0400428, 0.9684867]])
+
+# CIE 1960 uv to CIE 1931 xy, https://en.wikipedia.org/wiki/CIE_1960_color_space#Relation_to_CIE_XYZ
+def uvToXY(uv):
+    return np.array([3.0 * uv[0], 2.0 * uv[1]]) / (2.0 * uv[0] - 8.0 * uv[1] + 4.0)
+
+# xy to XYZ with Y = 1, https://en.wikipedia.org/wiki/CIE_1931_color_space#CIE_xyY_color_space
+def xyToXYZ(xy):
+    return np.array([xy[0] / xy[1], 1.0, (1.0 - xy[0] - xy[1]) / xy[1]])
+
+# Planck's locus approximation in CIE 1960 color space, 1000K-15000K,
+# Reference: https://en.wikipedia.org/wiki/Planckian_locus#Approximation
+def planckianLocusUV(temperature):
+    t = temperature
+    u = (0.860117757 + 1.54118254e-4 * t + 1.28641212e-7 * t * t) / (1.0 + 8.42420235e-4 * t + 7.08145163e-7 * t * t)
+    v = (0.317398726 + 4.22806245e-5 * t + 4.20481691e-8 * t * t) / (1.0 - 2.89741816e-5 * t + 1.61456053e-7 * t * t)
+    return np.array([u, v])
+
+# Derivative of planckianLocusUV, Wolfram Alpha used
+def planckianLocusUVDerivative(temperature):
+    t = temperature
+    u_denominator = 1.41213984e6 + 1189.61518 * t + t * t
+    v_denominator = 6.19363586e6 - 179.45553 * t + t * t
+    du = (-1.13758118e9 - 1.91615621e6 * t - 1.53177002 * t * t) / (u_denominator * u_denominator)
+    dv = (1.97471537e9 - 705674.106 * t - 308.606584 * t * t) / (v_denominator * v_denominator)
+    return np.array([du, dv])
+
+# White of a black body using temperature and moved tint
+def whiteXYZ(temperature, tint):
+    uv = planckianLocusUV(temperature)
+    tangent = normalize(planckianLocusUVDerivative(temperature))
+    uv = uv + np.array([tangent[1], -tangent[0]]) * tint * 0.05
+
+    return xyToXYZ(uvToXY(uv))
+
+# The task is to convert current color temperature (given as argument) to be like D65 (WHITE) color
+# This is done using 'Von Kries' method. It needs colors in LMS (long, medium, short) color space
+# https://en.wikipedia.org/wiki/Color_balance#Von_Kries's_method
+def whiteBalance(color, temperature, tint):
+    source_white_lms = mul(XYZ_TO_BRADFORD_LMS, whiteXYZ(temperature, tint))
+    destination_white_lms = mul(XYZ_TO_BRADFORD_LMS, whiteXYZ(6500.0, 0.0))
+
+    color_lms = mul(XYZ_TO_BRADFORD_LMS, mul(REC709_TO_XYZ, color))
+
+    color_lms = color_lms * (destination_white_lms / source_white_lms)
+
+    return mul(XYZ_TO_REC709, mul(BRADFORD_LMS_TO_XYZ, color_lms))
 
 def ap1SaturationMatrix(saturation):
     luminance = AP1_TO_XYZ[1]
@@ -180,23 +246,46 @@ def LinearToSRGB(l):
     high = 1.055 * np.power(np.abs(l), 1.0 / 2.4) - 0.055
     return lerp(low, high, step(0.0031308, l))
 
-def apply_tonemap(value, exposure, tonemapper_mode, uchimura):
+# Y in XYZ is luminance
+WORKING_LUMINANCE = AP1_TO_XYZ[1] if USE_AP1 else REC709_TO_XYZ[1]
+
+def apply_tonemap(value, exposure, tonemapper_mode, uchimura, color_grading):
     color = value * exposure
+
+    color = whiteBalance(color, color_grading['temperature'], color_grading['tint'])
 
     if USE_AP1:
         color = mul(REC709_TO_AP1, color)
+
+    # Contrast, shadows, midtones and highlights in stops of luminance around middle grey
+    luminance = dot(color, WORKING_LUMINANCE)
+    ev = np.log2(np.maximum(luminance, 1e-10) / MIDDLE_GREY) # How much EV is luminance far from middle gray
+
+    shadows_weight = 1.0 - smoothstep(-4.0, -1.0, ev)
+    highlights_weight = smoothstep(1.0, 4.0, ev)
+    midtones_weight = 1.0 - shadows_weight - highlights_weight
+
+    graded_ev = ev * color_grading['contrast'] # Move EV nearer of farther from gray based on constrast
+    graded_ev += color_grading['shadows'] * shadows_weight
+    graded_ev += color_grading['highlights'] * highlights_weight
+    graded_ev += color_grading['midtones'] * midtones_weight
+
+    color = color * np.exp2(graded_ev - ev)
+
+    # Saturation (lerp from luminance to color, or even beyond color)
+    luminance = dot(color, WORKING_LUMINANCE)
+    color = np.maximum(lerp(luminance, color, color_grading['saturation']), 0.0)
 
     # Apply tone mapping
     if tonemapper_mode == 2:
         color = ACESFitted(color)
     elif tonemapper_mode == 3:
-        color = Uchimura(color, uchimura['max_brightness'], uchimura['contrast'], uchimura['linear_section_start'],
-            uchimura['linear_section_length'], uchimura['black_tightness'], uchimura['pedestal'])
+        color = Uchimura(color, uchimura['max_brightness'], uchimura['contrast'], uchimura['linear_section_start'], uchimura['linear_section_length'], uchimura['black_tightness'], uchimura['pedestal'])
 
     if USE_AP1:
         color = mul(AP1_TO_REC709, color)
 
-    # Tonemappers with Rec.709 input
+    # Where Rec.709 input needed
     if tonemapper_mode == 1:
         color = PBRNeutralToneMapping(color)
     elif tonemapper_mode == 4:

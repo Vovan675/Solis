@@ -116,7 +116,8 @@ def build_transforms(node):
 scene_path = sys.argv[1] if len(sys.argv) > 1 else os.path.join(script_dir, 'test/scene.json')
 out_path = sys.argv[2] if len(sys.argv) > 2 else os.path.splitext(scene_path)[0] + '.png'
 
-tonemap = {'exposure': 1.0, 'tonemapper': 0}
+color_grading = {'temperature': 6500.0, 'tint': 0.0, 'contrast': 1.0, 'saturation': 1.0, 'shadows': 0.0, 'midtones': 0.0, 'highlights': 0.0}
+tonemap = {'exposure': 1.0, 'tonemapper': 0, 'color_grading': color_grading}
 if scene_path.lower().endswith('.xml'):
     scene = mi.load_file(scene_path)
 else:
@@ -127,7 +128,7 @@ else:
     scene = mi.load_dict(build_transforms(scene_dict))
 
 rendered = np.array(mi.render(scene, spp=256))
-rendered = apply_tonemap(rendered, tonemap['exposure'], tonemap['tonemapper'], tonemap.get('uchimura'))
+rendered = apply_tonemap(rendered, tonemap['exposure'], tonemap['tonemapper'], tonemap.get('uchimura'), tonemap['color_grading'])
 
 bitmap = mi.Bitmap(np.ascontiguousarray(rendered.astype(np.float32)))
 bitmap.convert(mi.Bitmap.PixelFormat.RGB, mi.Struct.Type.UInt8, srgb_gamma=False).write(out_path)

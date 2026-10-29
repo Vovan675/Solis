@@ -184,6 +184,7 @@ void RenderSettingsPanel::renderImGui(EditorContext &context)
 
 			UI::drawStruct(GFXOPTIONS(film));
 			UI::text("Exposure Multiplier", "%.6f", GFXOPTIONS(film).getExposure());
+			UI::drawStruct(GFXOPTIONS(color_grading));
 			UI::drawStruct(GFXOPTIONS(bloom));
 
 			ImGui::EndTabItem();

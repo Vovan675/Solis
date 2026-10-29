@@ -235,6 +235,7 @@ bool MitsubaBridge::export_scene(EditorContext &context, const std::filesystem::
 		{"sampler", { {"type", "independent"}, {"sample_count", 64} }},
 	};
 	const UchimuraSettings &uchimura = GFXOPTIONS(film).uchimura;
+	const ColorGradingSettings &color_grading = GFXOPTIONS(color_grading);
 	scene["tonemap"] = {
 		{"exposure", GFXOPTIONS(film).getExposure()},
 		{"tonemapper", GFXOPTIONS(film).tonemapper},
@@ -245,6 +246,15 @@ bool MitsubaBridge::export_scene(EditorContext &context, const std::filesystem::
 			{"linear_section_length", uchimura.linear_section_length},
 			{"black_tightness", uchimura.black_tightness},
 			{"pedestal", uchimura.pedestal},
+		}},
+		{"color_grading", {
+			{"temperature", color_grading.temperature},
+			{"tint", color_grading.tint},
+			{"contrast", color_grading.contrast},
+			{"saturation", color_grading.saturation},
+			{"shadows", color_grading.shadows},
+			{"midtones", color_grading.midtones},
+			{"highlights", color_grading.highlights},
 		}},
 	};
 
