@@ -44,6 +44,7 @@ public:
 
 	void render_deferred(Camera *camera, FrameGraph &frame_graph);
 	void render_path_traced(Camera *camera, FrameGraph &frame_graph);
+	void add_screenshot_passes(FrameGraph &frame_graph);
 	void update(Camera *camera);
 
 	void on_mesh_renderer_constructed(entt::registry &registry, entt::entity entity);

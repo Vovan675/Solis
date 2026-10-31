@@ -21,7 +21,15 @@ float GetVignette(float2 uv, float radius, float smoothness) {
 	return smoothstep(-smoothness, smoothness, dist);
 }
 
-float4 PSMain(float2 uv : TEXCOORD0) : SV_TARGET {
+struct PSOutput
+{
+	float4 color : SV_Target0;
+#ifdef HDR_CAPTURE
+	float4 hdr : SV_Target1;
+#endif
+};
+
+PSOutput PSMain(float2 uv : TEXCOORD0) {
 	// Calculate vignette
 	float vignette = 1.0;
 	if (use_vignette > 0.5) {
@@ -40,5 +48,12 @@ float4 PSMain(float2 uv : TEXCOORD0) : SV_TARGET {
 
 	value *= exposure;
 
-	return float4(sampleTonemapLut(tonemap_lut_tex_id, value.rgb), 1.0);
+	PSOutput output;
+	output.color = float4(sampleTonemapLut(tonemap_lut_tex_id, value.rgb), 1.0);
+#if HDR_CAPTURE_RAW
+	output.hdr = float4(SampleTexture(composite_final_tex_id, uv).rgb * exposure, 1.0);
+#elif HDR_CAPTURE
+	output.hdr = float4(value.rgb, 1.0);
+#endif
+	return output;
 }

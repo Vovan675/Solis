@@ -129,6 +129,12 @@ float EditorApplication::draw_top_bar()
 		if (tool_button(is_play ? ICON_FA_STOP : ICON_FA_PLAY, is_play ? UI::error_color : UI::success_color))
 			toggle_play();
 
+		ImGui::SameLine(0, 24);
+
+		if (tool_button(ICON_FA_CAMERA, ImGui::GetStyleColorVec4(ImGuiCol_Text)))
+			open_screenshot_popup = true;
+		ImGui::SetItemTooltip("Screenshot (F11)");
+
 		ImGui::PopStyleVar();
 
 		// Default window buttons
@@ -199,6 +205,36 @@ void EditorApplication::toggle_play()
 		saved_scene = nullptr;
 		eastl::erase_if(context.selected_entities, [&](entt::entity id) { return !Scene::getCurrentScene()->isValid(id); });
 	}
+}
+
+void EditorApplication::draw_screenshot_popup()
+{
+	if (open_screenshot_popup)
+	{
+		ImGui::OpenPopup("Screenshot");
+		open_screenshot_popup = false;
+	}
+
+	ImGui::SetNextWindowSizeConstraints(ImVec2(560, 0), ImVec2(FLT_MAX, FLT_MAX));
+	if (!ImGui::BeginPopupModal("Screenshot", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+		return;
+
+	UI::convar(render_screenshot_name.getDescription());
+	UI::convar(render_screenshot_frames.getDescription());
+	UI::combo(render_screenshot_format.getDescription()->label, render_screenshot_format.getPtr(), screenshot_format_items, IM_ARRAYSIZE(screenshot_format_items));
+	UI::convar(render_screenshot_raw.getDescription());
+	ImGui::TextDisabled("assets/screenshots/<name>.png/.exr");
+
+	if (ImGui::Button("Capture") || ImGui::IsKeyPressed(ImGuiKey_Enter))
+	{
+		render_screenshot = true;
+		ImGui::CloseCurrentPopup();
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("Cancel") || ImGui::IsKeyPressed(ImGuiKey_Escape))
+		ImGui::CloseCurrentPopup();
+
+	ImGui::EndPopup();
 }
 
 void EditorApplication::init()
@@ -325,6 +361,11 @@ void EditorApplication::update(float delta_time)
 
 	if (ImGui::IsKeyPressed(ImGuiKey_M, false) && !ImGui::GetIO().WantTextInput)
 		mitsuba_bridge.runRender(context);
+
+	if (gInput.isKeyPressed(GLFW_KEY_F11))
+		render_screenshot = true;
+
+	draw_screenshot_popup();
 
 	viewport_panel.update();
 

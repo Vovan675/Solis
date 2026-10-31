@@ -164,6 +164,28 @@ public:
 		cvars.push_back(var);
 		return index;
 	}
+
+	static bool setFromString(const char *name, const char *value)
+	{
+		return set_by_name<int>(name, atoi(value))
+			|| set_by_name<float>(name, (float)atof(value))
+			|| set_by_name<bool>(name, atoi(value) != 0)
+			|| set_by_name<eastl::string>(name, value);
+	}
+
+private:
+	template<typename T>
+	static bool set_by_name(const char *name, T value)
+	{
+		for (ConVar<T> &cvar : getCVars<T>())
+		{
+			if (strcmp(cvar.description.name, name) != 0)
+				continue;
+			cvar.current_value = value;
+			return true;
+		}
+		return false;
+	}
 };
 
 // Used for easy initialization/access to console variable

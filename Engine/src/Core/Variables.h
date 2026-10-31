@@ -46,6 +46,14 @@ enum TonemapperMode
 };
 inline const char *const tonemapper_items[] = {"Disabled", "Khronos PBR Neutral", "ACES", "Uchimura (GT Sport)", "AgX"};
 
+enum ScreenshotFormat
+{
+	SCREENSHOT_FORMAT_PNG_EXR = 0,
+	SCREENSHOT_FORMAT_PNG,
+	SCREENSHOT_FORMAT_EXR,
+};
+inline const char *const screenshot_format_items[] = {"PNG + EXR", "PNG", "EXR"};
+
 struct SkySettings
 {
 	bool enabled = true;
@@ -441,9 +449,12 @@ extern AutoConVarBool engine_assets_reimport;
 extern AutoConVarBool engine_shader_debug_info;
 extern AutoConVarBool engine_streamline;
 extern AutoConVarString engine_startup_scene;
+extern AutoConVarBool engine_quit;
 
 // Runtime variables
 extern AutoConVarBool render_vsync;
+extern AutoConVarInt render_virtual_width;
+extern AutoConVarInt render_virtual_height;
 extern AutoConVarBool render_path_tracing_first_frame;
 extern AutoConVarBool render_lighting_only;
 extern AutoConVarBool render_keep_persistent_resources;
@@ -457,6 +468,14 @@ extern AutoConVarBool render_culling_freeze;
 extern AutoConVarBool render_meshlets_mesh_shaders;
 extern AutoConVarBool render_meshlets_bvh_visualize;
 extern AutoConVarInt render_meshlets_bvh_visualize_depth;
+
+// Screenshots
+extern AutoConVarString render_screenshot_name;
+extern AutoConVarInt render_screenshot_frames;
+extern AutoConVarInt render_screenshot_format;
+extern AutoConVarBool render_screenshot_raw;
+extern AutoConVarBool render_screenshot;
+extern AutoConVarBool engine_quit_after_screenshot;
 
 // Asset import
 extern AutoConVarInt engine_gltf_import_threads;

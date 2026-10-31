@@ -8,6 +8,8 @@
 #include "Rendering/Model.h"
 #include "Rendering/UploadManager.h"
 #include "Assets/AssetManager.h"
+#include "Renderers/UtilityPasses.h"
+#include "Utils/Image.h"
 
 SceneRenderer::SceneRenderer()
 {
@@ -343,6 +345,8 @@ void SceneRenderer::render(Camera *camera, RHITextureRef result_texture)
 		render_deferred(camera, frame_graph);
 	}
 
+	add_screenshot_passes(frame_graph);
+
 	frame_graph.compile();
 	frame_graph.execute(gDynamicRHI->getCmdList());
 
@@ -414,6 +418,35 @@ void SceneRenderer::render_path_traced(Camera *camera, FrameGraph &frame_graph)
 {
 	path_tracing_renderer.addPass(frame_graph, rt_scene, sun_light_index);
 	post_renderer.addPasses(frame_graph);
+}
+
+void SceneRenderer::add_screenshot_passes(FrameGraph &frame_graph)
+{
+	if (!Renderer::isScreenshotFrame())
+		return;
+
+	std::filesystem::path directory = AssetManager::getAssetsRoot() / "screenshots";
+	eastl::string name = render_screenshot_name;
+	if (name.empty())
+	{
+		int index = 0;
+		while (std::filesystem::exists(directory / ("screenshot_" + std::to_string(index) + ".png")) || std::filesystem::exists(directory / ("screenshot_" + std::to_string(index) + ".exr")))
+			index++;
+		name = eastl::string("screenshot_") + eastl::to_string(index);
+	}
+	std::filesystem::path png_path = directory / (name + ".png").c_str();
+	std::filesystem::path exr_path = directory / (name + ".exr").c_str();
+	CORE_INFO("Screenshot saved to {}", std::filesystem::absolute(directory / name.c_str()).string());
+
+	if (render_screenshot_format == SCREENSHOT_FORMAT_PNG || render_screenshot_format == SCREENSHOT_FORMAT_PNG_EXR)
+		UtilityPasses::addReadbackPass(frame_graph, GFXRID(FinalTexture), [png_path](Ref<Image> image) { image->save(png_path); });
+
+	if (render_screenshot_format == SCREENSHOT_FORMAT_EXR || render_screenshot_format == SCREENSHOT_FORMAT_PNG_EXR)
+		UtilityPasses::addReadbackPass(frame_graph, GFXRID(FilmHDR), [exr_path](Ref<Image> image) { image->save(exr_path); });
+
+	render_screenshot = false;
+	if (engine_quit_after_screenshot)
+		gDynamicRHI->runAfterGPUFrame([]() { engine_quit = true; });
 }
 
 void SceneRenderer::update(Camera *camera)

@@ -40,6 +40,7 @@ namespace UI
 
 	bool inputFloat3(const char *label, float *value, const char *tooltip = nullptr, ImGuiInputTextFlags flags = 0);
 	bool inputInt(const char *label, int *value, const char *tooltip = nullptr, ImGuiInputTextFlags flags = 0);
+	bool inputInt2(const char *label, int *value, const char *tooltip = nullptr, ImGuiInputTextFlags flags = 0);
 
 	bool colorEdit3(const char *label, float *value, const char *tooltip = nullptr, ImGuiColorEditFlags flags = ImGuiColorEditFlags_Float);
 	bool colorEdit4(const char *label, float *value, const char *tooltip = nullptr, ImGuiColorEditFlags flags = ImGuiColorEditFlags_Float);

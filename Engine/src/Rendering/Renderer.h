@@ -72,6 +72,7 @@ public:
 	static bool isRayTracedShadowsEnabled();
 	static bool isRTXDIEnabled();
 	static bool isDDGIEnabled();
+	static bool isScreenshotFrame();
 
 private:
 	friend class VulkanDynamicRHI;
@@ -83,4 +84,5 @@ private:
 	static const PassConstants *pass_constants;
 	static glm::ivec2 render_resolution;
 	static glm::ivec2 output_resolution;
+	static int screenshot_frames_waited;
 };

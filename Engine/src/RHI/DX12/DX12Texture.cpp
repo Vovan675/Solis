@@ -286,6 +286,14 @@ void DX12Texture::generateMipmaps(RHICommandList *cmd_list)
 	}
 }
 
+uint32_t DX12Texture::getBufferRowPitch() const
+{
+	D3D12_RESOURCE_DESC desc = resource->resource->GetDesc();
+	D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint;
+	DX12Utils::getNativeRHI()->device->GetCopyableFootprints(&desc, 0, 1, 0, &footprint, nullptr, nullptr, nullptr);
+	return footprint.Footprint.RowPitch;
+}
+
 void DX12Texture::set_native_format()
 {
 	native_format = DX12Utils::getNativeFormat(description.format);

@@ -27,7 +27,11 @@ VulkanBuffer::VulkanBuffer(BufferDescription description) : RHIBuffer(descriptio
 
 	VmaMemoryUsage memory_usage = VMA_MEMORY_USAGE_AUTO;
 	VmaAllocationCreateFlags flags = 0;
-	if (description.use_staging_buffer && !hasAnyFlags(description.usage, BufferUsage::STAGING_BUFFER))
+	if (hasAnyFlags(description.usage, BufferUsage::READBACK_BUFFER))
+	{
+		memory_usage = VMA_MEMORY_USAGE_AUTO_PREFER_HOST;
+		flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
+	} else if (description.use_staging_buffer && !hasAnyFlags(description.usage, BufferUsage::STAGING_BUFFER))
 	{
 		memory_usage = VMA_MEMORY_USAGE_GPU_ONLY;
 	} else

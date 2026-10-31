@@ -4,6 +4,9 @@
 #define TINYDDS_IMPLEMENTATION
 #include <tinydds.h>
 #include <stb_image.h>
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include <stb_image_write.h>
+#include <tinyexr.h>
 #include <compressonator.h>
 #include "dds_helpers.h"
 #include "dds.h"
@@ -24,6 +27,10 @@ Image::Image(eastl::string path)
 {
 	load(path);
 }
+
+Image::Image(uint32_t width, uint32_t height, Format format, eastl::vector<uint8_t> data)
+	: data(eastl::move(data)), width(width), height(height), mip_levels(1), format(format)
+{}
 
 void Image::createMipmaps()
 {
@@ -233,6 +240,19 @@ void Image::save(const std::filesystem::path &path)
 
 		FileStream stream(path.string().c_str(), std::ofstream::out | std::ofstream::binary);
 		stream.writeBytes((const char *)dds_data.data(), dds_data.size());
+	} else if (extension == ".png")
+	{
+		if (!stbi_write_png(path.string().c_str(), width, height, 4, data.data(), width * 4))
+			CORE_ERROR("Saving image {} failed", path.string());
+	} else if (extension == ".exr")
+	{
+		ENGINE_ASSERT(format == FORMAT_R32G32B32A32_SFLOAT);
+		const char *error = nullptr;
+		if (SaveEXR((const float *)data.data(), width, height, 4, false, path.string().c_str(), &error) != TINYEXR_SUCCESS)
+		{
+			CORE_ERROR("Saving image {} failed: {}", path.string(), error);
+			FreeEXRErrorMessage(error);
+		}
 	} else
 	{
 		CORE_ERROR("Saving image to extension {} not supported", extension.string());

@@ -73,21 +73,25 @@ bool ViewportPanel::renderImGui(EditorContext &context, float delta_time, bool f
 
 	bool is_hovered = ImGui::IsWindowHovered();
 
-	ImVec2 viewport_offset = ImGui::GetCursorPos();
-	ImVec2 viewport_pos = ImGui::GetWindowPos();
-	viewport_pos.x += viewport_offset.x;
-	viewport_pos.y += viewport_offset.y;
-
 	ImVec2 viewport_size = ImGui::GetContentRegionAvail();
+	ImVec2 output_resolution = viewport_size;
+	if (render_virtual_width > 0 && render_virtual_height > 0)
+	{
+		output_resolution = ImVec2(render_virtual_width, render_virtual_height);
+		float scale = glm::min(viewport_size.x / output_resolution.x, viewport_size.y / output_resolution.y);
+		ImVec2 cursor = ImGui::GetCursorPos();
+		ImGui::SetCursorPos(ImVec2(cursor.x + (viewport_size.x - output_resolution.x * scale) * 0.5f, cursor.y + (viewport_size.y - output_resolution.y * scale) * 0.5f));
+		viewport_size = ImVec2(output_resolution.x * scale, output_resolution.y * scale);
+	}
 
-	if (!viewport_texture || viewport_size.x != viewport_texture->getWidth() || viewport_size.y != viewport_texture->getHeight())
+	if (!viewport_texture || output_resolution.x != viewport_texture->getWidth() || output_resolution.y != viewport_texture->getHeight())
 	{
 		TextureDescription description;
-		description.width = viewport_size.x;
-		description.height = viewport_size.y;
+		description.width = output_resolution.x;
+		description.height = output_resolution.y;
 
 		description.format = FORMAT_R8G8B8A8_UNORM;
-		description.usage_flags = TEXTURE_USAGE_ATTACHMENT;
+		description.usage_flags = TEXTURE_USAGE_ATTACHMENT | TEXTURE_USAGE_TRANSFER_SRC;
 		description.sampler_mode = SAMPLER_MODE_REPEAT;
 		
 		viewport_texture = gDynamicRHI->createTexture(description);
@@ -95,11 +99,11 @@ bool ViewportPanel::renderImGui(EditorContext &context, float delta_time, bool f
 		viewport_texture->setDebugName("Viewport Texture");
 	}
 
-	if (viewport_texture)
-		ImGui::Image(ImGuiWrapper::getTextureId(viewport_texture), viewport_size);
+	ImGui::Image(ImGuiWrapper::getTextureId(viewport_texture), viewport_size);
+	ImVec2 viewport_pos = ImGui::GetItemRectMin();
 
-	Renderer::setOutputResolution({viewport_size.x, viewport_size.y});
-	context.editor_camera.setAspect(viewport_size.x / viewport_size.y);
+	Renderer::setOutputResolution({output_resolution.x, output_resolution.y});
+	context.editor_camera.setAspect(output_resolution.x / output_resolution.y);
 
 	// ImGuizmo
 	Entity selected_entity = context.getSelectedEntity();

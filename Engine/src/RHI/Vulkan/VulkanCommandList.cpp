@@ -272,6 +272,21 @@ void VulkanCommandList::copyTexture(RHITexture *src, RHITexture *dest)
 	}
 }
 
+void VulkanCommandList::copyTextureToBuffer(RHITexture *src, RHIBuffer *dst)
+{
+	VulkanTexture *native_src_texture = (VulkanTexture *)src;
+	VulkanBuffer *native_dst_buffer = (VulkanBuffer *)dst;
+
+	native_src_texture->transitLayout(this, TEXTURE_LAYOUT_TRANSFER_SRC);
+	native_dst_buffer->transitState(this, ResourceState::COPY_DST);
+
+	VkBufferImageCopy region{};
+	region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	region.imageSubresource.layerCount = 1;
+	region.imageExtent = {src->getWidth(), src->getHeight(), 1};
+	vkCmdCopyImageToBuffer(cmd_buffer, native_src_texture->getImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, native_dst_buffer->getBuffer(), 1, &region);
+}
+
 
 void VulkanCommandList::beginDebugLabel(const char *label, glm::vec3 color, uint32_t line, const char *source, size_t source_size, const char *function, size_t function_size)
 {

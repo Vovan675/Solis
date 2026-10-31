@@ -44,6 +44,9 @@ protected:
 private:
 	float draw_top_bar();
 	void toggle_play();
+	void draw_screenshot_popup();
+
+	bool open_screenshot_popup = false;
 
 	bool auto_refresh_shaders = true;
 	bool was_window_focused = true;

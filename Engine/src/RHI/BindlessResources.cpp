@@ -107,7 +107,7 @@ void RHIBindlessResources::removeTexture(RHITextureView *view)
 	uint32_t index = texture_view_to_resource_index[view];
 	texture_view_to_resource_index.erase(view);
 
-	gDynamicRHI->releaseNextFrame([this, index]()
+	gDynamicRHI->runAfterGPUFrame([this, index]()
 	{
 		empty_resource_indices.push_back(index);
 		set_invalid_texture(index);
@@ -141,7 +141,7 @@ void RHIBindlessResources::removeBuffer(RHIBufferView *view)
 	uint32_t index = buffer_to_resource_index[view];
 	buffer_to_resource_index.erase(view);
 
-	gDynamicRHI->releaseNextFrame([this, index]()
+	gDynamicRHI->runAfterGPUFrame([this, index]()
 	{
 		empty_resource_indices.push_back(index);
 	});
@@ -179,7 +179,7 @@ void RHIBindlessResources::removeAccelerationStructure(RHITopLevelAccelerationSt
 	uint32_t index = acceleration_structure_to_resource_index[as];
 	acceleration_structure_to_resource_index.erase(as);
 
-	gDynamicRHI->releaseNextFrame([this, index]()
+	gDynamicRHI->runAfterGPUFrame([this, index]()
 	{
 		empty_resource_indices.push_back(index);
 	});

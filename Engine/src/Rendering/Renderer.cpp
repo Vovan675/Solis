@@ -12,6 +12,7 @@ const PassConstants *Renderer::pass_constants = nullptr;
 
 glm::ivec2 Renderer::render_resolution;
 glm::ivec2 Renderer::output_resolution;
+int Renderer::screenshot_frames_waited = 0;
 
 void Renderer::init()
 {
@@ -42,6 +43,8 @@ void Renderer::beginFrame()
 	// Update debug info
 	prev_debug_info = debug_info;
 	debug_info = RendererDebugInfo{};
+
+	screenshot_frames_waited = render_screenshot ? screenshot_frames_waited + 1 : 0;
 }
 
 void Renderer::endFrame(unsigned int image_index)
@@ -77,4 +80,9 @@ bool Renderer::isRTXDIEnabled()
 bool Renderer::isDDGIEnabled()
 {
 	return engine_ray_tracing && GFXOPTIONS(ddgi).enabled;
+}
+
+bool Renderer::isScreenshotFrame()
+{
+	return render_screenshot && screenshot_frames_waited >= render_screenshot_frames;
 }

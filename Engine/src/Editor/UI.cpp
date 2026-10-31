@@ -209,6 +209,11 @@ bool UI::inputInt(const char *label, int *value, const char *tooltip, ImGuiInput
 	return property(label, [&] { return ImGui::InputInt("##value", value, 1, 100, flags); }, tooltip);
 }
 
+bool UI::inputInt2(const char *label, int *value, const char *tooltip, ImGuiInputTextFlags flags)
+{
+	return property(label, [&] { return ImGui::InputInt2("##value", value, flags); }, tooltip);
+}
+
 bool UI::colorEdit3(const char *label, float *value, const char *tooltip, ImGuiColorEditFlags flags)
 {
 	return property(label, [&] { return ImGui::ColorEdit3("##value", value, flags); }, tooltip);

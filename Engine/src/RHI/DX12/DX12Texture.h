@@ -39,6 +39,7 @@ public:
 	void generateMipmaps(RHICommandList *cmd_list);
 
 	bool isValid() const override { return resource != nullptr; }
+	uint32_t getBufferRowPitch() const override;
 
 	RHITextureView *getRenderTargetView(uint32_t mip = 0, uint32_t layer = 0) override;
 	RHITextureView *getShaderResourceView(uint32_t mip = -1, uint32_t layer = -1) override;

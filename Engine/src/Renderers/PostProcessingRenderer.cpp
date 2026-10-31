@@ -143,6 +143,9 @@ void PostProcessingRenderer::addBloomPass(FrameGraph &fg)
 
 void PostProcessingRenderer::addFilmPass(FrameGraph &fg)
 {
+	bool capture_hdr = Renderer::isScreenshotFrame() && (render_screenshot_format == SCREENSHOT_FORMAT_EXR || render_screenshot_format == SCREENSHOT_FORMAT_PNG_EXR);
+	bool capture_raw = render_screenshot_raw;
+
 	GraphicsResourceName output;
 	if (GFXOPTIONS(path_tracing))
 	{
@@ -174,6 +177,13 @@ void PostProcessingRenderer::addFilmPass(FrameGraph &fg)
 		if (GFXOPTIONS(bloom).enabled)
 			builder.readTexture(GFXRID(Bloom));
 
+		if (capture_hdr)
+		{
+			TextureDescription input_desc = builder.getTextureDescription(last_output);
+			builder.createTexture(GFXRID(FilmHDR), input_desc.width, input_desc.height, FORMAT_R32G32B32A32_SFLOAT);
+			builder.writeTexture(GFXRID(FilmHDR));
+		}
+
 		data.output = output;
 		data.input = last_output;
 	},
@@ -181,10 +191,16 @@ void PostProcessingRenderer::addFilmPass(FrameGraph &fg)
 	{
 		auto output = resources.getTexture(data.output);
 
-		cmd_list->setRenderTargets({output}, {}, 0, 0, true);
-
 		// PSO
-		gGlobalPipeline->bindScreenQuadPipeline(cmd_list, gDynamicRHI->createShader(L"shaders/film.hlsl", FRAGMENT_SHADER));
+		if (capture_hdr)
+		{
+			cmd_list->setRenderTargets({output, resources.getTexture(GFXRID(FilmHDR))}, {}, 0, 0, true);
+			gGlobalPipeline->bindScreenQuadPipeline(cmd_list, gDynamicRHI->createShader(L"shaders/film.hlsl", FRAGMENT_SHADER, "PSMain", {{"HDR_CAPTURE", "1"}, {"HDR_CAPTURE_RAW", capture_raw ? "1" : "0"}}));
+		} else
+		{
+			cmd_list->setRenderTargets({output}, {}, 0, 0, true);
+			gGlobalPipeline->bindScreenQuadPipeline(cmd_list, gDynamicRHI->createShader(L"shaders/film.hlsl", FRAGMENT_SHADER));
+		}
 
 		const FilmSettings &film = GFXOPTIONS(film);
 		film_ubo.composite_final_tex_id = resources.getReadTexture(data.input);

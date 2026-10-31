@@ -2,6 +2,7 @@
 #include "RenderSettingsPanel.h"
 #include "UI.h"
 #include "Core/Variables.h"
+#include "Rendering/Renderer.h"
 
 static bool draw_probes_per_frame(const FieldInfo &field, const char *label, void *value, void *owner)
 {
@@ -105,6 +106,32 @@ void RenderSettingsPanel::renderImGui(EditorContext &context)
 				GFXOPTIONS(path_tracing) = renderer_mode == 1;
 
 			UI::convar(render_vsync.getDescription());
+
+			// Virtual Resolution
+			const char *resolution_items[] = {"Viewport", "720p", "1080p", "1440p (2K)", "2160p (4K)", "Custom"};
+			const glm::ivec2 resolutions[] = {{0, 0}, {1280, 720}, {1920, 1080}, {2560, 1440}, {3840, 2160}};
+
+			glm::ivec2 current_virtual_resolution(render_virtual_width, render_virtual_height);
+			int current_resolution_mode = IM_ARRAYSIZE(resolutions);
+			for (int i = 0; i < IM_ARRAYSIZE(resolutions); i++)
+			{
+				if (resolutions[i] == current_virtual_resolution)
+					current_resolution_mode = i;
+			}
+
+			if (UI::combo("Resolution", &current_resolution_mode, resolution_items, IM_ARRAYSIZE(resolution_items)))
+			{
+				if (current_resolution_mode < IM_ARRAYSIZE(resolutions))
+					current_virtual_resolution = resolutions[current_resolution_mode];
+				else // Custom (by default = current)
+					current_virtual_resolution = Renderer::getOutputResolution();
+			}
+
+			// Show size setting in any mode other than "Viewport"
+			if (current_virtual_resolution != glm::ivec2(0))
+				UI::inputInt2("Size", glm::value_ptr(current_virtual_resolution));
+			render_virtual_width = current_virtual_resolution.x;
+			render_virtual_height = current_virtual_resolution.y;
 
 			UI::drawStruct(GFXOPTIONS(anti_aliasing));
 

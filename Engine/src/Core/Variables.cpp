@@ -11,9 +11,12 @@ AutoConVarBool engine_assets_reimport("engine.assets.reimport", "Force reimport 
 AutoConVarBool engine_shader_debug_info("engine.shader.debug_info", "Embed debug info into shaders (slower shaders compilation)", false, ConVarFlag::CON_VAR_FLAG_HIDDEN);
 AutoConVarBool engine_streamline("engine.streamline", "Initialize Streamline (DLSS and other features) at startup", true, ConVarFlag::CON_VAR_FLAG_HIDDEN);
 AutoConVarString engine_startup_scene("engine.startup_scene", "Scene opened at startup", "", ConVarFlag::CON_VAR_FLAG_HIDDEN);
+AutoConVarBool engine_quit("engine.quit", "Quit", false, ConVarFlag::CON_VAR_FLAG_HIDDEN);
 
 // Runtime variables
 AutoConVarBool render_vsync("render.vsync", "VSync", false);
+AutoConVarInt render_virtual_width("render.virtual_width", "Virtual Width (0 = viewport)", 0, ConVarFlag::CON_VAR_FLAG_HIDDEN);
+AutoConVarInt render_virtual_height("render.virtual_height", "Virtual Height (0 = viewport)", 0, ConVarFlag::CON_VAR_FLAG_HIDDEN);
 AutoConVarBool render_path_tracing_first_frame("render.path_tracing.first_frame", "Is Path Tracing First Frame", true, ConVarFlag::CON_VAR_FLAG_HIDDEN);
 AutoConVarBool render_lighting_only("render.debug.lighting_only", "Lighting Only", false);
 AutoConVarBool render_keep_persistent_resources("render.debug.keep_persistent_resources", "Keep Persistent Resources", false);
@@ -27,6 +30,14 @@ AutoConVarBool render_culling_freeze("render.culling.freeze", "Freeze Culling", 
 AutoConVarBool render_meshlets_mesh_shaders("render.meshlets.mesh_shaders", "Mesh Shaders", true);
 AutoConVarBool render_meshlets_bvh_visualize("render.meshlets.bvh_visualize", "Draw BVH Spheres", false);
 AutoConVarInt render_meshlets_bvh_visualize_depth("render.meshlets.bvh_visualize_depth", "BVH Depth", -1);
+
+// Screenshots
+AutoConVarString render_screenshot_name("render.screenshot.name", "Name", "", ConVarFlag::CON_VAR_FLAG_HIDDEN);
+AutoConVarInt render_screenshot_frames("render.screenshot.frames", "Wait Frames", 0, ConVarFlag::CON_VAR_FLAG_HIDDEN);
+AutoConVarInt render_screenshot_format("render.screenshot.format", "Format", SCREENSHOT_FORMAT_PNG_EXR, ConVarFlag::CON_VAR_FLAG_HIDDEN);
+AutoConVarBool render_screenshot_raw("render.screenshot.raw", "Raw EXR (no posts)", false, ConVarFlag::CON_VAR_FLAG_HIDDEN);
+AutoConVarBool render_screenshot("render.screenshot", "Capture Screenshot", false, ConVarFlag::CON_VAR_FLAG_HIDDEN);
+AutoConVarBool engine_quit_after_screenshot("engine.quit_after_screenshot", "Quit After Screenshot", false, ConVarFlag::CON_VAR_FLAG_HIDDEN);
 
 // high thread counts leads to more maximum used RAM on importing
 AutoConVarInt engine_gltf_import_threads("engine.gltf.import_threads", "glTF Import Threads", 10);

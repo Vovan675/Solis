@@ -75,6 +75,7 @@ FrameGraphTextureId RenderPassBuilder::readDepthTexture(GraphicsResourceName tex
 FrameGraphTextureId RenderPassBuilder::readCopyTexture(GraphicsResourceName texture)
 {
 	auto resource_id = frameGraph.texture_name_to_id[texture];
+	frameGraph.all_textures[resource_id.id].desc.usage_flags |= TEXTURE_USAGE_TRANSFER_SRC;
 	renderpass_node.texture_usage[resource_id] = ResourceState::COPY_SRC;
 	return renderpass_node.texture_reads.emplace_back(resource_id);
 }
@@ -96,6 +97,7 @@ FrameGraphTextureId RenderPassBuilder::writeUAVTexture(GraphicsResourceName name
 FrameGraphTextureId RenderPassBuilder::writeCopyTexture(GraphicsResourceName name)
 {
 	auto resource_id = frameGraph.texture_name_to_id[name];
+	frameGraph.all_textures[resource_id.id].desc.usage_flags |= TEXTURE_USAGE_TRANSFER_DST;
 	return declare_texture_write(resource_id, ResourceState::COPY_DST);
 }
 

@@ -44,6 +44,8 @@ void VulkanUtils::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VmaM
 	VmaAllocationCreateInfo alloc_info{};
 	alloc_info.usage = memory_usage;
 	alloc_info.flags = flags;
+	if (flags & VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT)
+		alloc_info.requiredFlags = VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
 
 	if (alignment != 0)
 		vmaCreateBufferWithAlignment(getNativeRHI()->allocator, &info, &alloc_info, alignment, &buffer, &allocation, nullptr);

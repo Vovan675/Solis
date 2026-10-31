@@ -7,6 +7,7 @@ class Image : public Asset
 {
 public:
 	Image(eastl::string path);
+	Image(uint32_t width, uint32_t height, Format format, eastl::vector<uint8_t> data);
 
 	uint32_t getWidth(int mip = 0) const { return width >> mip; }
 	uint32_t getHeight(int mip = 0) const { return height >> mip; }

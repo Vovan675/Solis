@@ -94,17 +94,17 @@ public:
 	}
 
 	template <typename F>
-	struct ReleaseNextFrameResource : public RenderResource
+	struct RunAfterGPUFrameResource : public RenderResource
 	{
-		ReleaseNextFrameResource(F func): f(eastl::move(func)) {};
+		RunAfterGPUFrameResource(F func): f(eastl::move(func)) {};
 		void Release() override { f(); }
 		F f;
 	};
 
 	template <typename F>
-	void releaseNextFrame(F func)
+	void runAfterGPUFrame(F func)
 	{
-		auto *resource = new ReleaseNextFrameResource<F>(eastl::move(func));
+		auto *resource = new RunAfterGPUFrameResource<F>(eastl::move(func));
 		gpu_release_queue.emplace(resource, frame + MAX_FRAMES_IN_FLIGHT);
 	}
 protected:

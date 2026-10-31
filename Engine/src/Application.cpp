@@ -89,6 +89,12 @@ Application::Application(int argc, char *argv[])
 		} else if (arg == "-reimport_assets")
 		{
 			engine_assets_reimport = true;
+		} else if (i + 1 < argc && ConVarSystem::setFromString(arg.c_str() + 1, argv[i + 1]))
+		{
+			i++;
+		} else
+		{
+			CORE_WARN("Unknown argument {}", arg.c_str());
 		}
 	}
 
@@ -131,7 +137,7 @@ void Application::run()
 
 	bool is_first_frame = true;
 
-	while (!glfwWindowShouldClose(window))
+	while (!glfwWindowShouldClose(window) && !engine_quit)
 	{
 		FrameMark;
 		gInput.update();

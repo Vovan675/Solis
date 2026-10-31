@@ -79,6 +79,7 @@ public:
 
 	void copyBuffer(RHIBuffer *src, RHIBuffer *dest, uint64_t src_offset, uint64_t dest_offset, uint64_t size) override;
 	void copyTexture(RHITexture *src, RHITexture *dest) override;
+	void copyTextureToBuffer(RHITexture *src, RHIBuffer *dst) override;
 	void fillBuffer(RHIBuffer *buffer, uint32_t value) override;
 
 	void beginDebugLabel(const char *label, glm::vec3 color, uint32_t line, const char* source, size_t source_size, const char* function, size_t function_size);

@@ -232,6 +232,31 @@ void DX12CommandList::copyTexture(RHITexture *src, RHITexture *dest)
 	cmd_list->CopyResource(native_dst_texture->getResource(), native_src_texture->getResource());
 }
 
+void DX12CommandList::copyTextureToBuffer(RHITexture *src, RHIBuffer *dst)
+{
+	DX12Texture *native_src_texture = (DX12Texture *)src;
+	DX12Buffer *native_dst_buffer = (DX12Buffer *)dst;
+
+	native_src_texture->transitLayout(this, TEXTURE_LAYOUT_TRANSFER_SRC);
+	native_dst_buffer->transitState(this, ResourceState::COPY_DST);
+
+	D3D12_TEXTURE_COPY_LOCATION src_location{};
+	src_location.pResource = native_src_texture->getResource();
+	src_location.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+	src_location.SubresourceIndex = 0;
+
+	D3D12_TEXTURE_COPY_LOCATION dst_location{};
+	dst_location.pResource = native_dst_buffer->getResource();
+	dst_location.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+	dst_location.PlacedFootprint.Footprint.Format = native_src_texture->getNativeFormat();
+	dst_location.PlacedFootprint.Footprint.Width = src->getWidth();
+	dst_location.PlacedFootprint.Footprint.Height = src->getHeight();
+	dst_location.PlacedFootprint.Footprint.Depth = 1;
+	dst_location.PlacedFootprint.Footprint.RowPitch = src->getBufferRowPitch();
+
+	cmd_list->CopyTextureRegion(&dst_location, 0, 0, 0, &src_location, nullptr);
+}
+
 
 void DX12CommandList::beginDebugLabel(const char *label, glm::vec3 color, uint32_t line, const char* source, size_t source_size, const char* function, size_t function_size)
 {
