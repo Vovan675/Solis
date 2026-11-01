@@ -11,8 +11,6 @@ public:
 	
 	void create(const PipelineDescription &description) override;
 
-	PipelineDescription description;
-
 	std::unique_ptr<VkPipelineResource> resource;
 	DescriptorLayout descriptor_layout;
 

@@ -110,46 +110,6 @@ public:
 		}
 	}
 
-	static uint32_t getFormatSize(Format format)
-	{
-		switch (format)
-		{
-			// 8 bit
-			case FORMAT_R8_UNORM: return 1;
-			case FORMAT_R8G8_UNORM: return 2;
-			case FORMAT_R8G8B8A8_UNORM:
-			case FORMAT_R8G8B8A8_SRGB: return 4;
-
-			// 16 bit
-			case FORMAT_R16_UNORM: return 2;
-			case FORMAT_R16_SFLOAT: return 2;
-			case FORMAT_R16G16_UNORM: return 4;
-			case FORMAT_R16G16_SFLOAT: return 4;
-			case FORMAT_R16G16_SINT: return 4;
-			case FORMAT_R16G16B16A16_UNORM: return 8;
-			case FORMAT_R16G16B16A16_SFLOAT: return 8;
-
-			// 32 bit
-			case FORMAT_R32_UINT:
-			case FORMAT_R32_SFLOAT: return 4;
-			case FORMAT_R32G32_SFLOAT: return 8;
-			case FORMAT_R32G32B32_SFLOAT: return 12;
-			case FORMAT_R32G32B32A32_SFLOAT: return 16;
-
-			// depth stencil
-			case FORMAT_D32S8: return 5;
-
-			// combined
-			case FORMAT_R11G11B10_UFLOAT: return 4;
-
-			// compressed
-			case FORMAT_BC1: return 0;
-			case FORMAT_BC3: return 0;
-			case FORMAT_BC5: return 0;
-			case FORMAT_BC7: return 0;
-		}
-	}
-
 	static void setDebugName(VkObjectType object_type, uint64_t handle, const char *name);
 	static void cmdBeginDebugLabel(RHICommandList *cmd_list, const char *name, glm::vec3 color);
 	static void cmdEndDebugLabel(RHICommandList *cmd_list);

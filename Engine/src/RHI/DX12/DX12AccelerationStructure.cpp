@@ -29,17 +29,15 @@ void DX12BottomLevelAccelerationStructure::build(const eastl::vector<RayTracingG
 
 	for (auto &geometry : geometries)
 	{
-		uint32_t stride_index = sizeof(uint32_t);
-
 		D3D12_RAYTRACING_GEOMETRY_DESC &desc = geometries_desc.emplace_back();
 		desc.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES;
 		desc.Triangles.Transform3x4 = 0;
-		desc.Triangles.IndexFormat = DXGI_FORMAT_R32_UINT;
-		desc.Triangles.VertexFormat = DXGI_FORMAT_R32G32B32_FLOAT;
+		desc.Triangles.IndexFormat = geometry.index_format == FORMAT_R32_UINT ? DXGI_FORMAT_R32_UINT : DXGI_FORMAT_UNKNOWN;
+		desc.Triangles.VertexFormat = DX12Utils::getNativeFormat(geometry.vertex_format);
 		desc.Triangles.IndexCount = geometry.index_count;
 		desc.Triangles.VertexCount = geometry.vertex_count;
-		desc.Triangles.IndexBuffer = geometry.index_buffer->getGPUAddress();
-		desc.Triangles.VertexBuffer.StartAddress = geometry.vertex_buffer->getGPUAddress();
+		desc.Triangles.IndexBuffer = geometry.index_buffer->getGPUAddress() + geometry.index_buffer_offset;
+		desc.Triangles.VertexBuffer.StartAddress = geometry.vertex_buffer->getGPUAddress() + geometry.vertex_buffer_offset;
 		desc.Triangles.VertexBuffer.StrideInBytes = geometry.vertex_buffer_stride;
 
 		desc.Flags = D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE;
@@ -79,6 +77,14 @@ void DX12BottomLevelAccelerationStructure::build(const eastl::vector<RayTracingG
 	build_desc.DestAccelerationStructureData = buffer->getGPUAddress();
 
 	build_acceleration_structure(build_desc);
+}
+
+DX12TopLevelAccelerationStructure::~DX12TopLevelAccelerationStructure()
+{
+	if (gDynamicRHI && gDynamicRHI->getBindlessResources())
+		gDynamicRHI->getBindlessResources()->removeAccelerationStructure(this);
+	if (shader_resource_view.isValid())
+		DX12Utils::getNativeRHI()->cbv_srv_uav_staging_heap->release(shader_resource_view);
 }
 
 void DX12TopLevelAccelerationStructure::build(const eastl::vector<RayTracingInstance> &instances)

@@ -17,29 +17,11 @@ public:
 
 	~DX12CommandQueue();
 
-	void execute(eastl::span<RHICommandList *> cmd_lists) override;
-
-	void signal(uint64_t fence_value) override
-	{
-		// Set fence value on execution end
-		cmd_queue->Signal(fence, fence_value);
-		last_fence_value = fence_value;
-	}
-
-	void wait(uint64_t fence_value) override;
-
-	void waitIdle() override
-	{
-	}
-
-	uint32_t getLastFenceValue() override
-	{
-		return last_fence_value;
-	}
+	uint64_t execute(eastl::span<RHICommandList *> cmd_lists) override;
+	void waitForFence(uint64_t fence_value) override;
+	void waitIdle() override;
 
 	ComPtr<ID3D12CommandQueue> cmd_queue;
 	ID3D12Fence *fence;
 	HANDLE fence_event;
-
-	uint32_t last_fence_value = 0;
 };

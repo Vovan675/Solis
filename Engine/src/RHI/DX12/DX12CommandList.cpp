@@ -198,16 +198,25 @@ void DX12CommandList::dispatchMeshIndirect(RHIBuffer *args_buffer, uint32_t draw
 void DX12CommandList::fillBuffer(RHIBuffer *buffer, uint32_t value)
 {
 	DX12Buffer *native_buffer = static_cast<DX12Buffer *>(buffer);
-	DX12BufferView *uav = static_cast<DX12BufferView *>(buffer->getUnorderedAccessView(true));
+	DX12DynamicRHI *native_rhi = DX12Utils::getNativeRHI();
 
 	native_buffer->transitState(this, ResourceState::UAV);
 
+	// ClearUnorderedAccessViewUint can use only R32_UINT view, create it temporary here
+	D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc{};
+	uav_desc.Format = DXGI_FORMAT_R32_UINT;
+	uav_desc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
+	uav_desc.Buffer.NumElements = buffer->getSize() / sizeof(uint32_t);
+
+	DX12Descriptor cpu_descriptor = native_rhi->cbv_srv_uav_staging_heap->allocate();
+	DX12Descriptor gpu_descriptor = native_rhi->cbv_srv_uav_heap->allocate();
+	native_rhi->device->CreateUnorderedAccessView(native_buffer->getResource(), nullptr, &uav_desc, cpu_descriptor.getCpuHandle());
+	native_rhi->device->CopyDescriptorsSimple(1, gpu_descriptor.getCpuHandle(), cpu_descriptor.getCpuHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
 	UINT values[4] = { value, value, value, value };
-	cmd_list->ClearUnorderedAccessViewUint(
-		DX12Utils::getNativeRHI()->cbv_srv_uav_heap->getHandle(uav->getBindlessIndex()).getGpuHandle(),
-		uav->getDescriptor().getCpuHandle(),
-		native_buffer->getResource(),
-		values, 0, nullptr);
+	cmd_list->ClearUnorderedAccessViewUint(gpu_descriptor.getGpuHandle(), cpu_descriptor.getCpuHandle(), native_buffer->getResource(), values, 0, nullptr);
+
+	native_rhi->cbv_srv_uav_staging_heap->release(cpu_descriptor);
 }
 
 void DX12CommandList::copyBuffer(RHIBuffer *src, RHIBuffer *dest, uint64_t src_offset, uint64_t dest_offset, uint64_t size)

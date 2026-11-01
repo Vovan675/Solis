@@ -69,37 +69,12 @@ void VulkanDynamicRHI::init()
 		dlss_upscaler.init();
 	}
 
-	in_flight_fences.resize(MAX_FRAMES_IN_FLIGHT);
-	imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
-	renderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
-	//Create Semaphores info
-	VkSemaphoreCreateInfo semaphoreInfo{};
-	semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-
-	//Create Fences info
-	VkFenceCreateInfo fenceInfo{};
-	fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-	fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-
-	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-	{
-		// Create fence
-		VkFenceCreateInfo fence_info{};
-		fence_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-		fence_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-		CHECK_ERROR(vkCreateFence(device->logicalHandle, &fence_info, nullptr, &in_flight_fences[i]));
-
-		CHECK_ERROR(vkCreateSemaphore(device->logicalHandle, &semaphoreInfo, nullptr, &imageAvailableSemaphores[i]));
-		CHECK_ERROR(vkCreateSemaphore(device->logicalHandle, &semaphoreInfo, nullptr, &renderFinishedSemaphores[i]));
-	}
-
-	cmd_queue = new VulkanCommandQueue(device->graphicsQueue, false);
+	cmd_queue = new VulkanCommandQueue(device->graphicsQueue);
 	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
 		cmd_lists[i] = new VulkanCommandList();
 		upload_cmd_lists[i] = new VulkanCommandList();
 	}
-	cmd_list_immediate = new VulkanCommandList();
 	tracy_cmd_list = new VulkanCommandList();
 
 	DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(&dxc_utils));
@@ -129,29 +104,13 @@ void VulkanDynamicRHI::shutdown()
 	buffers_for_shaders.clear();
 	delete bindless;
 
-	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-	{
-		vkDestroySemaphore(device->logicalHandle, imageAvailableSemaphores[i], nullptr);
-		vkDestroySemaphore(device->logicalHandle, renderFinishedSemaphores[i], nullptr);
-	}
-
 	if (swapchain)
 	{
 		swapchain->cleanup();
 		swapchain = nullptr;
 	}
 
-	for (auto fence : in_flight_fences)
-	{
-		vkDestroyFence(device->logicalHandle, fence, nullptr);
-	}
-	in_flight_fences.clear();
-
-	cmd_queue->fence = nullptr;
 	delete cmd_queue;
-
-	imageAvailableSemaphores.clear();
-	renderFinishedSemaphores.clear();
 
 	for (auto &shader : cached_shaders)
 	{
@@ -165,9 +124,6 @@ void VulkanDynamicRHI::shutdown()
 	DescriptorLayoutBuilder::clearAllCaches();
 	vkDestroyCommandPool(device->logicalHandle, command_pool, nullptr);
 	global_descriptor_allocator->cleanup();
-	char *str = new char[5000];
-	vmaBuildStatsString(allocator, &str, true);
-
 	vmaDestroyAllocator(allocator);
 
 	device = nullptr;
@@ -178,7 +134,6 @@ void VulkanDynamicRHI::shutdown()
 
 RHISwapchainRef VulkanDynamicRHI::createSwapchain(GLFWwindow *window)
 {
-	this->window = window;
 	VkSurfaceKHR surface;
 	glfwCreateWindowSurface(instance, window, nullptr, &surface);
 	int width, height;
@@ -195,70 +150,12 @@ RHISwapchainRef VulkanDynamicRHI::createSwapchain(GLFWwindow *window)
 
 void VulkanDynamicRHI::resizeSwapchain(int width, int height)
 {
-	gDynamicRHI->waitGPU();
 	swapchain->resize(width, height);
 }
 
-RHIShaderRef VulkanDynamicRHI::createShader(eastl::wstring path, ShaderType type, eastl::string entry_point)
+RHIShader *VulkanDynamicRHI::create_shader(eastl::wstring path, ShaderType type, eastl::string entry_point, eastl::vector<eastl::pair<const char *, const char *>> defines)
 {
-	if (entry_point.empty())
-	{
-		if (type == VERTEX_SHADER)
-			entry_point = "VSMain";
-		else if (type == FRAGMENT_SHADER)
-			entry_point = "PSMain";
-		else if (type == COMPUTE_SHADER)
-			entry_point = "CSMain";
-		else if (type == RAY_GENERATION_SHADER)
-			entry_point = "RayGen";
-		else if (type == MISS_SHADER)
-			entry_point = "Miss";
-		else if (type == CLOSEST_HIT_SHADER)
-			entry_point = "ClosestHit";
-		else if (type == TASK_SHADER)
-			entry_point = "TSMain";
-		else if (type == MESH_SHADER)
-			entry_point = "MSMain";
-	}
-
-	size_t cache_hash = 0;
-	hashCombine(cache_hash, path);
-	hashCombine(cache_hash, type);
-	hashCombine(cache_hash, entry_point);
-
-	if (cached_shaders.find(cache_hash) != cached_shaders.end())
-	{
-		return cached_shaders[cache_hash];
-	}
-
-	auto shader = new VulkanShader(path, type, entry_point, {});
-	cached_shaders[cache_hash] = shader;
-	return shader;
-}
-
-RHIShaderRef VulkanDynamicRHI::createShader(eastl::wstring path, ShaderType type, eastl::string entry_point, eastl::vector<eastl::pair<const char *, const char *>> defines)
-{
-	size_t cache_hash = 0;
-	hashCombine(cache_hash, path);
-	hashCombine(cache_hash, type);
-	hashCombine(cache_hash, entry_point);
-
-	eastl::string all_defines = "";
-	for (const auto &define : defines)
-	{
-		all_defines += define.first;
-		all_defines += define.second;
-	}
-	Engine::Math::hashCombine(cache_hash, all_defines);
-
-	if (cached_shaders.find(cache_hash) != cached_shaders.end())
-	{
-		return cached_shaders[cache_hash];
-	}
-
-	auto shader = new VulkanShader(path, type, entry_point, defines);
-	cached_shaders[cache_hash] = shader;
-	return shader;
+	return new VulkanShader(path, type, entry_point, defines);
 }
 
 RHIPipelineRef VulkanDynamicRHI::createPipeline()
@@ -354,7 +251,7 @@ void VulkanDynamicRHI::prepareRenderCall()
 				if (desc.type != DESCRIPTOR_TYPE_UNIFORM_BUFFER || desc.set != 0)
 					continue;
 
-				VulkanBuffer *buffer = current_bind_structured_buffers[desc.binding];
+				VulkanBuffer *buffer = (VulkanBuffer *)current_bind_buffers[desc.binding];
 
 				if (buffer == nullptr)
 					continue;
@@ -447,15 +344,10 @@ void VulkanDynamicRHI::beginFrame()
 {
 	PROFILE_CPU_FUNCTION();
 
-	for (auto &buf : current_bind_structured_buffers)
+	for (auto &buf : current_bind_buffers)
 		buf = nullptr;
 
-	// Acquire image and trigger semaphore
-	{
-		PROFILE_CPU_SCOPE("Acquire swapchain image");
-		vkAcquireNextImageKHR(device->logicalHandle, swapchain->swapchain, UINT64_MAX, imageAvailableSemaphores[frame_in_flight], VK_NULL_HANDLE, &image_index);
-	}
-
+	swapchain->acquire();
 	Renderer::beginFrame();
 
 	// Reset offsets for uniform buffers
@@ -506,68 +398,12 @@ void VulkanDynamicRHI::endFrame()
 	}
 	submit_cmd_lists.push_back(native_cmd_list);
 
-	VkSubmitInfo submit_info{};
-	submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	uint64_t frame_fence_value = cmd_queue->execute(submit_cmd_lists, swapchain->getImageAcquiredSemaphore(), swapchain->getRenderingDoneSemaphore());
 
-	// Wait when semaphore when image will get acquired
-	VkSemaphore wait_semaphores[] = {imageAvailableSemaphores[frame_in_flight]};
-	VkPipelineStageFlags wait_stages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-	submit_info.waitSemaphoreCount = 1;
-	submit_info.pWaitSemaphores = wait_semaphores;
-	submit_info.pWaitDstStageMask = wait_stages;
+	swapchain->present();
+	Renderer::endFrame(swapchain->getCurrentIndex());
 
-	// Signal semaphore when queue submitted
-	VkSemaphore signal_semaphores[] = {renderFinishedSemaphores[frame_in_flight]};
-	submit_info.signalSemaphoreCount = 1;
-	submit_info.pSignalSemaphores = signal_semaphores;
-	// Also trigger fence when queue completed to work with this 'currentFrame'
-
-	cmd_queue->fence = in_flight_fences[frame_in_flight];
-	cmd_queue->execute(submit_cmd_lists, submit_info);
-
-	VkPresentInfoKHR present_info{};
-	present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-	present_info.waitSemaphoreCount = 1;
-	// Wait until queue submitted before present it
-	present_info.pWaitSemaphores = signal_semaphores;
-	VkSwapchainKHR swapChains[] = {swapchain->swapchain};
-	present_info.swapchainCount = 1;
-	present_info.pSwapchains = swapChains;
-	present_info.pImageIndices = &image_index;
-	VkResult result;
-	{
-		PROFILE_CPU_SCOPE("Present");
-		result = vkQueuePresentKHR(device->presentQueue, &present_info);
-	}
-
-	Renderer::endFrame(image_index);
-
-
-	if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || framebuffer_resized)
-	{
-		framebuffer_resized = false;
-
-		int width = 0, height = 0;
-		glfwGetFramebufferSize(window, &width, &height);
-		while (width == 0 || height == 0)
-		{
-			glfwGetFramebufferSize(window, &width, &height);
-			glfwWaitEvents();
-		}
-		resizeSwapchain(width, height);
-	} else if (result != VK_SUCCESS)
-	{
-		CORE_CRITICAL("Failed to present swap chain image");
-	}
-
-	frame_in_flight = (frame_in_flight + 1) % MAX_FRAMES_IN_FLIGHT;
-
-	{
-		PROFILE_CPU_SCOPE("Wait in flight fence");
-		// Wait when queue for next frame is completed (device -> host sync)
-		cmd_queue->fence = in_flight_fences[frame_in_flight];
-		cmd_queue->wait(0);
-	}
+	advance_frame_in_flight(frame_fence_value);
 
 	if (frame >= MAX_FRAMES_IN_FLIGHT)
 	{

@@ -2,7 +2,6 @@
 #include "DX12Texture.h"
 #include "DX12DynamicRHI.h"
 #include "DX12Utils.h"
-#include "Rendering/GlobalPipeline.h"
 
 DX12Texture::~DX12Texture()
 {
@@ -15,9 +14,7 @@ void DX12Texture::destroy()
 	rhi->releaseGPUResource(resource.release());
 	rhi->releaseGPUResource(allocation.release());
 
-	shader_resource_views.clear();
-	unordered_access_views.clear();
-	render_target_views.clear();
+	views.clear();
 }
 
 void DX12Texture::fill()
@@ -39,7 +36,7 @@ void DX12Texture::fill()
 
 	D3D12_RESOURCE_DESC resource_desc = {};
 	resource_desc.MipLevels = description.mip_levels;
-	resource_desc.Format = native_format;
+	resource_desc.Format = getNativeFormat();
 	resource_desc.Width = description.width;
 	resource_desc.Height = description.height;
 	resource_desc.Flags = get_resource_flags();
@@ -49,7 +46,7 @@ void DX12Texture::fill()
 	resource_desc.Dimension = is3D() ? D3D12_RESOURCE_DIMENSION_TEXTURE3D : D3D12_RESOURCE_DIMENSION_TEXTURE2D;
 
 	D3D12_CLEAR_VALUE clear_value{};
-	clear_value.Format = native_format;
+	clear_value.Format = getNativeFormat();
 
 	if (isRenderTargetTexture())
 	{
@@ -66,7 +63,7 @@ void DX12Texture::fill()
 		}
 	}
 
-	DX12DynamicRHI *native_rhi = (DX12DynamicRHI *)rhi;
+	DX12DynamicRHI *native_rhi = DX12Utils::getNativeRHI();
 
 	D3D12_RESOURCE_STATES resource_state = D3D12_RESOURCE_STATE_COMMON;
 
@@ -83,7 +80,7 @@ void DX12Texture::fill()
 		isRenderTargetTexture() ? &clear_value : nullptr,
 		&allocation->resource,
 		IID_PPV_ARGS(&resource->resource));
-	current_layout = TEXTURE_LAYOUT_GENERAL;
+	current_layouts.assign(description.mip_levels, TEXTURE_LAYOUT_GENERAL);
 }
 
 void DX12Texture::fill(const void *sourceData)
@@ -124,7 +121,7 @@ void DX12Texture::fill(const void *sourceData)
 	}
 
 
-	RHICommandList *upload_cmd_list = rhi->getUploadCmdList();
+	RHICommandList *upload_cmd_list = gDynamicRHI->getUploadCmdList();
 	transitLayout(upload_cmd_list, TEXTURE_LAYOUT_TRANSFER_DST);
 	UpdateSubresources(((DX12CommandList *)upload_cmd_list)->cmd_list.Get(), resource->resource, ((DX12Buffer *)staging_buffer.getReference())->getResource(), 0, 0, subresources_data.size(), subresources_data.data());
 	transitLayout(upload_cmd_list, TEXTURE_LAYOUT_SHADER_READ);
@@ -132,7 +129,7 @@ void DX12Texture::fill(const void *sourceData)
 
 void DX12Texture::clear(RHICommandList *cmd_list, const glm::vec4 &color)
 {
-	DX12DynamicRHI *native_rhi = (DX12DynamicRHI *)rhi;
+	DX12DynamicRHI *native_rhi = DX12Utils::getNativeRHI();
 	DX12CommandList *native_cmd_list = (DX12CommandList *)cmd_list;
 
 	const float values[4] = { color.x, color.y, color.z, color.w };
@@ -158,68 +155,12 @@ void DX12Texture::clear(RHICommandList *cmd_list, const glm::vec4 &color)
 	}
 }
 
-void DX12Texture::load(const char *path)
-{
-	Image image(path);
-	guid = image.guid;
-
-	description.width = image.getWidth();
-	description.height = image.getHeight();
-	description.mip_levels = image.getMipLevels();
-	if (description.format == FORMAT_UNDEFINED || image.isCompressedFormat())
-		description.format = image.getFormat();
-	set_native_format();
-	fill(image.getRawData().data());
-
-	this->path = path;
-}
-
-void DX12Texture::loadEquirectangularCubemap(const char *path)
-{
-	TextureDescription desc{};
-	desc.usage_flags = TEXTURE_USAGE_ATTACHMENT | TEXTURE_USAGE_TRANSFER_SRC | TEXTURE_USAGE_TRANSFER_DST;
-	RHITextureRef equirect_texture = gDynamicRHI->createTexture(desc);
-	equirect_texture->load(path);
-
-	description.is_cube = true;
-	description.format = FORMAT_R32G32B32A32_SFLOAT;
-	set_native_format();
-	description.width = equirect_texture->getHeight();
-	description.height = equirect_texture->getHeight();
-	//description.mip_levels = std::floor(std::log2(std::max(tex_width, tex_height))) + 1;
-	description.mip_levels = 1;
-
-	fill();
-	RHICommandList *cmd_list = gDynamicRHI->getCmdList();
-
-	transitLayout(cmd_list, TEXTURE_LAYOUT_GENERAL);
-
-	RHITextureRef texture = nullptr;
-
-	gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/equirect_to_cubemap.hlsl", COMPUTE_SHADER));
-	gGlobalPipeline->flushAndBind(cmd_list);
-	
-	equirect_texture->transitLayout(cmd_list, TEXTURE_LAYOUT_SHADER_READ);
-	struct Uniforms
-	{
-		uint32_t equirect_tex_id;
-		uint32_t output_tex_id;
-	} uniforms;
-	uniforms.equirect_tex_id = equirect_texture->getShaderResourceView()->getBindlessIndex();
-	uniforms.output_tex_id = getUnorderedAccessView()->getBindlessIndex();
-	gDynamicRHI->setConstantBufferData(1, &uniforms, sizeof(uniforms));
-
-	cmd_list->dispatch(getWidth() / 32, getHeight() / 32, 6);
-
-	transitLayout(cmd_list, TEXTURE_LAYOUT_SHADER_READ);
-
-	this->path = path;
-}
-
-void DX12Texture::transitLayout(RHICommandList *cmd_list, TextureLayoutType new_layout_type, int mip)
+void DX12Texture::transit_layout(RHICommandList *cmd_list, TextureLayoutType old_layout_type, TextureLayoutType new_layout_type, uint32_t first_mip, uint32_t mip_count)
 {
 	DX12CommandList *native_cmd_list = (DX12CommandList *)cmd_list;
-	if (current_layout == new_layout_type)
+	D3D12_RESOURCE_STATES state_before = get_native_layout(old_layout_type);
+	D3D12_RESOURCE_STATES state_after = get_native_layout(new_layout_type);
+	if (state_before == state_after)
 	{
 		if (new_layout_type == TextureLayoutType::TEXTURE_LAYOUT_UAV)
 		{
@@ -236,13 +177,21 @@ void DX12Texture::transitLayout(RHICommandList *cmd_list, TextureLayoutType new_
 	barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
 	barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
 	barrier.Transition.pResource = resource->resource;
-	barrier.Transition.StateBefore = get_native_layout(current_layout);
-	barrier.Transition.StateAfter = get_native_layout(new_layout_type);
-	barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+	barrier.Transition.StateBefore = state_before;
+	barrier.Transition.StateAfter = state_after;
 
-	native_cmd_list->cmd_list->ResourceBarrier(1, &barrier);
+	if (mip_count == description.mip_levels)
+	{
+		barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+		native_cmd_list->cmd_list->ResourceBarrier(1, &barrier);
+		return;
+	}
 
-	current_layout = new_layout_type;
+	for (uint32_t mip = first_mip; mip < first_mip + mip_count; mip++)
+	{
+		barrier.Transition.Subresource = mip;
+		native_cmd_list->cmd_list->ResourceBarrier(1, &barrier);
+	}
 }
 
 void DX12Texture::generateMipmaps(RHICommandList *cmd_list)
@@ -282,51 +231,14 @@ uint32_t DX12Texture::getBufferRowPitch() const
 	return footprint.Footprint.RowPitch;
 }
 
-void DX12Texture::set_native_format()
+DXGI_FORMAT DX12Texture::getNativeFormat() const
 {
-	native_format = DX12Utils::getNativeFormat(description.format);
+	return DX12Utils::getNativeFormat(description.format);
 }
 
-RHITextureView *DX12Texture::getRenderTargetView(uint32_t mip, uint32_t layer)
+RHITextureView *DX12Texture::create_view(const TextureViewDescription &view_description)
 {
-	// Try to find view
-	for (auto &view : render_target_views)
-	{
-		const TextureViewDescription &view_desc = view->getDescription();
-		if (view_desc.mip == mip && view_desc.layer == layer)
-			return view;
-	}
-
-	auto &view = render_target_views.emplace_back(new DX12TextureView(TextureViewDescription(this, TextureViewType::RENDER_TARGET, mip, layer)));
-	return view;
-}
-
-RHITextureView *DX12Texture::getShaderResourceView(uint32_t mip, uint32_t layer)
-{
-	// Try to find view
-	for (auto &view : shader_resource_views)
-	{
-		const TextureViewDescription &view_desc = view->getDescription();
-		if (view_desc.mip == mip && view_desc.layer == layer)
-			return view;
-	}
-
-	auto &view = shader_resource_views.emplace_back(new DX12TextureView(TextureViewDescription(this, TextureViewType::SHADER_RESOURCE, mip, layer)));
-	return view;
-}
-
-RHITextureView *DX12Texture::getUnorderedAccessView(uint32_t mip, uint32_t layer)
-{
-	// Try to find view
-	for (auto &view : unordered_access_views)
-	{
-		const TextureViewDescription &view_desc = view->getDescription();
-		if (view_desc.mip == mip && view_desc.layer == layer)
-			return view;
-	}
-
-	auto &view = unordered_access_views.emplace_back(new DX12TextureView(TextureViewDescription(this, TextureViewType::SHADER_RESOURCE_STORAGE, mip, layer)));
-	return view;
+	return new DX12TextureView(view_description);
 }
 
 DX12TextureView::DX12TextureView(TextureViewDescription description): RHITextureView(description)

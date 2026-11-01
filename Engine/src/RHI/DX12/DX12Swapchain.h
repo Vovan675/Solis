@@ -10,16 +10,17 @@ public:
 	virtual ~DX12Swapchain();
 	void cleanup();
 
-	RHITextureRef getTexture(uint8_t index) override;
+	void acquire() override;
+	void present() override;
 	void resize(uint32_t width, uint32_t height) override;
+
 private:
 	void create_swapchain();
-private:
-	friend class DX12DynamicRHI;
+	void create_resources();
+	void release_resources();
 
+private:
 	HWND hWnd;
 	ComPtr<IDXGISwapChain3> swap_chain;
 	BOOL allow_tearing = FALSE;
-	eastl::vector<ComPtr<ID3D12Resource>> render_targets;
-	eastl::vector<Ref<DX12Texture>> swap_chain_textures;
 };

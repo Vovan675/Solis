@@ -51,12 +51,12 @@ void VulkanBottomLevelAccelerationStructure::build(const eastl::vector<RayTracin
 		VkAccelerationStructureGeometryTrianglesDataKHR triangles{};
 		triangles.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR;
 		triangles.vertexFormat = VulkanUtils::getNativeFormat(geometry.vertex_format);
-		triangles.vertexData.deviceAddress = geometry.vertex_buffer->getGPUAddress();
+		triangles.vertexData.deviceAddress = geometry.vertex_buffer->getGPUAddress() + geometry.vertex_buffer_offset;
 		triangles.vertexStride = geometry.vertex_buffer_stride;
-		triangles.maxVertex = geometry.vertex_count;
+		triangles.maxVertex = geometry.vertex_count - 1;
 
 		triangles.indexType = geometry.index_format == FORMAT_R32_UINT ? VK_INDEX_TYPE_UINT32 : VK_INDEX_TYPE_NONE_KHR;
-		triangles.indexData.deviceAddress = geometry.index_buffer->getGPUAddress();
+		triangles.indexData.deviceAddress = geometry.index_buffer->getGPUAddress() + geometry.index_buffer_offset;
 		triangles.transformData.deviceAddress = 0;
 		desc.geometry.triangles = triangles;
 
@@ -139,6 +139,8 @@ void VulkanBottomLevelAccelerationStructure::build(const eastl::vector<RayTracin
 
 VulkanTopLevelAccelerationStructure::~VulkanTopLevelAccelerationStructure()
 {
+	if (gDynamicRHI && gDynamicRHI->getBindlessResources())
+		gDynamicRHI->getBindlessResources()->removeAccelerationStructure(this);
 	gDynamicRHI->releaseGPUResource(handle.release());
 }
 
@@ -223,7 +225,7 @@ void VulkanTopLevelAccelerationStructure::build(const eastl::vector<RayTracingIn
 	};
 
 	uint64_t acceleration_structure_size = Math::roundUp(accelerationStructureBuildSizesInfo.accelerationStructureSize, allocation_granularity);
-	if (needs_reallocation(acc_buffer, acceleration_structure_size))
+	if (needs_reallocation(buffer, acceleration_structure_size))
 	{
 		if (handle)
 		{
@@ -237,8 +239,8 @@ void VulkanTopLevelAccelerationStructure::build(const eastl::vector<RayTracingIn
 		accDesc.use_staging_buffer = true;
 		accDesc.usage = BufferUsage::ACCELERATION_STRUCTURE_STORAGE_BUFFER;
 
-		acc_buffer = gDynamicRHI->createBuffer(accDesc);
-		VulkanBuffer *native_buffer = (VulkanBuffer *)acc_buffer.getReference();
+		buffer = gDynamicRHI->createBuffer(accDesc);
+		VulkanBuffer *native_buffer = (VulkanBuffer *)buffer.getReference();
 
 		VkAccelerationStructureCreateInfoKHR accelerationStructureCreateInfo{};
 		accelerationStructureCreateInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR;

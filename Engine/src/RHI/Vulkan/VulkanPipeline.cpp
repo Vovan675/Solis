@@ -22,27 +22,7 @@ void VulkanPipeline::create(const PipelineDescription &description)
 	this->description = description;
 	hash = description.getHash();
 
-	eastl::vector<VulkanShader *> shaders;
-
-	if (description.pipeline_type == PipelineType::Compute)
-	{
-		shaders.push_back(static_cast<VulkanShader *>(description.compute_shader.getReference()));
-	} else if (description.pipeline_type == PipelineType::RayTracing)
-	{
-		shaders.push_back(static_cast<VulkanShader *>(description.ray_generation_shader.getReference()));
-		shaders.push_back(static_cast<VulkanShader *>(description.miss_shader.getReference()));
-		shaders.push_back(static_cast<VulkanShader *>(description.closest_hit_shader.getReference()));
-	} else if (description.pipeline_type == PipelineType::Graphics)
-	{
-		shaders.push_back(static_cast<VulkanShader *>(description.vertex_shader.getReference()));
-		shaders.push_back(static_cast<VulkanShader *>(description.fragment_shader.getReference()));
-	} else if (description.pipeline_type == PipelineType::Mesh)
-	{
-		shaders.push_back(static_cast<VulkanShader *>(description.mesh_shader.getReference()));
-		shaders.push_back(static_cast<VulkanShader *>(description.fragment_shader.getReference()));
-	}
-
-	descriptors = VulkanShader::getDescriptors(shaders);
+	descriptors = VulkanShader::getDescriptors(description.getShaders());
 	descriptor_layout = VulkanUtils::getDescriptorLayout(descriptors);
 
 	// Pipeline layout state (aka uniform values)
@@ -238,8 +218,7 @@ void VulkanPipeline::create(const PipelineDescription &description)
 				attribute.format = VulkanUtils::getNativeFormat(input.format);
 				attribute.offset = state.stride;
 
-				uint32_t format_size = VulkanUtils::getFormatSize(input.format);
-				state.stride += format_size;
+				state.stride += getFormatSize(input.format);
 				state.input_rate = input.per_instance ? VK_VERTEX_INPUT_RATE_INSTANCE : VK_VERTEX_INPUT_RATE_VERTEX;
 				location++;
 			}

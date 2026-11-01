@@ -62,10 +62,8 @@ ALLOW_ENUM_BITS(BufferUsage)
 
 enum class BufferViewType
 {
-	CONSTANT, // Constant Buffer View on DX12, and Uniform Buffer on Vulkan
 	SHADER_RESOURCE,
 	SHADER_RESOURCE_STORAGE,
-	SHADER_RESOURCE_STORAGE_RAW,
 };
 
 class RHIBuffer;

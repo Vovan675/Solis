@@ -12,8 +12,6 @@ public:
 
 	void create(const PipelineDescription &description) override;
 
-	PipelineDescription description;
-
 	ID3D12Device *device;
 	std::unique_ptr<DX12PipelineResource> pipeline;
 

@@ -3,14 +3,12 @@
 #include "RHI/RHIBuffer.h"
 #include "VulkanResources.h"
 
-class VulkanBufferView;
 class VulkanBuffer final: public RHIBuffer
 {
 public:
 	VulkanBuffer(BufferDescription description);
 	~VulkanBuffer();
 
-	void fill(const void *sourceData) override;
 	void map(void **data) override;
 	void unmap() override;
 
@@ -22,20 +20,17 @@ public:
 
 	bool isValid() const override { return buffer != nullptr; }
 
-	RHIBufferView *getShaderResourceView() override;
-	RHIBufferView *getUnorderedAccessView(bool force_raw = false) override;
-
 public:
 	VkBuffer getBuffer() const { return buffer->resource; }
 	VmaAllocation getAllocation() const { return allocation->resource; }
 
 private:
+	RHIBufferView *create_view(const BufferViewDescription &view_description) override;
+
 	std::unique_ptr<VkBufferResource> buffer;
 	std::unique_ptr<VkAllocationResource> allocation;
 
 	ResourceState current_state = ResourceState::SHADER_RESOURCE;
-	Ref<VulkanBufferView> shader_resource_view;
-	Ref<VulkanBufferView> unordered_access_view;
 
 	bool is_mapped = false;
 };

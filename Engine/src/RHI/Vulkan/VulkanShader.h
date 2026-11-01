@@ -2,8 +2,6 @@
 #include "RHI/RHIShader.h"
 #include "VulkanUtils.h"
 
-class VulkanDynamicRHI;
-
 class VulkanShader final: public RHIShader
 {
 public:
@@ -11,20 +9,15 @@ public:
 	~VulkanShader() { destroy(); }
 
 	void destroy();
-	void recompile() override;
 
-	static eastl::vector<Descriptor> getDescriptors(eastl::vector<VulkanShader *> shaders);
+	static eastl::vector<Descriptor> getDescriptors(const eastl::fixed_vector<RHIShader *, 3> &shaders);
 
 	static eastl::vector<VkPushConstantRange> getPushConstantRanges(eastl::vector<Descriptor> &descriptors);
 
-	VulkanDynamicRHI *rhi;
-
 	VkShaderModule handle = nullptr;
 
-	spvc_compiler compiler;
 	spv_reflect::ShaderModule reflection;
 
-	VkShaderModuleCreateInfo create_info;
-
-	eastl::hash_set<eastl::wstring> included_files;
+private:
+	void load_bytecode(IDxcBlob *bytecode) override;
 };

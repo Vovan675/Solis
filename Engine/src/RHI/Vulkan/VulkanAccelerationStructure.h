@@ -26,11 +26,9 @@ public:
 	~VulkanTopLevelAccelerationStructure();
 
 	void build(const eastl::vector<RayTracingInstance> &instances) override;
-	uint32_t getBindlessId() override { return bindless_id; }
 
 	std::unique_ptr<VkAccelerationStructureResource> handle;
 	uint64_t deviceAddress = 0;
-	RHIBufferRef acc_buffer;
+	RHIBufferRef buffer;
 	RHIBufferRef scratch_buffer;
-	uint32_t bindless_id = 0;
 };

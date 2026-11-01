@@ -7,8 +7,6 @@
 #include "Core/Variables.h"
 #include "RHI/StreamlineWrapper.h"
 
-static UINT64 fenceValues[MAX_FRAMES_IN_FLIGHT] = {};
-
 static void validation_callback(D3D12_MESSAGE_CATEGORY category, D3D12_MESSAGE_SEVERITY severity, D3D12_MESSAGE_ID id, LPCSTR description, void *context)
 {
 	if (severity <= D3D12_MESSAGE_SEVERITY_ERROR)
@@ -120,7 +118,6 @@ void DX12DynamicRHI::init()
 	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
 		cmd_lists[i] = new DX12CommandList(device, D3D12_COMMAND_LIST_TYPE_DIRECT);
-		fenceValues[i] = MAX_FRAMES_IN_FLIGHT - 1 - i;
 		upload_cmd_lists[i] = new DX12CommandList(device, D3D12_COMMAND_LIST_TYPE_DIRECT);
 	}
 
@@ -295,70 +292,12 @@ RHISwapchainRef DX12DynamicRHI::createSwapchain(GLFWwindow *window)
 
 void DX12DynamicRHI::resizeSwapchain(int width, int height)
 {
-	gDynamicRHI->waitGPU();
 	swapchain->resize(width, height);
 }
 
-RHIShaderRef DX12DynamicRHI::createShader(eastl::wstring path, ShaderType type, eastl::string entry_point)
+RHIShader *DX12DynamicRHI::create_shader(eastl::wstring path, ShaderType type, eastl::string entry_point, eastl::vector<eastl::pair<const char *, const char *>> defines)
 {
-	if (entry_point.empty())
-	{
-		if (type == VERTEX_SHADER)
-			entry_point = "VSMain";
-		else if (type == FRAGMENT_SHADER)
-			entry_point = "PSMain";
-		else if (type == COMPUTE_SHADER)
-			entry_point = "CSMain";
-		else if (type == RAY_GENERATION_SHADER)
-			entry_point = "RayGen";
-		else if (type == MISS_SHADER)
-			entry_point = "Miss";
-		else if (type == CLOSEST_HIT_SHADER)
-			entry_point = "ClosestHit";
-		else if (type == TASK_SHADER)
-			entry_point = "TSMain";
-		else if (type == MESH_SHADER)
-			entry_point = "MSMain";
-	}
-
-	size_t cache_hash = 0;
-	hashCombine(cache_hash, path);
-	hashCombine(cache_hash, type);
-	hashCombine(cache_hash, entry_point);
-
-	if (cached_shaders.find(cache_hash) != cached_shaders.end())
-	{
-		return cached_shaders[cache_hash];
-	}
-
-	auto shader = new DX12Shader(path, type, entry_point, {}, dxc_utils);
-	cached_shaders[cache_hash] = shader;
-	return shader;
-}
-
-RHIShaderRef DX12DynamicRHI::createShader(eastl::wstring path, ShaderType type, eastl::string entry_point, eastl::vector<eastl::pair<const char *, const char *>> defines)
-{
-	size_t cache_hash = 0;
-	hashCombine(cache_hash, path);
-	hashCombine(cache_hash, type);
-	hashCombine(cache_hash, entry_point);
-
-	eastl::string all_defines = "";
-	for (const auto &define : defines)
-	{
-		all_defines += define.first;
-		all_defines += define.second;
-	}
-	Engine::Math::hashCombine(cache_hash, all_defines);
-
-	if (cached_shaders.find(cache_hash) != cached_shaders.end())
-	{
-		return cached_shaders[cache_hash];
-	}
-
-	auto shader = new DX12Shader(path, type, entry_point, defines, dxc_utils);
-	cached_shaders[cache_hash] = shader;
-	return shader;
+	return new DX12Shader(path, type, entry_point, defines, dxc_utils);
 }
 
 RHIPipelineRef DX12DynamicRHI::createPipeline()
@@ -375,7 +314,7 @@ RHIBufferRef DX12DynamicRHI::createBuffer(BufferDescription description)
 
 RHITextureRef DX12DynamicRHI::createTexture(TextureDescription description)
 {
-	auto texture = new DX12Texture(this, description);
+	auto texture = new DX12Texture(description);
 	return texture;
 }
 
@@ -398,9 +337,8 @@ RHICommandList *DX12DynamicRHI::getUploadCmdList()
 
 void DX12DynamicRHI::waitGPU()
 {
-	cmd_queue->signal(fenceValues[frame_in_flight]);
-	cmd_queue->wait(fenceValues[frame_in_flight]);
-	fenceValues[frame_in_flight]++;
+	PROFILE_CPU_FUNCTION();
+	cmd_queue->waitIdle();
 }
 
 void DX12DynamicRHI::prepareRenderCall()
@@ -437,9 +375,9 @@ void DX12DynamicRHI::prepareRenderCall()
 				continue;
 
 			if (is_compute_pipeline)
-				cmd_list_native->cmd_list->SetComputeRootConstantBufferView(info.root_param_index, current_bind_buffers_gpu_address[info.bind_point]);
+				cmd_list_native->cmd_list->SetComputeRootConstantBufferView(info.root_param_index, current_bind_buffers[info.bind_point]->getGPUAddress());
 			else
-				cmd_list_native->cmd_list->SetGraphicsRootConstantBufferView(info.root_param_index, current_bind_buffers_gpu_address[info.bind_point]);
+				cmd_list_native->cmd_list->SetGraphicsRootConstantBufferView(info.root_param_index, current_bind_buffers[info.bind_point]->getGPUAddress());
 		}
 	}
 
@@ -481,7 +419,7 @@ void DX12DynamicRHI::beginFrame()
 	for (auto &buf : current_bind_buffers)
 		buf = nullptr;
 
-	image_index = swapchain->swap_chain->GetCurrentBackBufferIndex();
+	swapchain->acquire();
 	Renderer::beginFrame();
 
 	TracyD3D12NewFrame(tracy_ctx);
@@ -497,8 +435,11 @@ void DX12DynamicRHI::beginFrame()
 	getCmdList()->open();
 
 	bindDescriptorHeaps();
-	cbv_srv_uav_heap->releaseFrame(fenceValues[frame_in_flight]);
-	cbv_srv_uav_additional_heap->releaseFrame(fenceValues[frame_in_flight]);
+	if (frame >= MAX_FRAMES_IN_FLIGHT)
+	{
+		cbv_srv_uav_heap->releaseFrame(frame - MAX_FRAMES_IN_FLIGHT);
+		cbv_srv_uav_additional_heap->releaseFrame(frame - MAX_FRAMES_IN_FLIGHT);
+	}
 
 	cmd_lists[frame_in_flight]->cmd_list->BeginQuery(pipeline_statistics_queries[frame_in_flight].query_heap.Get(), D3D12_QUERY_TYPE_PIPELINE_STATISTICS1, 0);
 }
@@ -519,28 +460,11 @@ void DX12DynamicRHI::endFrame()
 		execute_cmd_lists.push_back(upload_cmd_lists[frame_in_flight]);
 	}
 	execute_cmd_lists.push_back(cmd_lists[frame_in_flight]);
-	cmd_queue->execute(execute_cmd_lists);
+	uint64_t frame_fence_value = cmd_queue->execute(execute_cmd_lists);
 
-	{
-		PROFILE_CPU_SCOPE("Present");
-		if (render_vsync)
-			swapchain->swap_chain->Present(1, 0);
-		else
-			swapchain->swap_chain->Present(0, swapchain->allow_tearing ? DXGI_PRESENT_ALLOW_TEARING : 0);
-	}
+	swapchain->present();
 
-	// Set current fence value on current frame completion
-	const UINT64 current_fence_value = fenceValues[frame_in_flight];
-	cmd_queue->signal(current_fence_value);
-
-	// Wait for previous frame to complete
-	frame_in_flight = (frame_in_flight + 1) % MAX_FRAMES_IN_FLIGHT;
-
-	{
-		PROFILE_CPU_SCOPE("Wait in flight fence");
-		const UINT64 prev_fence_value = fenceValues[frame_in_flight];
-		cmd_queue->wait(prev_fence_value);
-	}
+	advance_frame_in_flight(frame_fence_value);
 
 	// Read pipeline statistics
 	D3D12_QUERY_DATA_PIPELINE_STATISTICS1 stats;
@@ -561,9 +485,6 @@ void DX12DynamicRHI::endFrame()
 		gpu_statistics.compute_shader_invocations = stats.CSInvocations;
 		gpu_statistics.mesh_shader_invocations = stats.MSInvocations;
 	}
-
-	// Set the fence value for the next frame.
-	fenceValues[frame_in_flight] = current_fence_value + 1;
 
 	cbv_srv_uav_heap->finishFrame(frame);
 	cbv_srv_uav_additional_heap->finishFrame(frame);

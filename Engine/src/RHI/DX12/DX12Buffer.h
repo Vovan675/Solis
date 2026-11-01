@@ -5,15 +5,12 @@
 #include "DX12DescriptorHeap.h"
 #include "D3D12MemoryAllocator/D3D12MemAlloc.h"
 
-class DX12BufferView;
-
 class DX12Buffer final: public RHIBuffer
 {
 public:
 	DX12Buffer(BufferDescription description);
 	~DX12Buffer();
 
-	void fill(const void *sourceData) override;
 	void map(void **data) override;
 	void unmap() override;
 
@@ -28,23 +25,17 @@ public:
 
 	bool isValid() const override { return resource != nullptr; }
 
-	RHIBufferView *getShaderResourceView() override;
-	RHIBufferView *getUnorderedAccessView(bool force_raw = false) override;
-
 public:
 	ID3D12Resource *getResource() const { return resource->resource; }
 	D3D12MA::Allocation *getAllocation() const { return allocation->resource; }
 
 private:
+	RHIBufferView *create_view(const BufferViewDescription &view_description) override;
+
 	std::unique_ptr<DX12Resource> resource;
 	std::unique_ptr<DX12AllocationResource> allocation;
-	
-	ResourceState current_state;
-	Ref<DX12BufferView> shader_resource_view;
-	Ref<DX12BufferView> unordered_access_view;
-	Ref<DX12BufferView> raw_unordered_access_view;
 
-	bool is_mapped = false;
+	ResourceState current_state;
 };
 
 class DX12BufferView final: public RHIBufferView

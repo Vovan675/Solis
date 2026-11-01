@@ -1,10 +1,12 @@
 #include "pch.h"
 #include "DX12Swapchain.h"
 #include "DX12Utils.h"
+#include "Core/Variables.h"
 
 DX12Swapchain::DX12Swapchain(HWND hWnd, const SwapchainInfo &info) : hWnd(hWnd), RHISwapchain(info)
 {
 	create_swapchain();
+	create_resources();
 }
 
 DX12Swapchain::~DX12Swapchain()
@@ -14,56 +16,34 @@ DX12Swapchain::~DX12Swapchain()
 
 void DX12Swapchain::cleanup()
 {
-	for (int i = 0; i < info.textures_count; i++)
-	{
-		if (render_targets.size() > i && render_targets[i])
-			render_targets[i].Reset();
-		if (swap_chain_textures.size() > i && swap_chain_textures[i])
-		{
-			swap_chain_textures[i]->resource = nullptr;
-			swap_chain_textures[i]->cleanup();
-		}
-	}
-
-	render_targets.clear();
-	swap_chain_textures.clear();
-
-	if (swap_chain)
-	{
-		swap_chain.Reset();
-		swap_chain = nullptr;
-	}
+	release_resources();
+	swap_chain.Reset();
 }
 
-RHITextureRef DX12Swapchain::getTexture(uint8_t index)
+void DX12Swapchain::acquire()
 {
-	return swap_chain_textures[index];
+	current_index = swap_chain->GetCurrentBackBufferIndex();
+}
+
+void DX12Swapchain::present()
+{
+	PROFILE_CPU_FUNCTION();
+	if (render_vsync)
+		swap_chain->Present(1, 0);
+	else
+		swap_chain->Present(0, allow_tearing ? DXGI_PRESENT_ALLOW_TEARING : 0);
 }
 
 void DX12Swapchain::resize(uint32_t width, uint32_t height)
 {
-	for (UINT n = 0; n < info.textures_count; n++)
-	{
-		render_targets[n].Detach();
-		swap_chain_textures[n]->resource->Release();
-		swap_chain_textures[n]->resource = nullptr;
-	}
+	gDynamicRHI->waitGPU();
 
+	info.width = width;
+	info.height = height;
+
+	release_resources();
 	swap_chain->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, allow_tearing ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0);
-
-	// Create a RTV for each frame.
-	for (UINT n = 0; n < info.textures_count; n++)
-	{
-		swap_chain->GetBuffer(n, IID_PPV_ARGS(&render_targets[n]));
-
-		TextureDescription desc{};
-		desc.width = width;
-		desc.height = height;
-		desc.usage_flags = TEXTURE_USAGE_ATTACHMENT;
-		desc.format = FORMAT_R8G8B8A8_UNORM;
-		swap_chain_textures[n] = new DX12Texture(gDynamicRHI, desc);
-		swap_chain_textures[n]->fill_raw(render_targets[n].Get());
-	}
+	create_resources();
 }
 
 void DX12Swapchain::create_swapchain()
@@ -87,21 +67,35 @@ void DX12Swapchain::create_swapchain()
 	ComPtr<IDXGISwapChain1> swap_chain_1;
 	rhi->factory->CreateSwapChainForHwnd(rhi->cmd_queue->cmd_queue.Get(), hWnd, &desc, nullptr, nullptr, &swap_chain_1);
 	swap_chain_1->QueryInterface(IID_PPV_ARGS(&swap_chain));
+}
 
-	render_targets.resize(info.textures_count);
-	swap_chain_textures.resize(info.textures_count);
-
+void DX12Swapchain::create_resources()
+{
 	// Create a RTV for each frame.
-	for (UINT n = 0; n < info.textures_count; n++)
+	for (int i = 0; i < info.textures_count; i++)
 	{
-		swap_chain->GetBuffer(n, IID_PPV_ARGS(&render_targets[n]));
+		ID3D12Resource *buffer;
+		swap_chain->GetBuffer(i, IID_PPV_ARGS(&buffer));
 
 		TextureDescription desc{};
 		desc.width = info.width;
 		desc.height = info.height;
-		desc.usage_flags = TEXTURE_USAGE_ATTACHMENT;
+		desc.usage_flags = TEXTURE_USAGE_ATTACHMENT | TEXTURE_USAGE_NO_SAMPLED;
 		desc.format = info.format;
-		swap_chain_textures[n] = new DX12Texture(gDynamicRHI, desc);
-		swap_chain_textures[n]->fill_raw(render_targets[n].Get());
+		RHITextureRef texture = gDynamicRHI->createTexture(desc);
+		texture->fill_raw(buffer);
+		texture->setDebugName("Swapchain Texture");
+		textures.push_back(texture);
 	}
+}
+
+void DX12Swapchain::release_resources()
+{
+	for (RHITextureRef &texture : textures)
+	{
+		DX12Texture *native_texture = (DX12Texture *)texture.getReference();
+		native_texture->resource->Release();
+		native_texture->resource = nullptr;
+	}
+	textures.clear();
 }

@@ -7,11 +7,7 @@ class VulkanTextureView;
 class VulkanTexture final: public RHITexture
 {
 public:
-	VulkanTexture(TextureDescription description) : RHITexture(description)
-	{
-		set_native_format();
-	}
-
+	VulkanTexture(TextureDescription description): RHITexture(description) {}
 	~VulkanTexture();
 
 	void destroy();
@@ -19,39 +15,33 @@ public:
 	void fill() override;
 	void fill(const void *sourceData) override;
 	void clear(RHICommandList *cmd_list, const glm::vec4 &color) override;
-	void load(const char *path) override;
-	void loadEquirectangularCubemap(const char *path) override;
 
 	void setDebugName(eastl::string name) override;
-	const char *getDebugName() { return debug_name.c_str(); }
 
-	void transitLayout(RHICommandList *cmd_list, TextureLayoutType new_layout_type, int mip = -1) override;
-
-	void generateMipmaps(RHICommandList *cmd_list);
+	void generateMipmaps(RHICommandList *cmd_list) override;
 
 	bool isValid() const override { return image != nullptr; }
 	uint32_t getBufferRowPitch() const override { return get_row_size(description.format, getWidth()); }
 
-	RHITextureView *getRenderTargetView(uint32_t mip = 0, uint32_t layer = 0) override;
-	RHITextureView *getShaderResourceView(uint32_t mip = -1, uint32_t layer = -1) override;
-	RHITextureView *getUnorderedAccessView(uint32_t mip = -1, uint32_t layer = -1) override;
-
 public:
 	VkImage getImage() const { return image->resource; }
 	VkImageLayout getNativeLayout() { return get_native_layout(current_layouts[0]); }
-	VkFormat getNativeFormat() const { return native_format; }
+	VkFormat getNativeFormat() const { return VulkanUtils::getNativeFormat(description.format); }
 	VkImageUsageFlags getNativeUsage() const { return get_vk_image_usage_flags(); }
 
 protected:
-	friend class VulkanDynamicRHI;
 	friend class VulkanSwapchain;
+
 	void fill_raw(void *raw_resource) override
 	{
-		current_layouts.resize(description.mip_levels, TEXTURE_LAYOUT_UNDEFINED);
+		current_layouts.assign(description.mip_levels, TEXTURE_LAYOUT_UNDEFINED);
 		if (!image)
 			image = std::make_unique<VkImageResource>();
 		image->resource = *reinterpret_cast<VkImage *>(raw_resource);
 	}
+
+	RHITextureView *create_view(const TextureViewDescription &view_description) override;
+	void transit_layout(RHICommandList *cmd_list, TextureLayoutType old_layout_type, TextureLayoutType new_layout_type, uint32_t first_mip, uint32_t mip_count) override;
 
 	void copy_buffer_to_image(VkCommandBuffer command_buffer, VkBuffer buffer)
 	{
@@ -117,9 +107,6 @@ protected:
 		}
 	}
 
-	VkImageLayout get_vk_layout(TextureLayoutType layout_type);
-	void set_native_format();
-
 	VkImageUsageFlags get_vk_image_usage_flags() const
 	{
 		VkImageUsageFlags flags = 0;
@@ -156,18 +143,8 @@ protected:
 		return image_size;
 	}
 
-	eastl::vector<TextureLayoutType> current_layouts; // Image layouts for each mip map
-
-	VkFormat native_format = VK_FORMAT_UNDEFINED;
-
 	std::unique_ptr<VkImageResource> image = nullptr;
 	std::unique_ptr<VkAllocationResource> allocation = nullptr;
-
-	eastl::vector<Ref<VulkanTextureView>> shader_resource_views;
-	eastl::vector<Ref<VulkanTextureView>> unordered_access_views;
-	eastl::vector<Ref<VulkanTextureView>> render_target_views;
-
-	eastl::string debug_name = "";
 };
 
 class VulkanTextureView final: public RHITextureView

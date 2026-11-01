@@ -5,8 +5,21 @@
 #include "VulkanUtils.h"
 #include "VulkanDynamicRHI.h"
 
+static VkSemaphore create_semaphore()
+{
+	VkSemaphoreCreateInfo semaphore_info{};
+	semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+
+	VkSemaphore semaphore;
+	CHECK_ERROR(vkCreateSemaphore(VulkanUtils::getNativeRHI()->device->logicalHandle, &semaphore_info, nullptr, &semaphore));
+	return semaphore;
+}
+
 VulkanSwapchain::VulkanSwapchain(VkSurfaceKHR surface, const SwapchainInfo &info): surface(surface), RHISwapchain(info)
 {
+	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+		image_acquired_semaphores.push_back(create_semaphore());
+
 	create_swapchain();
 	create_resources();
 }
@@ -14,6 +27,9 @@ VulkanSwapchain::VulkanSwapchain(VkSurfaceKHR surface, const SwapchainInfo &info
 VulkanSwapchain::~VulkanSwapchain()
 {
 	cleanup();
+
+	for (VkSemaphore semaphore : image_acquired_semaphores)
+		vkDestroySemaphore(VulkanUtils::getNativeRHI()->device->logicalHandle, semaphore, nullptr);
 
 	if (surface)
 	{
@@ -24,14 +40,7 @@ VulkanSwapchain::~VulkanSwapchain()
 
 void VulkanSwapchain::cleanup()
 {
-	// dont destroy image because it will be destroyed with swapchain implicitly
-	for (auto &tex : swapchain_textures)
-	{
-		VulkanTexture *native_texture = (VulkanTexture *)tex.getReference();
-		native_texture->image->resource = nullptr;
-	}
-
-	swapchain_textures.clear();
+	release_resources();
 
 	if (swapchain != 0)
 	{
@@ -40,19 +49,63 @@ void VulkanSwapchain::cleanup()
 	}
 }
 
-RHITextureRef VulkanSwapchain::getTexture(uint8_t index)
-{
-	return swapchain_textures[index];
-}
-
 void VulkanSwapchain::resize(uint32_t width, uint32_t height)
 {
+	gDynamicRHI->waitGPU();
+
 	info.width = width;
 	info.height = height;
 
 	cleanup();
 	create_swapchain();
 	create_resources();
+	is_resize_needed = false;
+}
+
+void VulkanSwapchain::acquire()
+{
+	PROFILE_CPU_FUNCTION();
+
+	// Recreate swapchain if needed
+	if (is_resize_needed || vsync != render_vsync)
+		resize(info.width, info.height);
+
+	VkDevice device = VulkanUtils::getNativeRHI()->device->logicalHandle;
+
+	// Acquire image and trigger image acquired semaphore
+	VkResult result = vkAcquireNextImageKHR(device, swapchain, UINT64_MAX, getImageAcquiredSemaphore(), VK_NULL_HANDLE, &current_index);
+	// VK_ERROR_OUT_OF_DATE_KHR leaves semaphore unsignaled
+	if (result == VK_ERROR_OUT_OF_DATE_KHR)
+	{
+		resize(info.width, info.height);
+		result = vkAcquireNextImageKHR(device, swapchain, UINT64_MAX, getImageAcquiredSemaphore(), VK_NULL_HANDLE, &current_index);
+	}
+
+	// VK_SUBOPTIMAL_KHR signals semaphore
+	if (result == VK_SUBOPTIMAL_KHR)
+		is_resize_needed = true;
+	else if (result != VK_SUCCESS)
+		CORE_CRITICAL("Failed to acquire swap chain image");
+}
+
+void VulkanSwapchain::present()
+{
+	PROFILE_CPU_FUNCTION();
+	VkPresentInfoKHR present_info{};
+	present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+	present_info.waitSemaphoreCount = 1;
+	// Wait until previous queue rendered and triggered its semaphore
+	VkSemaphore rendering_done_semaphore = getRenderingDoneSemaphore();
+	present_info.pWaitSemaphores = &rendering_done_semaphore;
+	present_info.swapchainCount = 1;
+	present_info.pSwapchains = &swapchain;
+	present_info.pImageIndices = &current_index;
+
+	VkResult result = vkQueuePresentKHR(VulkanUtils::getNativeRHI()->device->presentQueue, &present_info);
+	if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
+		is_resize_needed = true;
+	else if (result != VK_SUCCESS)
+		CORE_CRITICAL("Failed to present swap chain image");
 }
 
 void VulkanSwapchain::create_swapchain()
@@ -96,11 +149,12 @@ void VulkanSwapchain::create_swapchain()
 		}
 	}
 
-	VkPresentModeKHR present_mode;
+	vsync = render_vsync;
+	VkPresentModeKHR present_mode = VK_PRESENT_MODE_FIFO_KHR;
 	for (const auto &mode : present_modes)
 	{
 		// vsync
-		if (render_vsync)
+		if (vsync)
 		{
 			if (mode == VK_PRESENT_MODE_FIFO_KHR)
 				present_mode = mode;
@@ -158,6 +212,24 @@ void VulkanSwapchain::create_resources()
 		RHITextureRef tex = gDynamicRHI->createTexture(desc);
 		tex->fill_raw(&swapchain_images[i]);
 		tex->setDebugName("Swapchain Texture");
-		swapchain_textures.push_back(tex);
+		textures.push_back(tex);
+
+		rendering_done_semaphores.push_back(create_semaphore());
 	}
+}
+
+void VulkanSwapchain::release_resources()
+{
+	// dont destroy image because it will be destroyed with swapchain implicitly
+	for (auto &tex : textures)
+	{
+		VulkanTexture *native_texture = (VulkanTexture *)tex.getReference();
+		native_texture->image->resource = nullptr;
+	}
+
+	textures.clear();
+
+	for (VkSemaphore semaphore : rendering_done_semaphores)
+		vkDestroySemaphore(VulkanUtils::getNativeRHI()->device->logicalHandle, semaphore, nullptr);
+	rendering_done_semaphores.clear();
 }

@@ -9,32 +9,9 @@ DX12Shader::DX12Shader(const eastl::wstring &path, ShaderType type, eastl::strin
 	recompile();
 }
 
-void DX12Shader::destroy()
+void DX12Shader::load_bytecode(IDxcBlob *bytecode)
 {
-	blob.Reset();
-	reflection.Reset();
-	reflection_library.Reset();
-
-	for (auto path : included_files)
-		path_to_shaders[path].remove(this);
-}
-
-void DX12Shader::recompile()
-{
-	destroy();
-
-	eastl::vector<eastl::pair<const char*, const char*>> defines_ptrs;
-	defines_ptrs.reserve(defines.size());
-	for (const auto& define : defines)
-		defines_ptrs.push_back({define.first.c_str(), define.second.c_str()});
-
-	DynamicRHI::CompileShaderResult result = gDynamicRHI->compile_shader(path.wstring().c_str(), type, entry_point, false, &defines_ptrs);
-	blob = result.data;
-	hash = result.source_hash;
-	included_files = result.included_files;
-
-	for (auto path : included_files)
-		path_to_shaders[path].push_back(this);
+	blob = bytecode;
 
 	DxcBuffer reflectionBuffer = {};
 	reflectionBuffer.Ptr = blob->GetBufferPointer();
@@ -47,7 +24,7 @@ void DX12Shader::recompile()
 		dxc_utils->CreateReflection(&reflectionBuffer, IID_PPV_ARGS(&reflection));
 }
 
-eastl::vector<CD3DX12_ROOT_PARAMETER1> DX12Shader::getRootParameters(eastl::vector<DX12Shader *> shaders, BindingInfo &binding_info)
+eastl::vector<CD3DX12_ROOT_PARAMETER1> DX12Shader::getRootParameters(const eastl::fixed_vector<RHIShader *, 3> &shaders, BindingInfo &binding_info)
 {
 	eastl::vector<CD3DX12_ROOT_PARAMETER1> params;
 
@@ -80,8 +57,9 @@ eastl::vector<CD3DX12_ROOT_PARAMETER1> DX12Shader::getRootParameters(eastl::vect
 	eastl::map<int, eastl::vector<D3D12_SHADER_INPUT_BIND_DESC>> uav_by_space;
 	eastl::map<int, eastl::vector<D3D12_SHADER_INPUT_BIND_DESC>> sampler_by_space;
 
-	for (auto &shader : shaders)
+	for (RHIShader *rhi_shader : shaders)
 	{
+		DX12Shader *shader = static_cast<DX12Shader *>(rhi_shader);
 		D3D12_SHADER_VISIBILITY visibility;
 		switch (shader->type)
 		{

@@ -8,11 +8,7 @@ class DX12TextureView;
 class DX12Texture final: public RHITexture
 {
 public:
-	DX12Texture(DynamicRHI *rhi, TextureDescription description): rhi(rhi), RHITexture(description)
-	{
-		set_native_format();
-	}
-
+	DX12Texture(TextureDescription description): RHITexture(description) {}
 	~DX12Texture();
 
 	void destroy();
@@ -20,8 +16,6 @@ public:
 	void fill() override;
 	void fill(const void *sourceData) override;
 	void clear(RHICommandList *cmd_list, const glm::vec4 &color) override;
-	void load(const char *path) override;
-	void loadEquirectangularCubemap(const char *path) override;
 
 	void setDebugName(eastl::string name) override
 	{
@@ -32,35 +26,31 @@ public:
 		mbstowcs(wbuf, name.c_str(), l);
 		resource->resource->SetName(wbuf);
 	}
-	const char *getDebugName() { return debug_name.c_str(); }
 
-	void transitLayout(RHICommandList *cmd_list, TextureLayoutType new_layout_type, int mip = -1) override;
-
-	void generateMipmaps(RHICommandList *cmd_list);
+	void generateMipmaps(RHICommandList *cmd_list) override;
 
 	bool isValid() const override { return resource != nullptr; }
 	uint32_t getBufferRowPitch() const override;
-
-	RHITextureView *getRenderTargetView(uint32_t mip = 0, uint32_t layer = 0) override;
-	RHITextureView *getShaderResourceView(uint32_t mip = -1, uint32_t layer = -1) override;
-	RHITextureView *getUnorderedAccessView(uint32_t mip = -1, uint32_t layer = -1) override;
 
 public:
 	ID3D12Resource *getResource() const { return resource->resource; }
 	D3D12MA::Allocation *getAllocation() const { return allocation->resource; }
 
-	DXGI_FORMAT getNativeFormat() const { return native_format; }
-	D3D12_RESOURCE_STATES getNativeState() { return get_native_layout(current_layout); }
+	DXGI_FORMAT getNativeFormat() const;
+	D3D12_RESOURCE_STATES getNativeState() { return get_native_layout(current_layouts[0]); }
 
 protected:
-	friend class DX12DynamicRHI;
 	friend class DX12Swapchain;
 
 	void fill_raw(void *raw_resource) override
 	{
+		current_layouts.assign(description.mip_levels, TEXTURE_LAYOUT_GENERAL);
 		resource = std::make_unique<DX12Resource>();
 		resource->resource = reinterpret_cast<ID3D12Resource *>(raw_resource);
 	}
+
+	RHITextureView *create_view(const TextureViewDescription &view_description) override;
+	void transit_layout(RHICommandList *cmd_list, TextureLayoutType old_layout_type, TextureLayoutType new_layout_type, uint32_t first_mip, uint32_t mip_count) override;
 
 	D3D12_RESOURCE_STATES get_native_layout(TextureLayoutType layout_type)
 	{
@@ -109,21 +99,9 @@ protected:
 		return flags;
 	}
 
-	void set_native_format();
-
-	DXGI_FORMAT native_format = DXGI_FORMAT_UNKNOWN;
-
-	TextureLayoutType current_layout = TEXTURE_LAYOUT_GENERAL;
-	DynamicRHI *rhi;
 public:
 	std::unique_ptr<DX12AllocationResource> allocation;
 	std::unique_ptr<DX12Resource> resource;
-
-	eastl::vector<Ref<DX12TextureView>> shader_resource_views;
-	eastl::vector<Ref<DX12TextureView>> unordered_access_views;
-	eastl::vector<Ref<DX12TextureView>> render_target_views;
-
-	eastl::string debug_name = "";
 };
 
 class DX12TextureView final: public RHITextureView

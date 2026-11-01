@@ -1,23 +1,41 @@
 #include "pch.h"
 #include "RHIShader.h"
+#include "RHI/DynamicRHI.h"
 #include "Core/Filesystem.h"
 
 eastl::unordered_map<eastl::wstring, eastl::list<RHIShader *>> RHIShader::path_to_shaders;
 
 RHIShader::RHIShader(const eastl::wstring &path, ShaderType type, eastl::string entry_point, eastl::vector<eastl::pair<const char *, const char *>> defines)
-    : path(path.c_str()), type(type), entry_point(entry_point)
+	: path(path.c_str()), type(type), entry_point(entry_point)
 {
-    for (const auto& define : defines)
-        this->defines.push_back({eastl::string(define.first), eastl::string(define.second)});
-    path_to_shaders[Filesystem::normalizePath(path.c_str())].push_back(this);
+	for (const auto& define : defines)
+		this->defines.push_back({eastl::string(define.first), eastl::string(define.second)});
+	path_to_shaders[Filesystem::normalizePath(path.c_str())].push_back(this);
 }
 
 RHIShader::~RHIShader()
 {
-    path_to_shaders[Filesystem::normalizePath(path.c_str())].remove(this);
+	for (const auto &included_file : included_files)
+		path_to_shaders[included_file].remove(this);
+	path_to_shaders[Filesystem::normalizePath(path.c_str())].remove(this);
+}
+
+void RHIShader::recompile()
+{
+	for (const auto &included_file : included_files)
+		path_to_shaders[included_file].remove(this);
+
+	DynamicRHI::CompileShaderResult result = gDynamicRHI->compileShader(path.wstring().c_str(), type, entry_point, defines);
+	hash = result.source_hash;
+	included_files = result.included_files;
+
+	for (const auto &included_file : included_files)
+		path_to_shaders[included_file].push_back(this);
+
+	load_bytecode(result.data.Get());
 }
 
 eastl::list<RHIShader *> RHIShader::getAllShadersAtPath(const eastl::wstring &path)
 {
-    return path_to_shaders[Filesystem::normalizePath(path)];
+	return path_to_shaders[Filesystem::normalizePath(path)];
 }

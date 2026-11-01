@@ -131,6 +131,31 @@ struct PipelineDescription
 	// Mesh Shader Pipeline
 	RHIShaderRef mesh_shader;
 
+	eastl::fixed_vector<RHIShader *, 3> getShaders() const
+	{
+		eastl::fixed_vector<RHIShader *, 3> shaders;
+		switch (pipeline_type)
+		{
+			case PipelineType::Graphics:
+				shaders.push_back(vertex_shader);
+				shaders.push_back(fragment_shader);
+				break;
+			case PipelineType::Compute:
+				shaders.push_back(compute_shader);
+				break;
+			case PipelineType::RayTracing:
+				shaders.push_back(ray_generation_shader);
+				shaders.push_back(miss_shader);
+				shaders.push_back(closest_hit_shader);
+				break;
+			case PipelineType::Mesh:
+				shaders.push_back(mesh_shader);
+				shaders.push_back(fragment_shader);
+				break;
+		}
+		return shaders;
+	}
+
 	size_t getHash() const
 	{
 		size_t hash = 0;
@@ -184,6 +209,9 @@ class RHIPipeline : public RefCounted
 public:
 	virtual void create(const PipelineDescription &description) = 0;
 	size_t getHash() const { return hash; };
+
+	PipelineDescription description;
+
 protected:
 	size_t hash = 0;
 };

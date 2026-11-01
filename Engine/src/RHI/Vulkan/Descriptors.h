@@ -1,6 +1,6 @@
 #pragma once
 #include "Device.h"
-#include <deque>
+#include <EASTL/deque.h>
 
 struct DescriptorLayout
 {
@@ -54,10 +54,10 @@ private:
 
 struct DescriptorWriter
 {
-    eastl::fixed_vector<VkDescriptorBufferInfo, 16> buffer_infos;
-    eastl::fixed_vector<VkDescriptorImageInfo, 16> image_infos;
-    eastl::fixed_vector<VkWriteDescriptorSetAccelerationStructureKHR, 4> acceleration_structure_infos;
-    eastl::fixed_vector<VkWriteDescriptorSet, 64> writes;
+    eastl::deque<VkDescriptorBufferInfo> buffer_infos;
+    eastl::deque<VkDescriptorImageInfo> image_infos;
+    eastl::deque<VkWriteDescriptorSetAccelerationStructureKHR> acceleration_structure_infos;
+    eastl::vector<VkWriteDescriptorSet> writes;
 
     void writeBuffer(uint32_t binding, VkDescriptorType type, VkBuffer buffer, VkDeviceSize size, VkDeviceSize offset = 0);
     void writeImage(uint32_t binding, VkDescriptorType type, VkImageView image, VkSampler sampler, VkImageLayout image_layout);

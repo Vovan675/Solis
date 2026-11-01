@@ -10,48 +10,32 @@ VulkanShader::VulkanShader(const eastl::wstring &path, ShaderType type, eastl::s
 
 void VulkanShader::destroy()
 {
-	auto *rhi = VulkanUtils::getNativeRHI();
-
 	if (handle)
 	{
-		vkDestroyShaderModule(rhi->device->logicalHandle, handle, nullptr);
+		vkDestroyShaderModule(VulkanUtils::getNativeRHI()->device->logicalHandle, handle, nullptr);
 		handle = nullptr;
 	}
-
-	for (auto path : included_files)
-		path_to_shaders[path].remove(this);
 }
 
-void VulkanShader::recompile()
+void VulkanShader::load_bytecode(IDxcBlob *bytecode)
 {
 	destroy();
 
-	eastl::vector<eastl::pair<const char*, const char*>> defines_ptrs;
-	defines_ptrs.reserve(defines.size());
-	for (const auto& define : defines)
-		defines_ptrs.push_back({define.first.c_str(), define.second.c_str()});
-
-	DynamicRHI::CompileShaderResult result = gDynamicRHI->compile_shader(path.wstring().c_str(), type, entry_point, true, &defines_ptrs);
-	hash = result.source_hash;
-	included_files = result.included_files;
-
-	for (auto path : included_files)
-		path_to_shaders[path].push_back(this);
-
-	create_info = {VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
-	create_info.codeSize = result.data->GetBufferSize();
-	create_info.pCode = (const uint32_t *)result.data->GetBufferPointer();
+	VkShaderModuleCreateInfo create_info{};
+	create_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+	create_info.codeSize = bytecode->GetBufferSize();
+	create_info.pCode = (const uint32_t *)bytecode->GetBufferPointer();
 	vkCreateShaderModule(VulkanUtils::getNativeRHI()->device->logicalHandle, &create_info, nullptr, &handle);
 	reflection = spv_reflect::ShaderModule(create_info.codeSize, create_info.pCode);
 }
 
-eastl::vector<Descriptor> VulkanShader::getDescriptors(eastl::vector<VulkanShader *> shaders)
+eastl::vector<Descriptor> VulkanShader::getDescriptors(const eastl::fixed_vector<RHIShader *, 3> &shaders)
 {
 	eastl::vector<Descriptor> descriptors;
-	descriptors.clear();
 
-	for (auto &shader : shaders)
+	for (RHIShader *rhi_shader : shaders)
 	{
+		VulkanShader *shader = static_cast<VulkanShader *>(rhi_shader);
 		DescriptorStage stage;
 		switch (shader->type)
 		{

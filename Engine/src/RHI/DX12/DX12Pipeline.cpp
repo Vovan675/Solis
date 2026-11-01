@@ -38,27 +38,7 @@ void DX12Pipeline::create(const PipelineDescription &description)
 
 	// Root signature should come from shader reflection
 
-	eastl::vector<DX12Shader *> shaders;
-
-	if (description.pipeline_type == PipelineType::Compute)
-	{
-		shaders.push_back(static_cast<DX12Shader *>(description.compute_shader.getReference()));
-	} else if (description.pipeline_type == PipelineType::RayTracing)
-	{
-		shaders.push_back(static_cast<DX12Shader *>(description.ray_generation_shader.getReference()));
-		shaders.push_back(static_cast<DX12Shader *>(description.miss_shader.getReference()));
-		shaders.push_back(static_cast<DX12Shader *>(description.closest_hit_shader.getReference()));
-	} else if (description.pipeline_type == PipelineType::Graphics)
-	{
-		shaders.push_back(static_cast<DX12Shader *>(description.vertex_shader.getReference()));
-		shaders.push_back(static_cast<DX12Shader *>(description.fragment_shader.getReference()));
-	} else if (description.pipeline_type == PipelineType::Mesh)
-	{
-		shaders.push_back(static_cast<DX12Shader *>(description.mesh_shader.getReference()));
-		shaders.push_back(static_cast<DX12Shader *>(description.fragment_shader.getReference()));
-	}
-
-	auto root_params = DX12Shader::getRootParameters(shaders, binding_info);
+	auto root_params = DX12Shader::getRootParameters(description.getShaders(), binding_info);
 
 	D3D12_STATIC_SAMPLER_DESC sampler = {};
 	sampler.Filter = D3D12_FILTER_MIN_MAG_MIP_POINT;
@@ -275,12 +255,8 @@ void DX12Pipeline::create(const PipelineDescription &description)
 
 			eastl::fixed_vector<D3D12_INPUT_ELEMENT_DESC, 16> input_layout;
 
-			uint32_t offset = 0;
 			for (auto &input : description.vertex_inputs_descriptions.inputs)
-			{
-				input_layout.push_back({input.semantic_name, 0, DX12Utils::getNativeFormat(input.format), input.vertex_buffer_slot, offset, input.per_instance ? D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA : D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0});
-				offset += Math::alignedSize(getFormatSize(input.format), 16u);
-			}
+				input_layout.push_back({input.semantic_name, 0, DX12Utils::getNativeFormat(input.format), input.vertex_buffer_slot, D3D12_APPEND_ALIGNED_ELEMENT, input.per_instance ? D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA : D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0});
 
 			D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_desc = {};
 			pso_desc.InputLayout = {input_layout.data(), (uint32_t)input_layout.size()};

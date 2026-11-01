@@ -31,8 +31,6 @@ DX12Buffer::DX12Buffer(BufferDescription description) : RHIBuffer(description)
 
 	if (hasAnyFlags(description.usage, BufferUsage::ACCELERATION_STRUCTURE_STORAGE_BUFFER))
 		resource_state = D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE;
-	else if (hasAnyFlags(description.usage, BufferUsage::ACCELERATION_STRUCTURE_STORAGE_BUFFER))
-		resource_state = D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT;
 
 	D3D12MA::ALLOCATION_DESC allocation_desc = {};
 	if (hasAnyFlags(description.usage, BufferUsage::READBACK_BUFFER))
@@ -65,40 +63,6 @@ DX12Buffer::~DX12Buffer()
 	native_rhi->releaseGPUResource(allocation.release());
 }
 
-void DX12Buffer::fill(const void *sourceData)
-{
-	ENGINE_ASSERT(sourceData);
-	PROFILE_CPU_FUNCTION();
-
-	auto *native_rhi = DX12Utils::getNativeRHI();
-	uint64_t buffer_size = description.size;
-
-	if (description.use_staging_buffer && !hasAnyFlags(description.usage, BufferUsage::STAGING_BUFFER))
-	{
-		BufferDescription staging_buffer_description;
-		staging_buffer_description.size = buffer_size;
-		staging_buffer_description.use_staging_buffer = false;
-		RHIBufferRef staging_buffer = gDynamicRHI->createBuffer(staging_buffer_description);
-
-		void *data;
-		staging_buffer->map(&data);
-		memcpy(data, sourceData, buffer_size);
-		staging_buffer->unmap();
-
-		RHICommandList *upload_cmd_list = native_rhi->getUploadCmdList();
-		upload_cmd_list->copyBuffer(staging_buffer, this, 0, 0, buffer_size);
-		transitState(upload_cmd_list, ResourceState::COMMON);
-	} else
-	{
-		// For CPU-visible (upload) buffers, map and write directly.
-		void* data = nullptr;
-		CD3DX12_RANGE readRange(0, 0); // We do not intend to read from this resource on the CPU.
-		resource->resource->Map(0, &readRange, &data);
-		memcpy(data, sourceData, buffer_size);
-		resource->resource->Unmap(0, nullptr);
-	}
-}
-
 void DX12Buffer::map(void **data)
 {
 	ENGINE_ASSERT(data);
@@ -120,24 +84,9 @@ void DX12Buffer::setDebugName(const char *name)
 	resource->resource->SetName(wbuf);
 }
 
-RHIBufferView *DX12Buffer::getShaderResourceView()
+RHIBufferView *DX12Buffer::create_view(const BufferViewDescription &view_description)
 {
-	if (!shader_resource_view)
-		shader_resource_view = new DX12BufferView(BufferViewDescription(this, BufferViewType::SHADER_RESOURCE));
-	return shader_resource_view;
-}
-
-RHIBufferView *DX12Buffer::getUnorderedAccessView(bool force_raw)
-{
-	if (force_raw)
-	{
-		if (!raw_unordered_access_view)
-			raw_unordered_access_view = new DX12BufferView(BufferViewDescription(this, BufferViewType::SHADER_RESOURCE_STORAGE_RAW));
-		return raw_unordered_access_view;
-	}
-	if (!unordered_access_view)
-		unordered_access_view = new DX12BufferView(BufferViewDescription(this, BufferViewType::SHADER_RESOURCE_STORAGE));
-	return unordered_access_view;
+	return new DX12BufferView(view_description);
 }
 
 void DX12Buffer::transitState(RHICommandList *cmd_list, ResourceState new_state)
@@ -207,13 +156,12 @@ DX12BufferView::DX12BufferView(BufferViewDescription description) : RHIBufferVie
 
 		rhi->device->CreateShaderResourceView(native_buffer->getResource(), &srv_desc, descriptor.getCpuHandle());
 		bindless_index = gDynamicRHI->getBindlessResources()->addBuffer(this);
-	} else if (description.view_type == BufferViewType::SHADER_RESOURCE_STORAGE || description.view_type == BufferViewType::SHADER_RESOURCE_STORAGE_RAW)
+	} else if (description.view_type == BufferViewType::SHADER_RESOURCE_STORAGE)
 	{
 		D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc = {};
 		uav_desc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
 
-		bool use_raw = is_raw || description.view_type == BufferViewType::SHADER_RESOURCE_STORAGE_RAW;
-		if (use_raw)
+		if (is_raw)
 		{
 			uav_desc.Format = DXGI_FORMAT_R32_TYPELESS;
 			uav_desc.Buffer.FirstElement = 0;
@@ -236,6 +184,8 @@ DX12BufferView::DX12BufferView(BufferViewDescription description) : RHIBufferVie
 
 DX12BufferView::~DX12BufferView()
 {
+	DX12Utils::getNativeRHI()->cbv_srv_uav_staging_heap->release(descriptor);
+
 	if (gDynamicRHI && gDynamicRHI->getBindlessResources())
 		gDynamicRHI->getBindlessResources()->removeBuffer(this);
 }

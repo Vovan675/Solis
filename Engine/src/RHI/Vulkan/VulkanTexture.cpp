@@ -2,8 +2,6 @@
 #include "VulkanTexture.h"
 #include "VulkanUtils.h"
 #include "VulkanDynamicRHI.h"
-#include "Rendering/GlobalPipeline.h"
-
 
 VulkanTexture::~VulkanTexture()
 {
@@ -14,10 +12,8 @@ void VulkanTexture::destroy()
 {
 	auto native_rhi = VulkanUtils::getNativeRHI();
 
-	shader_resource_views.clear();
-	unordered_access_views.clear();
-	render_target_views.clear();
-	
+	views.clear();
+
 	native_rhi->releaseGPUResource(image.release());
 	native_rhi->releaseGPUResource(allocation.release());
 }
@@ -51,14 +47,14 @@ void VulkanTexture::fill()
 	imageInfo.mipLevels = description.mip_levels;
 	imageInfo.arrayLayers = description.is_cube ? 6 : description.array_levels;
 	imageInfo.flags = description.is_cube ? VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT : 0;
-	imageInfo.format = native_format;
+	imageInfo.format = getNativeFormat();
 	imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
 	imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 	imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | get_vk_image_usage_flags();
 	imageInfo.samples = samples;
 	imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-	current_layouts.resize(description.mip_levels, TEXTURE_LAYOUT_UNDEFINED);
+	current_layouts.assign(description.mip_levels, TEXTURE_LAYOUT_UNDEFINED);
 
 	VmaAllocationCreateInfo alloc_info{};
 	alloc_info.usage = VMA_MEMORY_USAGE_GPU_ONLY;
@@ -117,99 +113,22 @@ void VulkanTexture::clear(RHICommandList *cmd_list, const glm::vec4 &color)
 	vkCmdClearColorImage(native_cmd_list->cmd_buffer, image->resource, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clear_value, 1, &range);
 }
 
-void VulkanTexture::load(const char *path)
-{
-	Image image(path);
-	guid = image.guid;
-
-	description.width = image.getWidth();
-	description.height = image.getHeight();
-	description.mip_levels = image.getMipLevels();
-	if (description.format == FORMAT_UNDEFINED || image.isCompressedFormat())
-		description.format = image.getFormat();
-	set_native_format();
-	fill(image.getRawData().data());
-
-	this->path = path;
-}
-
-void VulkanTexture::loadEquirectangularCubemap(const char *path)
-{
-	TextureDescription desc{};
-	desc.usage_flags = TEXTURE_USAGE_ATTACHMENT | TEXTURE_USAGE_TRANSFER_SRC | TEXTURE_USAGE_TRANSFER_DST;
-	RHITextureRef equirect_texture = gDynamicRHI->createTexture(desc);
-	equirect_texture->load(path);
-
-	description.is_cube = true;
-	description.format = FORMAT_R32G32B32A32_SFLOAT;
-	set_native_format();
-	description.width = equirect_texture->getHeight();
-	description.height = equirect_texture->getHeight();
-	description.mip_levels = 1;
-
-	fill();
-	RHICommandList *cmd_list = gDynamicRHI->getCmdList();
-
-	transitLayout(cmd_list, TEXTURE_LAYOUT_GENERAL);
-
-	RHITextureRef texture = nullptr;
-
-	gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/equirect_to_cubemap.hlsl", COMPUTE_SHADER));
-	gGlobalPipeline->flushAndBind(cmd_list);
-
-	struct Uniforms
-	{
-		uint32_t equirect_tex_id;
-		uint32_t output_tex_id;
-	} uniforms;
-	uniforms.equirect_tex_id = equirect_texture->getShaderResourceView()->getBindlessIndex();
-	uniforms.output_tex_id = getUnorderedAccessView()->getBindlessIndex();
-	gDynamicRHI->setConstantBufferData(1, &uniforms, sizeof(uniforms));
-
-	cmd_list->dispatch(getWidth() / 32, getHeight() / 32, 6);
-
-	transitLayout(cmd_list, TEXTURE_LAYOUT_SHADER_READ);
-
-	this->path = path;
-}
-
 void VulkanTexture::setDebugName(eastl::string name)
 {
 	debug_name = name;
 	VulkanUtils::setDebugName(VK_OBJECT_TYPE_IMAGE, (uint64_t)image->resource, name.c_str());
 }
 
-void VulkanTexture::transitLayout(RHICommandList *cmd_list, TextureLayoutType new_layout_type, int mip)
+void VulkanTexture::transit_layout(RHICommandList *cmd_list, TextureLayoutType old_layout_type, TextureLayoutType new_layout_type, uint32_t first_mip, uint32_t mip_count)
 {
-	bool barriers_required = false;
-
-	size_t difference_mip_index; // Index where mip layouts start differ
-	size_t difference_mip_count; // How many mip layouts differ
-
-	size_t start_index = mip == -1 ? 0 : mip;
-	size_t end_index = mip == -1 ? description.mip_levels : start_index + 1;
-	for (size_t i = start_index; i < end_index; i++)
-	{
-		if (current_layouts[i] != new_layout_type || new_layout_type == TEXTURE_LAYOUT_UAV || new_layout_type == TEXTURE_LAYOUT_ATTACHMENT)
-		{
-			barriers_required = true;
-			difference_mip_index = i;
-			difference_mip_count = end_index - i;
-			break;
-		}
-	}
-
-	if (!barriers_required) return;
-
 	VkImageAspectFlags aspect_flags = isDepthTexture() ? VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
 
-	TextureLayoutType current_layout = current_layouts[difference_mip_index];
-	VkImageLayout old_layout = get_native_layout(current_layout);
+	VkImageLayout old_layout = get_native_layout(old_layout_type);
 	VkImageLayout new_layout = get_native_layout(new_layout_type);
 	VkPipelineStageFlags2 src_stage_mask; VkAccessFlags2 src_access_mask;
 	VkPipelineStageFlags2 dst_stage_mask; VkAccessFlags2 dst_access_mask;
 
-	switch (current_layout)
+	switch (old_layout_type)
 	{
 		case TEXTURE_LAYOUT_UNDEFINED:
 			src_stage_mask = VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT;
@@ -313,13 +232,8 @@ void VulkanTexture::transitLayout(RHICommandList *cmd_list, TextureLayoutType ne
 									   dst_stage_mask, dst_access_mask,
 									   old_layout, new_layout,
 									   image->resource, aspect_flags,
-									   difference_mip_count, layer_count,
-									   difference_mip_index, 0);
-
-	for (size_t i = difference_mip_index; i < difference_mip_index + difference_mip_count; i++)
-	{
-		current_layouts[i] = new_layout_type;
-	}
+									   mip_count, layer_count,
+									   first_mip, 0);
 }
 
 void VulkanTexture::generateMipmaps(RHICommandList *cmd_list)
@@ -408,79 +322,9 @@ void VulkanTexture::generateMipmaps(RHICommandList *cmd_list)
 	*/
 }
 
-RHITextureView *VulkanTexture::getRenderTargetView(uint32_t mip, uint32_t layer)
+RHITextureView *VulkanTexture::create_view(const TextureViewDescription &view_description)
 {
-	// Try to find view
-	for (auto &view : render_target_views)
-	{
-		const TextureViewDescription &view_desc = view->getDescription();
-		if (view_desc.mip == mip && view_desc.layer == layer)
-			return view;
-	}
-
-	auto &view = render_target_views.emplace_back(new VulkanTextureView(TextureViewDescription(this, TextureViewType::RENDER_TARGET, mip, layer)));
-	return view;
-}
-
-RHITextureView *VulkanTexture::getShaderResourceView(uint32_t mip, uint32_t layer)
-{
-	// Try to find view
-	for (auto &view : shader_resource_views)
-	{
-		const TextureViewDescription &view_desc = view->getDescription();
-		if (view_desc.mip == mip && view_desc.layer == layer)
-			return view;
-	}
-
-	auto &view = shader_resource_views.emplace_back(new VulkanTextureView(TextureViewDescription(this, TextureViewType::SHADER_RESOURCE, mip, layer)));
-	return view;
-}
-
-RHITextureView *VulkanTexture::getUnorderedAccessView(uint32_t mip, uint32_t layer)
-{
-	// Try to find view
-	for (auto &view : unordered_access_views)
-	{
-		const TextureViewDescription &view_desc = view->getDescription();
-		if (view_desc.mip == mip && view_desc.layer == layer)
-			return view;
-	}
-
-	auto &view = unordered_access_views.emplace_back(new VulkanTextureView(TextureViewDescription(this, TextureViewType::SHADER_RESOURCE_STORAGE, mip, layer)));
-	return view;
-}
-
-VkImageLayout VulkanTexture::get_vk_layout(TextureLayoutType layout_type)
-{
-	switch (layout_type)
-	{
-		case TEXTURE_LAYOUT_UNDEFINED:
-			return VK_IMAGE_LAYOUT_UNDEFINED;
-			break;
-		case TEXTURE_LAYOUT_GENERAL:
-			return VK_IMAGE_LAYOUT_GENERAL;
-			break;
-		case TEXTURE_LAYOUT_ATTACHMENT:
-			return isDepthTexture() ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-			break;
-		case TEXTURE_LAYOUT_SHADER_READ:
-			return VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL;
-			break;
-		case TEXTURE_LAYOUT_TRANSFER_SRC:
-			return VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-			break;
-		case TEXTURE_LAYOUT_TRANSFER_DST:
-			return VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-			break;
-		case TEXTURE_LAYOUT_PRESENT:
-			return VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-			break;
-	}
-}
-
-void VulkanTexture::set_native_format()
-{
-	native_format = VulkanUtils::getNativeFormat(description.format);
+	return new VulkanTextureView(view_description);
 }
 
 VulkanTextureView::VulkanTextureView(TextureViewDescription description): RHITextureView(description)

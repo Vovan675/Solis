@@ -43,11 +43,6 @@ public:
 		current_render_targets.clear();
 	}
 
-	eastl::vector<RHITexture *> &getCurrentRenderTargets()
-	{
-		return current_render_targets;
-	}
-
 	void setPipeline(RHIPipeline *pipeline) override;
 
 	void setVertexBuffer(RHIBuffer *buffer, uint32_t offset, uint32_t stride, uint32_t slot) override;
@@ -96,12 +91,8 @@ public:
 	void beginDebugLabel(const char *label, glm::vec3 color, uint32_t line, const char* source, size_t source_size, const char* function, size_t function_size);
 	void endDebugLabel();
 
-	bool is_open = false;
-
 	ComPtr<ID3D12CommandAllocator> cmd_allocator;
 	ComPtr<ID3D12GraphicsCommandList6> cmd_list;
-	RHIPipeline *current_pipeline;
-	eastl::vector<RHITexture *> current_render_targets;
 
 	eastl::vector<std::unique_ptr<tracy::D3D12ZoneScope>> tracy_debug_label_stack;
 };

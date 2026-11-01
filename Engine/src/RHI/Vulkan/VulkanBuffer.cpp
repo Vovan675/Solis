@@ -54,43 +54,6 @@ VulkanBuffer::~VulkanBuffer()
 	native_rhi->releaseGPUResource(allocation.release());
 }
 
-void VulkanBuffer::fill(const void *sourceData)
-{
-	ENGINE_ASSERT(sourceData);
-	PROFILE_CPU_FUNCTION();
-
-	auto native_rhi = VulkanUtils::getNativeRHI();
-	uint64_t buffer_size = description.size;
-
-	if (description.use_staging_buffer && !hasAnyFlags(description.usage, BufferUsage::STAGING_BUFFER))
-	{
-		// Staging buffer
-		BufferDescription staging_buffer_description;
-		staging_buffer_description.size = description.size;
-		staging_buffer_description.alignment = description.alignment;
-		staging_buffer_description.use_staging_buffer = false;
-		RHIBufferRef staging_buffer = gDynamicRHI->createBuffer(staging_buffer_description);
-
-		// Map buffer memory to CPU accessible memory
-		void* data;
-		staging_buffer->map(&data);
-		memcpy(data, sourceData, buffer_size);
-		staging_buffer->unmap();
-
-		// Copy from staging to buffer
-		RHICommandList *upload_cmd_list = gDynamicRHI->getUploadCmdList();
-		upload_cmd_list->copyBuffer(staging_buffer, this, 0, 0, buffer_size);
-		current_state = ResourceState::SHADER_RESOURCE;
-	}
-	else
-	{
-		// Map buffer memory to CPU accessible memory
-		void* data;
-		vmaMapMemory(native_rhi->allocator, allocation->resource, &data);
-		memcpy(data, sourceData, buffer_size);
-		vmaUnmapMemory(native_rhi->allocator, allocation->resource);
-	}
-}
 
 void VulkanBuffer::map(void **data)
 {
@@ -135,7 +98,7 @@ static VulkanAccessInfo toVulkanAccessInfo(ResourceState state)
 	info.stage = 0;
 	info.access = 0;
 
-	if (hasAnyFlags(state, ResourceState::SHADER_RESOURCE)) 
+	if (hasAnyFlags(state, ResourceState::SHADER_RESOURCE))
 	{
 		info.stage |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
 		info.access |= VK_ACCESS_SHADER_READ_BIT;
@@ -209,18 +172,9 @@ void VulkanBuffer::transitState(RHICommandList *cmd_list, ResourceState new_stat
 	current_state = new_state;
 }
 
-RHIBufferView *VulkanBuffer::getShaderResourceView()
+RHIBufferView *VulkanBuffer::create_view(const BufferViewDescription &view_description)
 {
-	if (!shader_resource_view)
-		shader_resource_view = new VulkanBufferView(BufferViewDescription(this, BufferViewType::SHADER_RESOURCE));
-	return shader_resource_view;
-}
-
-RHIBufferView *VulkanBuffer::getUnorderedAccessView(bool force_raw)
-{
-	if (!unordered_access_view)
-		unordered_access_view = new VulkanBufferView(BufferViewDescription(this, BufferViewType::SHADER_RESOURCE_STORAGE));
-	return unordered_access_view;
+	return new VulkanBufferView(view_description);
 }
 
 VulkanBufferView::VulkanBufferView(BufferViewDescription description): RHIBufferView(description)

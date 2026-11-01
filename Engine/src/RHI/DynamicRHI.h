@@ -47,8 +47,7 @@ public:
 
 	virtual RHISwapchainRef createSwapchain(GLFWwindow *window) = 0;
 	virtual void resizeSwapchain(int width, int height) {};
-	virtual RHIShaderRef createShader(eastl::wstring path, ShaderType type, eastl::string entry_point = "") = 0;
-	virtual RHIShaderRef createShader(eastl::wstring path, ShaderType type, eastl::string entry_point, eastl::vector<eastl::pair<const char *, const char *>> defines) = 0;
+	RHIShaderRef createShader(eastl::wstring path, ShaderType type, eastl::string entry_point = "", eastl::vector<eastl::pair<const char *, const char *>> defines = {});
 	virtual RHIPipelineRef createPipeline() = 0;
 	virtual RHIBufferRef createBuffer(BufferDescription description) = 0;
 	virtual RHITextureRef createTexture(TextureDescription description) = 0;
@@ -74,8 +73,8 @@ public:
 	virtual void endFrame() = 0;
 
 	virtual void prepareRenderCall() = 0;
-	virtual void setConstantBufferData(unsigned int binding, void *params_struct, size_t params_size) = 0;
-	virtual void setConstantBufferDataPerFrame(unsigned int binding, void *params_struct, size_t params_size) = 0;
+	void setConstantBufferData(unsigned int binding, void *params_struct, size_t params_size);
+	void setConstantBufferDataPerFrame(unsigned int binding, void *params_struct, size_t params_size);
 
 	struct CompileShaderResult
 	{
@@ -84,7 +83,7 @@ public:
 		eastl::hash_set<eastl::wstring> included_files;
 	};
 
-	CompileShaderResult compile_shader(eastl::wstring path, ShaderType type, eastl::string entry_point, bool is_vulkan, eastl::vector<eastl::pair<const char *, const char *>> *defines = nullptr);
+	CompileShaderResult compileShader(eastl::wstring path, ShaderType type, eastl::string entry_point, const eastl::vector<eastl::pair<eastl::string, eastl::string>> &defines);
 
 	void releaseGPUResource(RenderResource *resource)
 	{
@@ -106,21 +105,44 @@ public:
 		auto *resource = new RunAfterGPUFrameResource<F>(eastl::move(func));
 		gpu_release_queue.emplace(resource, frame + MAX_FRAMES_IN_FLIGHT);
 	}
+
 protected:
 	DynamicRHI() = default;
 	void release_gpu_resources(uint64_t frame);
+	void advance_frame_in_flight(uint64_t frame_fence_value);
+	virtual RHIShader *create_shader(eastl::wstring path, ShaderType type, eastl::string entry_point, eastl::vector<eastl::pair<const char *, const char *>> defines) = 0;
+	RHIBuffer *allocate_constant_buffer(size_t descriptor_hash, void *params_struct, size_t params_size);
 
 	GraphicsAPI graphics_api = GRAPHICS_API_NONE;
 	int frame_in_flight = 0;
 	uint64_t frame = 0;
 
+	eastl::array<uint64_t, MAX_FRAMES_IN_FLIGHT> frame_fence_values{};
+
 	GPUStatistics gpu_statistics;
 
 	static eastl::unordered_map<size_t, RHIShaderRef> cached_shaders;
 
+	struct ShaderDataBuffer
+	{
+		RHIBufferRef buffer;
+		void *mapped_data;
+	};
+
+	struct ShaderDataBuffers
+	{
+		eastl::vector<ShaderDataBuffer> buffers;
+		uint32_t current_offset = 0;
+	};
+
+	eastl::unordered_map<size_t, ShaderDataBuffers> buffers_for_shaders;
+	eastl::array<RHIBuffer *, 64> current_bind_buffers{};
+	bool is_buffers_dirty = false;
+
 	IDxcUtils* dxc_utils;
 	IDxcCompiler3* dxc_compiler;
 	IDxcIncludeHandler* dxc_include_handler;
+
 private:
 	struct ReleaseItem
 	{

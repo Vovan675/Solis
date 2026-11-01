@@ -32,8 +32,8 @@ void VulkanCommandList::setRenderTargets(const eastl::vector<RHITexture *> &colo
 		extent.height = color_attachments[0]->getHeight(mip);
 	} else
 	{
-		extent.width = depth_attachment->getWidth(0);
-		extent.height = depth_attachment->getHeight(0);
+		extent.width = depth_attachment->getWidth(mip);
+		extent.height = depth_attachment->getHeight(mip);
 	}
 
 	VkRenderingInfo rendering_info{};

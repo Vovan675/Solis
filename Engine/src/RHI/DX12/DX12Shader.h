@@ -4,10 +4,6 @@
 class DX12Shader final: public RHIShader {
 public:
 	DX12Shader(const eastl::wstring &path, ShaderType type, eastl::string entry_point, eastl::vector<eastl::pair<const char *, const char *>> defines, IDxcUtils* dxc_utils);
-	~DX12Shader() { destroy(); }
-
-	void destroy();
-	void recompile() override;
 
 	struct TableInfo
 	{
@@ -34,7 +30,7 @@ public:
 		int srv_bindless;
 		int samplers_bindless;
 	};
-	static eastl::vector<CD3DX12_ROOT_PARAMETER1> getRootParameters(eastl::vector<DX12Shader *> shaders, BindingInfo &binding_info);
+	static eastl::vector<CD3DX12_ROOT_PARAMETER1> getRootParameters(const eastl::fixed_vector<RHIShader *, 3> &shaders, BindingInfo &binding_info);
 
 	ComPtr<IDxcBlob> blob; // Compiled shader bytecode
 
@@ -42,5 +38,7 @@ public:
 
 	ComPtr<ID3D12ShaderReflection> reflection;
 	ComPtr<ID3D12LibraryReflection> reflection_library;
-	eastl::hash_set<eastl::wstring> included_files;
+
+private:
+	void load_bytecode(IDxcBlob *bytecode) override;
 };

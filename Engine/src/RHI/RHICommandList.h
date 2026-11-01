@@ -15,7 +15,7 @@ public:
 
 	virtual void setRenderTargets(const eastl::vector<RHITexture *> &color_attachments, RHITexture *depth_attachment, int layer, int mip, bool clear, float depth_clear_value = 0.0f) = 0;
 	virtual void resetRenderTargets() = 0;
-	virtual eastl::vector<RHITexture *> &getCurrentRenderTargets() = 0;
+	eastl::vector<RHITexture *> &getCurrentRenderTargets() { return current_render_targets; }
 
 	virtual void setPipeline(RHIPipeline *pipeline) = 0;
 
@@ -43,4 +43,8 @@ public:
 
 	virtual void beginDebugLabel(const char *label, glm::vec3 color, uint32_t line, const char* source, size_t source_size, const char* function, size_t function_size) = 0;
 	virtual void endDebugLabel() = 0;
+
+	bool is_open = false;
+	RHIPipeline *current_pipeline = nullptr;
+	eastl::vector<RHITexture *> current_render_targets;
 };
