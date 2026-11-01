@@ -49,13 +49,12 @@ public:
 	RHITopLevelAccelerationStructureRef createTopLevelAccelerationStructure() override;
 
 	RHICommandList *getCmdList() override { return cmd_lists[frame_in_flight]; };
-	RHICommandList *getCmdListCopy() override { return cmd_list_copy; };
+	RHICommandList *getUploadCmdList() override;
 
 	Upscaler *getUpscaler() override { return &dlss_upscaler; }
 	StreamlineAdapter *getStreamline() override { return &streamline; }
 
 	RHICommandQueue *getCmdQueue() override { return cmd_queue; };
-	RHICommandQueue *getCmdQueueCopy() override { return cmd_queue_copy; };
 
 	RHIBindlessResources *getBindlessResources() override { return bindless_resources; };
 
@@ -174,10 +173,8 @@ public:
 	UINT64 fenceValue;
 
 	DX12CommandList *cmd_lists[MAX_FRAMES_IN_FLIGHT];
+	DX12CommandList *upload_cmd_lists[MAX_FRAMES_IN_FLIGHT];
 	DX12CommandQueue *cmd_queue;
-
-	DX12CommandList *cmd_list_copy;
-	DX12CommandQueue *cmd_queue_copy;
 
 	DX12BindlessResources *bindless_resources;
 

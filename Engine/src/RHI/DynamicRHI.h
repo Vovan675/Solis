@@ -56,13 +56,12 @@ public:
 	virtual RHITopLevelAccelerationStructureRef createTopLevelAccelerationStructure() = 0;
 
 	virtual RHICommandList *getCmdList() = 0;
-	virtual RHICommandList *getCmdListCopy() = 0;
+	virtual RHICommandList *getUploadCmdList() = 0;
 
 	virtual class Upscaler *getUpscaler() { return nullptr; }
 	virtual class StreamlineAdapter *getStreamline() { return nullptr; }
 
 	virtual RHICommandQueue *getCmdQueue() = 0;
-	virtual RHICommandQueue *getCmdQueueCopy() = 0;
 
 	virtual RHIBindlessResources *getBindlessResources() = 0;
 

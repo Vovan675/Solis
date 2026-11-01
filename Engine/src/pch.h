@@ -10,6 +10,7 @@
 #include <filesystem>
 #include <memory>
 
+#include <EASTL/span.h>
 #include <EASTL/string.h>
 #include <EASTL/queue.h>
 #include <EASTL/array.h>

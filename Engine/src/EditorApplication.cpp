@@ -4,6 +4,7 @@
 #include "Scene/Entity.h"
 #include "Rendering/Renderer.h"
 #include "imgui.h"
+#include "imgui_internal.h"
 #include "ImGuizmo.h"
 #include "Core/Filesystem.h"
 #include "Core/Platform.h"
@@ -137,11 +138,23 @@ float EditorApplication::draw_top_bar()
 
 		ImGui::PopStyleVar();
 
-		// Default window buttons
 		ImVec2 button_size(46, height);
 		float drag_min_x = ImGui::GetCursorPosX();
-		float drag_max_x = floor(ImGui::GetWindowWidth()) - button_size.x * 3;
-		ImGui::SetCursorPos(ImVec2(drag_max_x, 0));
+		float window_buttons_x = floor(ImGui::GetWindowWidth()) - button_size.x * 3;
+
+		// Layout button
+		float drag_max_x = window_buttons_x - 24 - ImGui::CalcTextSize(ICON_FA_TABLE_COLUMNS).x - ImGui::GetStyle().ItemSpacing.x;
+		ImGui::SetCursorPosX(drag_max_x);
+		if (ImGui::BeginMenu(ICON_FA_TABLE_COLUMNS))
+		{
+			if (ImGui::MenuItem("Reset Layout"))
+				reset_layout = true;
+			ImGui::EndMenu();
+		}
+		ImGui::SetItemTooltip("Layout");
+
+		// Default window buttons
+		ImGui::SetCursorPos(ImVec2(window_buttons_x, 0));
 
 		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
 
@@ -321,7 +334,30 @@ void EditorApplication::update(float delta_time)
 	ImGui::PopStyleVar();
 	ImGui::PopStyleVar();
 
-	ImGui::DockSpace(ImGui::GetID("EngineDockSpace"), ImVec2(0, 0), viewport_fullscreen ? ImGuiDockNodeFlags_KeepAliveOnly : ImGuiDockNodeFlags_None);
+	ImGuiID dockspace_id = ImGui::GetID("EngineDockSpace");
+	if (reset_layout || !ImGui::DockBuilderGetNode(dockspace_id))
+	{
+		reset_layout = false;
+		ImGui::DockBuilderRemoveNode(dockspace_id);
+		ImGui::DockBuilderAddNode(dockspace_id, ImGuiDockNodeFlags_DockSpace);
+		ImGui::DockBuilderSetNodeSize(dockspace_id, ImGui::GetContentRegionAvail());
+
+		ImGuiID center = dockspace_id;
+		ImGuiID left = ImGui::DockBuilderSplitNode(center, ImGuiDir_Left, 0.22f, nullptr, &center);
+		ImGuiID right = ImGui::DockBuilderSplitNode(center, ImGuiDir_Right, 0.3f, nullptr, &center);
+		ImGuiID bottom = ImGui::DockBuilderSplitNode(center, ImGuiDir_Down, 0.3f, nullptr, &center);
+		ImGuiID left_bottom = ImGui::DockBuilderSplitNode(left, ImGuiDir_Down, 0.63f, nullptr, &left);
+
+		ImGui::DockBuilderDockWindow("###Hierarchy", left);
+		ImGui::DockBuilderDockWindow("###Parameters", left_bottom);
+		ImGui::DockBuilderDockWindow("###Viewport", center);
+		ImGui::DockBuilderDockWindow("###Asset Browser", bottom);
+		ImGui::DockBuilderDockWindow("###Render Settings", right);
+		ImGui::DockBuilderDockWindow("###Debug Window", right);
+		ImGui::DockBuilderFinish(dockspace_id);
+	}
+
+	ImGui::DockSpace(dockspace_id, ImVec2(0, 0), viewport_fullscreen ? ImGuiDockNodeFlags_KeepAliveOnly : ImGuiDockNodeFlags_None);
 
 	ImGui::End();
 

@@ -5,7 +5,7 @@ class RHICommandList;
 class RHICommandQueue
 {
 public:
-	virtual void execute(RHICommandList *cmd_list) = 0;
+	virtual void execute(eastl::span<RHICommandList *> cmd_lists) = 0;
 	virtual void signal(uint64_t fence_value) = 0;
 	virtual void wait(uint64_t fence_value) = 0;
 	virtual void waitIdle() = 0;

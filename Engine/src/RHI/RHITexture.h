@@ -42,9 +42,9 @@ public:
 
 	eastl::string getPath() const { return path; }
 	const TextureDescription &getDescription() const { return description; }
-	glm::ivec2 getSize(int mip = 0) const { return glm::ivec2(description.width >> mip, description.height >> mip); }
-	uint32_t getWidth(int mip = 0) const { return description.width >> mip; }
-	uint32_t getHeight(int mip = 0) const { return description.height >> mip; }
+	glm::ivec2 getSize(int mip = 0) const { return glm::ivec2(getWidth(mip), getHeight(mip)); }
+	uint32_t getWidth(int mip = 0) const { return std::max(description.width >> mip, 1u); }
+	uint32_t getHeight(int mip = 0) const { return std::max(description.height >> mip, 1u); }
 	uint32_t getMipLevels() const { return description.mip_levels; }
 	uint32_t getArrayLevels() const { return description.array_levels; }
 	Format getFormat() const { return description.format; }

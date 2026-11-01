@@ -44,3 +44,10 @@ struct VkSamplerResource final: public RenderResource
 
 	VkSampler resource;
 };
+
+struct VkAccelerationStructureResource final: public RenderResource
+{
+	void Release() override;
+
+	VkAccelerationStructureKHR resource;
+};

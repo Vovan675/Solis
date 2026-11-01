@@ -8,6 +8,28 @@
 #include "Core/Variables.h"
 #include "RHI/StreamlineWrapper.h"
 
+static VkBool32 validation_callback(VkDebugUtilsMessageSeverityFlagBitsEXT severity, VkDebugUtilsMessageTypeFlagsEXT type, const VkDebugUtilsMessengerCallbackDataEXT *data, void *user_data)
+{
+	// Statistics query seems to work okay even with mesh shaders at the same time
+	if (data->pMessageIdName && strstr(data->pMessageIdName, "pipelineStatistics-07076"))
+		return VK_FALSE;
+
+	if (severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)
+	{
+		CORE_ERROR("{}", data->pMessage);
+	} else
+	{
+		CORE_WARN("{}", data->pMessage);
+	}
+
+	OutputDebugStringA(data->pMessage);
+	OutputDebugStringA("\n");
+
+	if (engine_rhi_validation_break)
+		__debugbreak();
+	return VK_FALSE;
+}
+
 void VulkanDynamicRHI::init()
 {
 	if (engine_streamline)
@@ -28,6 +50,18 @@ void VulkanDynamicRHI::init()
 	global_descriptor_allocator = std::make_shared<DescriptorAllocator>();
 
 	VulkanUtils::init();
+
+	#ifdef ENABLE_RHI_VALIDATION
+		if (engine_rhi_validation)
+		{
+			VkDebugUtilsMessengerCreateInfoEXT messenger_info{};
+			messenger_info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+			messenger_info.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+			messenger_info.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT;
+			messenger_info.pfnUserCallback = validation_callback;
+			CHECK_ERROR(VulkanUtils::vkCreateDebugUtilsMessengerEXT(&messenger_info, nullptr, &debug_messenger));
+		}
+	#endif
 
 	if (engine_streamline)
 	{
@@ -60,10 +94,10 @@ void VulkanDynamicRHI::init()
 	}
 
 	cmd_queue = new VulkanCommandQueue(device->graphicsQueue, false);
-	cmd_copy_queue = new VulkanCommandQueue(device->graphicsQueue);
 	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
 		cmd_lists[i] = new VulkanCommandList();
+		upload_cmd_lists[i] = new VulkanCommandList();
 	}
 	cmd_list_immediate = new VulkanCommandList();
 	tracy_cmd_list = new VulkanCommandList();
@@ -115,7 +149,6 @@ void VulkanDynamicRHI::shutdown()
 
 	cmd_queue->fence = nullptr;
 	delete cmd_queue;
-	delete cmd_copy_queue;
 
 	imageAvailableSemaphores.clear();
 	renderFinishedSemaphores.clear();
@@ -138,6 +171,8 @@ void VulkanDynamicRHI::shutdown()
 	vmaDestroyAllocator(allocator);
 
 	device = nullptr;
+	if (debug_messenger)
+		VulkanUtils::vkDestroyDebugUtilsMessengerEXT(debug_messenger, nullptr);
 	vkDestroyInstance(instance, nullptr);
 }
 
@@ -254,8 +289,16 @@ RHITopLevelAccelerationStructureRef VulkanDynamicRHI::createTopLevelAcceleration
 	return new VulkanTopLevelAccelerationStructure();
 }
 
+RHICommandList *VulkanDynamicRHI::getUploadCmdList()
+{
+	VulkanCommandList *cmd_list = upload_cmd_lists[frame_in_flight];
+	cmd_list->open();
+	return cmd_list;
+}
+
 void VulkanDynamicRHI::waitGPU()
 {
+	PROFILE_CPU_FUNCTION();
 	vkDeviceWaitIdle(device->logicalHandle);
 }
 
@@ -408,7 +451,10 @@ void VulkanDynamicRHI::beginFrame()
 		buf = nullptr;
 
 	// Acquire image and trigger semaphore
-	VkResult result = vkAcquireNextImageKHR(device->logicalHandle, swapchain->swapchain, UINT64_MAX, imageAvailableSemaphores[frame_in_flight], VK_NULL_HANDLE, &image_index);
+	{
+		PROFILE_CPU_SCOPE("Acquire swapchain image");
+		vkAcquireNextImageKHR(device->logicalHandle, swapchain->swapchain, UINT64_MAX, imageAvailableSemaphores[frame_in_flight], VK_NULL_HANDLE, &image_index);
+	}
 
 	Renderer::beginFrame();
 
@@ -440,12 +486,25 @@ void VulkanDynamicRHI::endFrame()
 	// Update bindless
 	bindless_resources->updateSets();
 	VulkanCommandList *native_cmd_list = cmd_lists[frame_in_flight];
+	VulkanCommandList *native_upload_cmd_list = upload_cmd_lists[frame_in_flight];
 
 	// End statistics query
 	VkQueryPool stats_pool = device->pipeline_statistics_query_pools[frame_in_flight];
 	vkCmdEndQuery(native_cmd_list->cmd_buffer, stats_pool, 0);
 
 	gDynamicRHI->getCmdList()->close();
+
+	eastl::vector<RHICommandList *> submit_cmd_lists;
+	if (native_upload_cmd_list->is_open)
+	{
+		// Wait for all transfer operations (batched for all tranfer operations in this frame)
+		VulkanUtils::cmdMemoryBarrier(native_upload_cmd_list->cmd_buffer,
+			VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT,
+			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, VK_ACCESS_2_MEMORY_READ_BIT);
+		native_upload_cmd_list->close();
+		submit_cmd_lists.push_back(native_upload_cmd_list);
+	}
+	submit_cmd_lists.push_back(native_cmd_list);
 
 	VkSubmitInfo submit_info{};
 	submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -456,8 +515,7 @@ void VulkanDynamicRHI::endFrame()
 	submit_info.waitSemaphoreCount = 1;
 	submit_info.pWaitSemaphores = wait_semaphores;
 	submit_info.pWaitDstStageMask = wait_stages;
-	submit_info.commandBufferCount = 1;
-	submit_info.pCommandBuffers = &native_cmd_list->cmd_buffer;
+
 	// Signal semaphore when queue submitted
 	VkSemaphore signal_semaphores[] = {renderFinishedSemaphores[frame_in_flight]};
 	submit_info.signalSemaphoreCount = 1;
@@ -465,7 +523,7 @@ void VulkanDynamicRHI::endFrame()
 	// Also trigger fence when queue completed to work with this 'currentFrame'
 
 	cmd_queue->fence = in_flight_fences[frame_in_flight];
-	cmd_queue->execute(native_cmd_list, submit_info);
+	cmd_queue->execute(submit_cmd_lists, submit_info);
 
 	VkPresentInfoKHR present_info{};
 	present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
@@ -476,7 +534,11 @@ void VulkanDynamicRHI::endFrame()
 	present_info.swapchainCount = 1;
 	present_info.pSwapchains = swapChains;
 	present_info.pImageIndices = &image_index;
-	VkResult result = vkQueuePresentKHR(device->presentQueue, &present_info);
+	VkResult result;
+	{
+		PROFILE_CPU_SCOPE("Present");
+		result = vkQueuePresentKHR(device->presentQueue, &present_info);
+	}
 
 	Renderer::endFrame(image_index);
 

@@ -57,5 +57,5 @@ void RayTracingScene::update(Camera *camera)
 		instance.instance_contribution_to_hit_group_index = 0;
 	}
 
-	topLevelAS->build(false, rt_instances);
+	topLevelAS->build(rt_instances);
 }

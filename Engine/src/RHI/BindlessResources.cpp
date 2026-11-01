@@ -330,7 +330,7 @@ void VulkanBindlessResources::setAccelerationStructure(uint32_t index, RHITopLev
 	acceleration_structure_to_resource_index[as] = index;
 
 	VulkanTopLevelAccelerationStructure *native_as = (VulkanTopLevelAccelerationStructure *)as;
-	descriptor_writer.writeAccelerationStructure(BINDLESS_RESOURCES_BINDING, &native_as->handle);
+	descriptor_writer.writeAccelerationStructure(BINDLESS_RESOURCES_BINDING, &native_as->handle->resource);
 	descriptor_writer.writes.back().dstArrayElement = index;
 	is_dirty = true;
 	updateSets();

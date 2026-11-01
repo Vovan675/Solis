@@ -44,7 +44,7 @@ void UtilityPasses::addDepthBlitPass(FrameGraph &fg, GraphicsResourceName src, G
 	},
 	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		cmd_list->setRenderTargets({}, resources.getTexture(dst), 0, 0, false);
+		cmd_list->setRenderTargets({}, resources.getTexture(dst), 0, 0, true);
 
 		gGlobalPipeline->setupGraphicsPipeline(cmd_list, gDynamicRHI->createShader(L"shaders/quad.hlsl", VERTEX_SHADER), gDynamicRHI->createShader(L"shaders/utility/depth_blit.hlsl", FRAGMENT_SHADER), VertexInputsDescription{}, false, true, CULL_MODE_BACK);
 		gGlobalPipeline->setDepthFunc(COMPARE_FUNC_ALWAYS);

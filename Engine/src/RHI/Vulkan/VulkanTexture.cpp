@@ -70,40 +70,26 @@ void VulkanTexture::fill(const void *sourceData)
 	fill();
 
 	// Create staging buffer
-	VkDeviceSize image_size = get_image_size();
-	VkBuffer stagingBuffer;
-	VmaAllocation stagingAllocation;
-	VulkanUtils::createBuffer(image_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VmaMemoryUsage::VMA_MEMORY_USAGE_CPU_ONLY, 0, stagingBuffer, stagingAllocation);
+	BufferDescription staging_buffer_description;
+	staging_buffer_description.size = get_image_size();
+	staging_buffer_description.use_staging_buffer = false;
+	RHIBufferRef staging_buffer = gDynamicRHI->createBuffer(staging_buffer_description);
 
 	// Copy data to staging
-	void *data;
-	vmaMapMemory(VulkanUtils::getNativeRHI()->allocator, stagingAllocation, &data);
-	memcpy(data, sourceData, static_cast<size_t>(image_size));
-	vmaUnmapMemory(VulkanUtils::getNativeRHI()->allocator, stagingAllocation);
+	void* data;
+	staging_buffer->map(&data);
+	memcpy(data, sourceData, staging_buffer_description.size);
+	staging_buffer->unmap();
 
+	VulkanDynamicRHI *rhi = (VulkanDynamicRHI *)gDynamicRHI;
+	RHICommandList *upload_cmd_list = gDynamicRHI->getUploadCmdList();
+	VulkanCommandList *native_upload_cmd_list = (VulkanCommandList *)upload_cmd_list;
+	// Upload buffer data.
+	transitLayout(upload_cmd_list, TEXTURE_LAYOUT_TRANSFER_DST);
 
-	{
-		VulkanDynamicRHI *rhi = (VulkanDynamicRHI *)gDynamicRHI;
-		RHICommandList *copy_cmd_list = gDynamicRHI->getCmdListCopy();
-		VulkanCommandList *native_copy_cmd_list = (VulkanCommandList *)copy_cmd_list;
-		// Upload buffer data.
-		copy_cmd_list->open();
+	copy_buffer_to_image(native_upload_cmd_list->cmd_buffer, ((VulkanBuffer *)staging_buffer.getReference())->getBuffer());
 
-		transitLayout(copy_cmd_list, TEXTURE_LAYOUT_TRANSFER_DST);
-
-		copy_buffer_to_image(native_copy_cmd_list->cmd_buffer, stagingBuffer);
-
-		transitLayout(copy_cmd_list, TEXTURE_LAYOUT_SHADER_READ);
-
-		copy_cmd_list->close();
-
-		gDynamicRHI->getCmdQueueCopy()->execute(copy_cmd_list);
-		gDynamicRHI->getCmdQueueCopy()->waitIdle();
-	}
-
-	// Destroy unused buffers
-	vkDestroyBuffer(VulkanUtils::getNativeRHI()->device->logicalHandle, stagingBuffer, nullptr);
-	vmaFreeMemory(VulkanUtils::getNativeRHI()->allocator, stagingAllocation);
+	transitLayout(upload_cmd_list, TEXTURE_LAYOUT_SHADER_READ);
 }
 
 void VulkanTexture::clear(RHICommandList *cmd_list, const glm::vec4 &color)

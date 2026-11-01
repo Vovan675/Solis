@@ -43,13 +43,12 @@ public:
 	RHITopLevelAccelerationStructureRef createTopLevelAccelerationStructure() override;
 
 	RHICommandList *getCmdList() override { return cmd_lists[frame_in_flight]; };
-	RHICommandList *getCmdListCopy() override { return cmd_list_immediate; };
+	RHICommandList *getUploadCmdList() override;
 
 	Upscaler *getUpscaler() override { return &dlss_upscaler; }
 	StreamlineAdapter *getStreamline() override { return &streamline; }
 
 	RHICommandQueue *getCmdQueue() override { return cmd_queue; };
-	RHICommandQueue *getCmdQueueCopy() override { return cmd_copy_queue; };
 
 	RHIBindlessResources *getBindlessResources() override { return bindless_resources; };
 
@@ -88,6 +87,7 @@ public:
 		VulkanPipeline *native_pso = static_cast<VulkanPipeline *>(cmd_lists[frame_in_flight]->current_pipeline);
 		size_t descriptor_hash = native_pso->getHash();
 		hashCombine(descriptor_hash, binding);
+		hashCombine(descriptor_hash, frame_in_flight);
 
 		// Create buffer if there is no for this descriptor and offset
 		auto &buffers = buffers_for_shaders[descriptor_hash];
@@ -153,6 +153,7 @@ private:
 
 public:
 	VkInstance instance;
+	VkDebugUtilsMessengerEXT debug_messenger = VK_NULL_HANDLE;
 	Ref<Device> device;
 	VmaAllocator allocator;
 
@@ -162,8 +163,8 @@ public:
 	VkCommandPool command_pool;
 
 	VulkanCommandQueue *cmd_queue;
-	VulkanCommandQueue *cmd_copy_queue;
 	VulkanCommandList *cmd_lists[MAX_FRAMES_IN_FLIGHT];
+	VulkanCommandList *upload_cmd_lists[MAX_FRAMES_IN_FLIGHT];
 	VulkanCommandList *cmd_list_immediate;
 	VulkanCommandList *tracy_cmd_list;
 

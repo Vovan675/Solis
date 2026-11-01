@@ -9,6 +9,8 @@ void VulkanUtils::init()
 	p_vkSetDebugUtilsObjectNameEXT = reinterpret_cast<PFN_vkSetDebugUtilsObjectNameEXT>(vkGetDeviceProcAddr(device, "vkSetDebugUtilsObjectNameEXT"));
 	p_vkCmdBeginDebugUtilsLabelEXT = reinterpret_cast<PFN_vkCmdBeginDebugUtilsLabelEXT>(vkGetDeviceProcAddr(device, "vkCmdBeginDebugUtilsLabelEXT"));
 	p_vkCmdEndDebugUtilsLabelEXT = reinterpret_cast<PFN_vkCmdEndDebugUtilsLabelEXT>(vkGetDeviceProcAddr(device, "vkCmdEndDebugUtilsLabelEXT"));
+	p_vkCreateDebugUtilsMessengerEXT = reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(getNativeRHI()->instance, "vkCreateDebugUtilsMessengerEXT"));
+	p_vkDestroyDebugUtilsMessengerEXT = reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(getNativeRHI()->instance, "vkDestroyDebugUtilsMessengerEXT"));
 
 	p_vkGetPhysicalDeviceCalibrateableTimeDomainsEXT = reinterpret_cast<PFN_vkGetPhysicalDeviceCalibrateableTimeDomainsEXT>(vkGetInstanceProcAddr(getNativeRHI()->instance, "vkGetPhysicalDeviceCalibrateableTimeDomainsEXT"));
 	p_vkGetCalibratedTimestampsEXT = reinterpret_cast<PFN_vkGetCalibratedTimestampsEXT>(vkGetDeviceProcAddr(device, "PFN_vkGetCalibratedTimestampsEXT"));
@@ -51,6 +53,23 @@ void VulkanUtils::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VmaM
 		vmaCreateBufferWithAlignment(getNativeRHI()->allocator, &info, &alloc_info, alignment, &buffer, &allocation, nullptr);
 	else
 		vmaCreateBuffer(getNativeRHI()->allocator, &info, &alloc_info, &buffer, &allocation, nullptr);
+}
+
+void VulkanUtils::cmdMemoryBarrier(VkCommandBuffer cmd_buffer, VkPipelineStageFlags2 src_stage_mask, VkAccessFlags2 src_access_mask, VkPipelineStageFlags2 dst_stage_mask, VkAccessFlags2 dst_access_mask)
+{
+	VkMemoryBarrier2 memory_barrier{};
+	memory_barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2;
+	memory_barrier.srcStageMask = src_stage_mask; // pipeline stage(s) that must be completed before the barrier is crossed
+	memory_barrier.srcAccessMask = src_access_mask; // operations that must complete before the barrier is crossed - example: write
+	memory_barrier.dstStageMask = dst_stage_mask; // pipeline stage(s) that must wait for the barrier to be crossed before beginning
+	memory_barrier.dstAccessMask = dst_access_mask; // operations that must wait for the barrier to be is crossed - example: read
+
+	VkDependencyInfo dependency_info{};
+	dependency_info.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+	dependency_info.memoryBarrierCount = 1;
+	dependency_info.pMemoryBarriers = &memory_barrier;
+
+	vkCmdPipelineBarrier2(cmd_buffer, &dependency_info);
 }
 
 void VulkanUtils::cmdImageMemoryBarrier(VkCommandBuffer cmd_buffer, VkPipelineStageFlags2 src_stage_mask, VkAccessFlags2 src_access_mask, VkPipelineStageFlags2 dst_stage_mask, VkAccessFlags2 dst_access_mask, VkImageLayout old_layout, VkImageLayout new_layout, VkImage image, VkImageAspectFlags aspect_mask, int level_count, int layer_count, int base_level, int base_layer)
@@ -127,6 +146,16 @@ void VulkanUtils::vkBuildAccelerationStructuresKHR(VkDeferredOperationKHR deferr
 VkResult VulkanUtils::vkCreateAccelerationStructureKHR(const VkAccelerationStructureCreateInfoKHR *pCreateInfo, const VkAllocationCallbacks *pAllocator, VkAccelerationStructureKHR *pAccelerationStructure)
 {
 	return p_vkCreateAccelerationStructureKHR(getNativeRHI()->device->logicalHandle, pCreateInfo, pAllocator, pAccelerationStructure);
+}
+
+VkResult VulkanUtils::vkCreateDebugUtilsMessengerEXT(const VkDebugUtilsMessengerCreateInfoEXT *pCreateInfo, const VkAllocationCallbacks *pAllocator, VkDebugUtilsMessengerEXT *pMessenger)
+{
+	return p_vkCreateDebugUtilsMessengerEXT(getNativeRHI()->instance, pCreateInfo, pAllocator, pMessenger);
+}
+
+void VulkanUtils::vkDestroyDebugUtilsMessengerEXT(VkDebugUtilsMessengerEXT messenger, const VkAllocationCallbacks *pAllocator)
+{
+	p_vkDestroyDebugUtilsMessengerEXT(getNativeRHI()->instance, messenger, pAllocator);
 }
 
 void VulkanUtils::vkDestroyAccelerationStructureKHR(VkAccelerationStructureKHR accelerationStructure, const VkAllocationCallbacks *pAllocator)

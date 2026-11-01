@@ -47,6 +47,7 @@ private:
 	void draw_screenshot_popup();
 
 	bool open_screenshot_popup = false;
+	bool reset_layout = false;
 
 	bool auto_refresh_shaders = true;
 	bool was_window_focused = true;

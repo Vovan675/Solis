@@ -103,7 +103,8 @@ public:
 
 		if (policy == ReplicationPolicy::Copy || full_upload_needed)
 		{
-			copy_range(0, last_used_slot);
+			if (last_used_slot > 0)
+				copy_range(0, last_used_slot);
 		} else
 		{
 			uint32_t run_start_slot = UINT32_MAX;

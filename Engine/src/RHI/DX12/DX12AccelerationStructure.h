@@ -12,7 +12,6 @@ public:
 	void build(const eastl::vector<RayTracingGeometry> &geometries) override;
 
 	RHIBufferRef buffer;
-	RHIBufferRef scratch_buffer;
 };
 
 
@@ -24,10 +23,9 @@ public:
 	{
 	}
 
-	void build(bool update, const eastl::vector<RayTracingInstance> &instances) override;
+	void build(const eastl::vector<RayTracingInstance> &instances) override;
 	uint32_t getBindlessId() override { return bindless_id; }
 
-	RHIBufferRef instances_buffer;
 	RHIBufferRef buffer;
 	RHIBufferRef scratch_buffer;
 

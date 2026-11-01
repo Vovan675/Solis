@@ -63,12 +63,13 @@ void VulkanCommandList::setRenderTargets(const eastl::vector<RHITexture *> &colo
 	if (depth_attachment != nullptr)
 	{
 		VulkanTexture *texture = (VulkanTexture *)depth_attachment;
+		bool is_depth_read_only = texture->getNativeLayout() == VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
 
 		depth_stencil_attachment_info.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
 		depth_stencil_attachment_info.imageView = ((VulkanTextureView *)texture->getRenderTargetView(mip, layer))->getImageView();
-		depth_stencil_attachment_info.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+		depth_stencil_attachment_info.imageLayout = is_depth_read_only ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 		depth_stencil_attachment_info.loadOp = clear ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
-		depth_stencil_attachment_info.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+		depth_stencil_attachment_info.storeOp = is_depth_read_only ? VK_ATTACHMENT_STORE_OP_NONE : VK_ATTACHMENT_STORE_OP_STORE;
 		depth_stencil_attachment_info.clearValue.depthStencil.depth = depth_clear_value;
 		depth_stencil_attachment_info.clearValue.depthStencil.stencil = 0.0f;
 		rendering_info.pDepthAttachment = &depth_stencil_attachment_info;

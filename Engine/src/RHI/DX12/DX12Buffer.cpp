@@ -75,35 +75,19 @@ void DX12Buffer::fill(const void *sourceData)
 
 	if (description.use_staging_buffer && !hasAnyFlags(description.usage, BufferUsage::STAGING_BUFFER))
 	{
-		ComPtr<ID3D12Resource> intermediate_resource;
-		native_rhi->device->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), D3D12_HEAP_FLAG_NONE, &CD3DX12_RESOURCE_DESC::Buffer(buffer_size),
-										D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&intermediate_resource));
-		D3D12_SUBRESOURCE_DATA subresourceData = {};
-		subresourceData.pData = sourceData;
-		subresourceData.RowPitch = buffer_size;
-		subresourceData.SlicePitch = subresourceData.RowPitch;
+		BufferDescription staging_buffer_description;
+		staging_buffer_description.size = buffer_size;
+		staging_buffer_description.use_staging_buffer = false;
+		RHIBufferRef staging_buffer = gDynamicRHI->createBuffer(staging_buffer_description);
 
+		void *data;
+		staging_buffer->map(&data);
+		memcpy(data, sourceData, buffer_size);
+		staging_buffer->unmap();
 
-		RHICommandList *copy_cmd_list = native_rhi->getCmdListCopy();
-		// Upload buffer data.
-		copy_cmd_list->open();
-
-		UpdateSubresources(native_rhi->cmd_list_copy->cmd_list.Get(),
-						   resource->resource, intermediate_resource.Get(),
-						   0, 0, 1, &subresourceData);
-
-		copy_cmd_list->close();
-		native_rhi->getCmdQueueCopy()->execute(copy_cmd_list);
-
-		// Wait queue
-		auto last_fence = native_rhi->getCmdQueueCopy()->getLastFenceValue();
-		native_rhi->getCmdQueueCopy()->signal(last_fence + 1);
-		native_rhi->getCmdQueueCopy()->wait(last_fence + 1);
-
-		// According to https://learn.microsoft.com/en-us/windows/win32/direct3d12/using-resource-barriers-to-synchronize-resource-states-in-direct3d-12#implicit-state-transitions
-		current_state = ResourceState::SHADER_RESOURCE;
-
-		intermediate_resource.Reset();
+		RHICommandList *upload_cmd_list = native_rhi->getUploadCmdList();
+		upload_cmd_list->copyBuffer(staging_buffer, this, 0, 0, buffer_size);
+		transitState(upload_cmd_list, ResourceState::COMMON);
 	} else
 	{
 		// For CPU-visible (upload) buffers, map and write directly.

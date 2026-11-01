@@ -17,7 +17,7 @@ public:
 
 	~DX12CommandQueue();
 
-	void execute(RHICommandList *cmd_list) override;
+	void execute(eastl::span<RHICommandList *> cmd_lists) override;
 
 	void signal(uint64_t fence_value) override
 	{
@@ -26,15 +26,7 @@ public:
 		last_fence_value = fence_value;
 	}
 
-	void wait(uint64_t fence_value) override
-	{
-		// Wait for fence to complete
-		if (fence->GetCompletedValue() < fence_value)
-		{
-			fence->SetEventOnCompletion(fence_value, fence_event);
-			WaitForSingleObjectEx(fence_event, INFINITE, false);
-		}
-	}
+	void wait(uint64_t fence_value) override;
 
 	void waitIdle() override
 	{

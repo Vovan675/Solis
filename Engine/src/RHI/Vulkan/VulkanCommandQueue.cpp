@@ -25,29 +25,37 @@ VulkanCommandQueue::~VulkanCommandQueue()
 	}
 }
 
-void VulkanCommandQueue::execute(RHICommandList *cmd_list, VkSubmitInfo submit_info)
+void VulkanCommandQueue::execute(eastl::span<RHICommandList *> cmd_lists, VkSubmitInfo submit_info)
 {
-	VulkanCommandList *native_cmd_list = static_cast<VulkanCommandList *>(cmd_list);
+	eastl::vector<VkCommandBuffer> cmd_buffers;
+	cmd_buffers.reserve(cmd_lists.size());
+	for (RHICommandList *cmd_list : cmd_lists)
+		cmd_buffers.push_back(static_cast<VulkanCommandList *>(cmd_list)->cmd_buffer);
 
 	submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	submit_info.commandBufferCount = 1;
-	submit_info.pCommandBuffers = &native_cmd_list->cmd_buffer;
+	submit_info.commandBufferCount = cmd_buffers.size();
+	submit_info.pCommandBuffers = cmd_buffers.data();
 
 	// Reset fence before submission.
 	vkResetFences(VulkanUtils::getNativeRHI()->device->logicalHandle, 1, &fence);
 	vkQueueSubmit(queue, 1, &submit_info, fence);
 }
 
-void VulkanCommandQueue::execute(RHICommandList *cmd_list)
+void VulkanCommandQueue::execute(eastl::span<RHICommandList *> cmd_lists)
 {
-	VulkanCommandList *native_cmd_list = static_cast<VulkanCommandList *>(cmd_list);
-
 	VkSubmitInfo submitInfo = {};
-	execute(cmd_list, submitInfo);
+	execute(cmd_lists, submitInfo);
 }
 
 void VulkanCommandQueue::wait(uint64_t fence_value)
 {
+	PROFILE_CPU_FUNCTION();
 	// Wait for fence to complete
 	vkWaitForFences(VulkanUtils::getNativeRHI()->device->logicalHandle, 1, &fence, VK_TRUE, UINT64_MAX);
+}
+
+void VulkanCommandQueue::waitIdle()
+{
+	PROFILE_CPU_FUNCTION();
+	vkQueueWaitIdle(queue);
 }

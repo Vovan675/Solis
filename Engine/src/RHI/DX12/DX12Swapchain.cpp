@@ -49,7 +49,7 @@ void DX12Swapchain::resize(uint32_t width, uint32_t height)
 		swap_chain_textures[n]->resource = nullptr;
 	}
 
-	swap_chain->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, 0);
+	swap_chain->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, allow_tearing ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0);
 
 	// Create a RTV for each frame.
 	for (UINT n = 0; n < info.textures_count; n++)
@@ -70,6 +70,10 @@ void DX12Swapchain::create_swapchain()
 {
 	auto rhi = DX12Utils::getNativeRHI();
 
+	ComPtr<IDXGIFactory5> factory_5;
+	rhi->factory.As(&factory_5);
+	factory_5->CheckFeatureSupport(DXGI_FEATURE_PRESENT_ALLOW_TEARING, &allow_tearing, sizeof(allow_tearing));
+
 	DXGI_SWAP_CHAIN_DESC1 desc{};
 	desc.Width = info.width;
 	desc.Height = info.height;
@@ -78,6 +82,7 @@ void DX12Swapchain::create_swapchain()
 	desc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
 	desc.BufferCount = info.textures_count;
 	desc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
+	desc.Flags = allow_tearing ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0;
 
 	ComPtr<IDXGISwapChain1> swap_chain_1;
 	rhi->factory->CreateSwapChainForHwnd(rhi->cmd_queue->cmd_queue.Get(), hWnd, &desc, nullptr, nullptr, &swap_chain_1);

@@ -5,10 +5,6 @@
 #include "RHI/RHIDefinitions.h"
 #include "VulkanStreamline.h"
 
-static eastl::vector<const char*> s_ValidationLayers = {
-		"VK_LAYER_KHRONOS_validation"
-};
-
 Device::Device(const VkInstance& instance)
 	: m_InstanceHandle(instance)
 {
@@ -97,8 +93,6 @@ void Device::CreateLogicalDevice()
 	info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
 	info.queueCreateInfoCount = queueInfos.size();
 	info.pQueueCreateInfos = queueInfos.data();
-	info.enabledLayerCount = s_ValidationLayers.size();
-	info.ppEnabledLayerNames = s_ValidationLayers.data();
 
 	eastl::vector<const char*> extensions = {
 		VK_KHR_SWAPCHAIN_EXTENSION_NAME,

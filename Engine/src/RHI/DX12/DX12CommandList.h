@@ -21,6 +21,8 @@ public:
 
 	void open() override
 	{
+		if (is_open)
+			return;
 		cmd_allocator->Reset();
 		cmd_list->Reset(cmd_allocator.Get(), nullptr);
 		is_open = true;
@@ -28,6 +30,8 @@ public:
 
 	void close() override
 	{
+		if (!is_open)
+			return;
 		cmd_list->Close();
 		is_open = false;
 	}

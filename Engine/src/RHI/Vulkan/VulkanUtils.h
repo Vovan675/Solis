@@ -18,6 +18,8 @@ public:
 	static void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VmaMemoryUsage memory_usage, VmaAllocationCreateFlags flags, VkBuffer &buffer, VmaAllocation &allocation, VkDeviceSize alignment = 0);
 
 
+	static void cmdMemoryBarrier(VkCommandBuffer cmd_buffer, VkPipelineStageFlags2 src_stage_mask, VkAccessFlags2 src_access_mask, VkPipelineStageFlags2 dst_stage_mask, VkAccessFlags2 dst_access_mask);
+
 	static void cmdImageMemoryBarrier(VkCommandBuffer cmd_buffer,
 									  VkPipelineStageFlags2 src_stage_mask, VkAccessFlags2 src_access_mask,
 									  VkPipelineStageFlags2 dst_stage_mask, VkAccessFlags2 dst_access_mask,
@@ -152,6 +154,9 @@ public:
 	static void cmdBeginDebugLabel(RHICommandList *cmd_list, const char *name, glm::vec3 color);
 	static void cmdEndDebugLabel(RHICommandList *cmd_list);
 
+	static VkResult vkCreateDebugUtilsMessengerEXT(const VkDebugUtilsMessengerCreateInfoEXT *pCreateInfo, const VkAllocationCallbacks *pAllocator, VkDebugUtilsMessengerEXT *pMessenger);
+	static void vkDestroyDebugUtilsMessengerEXT(VkDebugUtilsMessengerEXT messenger, const VkAllocationCallbacks *pAllocator);
+
 	static VkDeviceAddress vkGetBufferDeviceAddressKHR(const VkBufferDeviceAddressInfo *pInfo);
 
 	static void vkCmdBuildAccelerationStructuresKHR(
@@ -228,6 +233,8 @@ private:
 	inline static PFN_vkSetDebugUtilsObjectNameEXT p_vkSetDebugUtilsObjectNameEXT;
 	inline static PFN_vkCmdBeginDebugUtilsLabelEXT p_vkCmdBeginDebugUtilsLabelEXT;
 	inline static PFN_vkCmdEndDebugUtilsLabelEXT p_vkCmdEndDebugUtilsLabelEXT;
+	inline static PFN_vkCreateDebugUtilsMessengerEXT p_vkCreateDebugUtilsMessengerEXT;
+	inline static PFN_vkDestroyDebugUtilsMessengerEXT p_vkDestroyDebugUtilsMessengerEXT;
 
 	inline static PFN_vkGetPhysicalDeviceCalibrateableTimeDomainsEXT p_vkGetPhysicalDeviceCalibrateableTimeDomainsEXT;
 	inline static PFN_vkGetCalibratedTimestampsEXT p_vkGetCalibratedTimestampsEXT;

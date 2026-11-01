@@ -15,6 +15,8 @@ public:
 
 	void open() override
 	{
+		if (is_open)
+			return;
 		VkCommandBufferBeginInfo info{};
 		info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 		info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT; // Because we don't need to submit the same command buffer twice
@@ -25,6 +27,8 @@ public:
 
 	void close() override
 	{
+		if (!is_open)
+			return;
 		vkEndCommandBuffer(cmd_buffer);
 		is_open = false;
 	}

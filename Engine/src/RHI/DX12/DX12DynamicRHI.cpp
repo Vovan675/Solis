@@ -9,6 +9,17 @@
 
 static UINT64 fenceValues[MAX_FRAMES_IN_FLIGHT] = {};
 
+static void validation_callback(D3D12_MESSAGE_CATEGORY category, D3D12_MESSAGE_SEVERITY severity, D3D12_MESSAGE_ID id, LPCSTR description, void *context)
+{
+	if (severity <= D3D12_MESSAGE_SEVERITY_ERROR)
+	{
+		CORE_ERROR("{}", description);
+	} else if (severity == D3D12_MESSAGE_SEVERITY_WARNING)
+	{
+		CORE_WARN("{}", description);
+	}
+}
+
 void DX12DynamicRHI::init()
 {
 	if (engine_streamline)
@@ -65,12 +76,24 @@ void DX12DynamicRHI::init()
 	if (engine_rhi_validation)
 	{
 		device->QueryInterface(IID_PPV_ARGS(&debug_device));
-		
+
+		ComPtr<ID3D12InfoQueue1> info_queue;
+		device->QueryInterface(IID_PPV_ARGS(&info_queue));
+
+		D3D12_MESSAGE_ID deny_ids[] = {D3D12_MESSAGE_ID_CLEARRENDERTARGETVIEW_MISMATCHINGCLEARVALUE, D3D12_MESSAGE_ID_CLEARDEPTHSTENCILVIEW_MISMATCHINGCLEARVALUE};
+		D3D12_MESSAGE_SEVERITY deny_severities[] = {D3D12_MESSAGE_SEVERITY_INFO};
+		D3D12_INFO_QUEUE_FILTER filter{};
+		filter.DenyList.NumSeverities = _countof(deny_severities);
+		filter.DenyList.pSeverityList = deny_severities;
+		filter.DenyList.NumIDs = _countof(deny_ids);
+		filter.DenyList.pIDList = deny_ids;
+		info_queue->PushStorageFilter(&filter);
+
+		DWORD callback_cookie;
+		info_queue->RegisterMessageCallback(validation_callback, D3D12_MESSAGE_CALLBACK_FLAG_NONE, nullptr, &callback_cookie);
+
 		if (engine_rhi_validation_break)
 		{
-			ComPtr<ID3D12InfoQueue> info_queue;
-			device->QueryInterface(IID_PPV_ARGS(&info_queue));
-
 			info_queue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_ERROR, TRUE);
 			info_queue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_CORRUPTION, TRUE);
 			info_queue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_WARNING, TRUE);
@@ -98,11 +121,8 @@ void DX12DynamicRHI::init()
 	{
 		cmd_lists[i] = new DX12CommandList(device, D3D12_COMMAND_LIST_TYPE_DIRECT);
 		fenceValues[i] = MAX_FRAMES_IN_FLIGHT - 1 - i;
+		upload_cmd_lists[i] = new DX12CommandList(device, D3D12_COMMAND_LIST_TYPE_DIRECT);
 	}
-
-	cmd_list_copy = new DX12CommandList(device, D3D12_COMMAND_LIST_TYPE_COPY);
-	cmd_list_copy->cmd_allocator->SetName(L"cmd_list_copy_cmd_allocator");
-	cmd_queue_copy = new DX12CommandQueue(device, D3D12_COMMAND_LIST_TYPE_COPY);
 
 	DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(&dxc_utils));
 	DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(&dxc_compiler));
@@ -202,10 +222,10 @@ void DX12DynamicRHI::shutdown()
 
 	delete cmd_queue;
 	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+	{
 		delete cmd_lists[i];
-
-	delete cmd_queue_copy;
-	delete cmd_list_copy;
+		delete upload_cmd_lists[i];
+	}
 
 	if (swapchain)
 	{
@@ -217,6 +237,13 @@ void DX12DynamicRHI::shutdown()
 	delete depth_stencil_view_heap;
 
 	cached_shaders.clear();
+
+	SAFE_RELEASE(draw_indexed_command_signature);
+	SAFE_RELEASE(draw_command_signature);
+	SAFE_RELEASE(dispatch_command_signature);
+	SAFE_RELEASE(dispatch_mesh_command_signature);
+	for (auto &queries : pipeline_statistics_queries)
+		queries = {};
 
 	release_gpu_resources(UINT64_MAX);
 
@@ -362,6 +389,13 @@ RHITopLevelAccelerationStructureRef DX12DynamicRHI::createTopLevelAccelerationSt
 	return new DX12TopLevelAccelerationStructure();
 }
 
+RHICommandList *DX12DynamicRHI::getUploadCmdList()
+{
+	DX12CommandList *cmd_list = upload_cmd_lists[frame_in_flight];
+	cmd_list->open();
+	return cmd_list;
+}
+
 void DX12DynamicRHI::waitGPU()
 {
 	cmd_queue->signal(fenceValues[frame_in_flight]);
@@ -478,9 +512,22 @@ void DX12DynamicRHI::endFrame()
 
 	gDynamicRHI->getCmdList()->close();
 
-	cmd_queue->execute(cmd_lists[frame_in_flight]);
+	eastl::vector<RHICommandList *> execute_cmd_lists;
+	if (upload_cmd_lists[frame_in_flight]->is_open)
+	{
+		upload_cmd_lists[frame_in_flight]->close();
+		execute_cmd_lists.push_back(upload_cmd_lists[frame_in_flight]);
+	}
+	execute_cmd_lists.push_back(cmd_lists[frame_in_flight]);
+	cmd_queue->execute(execute_cmd_lists);
 
-	swapchain->swap_chain->Present(render_vsync ? 1 : 0, 0);
+	{
+		PROFILE_CPU_SCOPE("Present");
+		if (render_vsync)
+			swapchain->swap_chain->Present(1, 0);
+		else
+			swapchain->swap_chain->Present(0, swapchain->allow_tearing ? DXGI_PRESENT_ALLOW_TEARING : 0);
+	}
 
 	// Set current fence value on current frame completion
 	const UINT64 current_fence_value = fenceValues[frame_in_flight];

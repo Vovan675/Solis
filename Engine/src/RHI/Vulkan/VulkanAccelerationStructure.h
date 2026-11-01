@@ -4,43 +4,33 @@
 #include <vector>
 #include "RHI/RHIAccelerationStructure.h"
 #include "RHI/Vulkan/VulkanUtils.h"
+#include "RHI/Vulkan/VulkanResources.h"
 #include "Utils/Math.h"
 
 class VulkanBottomLevelAccelerationStructure final: public RHIBottomLevelAccelerationStructure
 {
 public:
-	~VulkanBottomLevelAccelerationStructure()
-	{
-		if (handle)
-			VulkanUtils::vkDestroyAccelerationStructureKHR(handle, nullptr);
-	}
+	~VulkanBottomLevelAccelerationStructure();
 
 	void build(const eastl::vector<RayTracingGeometry> &geometries) override;
 
-	VkAccelerationStructureKHR handle = nullptr;
+	std::unique_ptr<VkAccelerationStructureResource> handle;
 	uint64_t deviceAddress = 0;
-	VkDeviceMemory memory;
 	RHIBufferRef buffer;
-	RHIBufferRef scratch_buffer;
 };
 
 
 class VulkanTopLevelAccelerationStructure final: public RHITopLevelAccelerationStructure
 {
 public:
-	~VulkanTopLevelAccelerationStructure()
-	{
-		if (handle)
-			VulkanUtils::vkDestroyAccelerationStructureKHR(handle, nullptr);
-	}
+	~VulkanTopLevelAccelerationStructure();
 
-	void build(bool update, const eastl::vector<RayTracingInstance> &instances) override;
+	void build(const eastl::vector<RayTracingInstance> &instances) override;
 	uint32_t getBindlessId() override { return bindless_id; }
 
-	VkAccelerationStructureKHR handle = 0;
+	std::unique_ptr<VkAccelerationStructureResource> handle;
 	uint64_t deviceAddress = 0;
-	VkDeviceMemory memory;
 	RHIBufferRef acc_buffer;
 	RHIBufferRef scratch_buffer;
-	uint32_t bindless_id;
+	uint32_t bindless_id = 0;
 };

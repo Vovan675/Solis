@@ -7,9 +7,9 @@ public:
 	VulkanCommandQueue(VkQueue queue, bool create_fence = true);
 	~VulkanCommandQueue();
 
-	void execute(RHICommandList *cmd_list, VkSubmitInfo submit_info);
+	void execute(eastl::span<RHICommandList *> cmd_lists, VkSubmitInfo submit_info);
 
-	void execute(RHICommandList *cmd_list) override;
+	void execute(eastl::span<RHICommandList *> cmd_lists) override;
 
 	void signal(uint64_t fence_value) override
 	{
@@ -19,10 +19,7 @@ public:
 	
 	void wait(uint64_t fence_value) override;
 
-	void waitIdle() override
-	{
-		vkQueueWaitIdle(queue);
-	}
+	void waitIdle() override;
 
 	uint32_t getLastFenceValue() override
 	{

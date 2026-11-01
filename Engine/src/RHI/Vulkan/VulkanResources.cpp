@@ -39,3 +39,8 @@ void VkSamplerResource::Release()
 	auto *native_rhi = VulkanUtils::getNativeRHI();
 	vkDestroySampler(native_rhi->device->logicalHandle, resource, nullptr);
 }
+
+void VkAccelerationStructureResource::Release()
+{
+	VulkanUtils::vkDestroyAccelerationStructureKHR(resource, nullptr);
+}

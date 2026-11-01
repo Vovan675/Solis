@@ -83,21 +83,20 @@ void DX12Texture::fill()
 		isRenderTargetTexture() ? &clear_value : nullptr,
 		&allocation->resource,
 		IID_PPV_ARGS(&resource->resource));
+	current_layout = TEXTURE_LAYOUT_GENERAL;
 }
 
 void DX12Texture::fill(const void *sourceData)
 {
 	fill();
-	DX12DynamicRHI *native_rhi = (DX12DynamicRHI *)rhi;
-
-	ComPtr<ID3D12Resource> intermediate_resource;
 
 	int subresources_count = description.is_cube ? 6 : description.array_levels;
 	subresources_count *= description.mip_levels;
-	const UINT64 uploadBufferSize = GetRequiredIntermediateSize(resource->resource, 0, subresources_count);
 
-	native_rhi->device->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), D3D12_HEAP_FLAG_NONE, &CD3DX12_RESOURCE_DESC::Buffer(uploadBufferSize),
-												D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&intermediate_resource));
+	BufferDescription staging_buffer_description;
+	staging_buffer_description.size = GetRequiredIntermediateSize(resource->resource, 0, subresources_count);
+	staging_buffer_description.use_staging_buffer = false;
+	RHIBufferRef staging_buffer = gDynamicRHI->createBuffer(staging_buffer_description);
 
 
 	uint32_t format_size = getFormatSize(description.format);
@@ -125,21 +124,10 @@ void DX12Texture::fill(const void *sourceData)
 	}
 
 
-	RHICommandList *copy_cmd_list = rhi->getCmdListCopy();
-	// Upload buffer data.
-	copy_cmd_list->open();
-
-	UpdateSubresources(native_rhi->cmd_list_copy->cmd_list.Get(), resource->resource, intermediate_resource.Get(), 0, 0, subresources_data.size(), subresources_data.data());
-
-	copy_cmd_list->close();
-	rhi->getCmdQueueCopy()->execute(copy_cmd_list);
-
-	// Wait queue
-	auto last_fence = rhi->getCmdQueueCopy()->getLastFenceValue();
-	rhi->getCmdQueueCopy()->signal(last_fence + 1);
-	rhi->getCmdQueueCopy()->wait(last_fence + 1);
-
-	resource->resource->SetName(L"FILLED TEXTURE");
+	RHICommandList *upload_cmd_list = rhi->getUploadCmdList();
+	transitLayout(upload_cmd_list, TEXTURE_LAYOUT_TRANSFER_DST);
+	UpdateSubresources(((DX12CommandList *)upload_cmd_list)->cmd_list.Get(), resource->resource, ((DX12Buffer *)staging_buffer.getReference())->getResource(), 0, 0, subresources_data.size(), subresources_data.data());
+	transitLayout(upload_cmd_list, TEXTURE_LAYOUT_SHADER_READ);
 }
 
 void DX12Texture::clear(RHICommandList *cmd_list, const glm::vec4 &color)

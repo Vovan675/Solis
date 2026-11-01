@@ -2,6 +2,28 @@
 #include "VulkanAccelerationStructure.h"
 #include "RHI/Vulkan/VulkanDynamicRHI.h"
 
+static void build_acceleration_structure(const VkAccelerationStructureBuildGeometryInfoKHR &build_info, const VkAccelerationStructureBuildRangeInfoKHR *const *range_infos)
+{
+	VkCommandBuffer cmd_buffer = ((VulkanCommandList *)gDynamicRHI->getUploadCmdList())->cmd_buffer;
+
+	// Wait while last frame done using AS
+	VulkanUtils::cmdMemoryBarrier(cmd_buffer,
+		VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, VK_ACCESS_2_MEMORY_WRITE_BIT,
+		VK_PIPELINE_STAGE_2_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, VK_ACCESS_2_ACCELERATION_STRUCTURE_READ_BIT_KHR | VK_ACCESS_2_ACCELERATION_STRUCTURE_WRITE_BIT_KHR | VK_ACCESS_2_SHADER_READ_BIT);
+
+	VulkanUtils::vkCmdBuildAccelerationStructuresKHR(cmd_buffer, 1, &build_info, range_infos);
+
+	// Wait for build to read acceleration structure
+	VulkanUtils::cmdMemoryBarrier(cmd_buffer,
+		VK_PIPELINE_STAGE_2_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, VK_ACCESS_2_ACCELERATION_STRUCTURE_WRITE_BIT_KHR,
+		VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, VK_ACCESS_2_ACCELERATION_STRUCTURE_READ_BIT_KHR);
+}
+
+VulkanBottomLevelAccelerationStructure::~VulkanBottomLevelAccelerationStructure()
+{
+	gDynamicRHI->releaseGPUResource(handle.release());
+}
+
 void VulkanBottomLevelAccelerationStructure::build(const eastl::vector<RayTracingGeometry> &geometries)
 {
 	if (geometries.empty()) return;
@@ -80,7 +102,8 @@ void VulkanBottomLevelAccelerationStructure::build(const eastl::vector<RayTracin
 	accelerationStructureCreateInfo.buffer = native_buffer->getBuffer();
 	accelerationStructureCreateInfo.size = accelerationStructureBuildSizesInfo.accelerationStructureSize;
 	accelerationStructureCreateInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
-	VulkanUtils::vkCreateAccelerationStructureKHR(&accelerationStructureCreateInfo, nullptr, &handle);
+	handle = std::make_unique<VkAccelerationStructureResource>();
+	VulkanUtils::vkCreateAccelerationStructureKHR(&accelerationStructureCreateInfo, nullptr, &handle->resource);
 
 	uint32_t min_scratch_alignment = VulkanUtils::getNativeRHI()->device->physicalAccelerationStructureProperties.minAccelerationStructureScratchOffsetAlignment;
 	BufferDescription scratchDesc;
@@ -89,14 +112,14 @@ void VulkanBottomLevelAccelerationStructure::build(const eastl::vector<RayTracin
 	scratchDesc.use_staging_buffer = true;
 	scratchDesc.usage = BufferUsage::SCRATCH_BUFFER;
 
-	scratch_buffer = gDynamicRHI->createBuffer(scratchDesc);
+	RHIBufferRef scratch_buffer = gDynamicRHI->createBuffer(scratchDesc);
 
 	VkAccelerationStructureBuildGeometryInfoKHR accelerationBuildGeometryInfo{};
 	accelerationBuildGeometryInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
 	accelerationBuildGeometryInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
 	accelerationBuildGeometryInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
 	accelerationBuildGeometryInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
-	accelerationBuildGeometryInfo.dstAccelerationStructure = handle;
+	accelerationBuildGeometryInfo.dstAccelerationStructure = handle->resource;
 	accelerationBuildGeometryInfo.geometryCount = geometries_desc.size();
 	accelerationBuildGeometryInfo.pGeometries = geometries_desc.data();
 	accelerationBuildGeometryInfo.scratchData.deviceAddress = scratch_buffer->getGPUAddress();
@@ -105,33 +128,21 @@ void VulkanBottomLevelAccelerationStructure::build(const eastl::vector<RayTracin
 	for (auto &build_range : build_range_infos)
 		accelerationBuildStructureRangeInfos.push_back(&build_range);
 
-
-	{
-		VulkanDynamicRHI *rhi = (VulkanDynamicRHI *)gDynamicRHI;
-		RHICommandList *copy_cmd_list = gDynamicRHI->getCmdListCopy();
-		VulkanCommandList *native_copy_cmd_list = (VulkanCommandList *)copy_cmd_list;
-		copy_cmd_list->open();
-
-		VulkanUtils::vkCmdBuildAccelerationStructuresKHR(native_copy_cmd_list->cmd_buffer, 1, &accelerationBuildGeometryInfo, accelerationBuildStructureRangeInfos.data());
-
-		copy_cmd_list->close();
-
-		gDynamicRHI->getCmdQueueCopy()->execute(copy_cmd_list);
-		// Wait queue
-		auto last_fence = gDynamicRHI->getCmdQueueCopy()->getLastFenceValue();
-		gDynamicRHI->getCmdQueueCopy()->signal(last_fence + 1);
-		gDynamicRHI->getCmdQueueCopy()->wait(last_fence + 1);
-	}
+	build_acceleration_structure(accelerationBuildGeometryInfo, accelerationBuildStructureRangeInfos.data());
 
 
 	VkAccelerationStructureDeviceAddressInfoKHR accelerationDeviceAddressInfo{};
 	accelerationDeviceAddressInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR;
-	accelerationDeviceAddressInfo.accelerationStructure = handle;
+	accelerationDeviceAddressInfo.accelerationStructure = handle->resource;
 	deviceAddress = VulkanUtils::vkGetAccelerationStructureDeviceAddressKHR(&accelerationDeviceAddressInfo);
 }
 
+VulkanTopLevelAccelerationStructure::~VulkanTopLevelAccelerationStructure()
+{
+	gDynamicRHI->releaseGPUResource(handle.release());
+}
 
-void VulkanTopLevelAccelerationStructure::build(bool update, const eastl::vector<RayTracingInstance> &instances)
+void VulkanTopLevelAccelerationStructure::build(const eastl::vector<RayTracingInstance> &instances)
 {
 	eastl::vector<VkAccelerationStructureInstanceKHR> instances_desc;
 	instances_desc.resize(instances.size());
@@ -161,16 +172,13 @@ void VulkanTopLevelAccelerationStructure::build(bool update, const eastl::vector
 		// TODO: set in object description array at index `instance_id`, index to another buffers that contains vertices, indices, materials
 	}
 
-	update = false;
-	auto device = VulkanUtils::getNativeRHI()->device->logicalHandle;
-
 	// Buffer for instance data
 	VkDeviceOrHostAddressConstKHR instanceDataDeviceAddress{};
 	if (!instances_desc.empty())
 	{
 		BufferDescription instanceDesc;
 		instanceDesc.size = instances_desc.size() * sizeof(VkAccelerationStructureInstanceKHR);
-		instanceDesc.use_staging_buffer = true;
+		instanceDesc.use_staging_buffer = false;
 		instanceDesc.usage = BufferUsage::ACCELERATION_STRUCTURE_BUILD_INPUT_BUFFER;
 		instanceDesc.alignment = 16;
 
@@ -192,7 +200,8 @@ void VulkanTopLevelAccelerationStructure::build(bool update, const eastl::vector
 	VkAccelerationStructureBuildGeometryInfoKHR accelerationStructureBuildGeometryInfo{};
 	accelerationStructureBuildGeometryInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
 	accelerationStructureBuildGeometryInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
-	accelerationStructureBuildGeometryInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR | VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR;
+	accelerationStructureBuildGeometryInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
+	accelerationStructureBuildGeometryInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
 	accelerationStructureBuildGeometryInfo.geometryCount = 1;
 	accelerationStructureBuildGeometryInfo.pGeometries = &accelerationStructureGeometry;
 
@@ -206,22 +215,25 @@ void VulkanTopLevelAccelerationStructure::build(bool update, const eastl::vector
 		&primitive_count,
 		&accelerationStructureBuildSizesInfo);
 
-	if (update)
+	// Reallocate when more size needed or less than half is used
+	const uint64_t allocation_granularity = 1024 * 1024;
+	auto needs_reallocation = [](const RHIBufferRef &buffer, uint64_t size)
 	{
+		return !buffer || size > buffer->getSize() || size < buffer->getSize() / 2;
+	};
 
-	} else
+	uint64_t acceleration_structure_size = Math::roundUp(accelerationStructureBuildSizesInfo.accelerationStructureSize, allocation_granularity);
+	if (needs_reallocation(acc_buffer, acceleration_structure_size))
 	{
 		if (handle)
 		{
 			gDynamicRHI->getBindlessResources()->removeAccelerationStructure(this);
-			bindless_id = 0;
-			VulkanUtils::vkDestroyAccelerationStructureKHR(handle, nullptr);
-			handle = nullptr;
+			gDynamicRHI->releaseGPUResource(handle.release());
 		}
 
 		// Create acceleration structure buffer
 		BufferDescription accDesc;
-		accDesc.size = Math::roundUp(accelerationStructureBuildSizesInfo.accelerationStructureSize, 256);
+		accDesc.size = acceleration_structure_size;
 		accDesc.use_staging_buffer = true;
 		accDesc.usage = BufferUsage::ACCELERATION_STRUCTURE_STORAGE_BUFFER;
 
@@ -231,65 +243,42 @@ void VulkanTopLevelAccelerationStructure::build(bool update, const eastl::vector
 		VkAccelerationStructureCreateInfoKHR accelerationStructureCreateInfo{};
 		accelerationStructureCreateInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR;
 		accelerationStructureCreateInfo.buffer = native_buffer->getBuffer();
-		accelerationStructureCreateInfo.size = accelerationStructureBuildSizesInfo.accelerationStructureSize;
+		accelerationStructureCreateInfo.size = acceleration_structure_size;
 		accelerationStructureCreateInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
-		VulkanUtils::vkCreateAccelerationStructureKHR(&accelerationStructureCreateInfo, nullptr, &handle);
+		handle = std::make_unique<VkAccelerationStructureResource>();
+		VulkanUtils::vkCreateAccelerationStructureKHR(&accelerationStructureCreateInfo, nullptr, &handle->resource);
+
+		VkAccelerationStructureDeviceAddressInfoKHR accelerationDeviceAddressInfo{};
+		accelerationDeviceAddressInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR;
+		accelerationDeviceAddressInfo.accelerationStructure = handle->resource;
+		deviceAddress = VulkanUtils::vkGetAccelerationStructureDeviceAddressKHR(&accelerationDeviceAddressInfo);
+
+		bindless_id = gDynamicRHI->getBindlessResources()->addAccelerationStructure(this);
 	}
 
 	// Create a small scratch buffer used during build of the top level acceleration structure
 	uint32_t min_scratch_alignment = VulkanUtils::getNativeRHI()->device->physicalAccelerationStructureProperties.minAccelerationStructureScratchOffsetAlignment;
-	BufferDescription scratchDesc;
-	scratchDesc.size = Math::roundUp(accelerationStructureBuildSizesInfo.buildScratchSize, min_scratch_alignment);
-	scratchDesc.alignment = min_scratch_alignment;
-	scratchDesc.use_staging_buffer = true;
-	scratchDesc.usage = BufferUsage::SCRATCH_BUFFER;
-
-	scratch_buffer = gDynamicRHI->createBuffer(scratchDesc);
-
-	VkAccelerationStructureBuildGeometryInfoKHR accelerationBuildGeometryInfo{};
-	accelerationBuildGeometryInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
-	accelerationBuildGeometryInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
-	accelerationBuildGeometryInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR | VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR;
-	if (update)
+	uint64_t scratch_size = Math::roundUp(accelerationStructureBuildSizesInfo.buildScratchSize, allocation_granularity);
+	if (needs_reallocation(scratch_buffer, scratch_size))
 	{
-		accelerationBuildGeometryInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR;
-		accelerationBuildGeometryInfo.srcAccelerationStructure = handle;
-	} else
-	{
-		accelerationBuildGeometryInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
+		BufferDescription scratchDesc;
+		scratchDesc.size = scratch_size;
+		scratchDesc.alignment = min_scratch_alignment;
+		scratchDesc.use_staging_buffer = true;
+		scratchDesc.usage = BufferUsage::SCRATCH_BUFFER;
+
+		scratch_buffer = gDynamicRHI->createBuffer(scratchDesc);
 	}
-	accelerationBuildGeometryInfo.dstAccelerationStructure = handle;
-	accelerationBuildGeometryInfo.geometryCount = 1;
-	accelerationBuildGeometryInfo.pGeometries = &accelerationStructureGeometry;
-	accelerationBuildGeometryInfo.scratchData.deviceAddress = scratch_buffer->getGPUAddress();
+
+	accelerationStructureBuildGeometryInfo.dstAccelerationStructure = handle->resource;
+	accelerationStructureBuildGeometryInfo.scratchData.deviceAddress = scratch_buffer->getGPUAddress();
 
 	VkAccelerationStructureBuildRangeInfoKHR accelerationStructureBuildRangeInfo{};
 	accelerationStructureBuildRangeInfo.primitiveCount = primitive_count;
 	accelerationStructureBuildRangeInfo.primitiveOffset = 0;
 	accelerationStructureBuildRangeInfo.firstVertex = 0;
 	accelerationStructureBuildRangeInfo.transformOffset = 0;
-	eastl::vector<VkAccelerationStructureBuildRangeInfoKHR *> accelerationBuildStructureRangeInfos = {&accelerationStructureBuildRangeInfo};
+	VkAccelerationStructureBuildRangeInfoKHR *accelerationBuildStructureRangeInfo = &accelerationStructureBuildRangeInfo;
 
-	// Build the acceleration structure on the device via a one-time command buffer submission
-	// Some implementations may support acceleration structure building on the host (VkPhysicalDeviceAccelerationStructureFeaturesKHR->accelerationStructureHostCommands), but we prefer device builds
-	{
-		VulkanDynamicRHI *rhi = (VulkanDynamicRHI *)gDynamicRHI;
-		RHICommandList *copy_cmd_list = gDynamicRHI->getCmdListCopy();
-		VulkanCommandList *native_copy_cmd_list = (VulkanCommandList *)copy_cmd_list;
-		copy_cmd_list->open();
-
-		VulkanUtils::vkCmdBuildAccelerationStructuresKHR(native_copy_cmd_list->cmd_buffer, 1, &accelerationBuildGeometryInfo, accelerationBuildStructureRangeInfos.data());
-
-		copy_cmd_list->close();
-
-		gDynamicRHI->getCmdQueueCopy()->execute(copy_cmd_list);
-		gDynamicRHI->getCmdQueueCopy()->waitIdle();
-	}
-
-	VkAccelerationStructureDeviceAddressInfoKHR accelerationDeviceAddressInfo{};
-	accelerationDeviceAddressInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR;
-	accelerationDeviceAddressInfo.accelerationStructure = handle;
-	deviceAddress = VulkanUtils::vkGetAccelerationStructureDeviceAddressKHR(&accelerationDeviceAddressInfo);
-
-	bindless_id = gDynamicRHI->getBindlessResources()->addAccelerationStructure(this);
+	build_acceleration_structure(accelerationStructureBuildGeometryInfo, &accelerationBuildStructureRangeInfo);
 }

@@ -41,8 +41,8 @@ VSOutput VSMain(VSInput input)
 
 struct PSOutput
 {
-	float3 outDiffuse : SV_Target0;
-	float3 outSpecular : SV_Target1;
+	float4 outDiffuse : SV_Target0;
+	float4 outSpecular : SV_Target1;
 };
 
 PSOutput PSMain(VSOutput input)
@@ -66,8 +66,8 @@ PSOutput PSMain(VSOutput input)
 	else
 		visibility = getLightShadow(light, P, N, random(inUV));
 
-	PSOutput output;
-	calculateDirectLight(light, P, N, V, albedo, metalness, perceptual_roughness, specular, visibility, output.outDiffuse, output.outSpecular);
+	PSOutput output = (PSOutput)0;
+	calculateDirectLight(light, P, N, V, albedo, metalness, perceptual_roughness, specular, visibility, output.outDiffuse.rgb, output.outSpecular.rgb);
 
 	//#define SHOW_CASCADES
 	#ifdef SHOW_CASCADES
@@ -76,10 +76,10 @@ PSOutput PSMain(VSOutput input)
 			float view_depth = -mul(view, float4(P, 1.0)).z;
 			switch (getCascadeIndex(light, view_depth))
 			{
-				case 0: output.outDiffuse = float3(1, 0, 0); break;
-				case 1: output.outDiffuse = float3(0, 1, 0); break;
-				case 2: output.outDiffuse = float3(0, 0, 1); break;
-				case 3: output.outDiffuse = float3(1, 1, 0); break;
+				case 0: output.outDiffuse.rgb = float3(1, 0, 0); break;
+				case 1: output.outDiffuse.rgb = float3(0, 1, 0); break;
+				case 2: output.outDiffuse.rgb = float3(0, 0, 1); break;
+				case 3: output.outDiffuse.rgb = float3(1, 1, 0); break;
 			}
 			output.outSpecular = 0;
 		}
