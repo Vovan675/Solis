@@ -1,6 +1,7 @@
 #pragma once
 #include "RHI/RHIShader.h"
 #include "VulkanUtils.h"
+#include <spirv_reflect.h>
 
 class VulkanShader final: public RHIShader
 {

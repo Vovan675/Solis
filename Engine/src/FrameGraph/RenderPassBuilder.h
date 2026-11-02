@@ -9,11 +9,11 @@ class RenderPassBuilder
 public:
 	FrameGraphTextureId createTexture(GraphicsResourceName name, TextureDescription desc);
 	FrameGraphTextureId createTexture(GraphicsResourceName name, uint32_t width, uint32_t height, Format format);
-	FrameGraphBufferId createBuffer(GraphicsResourceName name, size_t stride, size_t count, BufferUsage usage);
+	FrameGraphBufferId createBuffer(GraphicsResourceName name, size_t stride, size_t count, BufferUsage usage_flags);
 
 	bool createPersistentTexture(GraphicsResourceName name, TextureDescription desc);
 	bool createPersistentTexture(GraphicsResourceName name, uint32_t width, uint32_t height, Format format);
-	bool createPersistentBuffer(GraphicsResourceName name, size_t stride, size_t count, BufferUsage usage);
+	bool createPersistentBuffer(GraphicsResourceName name, size_t stride, size_t count, BufferUsage usage_flags);
 
 	FrameGraphTextureId readTexture(GraphicsResourceName texture);
 	FrameGraphTextureId readDepthTexture(GraphicsResourceName texture);

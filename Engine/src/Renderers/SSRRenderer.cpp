@@ -9,7 +9,7 @@ void SSRRenderer::addPasses(FrameGraph &fg)
 	fg.addCallbackPass("SSR Pass",
 	[&](RenderPassBuilder &builder)
 	{
-		builder.createTexture(GFXRID(SSR), Renderer::getRenderWidth(), Renderer::getRenderHeight(), FORMAT_R16G16B16A16_UNORM);
+		builder.createTexture(GFXRID(SSR), Renderer::getRenderWidth(), Renderer::getRenderHeight(), Format::R16G16B16A16_UNORM);
 		builder.writeTexture(GFXRID(SSR));
 
 		builder.readTexture(GFXRID(FinalNoPostTexture));
@@ -35,7 +35,7 @@ void SSRRenderer::addPasses(FrameGraph &fg)
 
 		cmd_list->setRenderTargets({ssr}, nullptr, -1, 0, true);
 
-		gGlobalPipeline->bindScreenQuadPipeline(cmd_list, gDynamicRHI->createShader(L"shaders/ssr.hlsl", FRAGMENT_SHADER));
+		gGlobalPipeline->bindScreenQuadPipeline(cmd_list, gDynamicRHI->createShader(L"shaders/ssr.hlsl", ShaderType::FRAGMENT));
 
 		// Uniforms
 		gDynamicRHI->setConstantBufferData(0, &ubo, sizeof(UBO));

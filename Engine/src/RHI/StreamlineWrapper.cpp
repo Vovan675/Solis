@@ -103,7 +103,7 @@ bool StreamlineWrapper::init()
 	pref.engine = sl::EngineType::eCustom;
 	pref.engineVersion = "0.1";
 	pref.applicationId = 0;
-	pref.renderAPI = gDynamicRHI->getApiType() == GraphicsAPI::GRAPHICS_API_VULKAN ? sl::RenderAPI::eVulkan : sl::RenderAPI::eD3D12;
+	pref.renderAPI = gDynamicRHI->getApiType() == GraphicsAPI::VULKAN ? sl::RenderAPI::eVulkan : sl::RenderAPI::eD3D12;
 
 	sl::Feature features[] = { sl::kFeatureDLSS };
 	pref.featuresToLoad = features;

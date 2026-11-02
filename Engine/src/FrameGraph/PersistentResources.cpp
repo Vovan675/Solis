@@ -37,9 +37,8 @@ RHITexture *PersistentResources::getTexture(GraphicsResourceName name, const Tex
 	if (!resource.texture)
 	{
 		resource.texture = gDynamicRHI->createTexture(desc);
-		resource.texture->fill();
 		resource.texture->setDebugName(name.name);
-		resource.texture->clear(cmd_list, glm::vec4(0.0f));
+		cmd_list->clearTexture(resource.texture, glm::vec4(0.0f));
 	}
 	return resource.texture;
 }
@@ -51,7 +50,7 @@ RHIBuffer *PersistentResources::getBuffer(GraphicsResourceName name, const Buffe
 	{
 		resource.buffer = gDynamicRHI->createBuffer(desc);
 		resource.buffer->setDebugName(name.name);
-		cmd_list->fillBuffer(resource.buffer, 0);
+		cmd_list->clearBuffer(resource.buffer, 0);
 	}
 	return resource.buffer;
 }

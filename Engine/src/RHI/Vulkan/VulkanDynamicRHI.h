@@ -22,7 +22,7 @@ class VulkanDynamicRHI final: public DynamicRHI
 public:
 	VulkanDynamicRHI()
 	{
-		graphics_api = GRAPHICS_API_VULKAN;
+		graphics_api = GraphicsAPI::VULKAN;
 	}
 	// DynamicRHI
 	void init() override;
@@ -34,9 +34,8 @@ public:
 
 	RHISwapchainRef createSwapchain(GLFWwindow *window) override;
 	void resizeSwapchain(int width, int height) override;
-	RHIPipelineRef createPipeline() override;
-	RHIBufferRef createBuffer(BufferDescription description) override;
-	RHITextureRef createTexture(TextureDescription description) override;
+	RHIPipelineRef createPipeline(const PipelineDescription &description) override;
+	RHITextureRef createTexture(const TextureDescription &description, const void *initial_data) override;
 	RHIBottomLevelAccelerationStructureRef createBottomLevelAccelerationStructure() override;
 	RHITopLevelAccelerationStructureRef createTopLevelAccelerationStructure() override;
 
@@ -67,6 +66,7 @@ public:
 
 protected:
 	RHIShader *create_shader(eastl::wstring path, ShaderType type, eastl::string entry_point, eastl::vector<eastl::pair<const char *, const char *>> defines) override;
+	RHIBuffer *create_buffer(const BufferDescription &description) override;
 
 private:
 	void init_instance();

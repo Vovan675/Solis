@@ -13,13 +13,12 @@ TextureDescription HiZ::createDescription(glm::ivec2 size, uint32_t layers)
 	glm::ivec2 mip_dimensions = glm::max(glm::ceil(glm::log2(glm::vec2(size))), glm::vec2(1.0f));
 
 	TextureDescription desc;
-	desc.format = FORMAT_R32_SFLOAT;
+	desc.format = Format::R32_SFLOAT;
 	desc.width = 1u << (mip_dimensions.x - 1);
 	desc.height = 1u << (mip_dimensions.y - 1);
 	desc.mip_levels = std::max(mip_dimensions.x, mip_dimensions.y);
-	desc.array_levels = layers;
-	desc.usage_flags = TEXTURE_USAGE_STORAGE;
-	desc.filtering = FILTER_NEAREST;
+	desc.array_layers = layers;
+	desc.usage_flags = TextureUsage::UNORDERED_ACCESS;
 	return desc;
 }
 
@@ -36,7 +35,7 @@ void HiZ::build(FrameGraph &fg, GraphicsResourceName hiz_name, GraphicsResourceN
 		RHITexture *hiz = resources.getTexture(hiz_name);
 		RHITexture *depth = resources.getTexture(depth_name);
 
-		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/depth_hiz.hlsl", COMPUTE_SHADER, "CSMain",
+		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/depth_hiz.hlsl", ShaderType::COMPUTE, "CSMain",
 											  {
 												  {"THREADGROUP_SIZE", std::to_string(HIZ_THREADGROUP_SIZE).c_str()}
 											  }));
@@ -61,7 +60,7 @@ void HiZ::build(FrameGraph &fg, GraphicsResourceName hiz_name, GraphicsResourceN
 			gDynamicRHI->setConstantBufferData(0, &constants, sizeof(constants));
 
 			cmd_list->dispatch(Math::divideRoundUp(hiz->getSize(mip).x, HIZ_THREADGROUP_SIZE), Math::divideRoundUp(hiz->getSize(mip).y, HIZ_THREADGROUP_SIZE), 1);
-			hiz->transitLayout(cmd_list, TEXTURE_LAYOUT_UAV);
+			hiz->transitState(cmd_list, ResourceState::UNORDERED_ACCESS);
 		}
 	});
 }

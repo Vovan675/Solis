@@ -12,7 +12,7 @@ struct RayTracingGeometry
 	RHIBufferRef index_buffer;
 	uint32_t index_buffer_offset;
 	uint32_t index_count;
-	Format index_format;
+	IndexFormat index_format;
 };
 
 struct RayTracingInstance
@@ -35,8 +35,8 @@ class RHITopLevelAccelerationStructure : public RefCounted
 {
 public:
 	virtual void build(const eastl::vector<RayTracingInstance> &instances) = 0;
-	uint32_t getBindlessId() const { return bindless_id; }
+	uint32_t getBindlessIndex() const { return bindless_index; }
 
 protected:
-	uint32_t bindless_id = 0;
+	uint32_t bindless_index = 0;
 };

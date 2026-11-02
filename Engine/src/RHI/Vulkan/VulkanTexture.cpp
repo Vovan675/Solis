@@ -3,6 +3,18 @@
 #include "VulkanUtils.h"
 #include "VulkanDynamicRHI.h"
 
+VulkanTexture::VulkanTexture(const TextureDescription &description, const void *initial_data): RHITexture(description)
+{
+	create_resource(initial_data);
+}
+
+VulkanTexture::VulkanTexture(const TextureDescription &description, VkImage swapchain_image): RHITexture(description)
+{
+	current_states.assign(description.mip_levels, ResourceState::UNDEFINED);
+	image = std::make_unique<VkImageResource>();
+	image->resource = swapchain_image;
+}
+
 VulkanTexture::~VulkanTexture()
 {
 	destroy();
@@ -18,25 +30,17 @@ void VulkanTexture::destroy()
 	native_rhi->releaseGPUResource(allocation.release());
 }
 
-void VulkanTexture::fill()
+void VulkanTexture::recreate(const TextureDescription &new_description, const void *initial_data)
 {
 	destroy();
-	cleanup();
+	description = new_description;
+	create_resource(initial_data);
+}
 
+void VulkanTexture::create_resource(const void *initial_data)
+{
 	image = std::make_unique<VkImageResource>();
 	allocation = std::make_unique<VkAllocationResource>();
-
-	VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT;
-	switch (description.sample_count)
-	{
-		case SAMPLE_COUNT_1: samples = VK_SAMPLE_COUNT_1_BIT; break;
-		case SAMPLE_COUNT_2: samples = VK_SAMPLE_COUNT_2_BIT; break;
-		case SAMPLE_COUNT_4: samples = VK_SAMPLE_COUNT_4_BIT; break;
-		case SAMPLE_COUNT_8: samples = VK_SAMPLE_COUNT_8_BIT; break;
-		case SAMPLE_COUNT_16: samples = VK_SAMPLE_COUNT_16_BIT; break;
-		case SAMPLE_COUNT_32: samples = VK_SAMPLE_COUNT_32_BIT; break;
-		case SAMPLE_COUNT_64: samples = VK_SAMPLE_COUNT_64_BIT; break;
-	}
 
 	VkImageCreateInfo imageInfo{};
 	imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -45,100 +49,66 @@ void VulkanTexture::fill()
 	imageInfo.extent.height = description.height;
 	imageInfo.extent.depth = description.depth;
 	imageInfo.mipLevels = description.mip_levels;
-	imageInfo.arrayLayers = description.is_cube ? 6 : description.array_levels;
-	imageInfo.flags = description.is_cube ? VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT : 0;
+	imageInfo.arrayLayers = isCube() ? 6 : description.array_layers;
+	imageInfo.flags = isCube() ? VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT : 0;
 	imageInfo.format = getNativeFormat();
 	imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
 	imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | get_vk_image_usage_flags();
-	imageInfo.samples = samples;
+	imageInfo.usage = get_vk_image_usage_flags();
+	imageInfo.samples = (VkSampleCountFlagBits)description.sample_count;
 	imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-	current_layouts.assign(description.mip_levels, TEXTURE_LAYOUT_UNDEFINED);
+	current_states.assign(description.mip_levels, ResourceState::UNDEFINED);
 
 	VmaAllocationCreateInfo alloc_info{};
 	alloc_info.usage = VMA_MEMORY_USAGE_GPU_ONLY;
 	vmaCreateImage(VulkanUtils::getNativeRHI()->allocator, &imageInfo, &alloc_info, &image->resource, &allocation->resource, nullptr);
-}
 
-void VulkanTexture::fill(const void *sourceData)
-{
-	fill();
+	if (!initial_data)
+		return;
 
 	// Create staging buffer
 	BufferDescription staging_buffer_description;
 	staging_buffer_description.size = get_image_size();
-	staging_buffer_description.use_staging_buffer = false;
-	RHIBufferRef staging_buffer = gDynamicRHI->createBuffer(staging_buffer_description);
+	staging_buffer_description.memory = BufferMemory::UPLOAD;
+	RHIBufferRef staging_buffer = gDynamicRHI->createBuffer(staging_buffer_description, initial_data);
 
-	// Copy data to staging
-	void* data;
-	staging_buffer->map(&data);
-	memcpy(data, sourceData, staging_buffer_description.size);
-	staging_buffer->unmap();
-
-	VulkanDynamicRHI *rhi = (VulkanDynamicRHI *)gDynamicRHI;
 	RHICommandList *upload_cmd_list = gDynamicRHI->getUploadCmdList();
 	VulkanCommandList *native_upload_cmd_list = (VulkanCommandList *)upload_cmd_list;
 	// Upload buffer data.
-	transitLayout(upload_cmd_list, TEXTURE_LAYOUT_TRANSFER_DST);
+	transitState(upload_cmd_list, ResourceState::COPY_DST);
 
 	copy_buffer_to_image(native_upload_cmd_list->cmd_buffer, ((VulkanBuffer *)staging_buffer.getReference())->getBuffer());
 
-	transitLayout(upload_cmd_list, TEXTURE_LAYOUT_SHADER_READ);
+	transitState(upload_cmd_list, ResourceState::SHADER_RESOURCE);
 }
 
-void VulkanTexture::clear(RHICommandList *cmd_list, const glm::vec4 &color)
-{
-	VulkanCommandList *native_cmd_list = (VulkanCommandList *)cmd_list;
-
-	transitLayout(cmd_list, TEXTURE_LAYOUT_TRANSFER_DST);
-
-	VkImageSubresourceRange range{};
-	range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	range.levelCount = description.mip_levels;
-	range.layerCount = description.is_cube ? 6 : description.array_levels;
-
-	if (isDepthTexture())
-	{
-		range.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
-		VkClearDepthStencilValue clear_value{};
-		clear_value.depth = color.x;
-		vkCmdClearDepthStencilImage(native_cmd_list->cmd_buffer, image->resource, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clear_value, 1, &range);
-		return;
-	}
-
-	VkClearColorValue clear_value;
-	memcpy(clear_value.float32, &color.x, sizeof(clear_value.float32));
-	vkCmdClearColorImage(native_cmd_list->cmd_buffer, image->resource, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clear_value, 1, &range);
-}
-
-void VulkanTexture::setDebugName(eastl::string name)
+void VulkanTexture::setDebugName(const char *name)
 {
 	debug_name = name;
-	VulkanUtils::setDebugName(VK_OBJECT_TYPE_IMAGE, (uint64_t)image->resource, name.c_str());
+	VulkanUtils::setDebugName(VK_OBJECT_TYPE_IMAGE, (uint64_t)image->resource, name);
 }
 
-void VulkanTexture::transit_layout(RHICommandList *cmd_list, TextureLayoutType old_layout_type, TextureLayoutType new_layout_type, uint32_t first_mip, uint32_t mip_count)
+void VulkanTexture::transit_state(RHICommandList *cmd_list, ResourceState old_state, ResourceState new_state, uint32_t first_mip, uint32_t mip_count)
 {
 	VkImageAspectFlags aspect_flags = isDepthTexture() ? VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
 
-	VkImageLayout old_layout = get_native_layout(old_layout_type);
-	VkImageLayout new_layout = get_native_layout(new_layout_type);
+	VkImageLayout old_layout = get_native_layout(old_state);
+	VkImageLayout new_layout = get_native_layout(new_state);
 	VkPipelineStageFlags2 src_stage_mask; VkAccessFlags2 src_access_mask;
 	VkPipelineStageFlags2 dst_stage_mask; VkAccessFlags2 dst_access_mask;
 
-	switch (old_layout_type)
+	switch (old_state)
 	{
-		case TEXTURE_LAYOUT_UNDEFINED:
+		case ResourceState::UNDEFINED:
 			src_stage_mask = VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT;
 			src_access_mask = VK_ACCESS_2_MEMORY_READ_BIT;
 			break;
-		case TEXTURE_LAYOUT_GENERAL:
-			src_stage_mask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+		case ResourceState::COMMON:
+			src_stage_mask = VulkanUtils::getAllShaderStages();
 			src_access_mask = VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT;
 			break;
-		case TEXTURE_LAYOUT_ATTACHMENT:
+		case ResourceState::RENDER_TARGET:
 			if (isDepthTexture())
 			{
 				src_stage_mask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT;
@@ -149,42 +119,42 @@ void VulkanTexture::transit_layout(RHICommandList *cmd_list, TextureLayoutType o
 				src_access_mask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
 			}
 			break;
-		case TEXTURE_LAYOUT_DEPTH_READ:
+		case ResourceState::DEPTH_READ:
 			assert(isDepthTexture());
-			src_stage_mask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-			src_access_mask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+			src_stage_mask = VulkanUtils::getAllShaderStages() | VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT;
+			src_access_mask = VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
 			break;
-		case TEXTURE_LAYOUT_SHADER_READ:
-			src_stage_mask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
+		case ResourceState::SHADER_RESOURCE:
+			src_stage_mask = VulkanUtils::getAllShaderStages();
 			src_access_mask = VK_ACCESS_2_SHADER_READ_BIT;
 			break;
-		case TEXTURE_LAYOUT_TRANSFER_SRC:
+		case ResourceState::COPY_SRC:
 			src_stage_mask = VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT;
 			src_access_mask = VK_ACCESS_2_TRANSFER_READ_BIT;
 			break;
-		case TEXTURE_LAYOUT_TRANSFER_DST:
+		case ResourceState::COPY_DST:
 			src_stage_mask = VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT;
 			src_access_mask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
 			break;
-		case TEXTURE_LAYOUT_PRESENT:
+		case ResourceState::PRESENT:
 			src_stage_mask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
 			src_access_mask = VK_ACCESS_2_NONE;
 			break;
-		case TEXTURE_LAYOUT_UAV:
-			src_stage_mask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+		case ResourceState::UNORDERED_ACCESS:
+			src_stage_mask = VulkanUtils::getAllShaderStages();
 			src_access_mask = VK_ACCESS_2_SHADER_WRITE_BIT;
 			break;
 		default:
 			ENGINE_ASSERT(false);
 	}
 
-	switch (new_layout_type)
+	switch (new_state)
 	{
-		case TEXTURE_LAYOUT_GENERAL:
-			dst_stage_mask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+		case ResourceState::COMMON:
+			dst_stage_mask = VulkanUtils::getAllShaderStages();
 			dst_access_mask = VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT;
 			break;
-		case TEXTURE_LAYOUT_ATTACHMENT:
+		case ResourceState::RENDER_TARGET:
 			if (isDepthTexture())
 			{
 				dst_stage_mask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT;
@@ -195,36 +165,36 @@ void VulkanTexture::transit_layout(RHICommandList *cmd_list, TextureLayoutType o
 				dst_access_mask = VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
 			}
 			break;
-		case TEXTURE_LAYOUT_DEPTH_READ:
+		case ResourceState::DEPTH_READ:
 			assert(isDepthTexture());
-			dst_stage_mask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-			dst_access_mask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+			dst_stage_mask = VulkanUtils::getAllShaderStages() | VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT;
+			dst_access_mask = VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
 			break;
-		case TEXTURE_LAYOUT_SHADER_READ:
-			dst_stage_mask = VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
+		case ResourceState::SHADER_RESOURCE:
+			dst_stage_mask = VulkanUtils::getAllShaderStages();
 			dst_access_mask = VK_ACCESS_2_SHADER_READ_BIT;
 			break;
-		case TEXTURE_LAYOUT_TRANSFER_SRC:
+		case ResourceState::COPY_SRC:
 			dst_stage_mask = VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT;
 			dst_access_mask = VK_ACCESS_2_TRANSFER_READ_BIT;
 			break;
-		case TEXTURE_LAYOUT_TRANSFER_DST:
+		case ResourceState::COPY_DST:
 			dst_stage_mask = VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT;
 			dst_access_mask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
 			break;
-		case TEXTURE_LAYOUT_PRESENT:
+		case ResourceState::PRESENT:
 			dst_stage_mask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
 			dst_access_mask = VK_ACCESS_2_NONE;
 			break;
-		case TEXTURE_LAYOUT_UAV:
-			dst_stage_mask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+		case ResourceState::UNORDERED_ACCESS:
+			dst_stage_mask = VulkanUtils::getAllShaderStages();
 			dst_access_mask = VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT;
 			break;
 		default:
 			ENGINE_ASSERT(false);
 	}
 
-	int layer_count = description.is_cube ? 6 : description.array_levels;
+	int layer_count = isCube() ? 6 : description.array_layers;
 
 	VulkanCommandList *native_cmd_list = (VulkanCommandList *)cmd_list;
 	VulkanUtils::cmdImageMemoryBarrier(native_cmd_list->cmd_buffer,
@@ -245,7 +215,7 @@ void VulkanTexture::generateMipmaps(RHICommandList *cmd_list)
 	}
 
 	PROFILE_GPU_FUNCTION(cmd_list);
-	int faces = description.is_cube ? 6 : 1;
+	int faces = isCube() ? 6 : 1;
 	VkImageMemoryBarrier barrier{};
 	barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
 	barrier.image = image->resource;
@@ -257,11 +227,11 @@ void VulkanTexture::generateMipmaps(RHICommandList *cmd_list)
 	int32_t mip_width = description.width;
 	int32_t mip_height = description.height;
 
-	transitLayout(cmd_list, TEXTURE_LAYOUT_TRANSFER_DST);
+	transitState(cmd_list, ResourceState::COPY_DST);
 	for (uint32_t i = 1; i < description.mip_levels; i++)
 	{
 		// Barrier to transfer read
-		transitLayout(cmd_list, TEXTURE_LAYOUT_TRANSFER_SRC, i - 1);
+		transitState(cmd_list, ResourceState::COPY_SRC, i - 1);
 		VkImageBlit blit{};
 
 		// Blit src
@@ -296,30 +266,10 @@ void VulkanTexture::generateMipmaps(RHICommandList *cmd_list)
 		barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 
 		// Barrier to shader read
-		transitLayout(cmd_list, TEXTURE_LAYOUT_SHADER_READ, i - 1);
+		transitState(cmd_list, ResourceState::SHADER_RESOURCE, i - 1);
 	}
 
-	transitLayout(cmd_list, TEXTURE_LAYOUT_SHADER_READ, description.mip_levels - 1);
-
-	/*
-	if ((description.usage_flags & TEXTURE_USAGE_ATTACHMENT) == 0)
-		return;
-
-	if (description.mip_levels < 2)
-		return;
-	transitLayout(cmd_list, TEXTURE_LAYOUT_ATTACHMENT, 1);
-	auto &p = gGlobalPipeline;
-	cmd_list->setRenderTargets({this}, nullptr, 0, 1, true);
-	p->bindScreenQuadPipeline(cmd_list, gDynamicRHI->createShader(L"shaders/mipmaps.hlsl", FRAGMENT_SHADER));
-
-	gDynamicRHI->setTexture(1, this);
-
-	// Render quad
-	cmd_list->drawInstanced(6, 1, 0, 0);
-
-	cmd_list->resetRenderTargets();
-	transitLayout(cmd_list, TEXTURE_LAYOUT_SHADER_READ, 1);
-	*/
+	transitState(cmd_list, ResourceState::SHADER_RESOURCE, description.mip_levels - 1);
 }
 
 RHITextureView *VulkanTexture::create_view(const TextureViewDescription &view_description)
@@ -338,25 +288,23 @@ VulkanTextureView::VulkanTextureView(TextureViewDescription description): RHITex
 	viewInfo.format = native_format;
 	viewInfo.subresourceRange.aspectMask = native_texture->isDepthTexture() ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
 
-	// -1 = all mips
-	viewInfo.subresourceRange.baseMipLevel = description.mip == -1 ? 0 : description.mip;
-	viewInfo.subresourceRange.levelCount = description.mip == -1 ? native_texture->getMipLevels() : 1;
+	viewInfo.subresourceRange.baseMipLevel = description.mip == ALL_MIPS ? 0 : description.mip;
+	viewInfo.subresourceRange.levelCount = description.mip == ALL_MIPS ? native_texture->getMipLevels() : 1;
 
-	// -1 = all layers
 	if (native_texture->is3D())
 	{
 		viewInfo.viewType = VK_IMAGE_VIEW_TYPE_3D;
 		viewInfo.subresourceRange.layerCount = 1;
-	} else if (native_texture->getDescription().is_cube)
+	} else if (native_texture->isCube())
 	{
-		if (description.view_type == TextureViewType::SHADER_RESOURCE_STORAGE)
+		if (description.view_type == TextureViewType::UNORDERED_ACCESS)
 		{
 			viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
 			viewInfo.subresourceRange.baseArrayLayer = 0;
 			viewInfo.subresourceRange.layerCount = 6;
 		} else
 		{
-			if (description.layer == -1)
+			if (description.layer == ALL_LAYERS)
 			{
 				viewInfo.viewType = VK_IMAGE_VIEW_TYPE_CUBE;
 				viewInfo.subresourceRange.baseArrayLayer = 0;
@@ -368,13 +316,13 @@ VulkanTextureView::VulkanTextureView(TextureViewDescription description): RHITex
 				viewInfo.subresourceRange.layerCount = 1;
 			}
 		}
-	} else if (native_texture->getDescription().array_levels > 1)
+	} else if (native_texture->getDescription().array_layers > 1)
 	{
-		if (description.layer == -1)
+		if (description.layer == ALL_LAYERS)
 		{
 			viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
 			viewInfo.subresourceRange.baseArrayLayer = 0;
-			viewInfo.subresourceRange.layerCount = native_texture->getDescription().array_levels;
+			viewInfo.subresourceRange.layerCount = native_texture->getDescription().array_layers;
 		} else
 		{
 			viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
@@ -397,7 +345,7 @@ VulkanTextureView::VulkanTextureView(TextureViewDescription description): RHITex
 	image_view = std::make_unique<VkImageViewResource>();
 	image_view->resource = image_view_resource;
 
-	if (description.view_type == TextureViewType::SHADER_RESOURCE || description.view_type == TextureViewType::SHADER_RESOURCE_STORAGE)
+	if (description.view_type == TextureViewType::SHADER_RESOURCE || description.view_type == TextureViewType::UNORDERED_ACCESS)
 		bindless_index = gDynamicRHI->getBindlessResources()->addTexture(this);
 }
 

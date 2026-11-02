@@ -23,14 +23,14 @@ struct StreamRequestsBufferLayout
 };
 constexpr uint32_t STREAM_REQUESTS_BUFFER_SIZE = sizeof(StreamRequestsBufferLayout);
 
-RHIBufferRef create_storage_buffer(uint32_t size, BufferUsage usage, bool use_staging, const char *debug_name)
+RHIBufferRef create_storage_buffer(uint32_t size, BufferUsage usage_flags, BufferMemory memory, const char *debug_name, const void *initial_data = nullptr)
 {
 	BufferDescription desc;
 	desc.size = size;
-	desc.usage = usage;
-	desc.use_staging_buffer = use_staging;
-	desc.storage_stride = sizeof(uint32_t);
-	RHIBufferRef buffer = gDynamicRHI->createBuffer(desc);
+	desc.usage_flags = usage_flags;
+	desc.memory = memory;
+	desc.stride = sizeof(uint32_t);
+	RHIBufferRef buffer = gDynamicRHI->createBuffer(desc, initial_data);
 	buffer->setDebugName(debug_name);
 	return buffer;
 }
@@ -92,12 +92,12 @@ uint32_t GeometryStreaming::upload_group_data(Engine::Mesh *mesh, uint32_t local
 
 void GeometryStreaming::init()
 {
-	stream_requests_gpu = create_storage_buffer(STREAM_REQUESTS_BUFFER_SIZE, BufferUsage::SHADER_WRITE_BUFFER, true, "Streaming Requests GPU");
-	group_residency_gpu = create_storage_buffer(sizeof(GroupResidency), BufferUsage::SHADER_WRITE_BUFFER, true, "Meshlet Group Residency Buffer");
-	group_ages_gpu = create_storage_buffer(sizeof(uint32_t), BufferUsage::SHADER_WRITE_BUFFER, true, "Meshlet Group Ages Buffer");
+	stream_requests_gpu = create_storage_buffer(STREAM_REQUESTS_BUFFER_SIZE, BufferUsage::UNORDERED_ACCESS, BufferMemory::GPU, "Streaming Requests GPU");
+	group_residency_gpu = create_storage_buffer(sizeof(GroupResidency), BufferUsage::UNORDERED_ACCESS, BufferMemory::GPU, "Meshlet Group Residency Buffer");
+	group_ages_gpu = create_storage_buffer(sizeof(uint32_t), BufferUsage::UNORDERED_ACCESS, BufferMemory::GPU, "Meshlet Group Ages Buffer");
 
 	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-		stream_requests_readback[i] = create_storage_buffer(STREAM_REQUESTS_BUFFER_SIZE, BufferUsage::READBACK_BUFFER, false, "Streaming Requests Readback");
+		stream_requests_readback[i] = create_storage_buffer(STREAM_REQUESTS_BUFFER_SIZE, BufferUsage::NONE, BufferMemory::READBACK, "Streaming Requests Readback");
 }
 
 // Free list range allocation
@@ -151,8 +151,7 @@ void GeometryStreaming::registerMesh(Engine::Mesh *mesh, const Engine::MeshletFi
 			eastl::vector<uint8_t> scratch(data_size);
 			fill_group_data(scratch.data(), mesh, i, reg.file_view);
 
-			RHIBufferRef staging = create_storage_buffer(data_size, BufferUsage::STAGING_BUFFER, false, "Group Upload Staging");
-			staging->fill(scratch.data());
+			RHIBufferRef staging = create_storage_buffer(data_size, BufferUsage::NONE, BufferMemory::UPLOAD, "Group Upload Staging", scratch.data());
 
 			group.geometry_buffer_offset = GlobalBufferCache::addMeshletGeometryData(staging, 0, data_size, gDynamicRHI->getCmdList());
 			if (group.geometry_buffer_offset != UINT64_MAX)
@@ -220,7 +219,7 @@ void GeometryStreaming::update()
 	bool ages_buffer_grew = false;
 	if (group_ages_gpu->getSize() < ages_size)
 	{
-		group_ages_gpu = create_storage_buffer(ages_size, BufferUsage::SHADER_WRITE_BUFFER, true, "Meshlet Group Ages Buffer");
+		group_ages_gpu = create_storage_buffer(ages_size, BufferUsage::UNORDERED_ACCESS, BufferMemory::GPU, "Meshlet Group Ages Buffer");
 		ages_buffer_grew = true;
 	}
 
@@ -229,7 +228,7 @@ void GeometryStreaming::update()
 		is_residency_dirty = false;
 		uint32_t residency_size = group_residency.size() * sizeof(GroupResidency);
 		if (group_residency_gpu->getSize() < residency_size)
-			group_residency_gpu = create_storage_buffer(residency_size, BufferUsage::SHADER_WRITE_BUFFER, true, "Meshlet Group Residency Buffer");
+			group_residency_gpu = create_storage_buffer(residency_size, BufferUsage::UNORDERED_ACCESS, BufferMemory::GPU, "Meshlet Group Residency Buffer");
 		gUploadManager->queueUpload(GFXRID(GroupResidencyBuffer), 0, group_residency.data(), residency_size);
 	}
 
@@ -291,7 +290,7 @@ void GeometryStreaming::addAgeFilterAndReadbackPasses(FrameGraph &frame_graph)
 			constants.stream_requests_buffer_id = resources.getReadWriteBuffer(GFXRID(StreamRequestsBuffer));
 			constants.group_ages_buffer_id = resources.getReadWriteBuffer(GFXRID(GroupAgesBuffer));
 
-			gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/gpu_driven/meshlet_stream_aging.hlsl", COMPUTE_SHADER));
+			gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/gpu_driven/meshlet_stream_aging.hlsl", ShaderType::COMPUTE));
 			gGlobalPipeline->flushAndBind(cmd_list);
 			gDynamicRHI->setConstantBufferData(0, &constants, sizeof(constants));
 			cmd_list->dispatch(Math::divideRoundUp(group_count, 64), 1, 1);

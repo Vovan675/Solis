@@ -87,11 +87,10 @@ void RTXDIRenderer::create_context()
 
 	BufferDescription desc;
 	desc.size = offsets_count * sizeof(glm::vec2);
-	desc.storage_stride = sizeof(glm::vec2);
-	desc.usage = BufferUsage::SHADER_READ_BUFFER;
-	neighbor_offsets_buffer = gDynamicRHI->createBuffer(desc);
+	desc.stride = sizeof(glm::vec2);
+	desc.usage_flags = BufferUsage::SHADER_RESOURCE;
+	neighbor_offsets_buffer = gDynamicRHI->createBuffer(desc, offsets.data());
 	neighbor_offsets_buffer->setDebugName("RTXDI Neighbor Offsets");
-	neighbor_offsets_buffer->fill(offsets.data());
 }
 
 void RTXDIRenderer::set_context_parameters()
@@ -132,8 +131,8 @@ void RTXDIRenderer::add_denoise_confidence_passes(FrameGraph &fg, const RTXDICon
 	fg.addCallbackPass("RTXDI Gradients",
 	[&](RenderPassBuilder &builder)
 	{
-		builder.createTexture(GFXRID_ID(RTXDIGradients, 0), gradient_width, gradient_height, FORMAT_R16G16B16A16_SFLOAT);
-		builder.createTexture(GFXRID_ID(RTXDIGradients, 1), gradient_width, gradient_height, FORMAT_R16G16B16A16_SFLOAT);
+		builder.createTexture(GFXRID_ID(RTXDIGradients, 0), gradient_width, gradient_height, Format::R16G16B16A16_SFLOAT);
+		builder.createTexture(GFXRID_ID(RTXDIGradients, 1), gradient_width, gradient_height, Format::R16G16B16A16_SFLOAT);
 		builder.createPersistentTexture(GFXRID(RTXDIPrevLuminance), builder.getTextureDescription(GFXRID(RTXDILuminance)));
 		builder.writeUAVTexture(GFXRID_ID(RTXDIGradients, 0));
 		builder.writeBuffer(GFXRID(RTXDIReservoirs));
@@ -145,7 +144,7 @@ void RTXDIRenderer::add_denoise_confidence_passes(FrameGraph &fg, const RTXDICon
 	},
 	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/rtxdi/confidence/rtxdi_gradients.hlsl", COMPUTE_SHADER, "CSMain"));
+		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/rtxdi/confidence/rtxdi_gradients.hlsl", ShaderType::COMPUTE, "CSMain"));
 		gGlobalPipeline->flushAndBind(cmd_list);
 
 		RTXDIConstants constants = frame_constants;
@@ -174,7 +173,7 @@ void RTXDIRenderer::add_denoise_confidence_passes(FrameGraph &fg, const RTXDICon
 		},
 		[=](const RenderPassResources &resources, RHICommandList *cmd_list)
 		{
-			gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/rtxdi/confidence/rtxdi_gradients_filter.hlsl", COMPUTE_SHADER, "CSMain"));
+			gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/rtxdi/confidence/rtxdi_gradients_filter.hlsl", ShaderType::COMPUTE, "CSMain"));
 			gGlobalPipeline->flushAndBind(cmd_list);
 
 			struct Constants
@@ -196,8 +195,8 @@ void RTXDIRenderer::add_denoise_confidence_passes(FrameGraph &fg, const RTXDICon
 	fg.addCallbackPass("RTXDI Confidence",
 	[&](RenderPassBuilder &builder)
 	{
-		builder.createTexture(GFXRID(RTXDIDiffuseConfidence), Renderer::getRenderWidth(), Renderer::getRenderHeight(), FORMAT_R8_UNORM);
-		builder.createTexture(GFXRID(RTXDISpecularConfidence), Renderer::getRenderWidth(), Renderer::getRenderHeight(), FORMAT_R8_UNORM);
+		builder.createTexture(GFXRID(RTXDIDiffuseConfidence), Renderer::getRenderWidth(), Renderer::getRenderHeight(), Format::R8_UNORM);
+		builder.createTexture(GFXRID(RTXDISpecularConfidence), Renderer::getRenderWidth(), Renderer::getRenderHeight(), Format::R8_UNORM);
 		builder.writeUAVTexture(GFXRID(RTXDIDiffuseConfidence));
 		builder.writeUAVTexture(GFXRID(RTXDISpecularConfidence));
 		builder.createPersistentTexture(GFXRID(RTXDIPrevDiffuseConfidence), builder.getTextureDescription(GFXRID(RTXDIDiffuseConfidence)));
@@ -210,7 +209,7 @@ void RTXDIRenderer::add_denoise_confidence_passes(FrameGraph &fg, const RTXDICon
 	},
 	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/rtxdi/confidence/rtxdi_confidence.hlsl", COMPUTE_SHADER, "CSMain"));
+		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/rtxdi/confidence/rtxdi_confidence.hlsl", ShaderType::COMPUTE, "CSMain"));
 		gGlobalPipeline->flushAndBind(cmd_list);
 
 		const ConfidenceSettings &settings = GFXOPTIONS(lighting).confidence;
@@ -252,9 +251,9 @@ void RTXDIRenderer::add_denoise_resolve_pass(FrameGraph &fg)
 	fg.addCallbackPass("RTXDI Resolve",
 	[&](RenderPassBuilder &builder)
 	{
-		builder.createTexture(GFXRID(DiffuseLight), Renderer::getRenderWidth(), Renderer::getRenderHeight(), FORMAT_R16G16B16A16_SFLOAT);
+		builder.createTexture(GFXRID(DiffuseLight), Renderer::getRenderWidth(), Renderer::getRenderHeight(), Format::R16G16B16A16_SFLOAT);
 		builder.writeUAVTexture(GFXRID(DiffuseLight));
-		builder.createTexture(GFXRID(SpecularLight), Renderer::getRenderWidth(), Renderer::getRenderHeight(), FORMAT_R16G16B16A16_SFLOAT);
+		builder.createTexture(GFXRID(SpecularLight), Renderer::getRenderWidth(), Renderer::getRenderHeight(), Format::R16G16B16A16_SFLOAT);
 		builder.writeUAVTexture(GFXRID(SpecularLight));
 
 		builder.readTexture(GFXRID(GBufferDepth));
@@ -266,7 +265,7 @@ void RTXDIRenderer::add_denoise_resolve_pass(FrameGraph &fg)
 	},
 	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/rtxdi/rtxdi_resolve.hlsl", COMPUTE_SHADER, "CSMain"));
+		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/rtxdi/rtxdi_resolve.hlsl", ShaderType::COMPUTE, "CSMain"));
 		gGlobalPipeline->flushAndBind(cmd_list);
 
 		struct Constants
@@ -333,22 +332,22 @@ void RTXDIRenderer::addPasses(FrameGraph &fg, LightTableLayout lights_layout)
 		{
 			if (!builder.isTextureCreated(diffuse_target_name))
 			{
-				builder.createTexture(diffuse_target_name, Renderer::getRenderWidth(), Renderer::getRenderHeight(), FORMAT_R16G16B16A16_SFLOAT);
-				builder.createTexture(specular_target_name, Renderer::getRenderWidth(), Renderer::getRenderHeight(), FORMAT_R16G16B16A16_SFLOAT);
+				builder.createTexture(diffuse_target_name, Renderer::getRenderWidth(), Renderer::getRenderHeight(), Format::R16G16B16A16_SFLOAT);
+				builder.createTexture(specular_target_name, Renderer::getRenderWidth(), Renderer::getRenderHeight(), Format::R16G16B16A16_SFLOAT);
 				builder.createPersistentTexture(GFXRID(RTXDIPrevDepth), builder.getTextureDescription(GFXRID(GBufferDepth)));
 				builder.createPersistentTexture(GFXRID(RTXDIPrevNormal), builder.getTextureDescription(GFXRID(GBufferNormal)));
 				builder.createPersistentTexture(GFXRID(RTXDIPrevAlbedo), builder.getTextureDescription(GFXRID(GBufferAlbedo)));
 				builder.createPersistentTexture(GFXRID(RTXDIPrevShading), builder.getTextureDescription(GFXRID(GBufferShading)));
-				builder.createPersistentBuffer(GFXRID(RTXDIReservoirs), sizeof(RTXDI_PackedDIReservoir), context->GetReservoirBufferParameters().reservoirArrayPitch * rtxdi::c_NumReSTIRDIReservoirBuffers, BufferUsage::SHADER_READ_BUFFER | BufferUsage::SHADER_WRITE_BUFFER);
+				builder.createPersistentBuffer(GFXRID(RTXDIReservoirs), sizeof(RTXDI_PackedDIReservoir), context->GetReservoirBufferParameters().reservoirArrayPitch * rtxdi::c_NumReSTIRDIReservoirBuffers, BufferUsage::SHADER_RESOURCE | BufferUsage::UNORDERED_ACCESS);
 				if (confidence)
 				{
-					builder.createTexture(GFXRID(RTXDITemporalSamplePositions), Renderer::getRenderWidth(), Renderer::getRenderHeight(), FORMAT_R16G16_SINT);
-					builder.createTexture(GFXRID(RTXDILuminance), Renderer::getRenderWidth(), Renderer::getRenderHeight(), FORMAT_R16G16_SFLOAT);
+					builder.createTexture(GFXRID(RTXDITemporalSamplePositions), Renderer::getRenderWidth(), Renderer::getRenderHeight(), Format::R16G16_SINT);
+					builder.createTexture(GFXRID(RTXDILuminance), Renderer::getRenderWidth(), Renderer::getRenderHeight(), Format::R16G16_SFLOAT);
 				}
 				if (denoise)
 				{
-					builder.createTexture(GFXRID(RTXDIDiffuseDenoised), Renderer::getRenderWidth(), Renderer::getRenderHeight(), FORMAT_R16G16B16A16_SFLOAT);
-					builder.createTexture(GFXRID(RTXDISpecularDenoised), Renderer::getRenderWidth(), Renderer::getRenderHeight(), FORMAT_R16G16B16A16_SFLOAT);
+					builder.createTexture(GFXRID(RTXDIDiffuseDenoised), Renderer::getRenderWidth(), Renderer::getRenderHeight(), Format::R16G16B16A16_SFLOAT);
+					builder.createTexture(GFXRID(RTXDISpecularDenoised), Renderer::getRenderWidth(), Renderer::getRenderHeight(), Format::R16G16B16A16_SFLOAT);
 				}
 			}
 
@@ -365,7 +364,7 @@ void RTXDIRenderer::addPasses(FrameGraph &fg, LightTableLayout lights_layout)
 		},
 		[=](const RenderPassResources &resources, RHICommandList *cmd_list)
 		{
-			gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/rtxdi/rtxdi_lighting.hlsl", COMPUTE_SHADER, entry_point, defines));
+			gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/rtxdi/rtxdi_lighting.hlsl", ShaderType::COMPUTE, entry_point, defines));
 			gGlobalPipeline->flushAndBind(cmd_list);
 
 			RTXDIConstants constants = frame_constants;

@@ -20,9 +20,9 @@ void UtilityPasses::addBlitPass(FrameGraph &fg, GraphicsResourceName src, Graphi
 
 		cmd_list->setRenderTargets({resources.getTexture(dst)}, nullptr, 0, 0, false);
 
-		gGlobalPipeline->setupGraphicsPipeline(cmd_list, gDynamicRHI->createShader(L"shaders/quad.hlsl", VERTEX_SHADER), gDynamicRHI->createShader(shader, FRAGMENT_SHADER), VertexInputsDescription{}, blend != BLIT_BLEND_OPAQUE, false, CULL_MODE_BACK);
+		gGlobalPipeline->setupGraphicsPipeline(cmd_list, gDynamicRHI->createShader(L"shaders/quad.hlsl", ShaderType::VERTEX), gDynamicRHI->createShader(shader, ShaderType::FRAGMENT), VertexInputsDescription{}, blend != BLIT_BLEND_OPAQUE, false, CullMode::BACK);
 		if (blend == BLIT_BLEND_ALPHA)
-			gGlobalPipeline->setBlendMode(BLEND_SRC_ALPHA, BLEND_ONE_MINUS_SRC_ALPHA, BLEND_OP_ADD, BLEND_ZERO, BLEND_ONE, BLEND_OP_ADD);
+			gGlobalPipeline->setBlendMode(BlendFactor::SRC_ALPHA, BlendFactor::ONE_MINUS_SRC_ALPHA, BlendOp::ADD, BlendFactor::ZERO, BlendFactor::ONE, BlendOp::ADD);
 		gGlobalPipeline->flushAndBind(cmd_list);
 
 		uint32_t src_tex_id = resources.getReadTexture(src);
@@ -46,8 +46,8 @@ void UtilityPasses::addDepthBlitPass(FrameGraph &fg, GraphicsResourceName src, G
 	{
 		cmd_list->setRenderTargets({}, resources.getTexture(dst), 0, 0, true);
 
-		gGlobalPipeline->setupGraphicsPipeline(cmd_list, gDynamicRHI->createShader(L"shaders/quad.hlsl", VERTEX_SHADER), gDynamicRHI->createShader(L"shaders/utility/depth_blit.hlsl", FRAGMENT_SHADER), VertexInputsDescription{}, false, true, CULL_MODE_BACK);
-		gGlobalPipeline->setDepthFunc(COMPARE_FUNC_ALWAYS);
+		gGlobalPipeline->setupGraphicsPipeline(cmd_list, gDynamicRHI->createShader(L"shaders/quad.hlsl", ShaderType::VERTEX), gDynamicRHI->createShader(L"shaders/utility/depth_blit.hlsl", ShaderType::FRAGMENT), VertexInputsDescription{}, false, true, CullMode::BACK);
+		gGlobalPipeline->setDepthFunc(CompareFunc::ALWAYS);
 		gGlobalPipeline->flushAndBind(cmd_list);
 
 		uint32_t src_tex_id = resources.getReadTexture(src);
@@ -76,15 +76,14 @@ void UtilityPasses::addReadbackPass(FrameGraph &fg, GraphicsResourceName texture
 
 		BufferDescription desc;
 		desc.size = row_pitch * height;
-		desc.usage = BufferUsage::READBACK_BUFFER;
-		desc.use_staging_buffer = false;
+		desc.memory = BufferMemory::READBACK;
 		RHIBufferRef buffer = gDynamicRHI->createBuffer(desc);
 
 		cmd_list->copyTextureToBuffer(src, buffer);
 
 		gDynamicRHI->runAfterGPUFrame([=]()
 		{
-			uint32_t row_size = width * getFormatSize(format);
+			uint32_t row_size = getFormatRowSize(format, width);
 			eastl::vector<uint8_t> pixels(row_size * height);
 
 			uint8_t *mapped;

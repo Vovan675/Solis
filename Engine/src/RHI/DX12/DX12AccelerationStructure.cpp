@@ -32,7 +32,7 @@ void DX12BottomLevelAccelerationStructure::build(const eastl::vector<RayTracingG
 		D3D12_RAYTRACING_GEOMETRY_DESC &desc = geometries_desc.emplace_back();
 		desc.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES;
 		desc.Triangles.Transform3x4 = 0;
-		desc.Triangles.IndexFormat = geometry.index_format == FORMAT_R32_UINT ? DXGI_FORMAT_R32_UINT : DXGI_FORMAT_UNKNOWN;
+		desc.Triangles.IndexFormat = geometry.index_format == IndexFormat::UINT32 ? DXGI_FORMAT_R32_UINT : DXGI_FORMAT_UNKNOWN;
 		desc.Triangles.VertexFormat = DX12Utils::getNativeFormat(geometry.vertex_format);
 		desc.Triangles.IndexCount = geometry.index_count;
 		desc.Triangles.VertexCount = geometry.vertex_count;
@@ -59,15 +59,13 @@ void DX12BottomLevelAccelerationStructure::build(const eastl::vector<RayTracingG
 	// Create Acceleration structure buffer
 	BufferDescription scratchDesc;
 	scratchDesc.size = prebuild_info.ScratchDataSizeInBytes;
-	scratchDesc.use_staging_buffer = true;
-	scratchDesc.usage = BufferUsage::SCRATCH_BUFFER;
+	scratchDesc.usage_flags = BufferUsage::SCRATCH;
 	RHIBufferRef scratch_buffer = gDynamicRHI->createBuffer(scratchDesc);
 
 
 	BufferDescription accDesc;
 	accDesc.size = prebuild_info.ResultDataMaxSizeInBytes;
-	accDesc.use_staging_buffer = true;
-	accDesc.usage = BufferUsage::ACCELERATION_STRUCTURE_STORAGE_BUFFER;
+	accDesc.usage_flags = BufferUsage::ACCELERATION_STRUCTURE_STORAGE;
 
 	buffer = gDynamicRHI->createBuffer(accDesc);
 
@@ -119,12 +117,11 @@ void DX12TopLevelAccelerationStructure::build(const eastl::vector<RayTracingInst
 	{
 		BufferDescription instanceDesc;
 		instanceDesc.size = instances_desc.size() * sizeof(D3D12_RAYTRACING_INSTANCE_DESC);
-		instanceDesc.use_staging_buffer = false;
+		instanceDesc.memory = BufferMemory::UPLOAD;
 		instanceDesc.alignment = D3D12_RAYTRACING_INSTANCE_DESCS_BYTE_ALIGNMENT;
-		instanceDesc.usage = BufferUsage::ACCELERATION_STRUCTURE_BUILD_INPUT_BUFFER;
+		instanceDesc.usage_flags = BufferUsage::ACCELERATION_STRUCTURE_BUILD_INPUT;
 
-		RHIBufferRef instances_buffer = gDynamicRHI->createBuffer(instanceDesc);
-		instances_buffer->fill(instances_desc.data());
+		RHIBufferRef instances_buffer = gDynamicRHI->createBuffer(instanceDesc, instances_desc.data());
 
 		instance_descs_address = instances_buffer->getGPUAddress();
 	}
@@ -155,8 +152,7 @@ void DX12TopLevelAccelerationStructure::build(const eastl::vector<RayTracingInst
 
 		BufferDescription accDesc;
 		accDesc.size = acceleration_structure_size;
-		accDesc.use_staging_buffer = true;
-		accDesc.usage = BufferUsage::ACCELERATION_STRUCTURE_STORAGE_BUFFER;
+		accDesc.usage_flags = BufferUsage::ACCELERATION_STRUCTURE_STORAGE;
 		buffer = gDynamicRHI->createBuffer(accDesc);
 
 		auto native_rhi = DX12Utils::getNativeRHI();
@@ -172,7 +168,7 @@ void DX12TopLevelAccelerationStructure::build(const eastl::vector<RayTracingInst
 		shader_resource_view = native_rhi->cbv_srv_uav_staging_heap->allocate();
 		native_rhi->device->CreateShaderResourceView(nullptr, &srv_desc, shader_resource_view.getCpuHandle());
 
-		bindless_id = gDynamicRHI->getBindlessResources()->addAccelerationStructure(this);
+		bindless_index = gDynamicRHI->getBindlessResources()->addAccelerationStructure(this);
 	}
 
 	uint64_t scratch_size = Math::roundUp(prebuild_info.ScratchDataSizeInBytes, allocation_granularity);
@@ -180,8 +176,7 @@ void DX12TopLevelAccelerationStructure::build(const eastl::vector<RayTracingInst
 	{
 		BufferDescription scratchDesc;
 		scratchDesc.size = scratch_size;
-		scratchDesc.use_staging_buffer = true;
-		scratchDesc.usage = BufferUsage::SCRATCH_BUFFER;
+		scratchDesc.usage_flags = BufferUsage::SCRATCH;
 		scratch_buffer = gDynamicRHI->createBuffer(scratchDesc);
 	}
 

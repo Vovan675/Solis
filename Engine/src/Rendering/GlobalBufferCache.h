@@ -33,7 +33,7 @@ private:
 	// One big buffer with free-list allocator
 	struct GlobalBuffer
 	{
-		void init(uint64_t initial_max_size, BufferUsage buffer_usage, const char *name, bool growable = true);
+		void init(uint64_t initial_max_size, BufferUsage usage_flags, const char *name, bool growable = true);
 
 		uint64_t add(const void *cpu_data, uint64_t size, RHICommandList *cmd_list);
 		uint64_t add(RHIBuffer *src_buffer, uint64_t buffer_offset, uint64_t buffer_size, RHICommandList *cmd_list);
@@ -52,7 +52,7 @@ private:
 		uint64_t allocate_range(uint64_t needed_size, RHICommandList *cmd_list);
 
 		uint64_t initial_max_size = 0;
-		BufferUsage buffer_usage = BufferUsage::NONE;
+		BufferUsage buffer_usage_flags = BufferUsage::NONE;
 		const char *debug_name = nullptr;
 		bool can_grow = true;
 		eastl::vector<FreeRange> free_ranges; // sorted by offset

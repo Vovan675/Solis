@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "VulkanUtils.h"
 #include "VulkanDynamicRHI.h"
+#include "Core/Variables.h"
 
 void VulkanUtils::init()
 {
@@ -53,6 +54,14 @@ void VulkanUtils::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VmaM
 		vmaCreateBufferWithAlignment(getNativeRHI()->allocator, &info, &alloc_info, alignment, &buffer, &allocation, nullptr);
 	else
 		vmaCreateBuffer(getNativeRHI()->allocator, &info, &alloc_info, &buffer, &allocation, nullptr);
+}
+
+VkPipelineStageFlags2 VulkanUtils::getAllShaderStages()
+{
+	VkPipelineStageFlags2 stages = VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_TASK_SHADER_BIT_EXT | VK_PIPELINE_STAGE_2_MESH_SHADER_BIT_EXT;
+	if (engine_ray_tracing)
+		stages |= VK_PIPELINE_STAGE_2_RAY_TRACING_SHADER_BIT_KHR;
+	return stages;
 }
 
 void VulkanUtils::cmdMemoryBarrier(VkCommandBuffer cmd_buffer, VkPipelineStageFlags2 src_stage_mask, VkAccessFlags2 src_access_mask, VkPipelineStageFlags2 dst_stage_mask, VkAccessFlags2 dst_access_mask)

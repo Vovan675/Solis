@@ -9,7 +9,7 @@ static D3D12_RESOURCE_STATES toDX12ResourceState(ResourceState state)
 	if (hasAnyFlags(state, ResourceState::SHADER_RESOURCE)) result |= D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
 	if (hasAnyFlags(state, ResourceState::COPY_SRC)) result |= D3D12_RESOURCE_STATE_COPY_SOURCE;
 	if (hasAnyFlags(state, ResourceState::COPY_DST)) result |= D3D12_RESOURCE_STATE_COPY_DEST;
-	if (hasAnyFlags(state, ResourceState::UAV)) result |= D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+	if (hasAnyFlags(state, ResourceState::UNORDERED_ACCESS)) result |= D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
 	if (hasAnyFlags(state, ResourceState::VERTEX_BUFFER)) result |= D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER;
 	if (hasAnyFlags(state, ResourceState::INDEX_BUFFER)) result |= D3D12_RESOURCE_STATE_INDEX_BUFFER;
 	if (hasAnyFlags(state, ResourceState::INDIRECT_ARGS)) result |= D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT;
@@ -22,25 +22,25 @@ DX12Buffer::DX12Buffer(BufferDescription description) : RHIBuffer(description)
 
 	D3D12_RESOURCE_FLAGS resource_flags = D3D12_RESOURCE_FLAG_NONE;
 
-	if (hasAnyFlags(description.usage, BufferUsage::SHADER_WRITE_BUFFER | BufferUsage::SCRATCH_BUFFER | BufferUsage::ACCELERATION_STRUCTURE_STORAGE_BUFFER))
+	if (hasAnyFlags(description.usage_flags, BufferUsage::UNORDERED_ACCESS | BufferUsage::SCRATCH | BufferUsage::ACCELERATION_STRUCTURE_STORAGE))
 		resource_flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
 
 	D3D12_RESOURCE_DESC resource_desc = CD3DX12_RESOURCE_DESC::Buffer(description.size, resource_flags);
-	D3D12_RESOURCE_STATES resource_state = description.use_staging_buffer ? D3D12_RESOURCE_STATE_COMMON : D3D12_RESOURCE_STATE_GENERIC_READ;
-	current_state = description.use_staging_buffer ? ResourceState::COMMON : ResourceState::COPY_SRC;
+	D3D12_RESOURCE_STATES resource_state = description.memory == BufferMemory::GPU ? D3D12_RESOURCE_STATE_COMMON : D3D12_RESOURCE_STATE_GENERIC_READ;
+	current_state = description.memory == BufferMemory::GPU ? ResourceState::COMMON : ResourceState::COPY_SRC;
 
-	if (hasAnyFlags(description.usage, BufferUsage::ACCELERATION_STRUCTURE_STORAGE_BUFFER))
+	if (hasAnyFlags(description.usage_flags, BufferUsage::ACCELERATION_STRUCTURE_STORAGE))
 		resource_state = D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE;
 
 	D3D12MA::ALLOCATION_DESC allocation_desc = {};
-	if (hasAnyFlags(description.usage, BufferUsage::READBACK_BUFFER))
+	if (description.memory == BufferMemory::READBACK)
 	{
 		allocation_desc.HeapType = D3D12_HEAP_TYPE_READBACK;
 		resource_state = D3D12_RESOURCE_STATE_COPY_DEST;
 		current_state = ResourceState::COPY_DST;
 	} else
 	{
-		allocation_desc.HeapType = description.use_staging_buffer && !hasAnyFlags(description.usage, BufferUsage::STAGING_BUFFER) ? D3D12_HEAP_TYPE_DEFAULT : D3D12_HEAP_TYPE_UPLOAD;
+		allocation_desc.HeapType = description.memory == BufferMemory::GPU ? D3D12_HEAP_TYPE_DEFAULT : D3D12_HEAP_TYPE_UPLOAD;
 	}
 
 	allocation = std::make_unique<DX12AllocationResource>();
@@ -95,7 +95,7 @@ void DX12Buffer::transitState(RHICommandList *cmd_list, ResourceState new_state)
 
 	if (current_state == new_state)
 	{
-		if (hasAnyFlags(new_state, ResourceState::UAV))
+		if (hasAnyFlags(new_state, ResourceState::UNORDERED_ACCESS))
 		{
 			D3D12_RESOURCE_BARRIER barrier{};
 			barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
@@ -156,7 +156,7 @@ DX12BufferView::DX12BufferView(BufferViewDescription description) : RHIBufferVie
 
 		rhi->device->CreateShaderResourceView(native_buffer->getResource(), &srv_desc, descriptor.getCpuHandle());
 		bindless_index = gDynamicRHI->getBindlessResources()->addBuffer(this);
-	} else if (description.view_type == BufferViewType::SHADER_RESOURCE_STORAGE)
+	} else if (description.view_type == BufferViewType::UNORDERED_ACCESS)
 	{
 		D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc = {};
 		uav_desc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;

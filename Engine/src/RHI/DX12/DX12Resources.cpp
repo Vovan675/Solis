@@ -2,7 +2,7 @@
 #include "DX12Resources.h"
 #include "DX12Utils.h"
 
-void DX12PipelineResource::Release()
+void DX12PipelineResource::release()
 {
 	SAFE_RELEASE(pipeline_state);
 	SAFE_RELEASE(root_signature);
@@ -10,12 +10,12 @@ void DX12PipelineResource::Release()
 	SAFE_RELEASE(rt_props);
 }
 
-void DX12Resource::Release()
+void DX12Resource::release()
 {
 	resource->Release();
 }
 
-void DX12AllocationResource::Release()
+void DX12AllocationResource::release()
 {
 	resource->Release();
 }

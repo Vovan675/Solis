@@ -18,9 +18,9 @@ void PathTracingRenderer::addPass(FrameGraph &fg, Ref<RayTracingScene> rt_scene,
 	fg.addCallbackPass("Path Tracing Pass",
 	[&](RenderPassBuilder &builder)
 	{
-		if (builder.createPersistentTexture(GFXRID(PathTraceAccumulation), Renderer::getRenderWidth(), Renderer::getRenderHeight(), FORMAT_R32G32B32A32_SFLOAT))
+		if (builder.createPersistentTexture(GFXRID(PathTraceAccumulation), Renderer::getRenderWidth(), Renderer::getRenderHeight(), Format::R32G32B32A32_SFLOAT))
 			accumulation_frame = 0;
-		builder.createTexture(GFXRID(FinalNoPostTexture), Renderer::getRenderWidth(), Renderer::getRenderHeight(), FORMAT_R32G32B32A32_SFLOAT);
+		builder.createTexture(GFXRID(FinalNoPostTexture), Renderer::getRenderWidth(), Renderer::getRenderHeight(), Format::R32G32B32A32_SFLOAT);
 		builder.writeUAVTexture(GFXRID(FinalNoPostTexture));
 		builder.writeUAVTexture(GFXRID(PathTraceAccumulation));
 		builder.readTexture(GFXRID(Sky));

@@ -18,10 +18,10 @@ ShadowRenderer::ShadowRenderer()
 {
 	if (engine_ray_tracing)
 	{
-		raygen_shader = gDynamicRHI->createShader(L"shaders/rt/rt_shader.hlsl", RAY_GENERATION_SHADER);
-		miss_shader = gDynamicRHI->createShader(L"shaders/rt/rt_shader.hlsl", MISS_SHADER);
+		raygen_shader = gDynamicRHI->createShader(L"shaders/rt/rt_shader.hlsl", ShaderType::RAY_GENERATION);
+		miss_shader = gDynamicRHI->createShader(L"shaders/rt/rt_shader.hlsl", ShaderType::MISS);
 
-		closest_hit_shader = gDynamicRHI->createShader(L"shaders/rt/rt_shader.hlsl", CLOSEST_HIT_SHADER);
+		closest_hit_shader = gDynamicRHI->createShader(L"shaders/rt/rt_shader.hlsl", ShaderType::CLOSEST_HIT);
 	}
 }
 
@@ -114,7 +114,7 @@ void ShadowRenderer::addShadowMapPasses(FrameGraph &fg, uint32_t max_draw_calls_
 				view.render_size = glm::ivec2(shadow_size);
 				view.layer = face;
 				view.use_two_pass_occlusion = false;
-				view.cull_mode = CULL_MODE_FRONT;
+				view.cull_mode = CullMode::FRONT;
 				view.shaders = shaders;
 
 				opaque.renderDepth(fg, view, output);
@@ -136,7 +136,7 @@ void ShadowRenderer::addShadowMapPasses(FrameGraph &fg, uint32_t max_draw_calls_
 				view.use_two_pass_occlusion = true;
 				view.use_reverse_z = false;
 				view.depth_clip = false;
-				view.cull_mode = CULL_MODE_FRONT;
+				view.cull_mode = CullMode::FRONT;
 				view.shaders = shaders;
 
 				opaque.renderDepth(fg, view, output);

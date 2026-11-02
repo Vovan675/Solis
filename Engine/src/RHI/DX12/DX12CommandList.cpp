@@ -73,14 +73,14 @@ void DX12CommandList::setPipeline(RHIPipeline *pipeline)
 {
 	DX12Pipeline *native_pipeline = static_cast<DX12Pipeline *>(pipeline);
 
-	if (native_pipeline->description.pipeline_type == PipelineType::RayTracing)
+	if (native_pipeline->description.pipeline_type == PipelineType::RAY_TRACING)
 		cmd_list->SetPipelineState1(native_pipeline->pipeline->rt_pso);
 	else
 		cmd_list->SetPipelineState(native_pipeline->pipeline->pipeline_state);
 
-	if (native_pipeline->description.pipeline_type == PipelineType::RayTracing)
+	if (native_pipeline->description.pipeline_type == PipelineType::RAY_TRACING)
 		cmd_list->SetComputeRootSignature(native_pipeline->pipeline->root_signature);
-	else if (native_pipeline->description.pipeline_type == PipelineType::Compute)
+	else if (native_pipeline->description.pipeline_type == PipelineType::COMPUTE)
 		cmd_list->SetComputeRootSignature(native_pipeline->pipeline->root_signature);
 	else
 		cmd_list->SetGraphicsRootSignature(native_pipeline->pipeline->root_signature);
@@ -88,10 +88,10 @@ void DX12CommandList::setPipeline(RHIPipeline *pipeline)
 	D3D_PRIMITIVE_TOPOLOGY topology = D3D_PRIMITIVE_TOPOLOGY_UNDEFINED;
 	switch (native_pipeline->description.primitive_topology)
 	{
-		case TOPOLOGY_POINT_LIST: topology = D3D_PRIMITIVE_TOPOLOGY_POINTLIST; break;
-		case TOPOLOGY_LINE_LIST: topology = D3D_PRIMITIVE_TOPOLOGY_LINELIST; break;
-		case TOPOLOGY_TRIANGLE_LIST: topology = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST; break;
-		case TOPOLOGY_TRIANGLE_STRIP: topology = D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP; break;
+		case Topology::POINT_LIST: topology = D3D_PRIMITIVE_TOPOLOGY_POINTLIST; break;
+		case Topology::LINE_LIST: topology = D3D_PRIMITIVE_TOPOLOGY_LINELIST; break;
+		case Topology::TRIANGLE_LIST: topology = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST; break;
+		case Topology::TRIANGLE_STRIP: topology = D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP; break;
 	}
 	cmd_list->IASetPrimitiveTopology(topology);
 	current_pipeline = pipeline;
@@ -195,12 +195,12 @@ void DX12CommandList::dispatchMeshIndirect(RHIBuffer *args_buffer, uint32_t draw
 	cmd_list->ExecuteIndirect(DX12Utils::getNativeRHI()->dispatch_mesh_command_signature, draw_count, native_args_buffer->getResource(), 0, nullptr, 0);
 }
 
-void DX12CommandList::fillBuffer(RHIBuffer *buffer, uint32_t value)
+void DX12CommandList::clearBuffer(RHIBuffer *buffer, uint32_t value)
 {
 	DX12Buffer *native_buffer = static_cast<DX12Buffer *>(buffer);
 	DX12DynamicRHI *native_rhi = DX12Utils::getNativeRHI();
 
-	native_buffer->transitState(this, ResourceState::UAV);
+	native_buffer->transitState(this, ResourceState::UNORDERED_ACCESS);
 
 	// ClearUnorderedAccessViewUint can use only R32_UINT view, create it temporary here
 	D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc{};
@@ -219,24 +219,52 @@ void DX12CommandList::fillBuffer(RHIBuffer *buffer, uint32_t value)
 	native_rhi->cbv_srv_uav_staging_heap->release(cpu_descriptor);
 }
 
-void DX12CommandList::copyBuffer(RHIBuffer *src, RHIBuffer *dest, uint64_t src_offset, uint64_t dest_offset, uint64_t size)
+void DX12CommandList::clearTexture(RHITexture *texture, const glm::vec4 &color)
+{
+	DX12DynamicRHI *native_rhi = DX12Utils::getNativeRHI();
+	DX12Texture *native_texture = (DX12Texture *)texture;
+
+	const float values[4] = { color.x, color.y, color.z, color.w };
+
+	if (texture->isDepthTexture())
+	{
+		texture->transitState(this, ResourceState::RENDER_TARGET);
+		DX12TextureView *view = (DX12TextureView *)texture->getRenderTargetView();
+		cmd_list->ClearDepthStencilView(view->getDescriptor().getCpuHandle(), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, color.x, 0, 0, nullptr);
+	} else if (texture->isRenderTargetTexture() && !texture->isUnorderedAccess())
+	{
+		texture->transitState(this, ResourceState::RENDER_TARGET);
+		DX12TextureView *view = (DX12TextureView *)texture->getRenderTargetView();
+		cmd_list->ClearRenderTargetView(view->getDescriptor().getCpuHandle(), values, 0, nullptr);
+	} else
+	{
+		texture->transitState(this, ResourceState::UNORDERED_ACCESS);
+		DX12TextureView *view = (DX12TextureView *)texture->getUnorderedAccessView();
+		cmd_list->ClearUnorderedAccessViewFloat(
+			native_rhi->cbv_srv_uav_heap->getHandle(view->getBindlessIndex()).getGpuHandle(),
+			view->getDescriptor().getCpuHandle(),
+			native_texture->getResource(), values, 0, nullptr);
+	}
+}
+
+void DX12CommandList::copyBuffer(RHIBuffer *src, RHIBuffer *dst, uint64_t src_offset, uint64_t dst_offset, uint64_t size)
 {
 	DX12Buffer *native_src_buffer = (DX12Buffer *)src;
-	DX12Buffer *native_dst_buffer = (DX12Buffer *)dest;
+	DX12Buffer *native_dst_buffer = (DX12Buffer *)dst;
 
 	native_src_buffer->transitState(this, ResourceState::COPY_SRC);
 	native_dst_buffer->transitState(this, ResourceState::COPY_DST);
 
-	cmd_list->CopyBufferRegion(native_dst_buffer->getResource(), dest_offset, native_src_buffer->getResource(), src_offset, size);
+	cmd_list->CopyBufferRegion(native_dst_buffer->getResource(), dst_offset, native_src_buffer->getResource(), src_offset, size);
 }
 
-void DX12CommandList::copyTexture(RHITexture *src, RHITexture *dest)
+void DX12CommandList::copyTexture(RHITexture *src, RHITexture *dst)
 {
 	DX12Texture *native_src_texture = (DX12Texture *)src;
-	DX12Texture *native_dst_texture = (DX12Texture *)dest;
+	DX12Texture *native_dst_texture = (DX12Texture *)dst;
 
-	native_src_texture->transitLayout(this, TEXTURE_LAYOUT_TRANSFER_SRC);
-	native_dst_texture->transitLayout(this, TEXTURE_LAYOUT_TRANSFER_DST);
+	native_src_texture->transitState(this, ResourceState::COPY_SRC);
+	native_dst_texture->transitState(this, ResourceState::COPY_DST);
 
 	cmd_list->CopyResource(native_dst_texture->getResource(), native_src_texture->getResource());
 }
@@ -246,7 +274,7 @@ void DX12CommandList::copyTextureToBuffer(RHITexture *src, RHIBuffer *dst)
 	DX12Texture *native_src_texture = (DX12Texture *)src;
 	DX12Buffer *native_dst_buffer = (DX12Buffer *)dst;
 
-	native_src_texture->transitLayout(this, TEXTURE_LAYOUT_TRANSFER_SRC);
+	native_src_texture->transitState(this, ResourceState::COPY_SRC);
 	native_dst_buffer->transitState(this, ResourceState::COPY_DST);
 
 	D3D12_TEXTURE_COPY_LOCATION src_location{};

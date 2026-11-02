@@ -76,21 +76,21 @@ RHIShaderRef DynamicRHI::createShader(eastl::wstring path, ShaderType type, east
 {
 	if (entry_point.empty())
 	{
-		if (type == VERTEX_SHADER)
+		if (type == ShaderType::VERTEX)
 			entry_point = "VSMain";
-		else if (type == FRAGMENT_SHADER)
+		else if (type == ShaderType::FRAGMENT)
 			entry_point = "PSMain";
-		else if (type == COMPUTE_SHADER)
+		else if (type == ShaderType::COMPUTE)
 			entry_point = "CSMain";
-		else if (type == RAY_GENERATION_SHADER)
+		else if (type == ShaderType::RAY_GENERATION)
 			entry_point = "RayGen";
-		else if (type == MISS_SHADER)
+		else if (type == ShaderType::MISS)
 			entry_point = "Miss";
-		else if (type == CLOSEST_HIT_SHADER)
+		else if (type == ShaderType::CLOSEST_HIT)
 			entry_point = "ClosestHit";
-		else if (type == TASK_SHADER)
+		else if (type == ShaderType::TASK)
 			entry_point = "TSMain";
-		else if (type == MESH_SHADER)
+		else if (type == ShaderType::MESH)
 			entry_point = "MSMain";
 	}
 
@@ -116,10 +116,48 @@ RHIShaderRef DynamicRHI::createShader(eastl::wstring path, ShaderType type, east
 	return shader;
 }
 
+RHIBufferRef DynamicRHI::createBuffer(const BufferDescription &description, const void *initial_data)
+{
+	RHIBufferRef buffer = create_buffer(description);
+	if (!initial_data)
+		return buffer;
+
+	PROFILE_CPU_FUNCTION();
+
+	if (description.memory == BufferMemory::GPU)
+	{
+		// Staging buffer
+		BufferDescription staging_buffer_description;
+		staging_buffer_description.size = description.size;
+		staging_buffer_description.alignment = description.alignment;
+		staging_buffer_description.memory = BufferMemory::UPLOAD;
+		RHIBufferRef staging_buffer = create_buffer(staging_buffer_description);
+
+		// Map buffer memory to CPU accessible memory
+		void *mapped_data;
+		staging_buffer->map(&mapped_data);
+		memcpy(mapped_data, initial_data, description.size);
+		staging_buffer->unmap();
+
+		// Copy from staging to buffer
+		RHICommandList *upload_cmd_list = getUploadCmdList();
+		upload_cmd_list->copyBuffer(staging_buffer, buffer, 0, 0, description.size);
+		buffer->transitState(upload_cmd_list, ResourceState::COMMON);
+	} else
+	{
+		// For CPU-visible (upload) buffers, map and write directly.
+		void *mapped_data;
+		buffer->map(&mapped_data);
+		memcpy(mapped_data, initial_data, description.size);
+		buffer->unmap();
+	}
+	return buffer;
+}
+
 void DynamicRHI::setConstantBufferData(unsigned int binding, void *params_struct, size_t params_size)
 {
 	// If no descriptor set for this shader, create it
-	size_t descriptor_hash = getCmdList()->current_pipeline->getHash();
+	size_t descriptor_hash = getCmdList()->getCurrentPipeline()->getHash();
 	hashCombine(descriptor_hash, binding);
 	hashCombine(descriptor_hash, frame_in_flight); // TODO: add Frame Allocator for these buffers
 
@@ -147,8 +185,8 @@ RHIBuffer *DynamicRHI::allocate_constant_buffer(size_t descriptor_hash, void *pa
 	{
 		BufferDescription desc;
 		desc.size = params_size;
-		desc.use_staging_buffer = false;
-		desc.usage = BufferUsage::CONSTANT_BUFFER;
+		desc.memory = BufferMemory::UPLOAD;
+		desc.usage_flags = BufferUsage::CONSTANT;
 		ShaderDataBuffer data_buffer;
 		data_buffer.buffer = createBuffer(desc);
 		data_buffer.buffer->map(&data_buffer.mapped_data);
@@ -180,28 +218,28 @@ DynamicRHI::CompileShaderResult DynamicRHI::compileShader(eastl::wstring path, S
 	}
 
 	args.push_back(L"-T");
-	if (type == VERTEX_SHADER)
+	if (type == ShaderType::VERTEX)
 	{
 		args.push_back(L"vs_6_6");
-	} else if (type == FRAGMENT_SHADER)
+	} else if (type == ShaderType::FRAGMENT)
 	{
 		args.push_back(L"ps_6_6");
-	} else if (type == COMPUTE_SHADER)
+	} else if (type == ShaderType::COMPUTE)
 	{
 		args.push_back(L"cs_6_6");
-	} else if (type == RAY_GENERATION_SHADER)
+	} else if (type == ShaderType::RAY_GENERATION)
 	{
 		args.push_back(L"lib_6_6");
-	} else if (type == MISS_SHADER)
+	} else if (type == ShaderType::MISS)
 	{
 		args.push_back(L"lib_6_6");
-	} else if (type == CLOSEST_HIT_SHADER)
+	} else if (type == ShaderType::CLOSEST_HIT)
 	{
 		args.push_back(L"lib_6_6");
-	} else if (type == TASK_SHADER)
+	} else if (type == ShaderType::TASK)
 	{
 		args.push_back(L"as_6_6");
-	} else if (type == MESH_SHADER)
+	} else if (type == ShaderType::MESH)
 	{
 		args.push_back(L"ms_6_6");
 	}
@@ -243,7 +281,7 @@ DynamicRHI::CompileShaderResult DynamicRHI::compileShader(eastl::wstring path, S
 		args.push_back(L"-Wno-ignored-attributes");
 	}
 
-	if (type == RAY_GENERATION_SHADER || type == MISS_SHADER || type == CLOSEST_HIT_SHADER)
+	if (type == ShaderType::RAY_GENERATION || type == ShaderType::MISS || type == ShaderType::CLOSEST_HIT)
 	{
 		args.push_back(L"-D");
 		args.push_back(L"RAY_TRACING_SHADER");
@@ -341,7 +379,7 @@ void DynamicRHI::release_gpu_resources(uint64_t frame)
 		if (gpu_release_queue.front().release_frame >= frame)
 			break;
 
-		gpu_release_queue.front().resource->Release();
+		gpu_release_queue.front().resource->release();
 		delete gpu_release_queue.front().resource;
 		gpu_release_queue.pop();
 	}

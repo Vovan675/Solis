@@ -17,7 +17,7 @@ static CMP_FORMAT to_cmp_format(Format format)
 {
 	switch(format)
 	{
-		case FORMAT_R8G8B8A8_SRGB: return CMP_FORMAT_RGBA_8888;
+		case Format::R8G8B8A8_SRGB: return CMP_FORMAT_RGBA_8888;
 	}
 	return CMP_FORMAT_Unknown;
 }
@@ -35,7 +35,7 @@ Image::Image(uint32_t width, uint32_t height, Format format, eastl::vector<uint8
 void Image::createMipmaps()
 {
 	// Mipmaps generation for compressed formats is not supported now
-	if (isCompressedFormat())
+	if (isCompressedFormat(format))
 		return;
 	CMP_MipSet mipSetIn{};
 	mipSetIn.m_nWidth = width;
@@ -108,17 +108,23 @@ void Image::load(eastl::string path)
 
 		auto dxgi_format = file.GetFormat();
 		if (dxgi_format == tinyddsloader::DDSFile::DXGIFormat::R8G8B8A8_UNorm || dxgi_format == tinyddsloader::DDSFile::DXGIFormat::B8G8R8A8_UNorm)
-			format = FORMAT_R8G8B8A8_UNORM;
+			format = Format::R8G8B8A8_UNORM;
 		else if (dxgi_format == tinyddsloader::DDSFile::DXGIFormat::R8G8B8A8_UNorm_SRGB || dxgi_format == tinyddsloader::DDSFile::DXGIFormat::B8G8R8A8_UNorm_SRGB)
-			format = FORMAT_R8G8B8A8_SRGB;
+			format = Format::R8G8B8A8_SRGB;
 		else if (dxgi_format == tinyddsloader::DDSFile::DXGIFormat::BC1_UNorm)
-			format = FORMAT_BC1;
+			format = Format::BC1_UNORM;
+		else if (dxgi_format == tinyddsloader::DDSFile::DXGIFormat::BC1_UNorm_SRGB)
+			format = Format::BC1_SRGB;
 		else if (dxgi_format == tinyddsloader::DDSFile::DXGIFormat::BC3_UNorm)
-			format = FORMAT_BC3;
+			format = Format::BC3_UNORM;
+		else if (dxgi_format == tinyddsloader::DDSFile::DXGIFormat::BC3_UNorm_SRGB)
+			format = Format::BC3_SRGB;
 		else if (dxgi_format == tinyddsloader::DDSFile::DXGIFormat::BC5_UNorm)
-			format = FORMAT_BC5;
+			format = Format::BC5_UNORM;
 		else if (dxgi_format == tinyddsloader::DDSFile::DXGIFormat::BC7_UNorm)
-			format = FORMAT_BC7;
+			format = Format::BC7_UNORM;
+		else if (dxgi_format == tinyddsloader::DDSFile::DXGIFormat::BC7_UNorm_SRGB)
+			format = Format::BC7_SRGB;
 		else
 			CORE_ERROR("Invalid texture format");
 
@@ -138,11 +144,11 @@ void Image::load(eastl::string path)
 		if (stbi_is_hdr(path.c_str()))
 		{
 			pixels = stbi_loadf(path.c_str(), &tex_width, &tex_height, &tex_channels, STBI_rgb_alpha);
-			format = FORMAT_R32G32B32A32_SFLOAT;
+			format = Format::R32G32B32A32_SFLOAT;
 		} else
 		{
 			pixels = stbi_load(path.c_str(), &tex_width, &tex_height, &tex_channels, STBI_rgb_alpha);
-			format = FORMAT_R8G8B8A8_SRGB;
+			format = Format::R8G8B8A8_SRGB;
 		}
 
 		if (!pixels)
@@ -182,51 +188,60 @@ void Image::save(const std::filesystem::path &path)
 
 		switch (format)
 		{
-			case FORMAT_R8_UNORM:
+			case Format::R8_UNORM:
 				break;
-			case FORMAT_R8G8_UNORM:
+			case Format::R8G8_UNORM:
 				break;
-			case FORMAT_R8G8B8A8_UNORM:
+			case Format::R8G8B8A8_UNORM:
 				dds_format = dds::DXGI_FORMAT_R8G8B8A8_UNORM;
 				break;
-			case FORMAT_R8G8B8A8_SRGB:
+			case Format::R8G8B8A8_SRGB:
 				dds_format = dds::DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
 				break;
-			case FORMAT_R16_UNORM:
+			case Format::R16_UNORM:
 				break;
-			case FORMAT_R16G16_UNORM:
+			case Format::R16G16_UNORM:
 				break;
-			case FORMAT_R16G16_SFLOAT:
+			case Format::R16G16_SFLOAT:
 				break;
-			case FORMAT_R16G16B16A16_UNORM:
+			case Format::R16G16B16A16_UNORM:
 				break;
-			case FORMAT_R16G16B16A16_SFLOAT:
+			case Format::R16G16B16A16_SFLOAT:
 				break;
-			case FORMAT_R32_UINT:
+			case Format::R32_UINT:
 				break;
-			case FORMAT_R32_SFLOAT:
+			case Format::R32_SFLOAT:
 				break;
-			case FORMAT_R32G32_SFLOAT:
+			case Format::R32G32_SFLOAT:
 				break;
-			case FORMAT_R32G32B32_SFLOAT:
+			case Format::R32G32B32_SFLOAT:
 				break;
-			case FORMAT_R32G32B32A32_SFLOAT:
+			case Format::R32G32B32A32_SFLOAT:
 				break;
-			case FORMAT_D32S8:
+			case Format::D32_SFLOAT_S8_UINT:
 				break;
-			case FORMAT_R11G11B10_UFLOAT:
+			case Format::R11G11B10_UFLOAT:
 				break;
-			case FORMAT_BC1:
+			case Format::BC1_UNORM:
 				dds_format = dds::DXGI_FORMAT_BC1_UNORM;
 				break;
-			case FORMAT_BC3:
+			case Format::BC1_SRGB:
+				dds_format = dds::DXGI_FORMAT_BC1_UNORM_SRGB;
+				break;
+			case Format::BC3_UNORM:
 				dds_format = dds::DXGI_FORMAT_BC3_UNORM;
 				break;
-			case FORMAT_BC5:
+			case Format::BC3_SRGB:
+				dds_format = dds::DXGI_FORMAT_BC3_UNORM_SRGB;
+				break;
+			case Format::BC5_UNORM:
 				dds_format = dds::DXGI_FORMAT_BC5_UNORM;
 				break;
-			case FORMAT_BC7:
+			case Format::BC7_UNORM:
 				dds_format = dds::DXGI_FORMAT_BC7_UNORM;
+				break;
+			case Format::BC7_SRGB:
+				dds_format = dds::DXGI_FORMAT_BC7_UNORM_SRGB;
 				break;
 			default:
 				assert(false);
@@ -246,7 +261,7 @@ void Image::save(const std::filesystem::path &path)
 			CORE_ERROR("Saving image {} failed", path.string());
 	} else if (extension == ".exr")
 	{
-		ENGINE_ASSERT(format == FORMAT_R32G32B32A32_SFLOAT);
+		ENGINE_ASSERT(format == Format::R32G32B32A32_SFLOAT);
 		const char *error = nullptr;
 		if (SaveEXR((const float *)data.data(), width, height, 4, false, path.string().c_str(), &error) != TINYEXR_SUCCESS)
 		{

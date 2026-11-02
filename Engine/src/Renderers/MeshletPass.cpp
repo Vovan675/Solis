@@ -63,15 +63,15 @@ void MeshletPass::add_counter_init_pass(FrameGraph &fg, const MeshletCullDesc &d
 	{
 		if (!is_fix)
 		{
-			builder.createBuffer(GFXRID_ID(TraversalQueue, view_id), sizeof(TraversalItem), MAX_TRAVERSAL_TASKS, BufferUsage::SHADER_WRITE_BUFFER);
-			builder.createBuffer(GFXRID_ID(TraversalCtrl, view_id), sizeof(uint32_t) * 4, 1, BufferUsage::SHADER_WRITE_BUFFER);
-			builder.createBuffer(GFXRID_ID(VisibleMeshlets, view_id), sizeof(MeshletCandidate), MAX_MESHLETS_PER_FRAME, BufferUsage::SHADER_WRITE_BUFFER);
-			builder.createBuffer(GFXRID_ID(VisibleMeshletsCount, view_id), sizeof(uint32_t), 1, BufferUsage::INDIRECT_ARGS_BUFFER | BufferUsage::SHADER_WRITE_BUFFER);
-			builder.createBuffer(GFXRID_ID(DrawIndexedCount, view_id), sizeof(uint32_t), 1, BufferUsage::INDIRECT_ARGS_BUFFER | BufferUsage::SHADER_WRITE_BUFFER);
-			builder.createBuffer(GFXRID_ID(OccludedMeshlets, view_id), sizeof(MeshletCandidate), MAX_MESHLETS_PER_FRAME, BufferUsage::SHADER_WRITE_BUFFER);
-			builder.createBuffer(GFXRID_ID(OccludedMeshletsCount, view_id), sizeof(uint32_t), 1, BufferUsage::SHADER_WRITE_BUFFER);
-			builder.createBuffer(GFXRID_ID(OccludedInstances, view_id), sizeof(uint32_t), instance_count, BufferUsage::SHADER_WRITE_BUFFER);
-			builder.createBuffer(GFXRID_ID(OccludedInstancesCount, view_id), sizeof(uint32_t), 1, BufferUsage::SHADER_WRITE_BUFFER);
+			builder.createBuffer(GFXRID_ID(TraversalQueue, view_id), sizeof(TraversalItem), MAX_TRAVERSAL_TASKS, BufferUsage::UNORDERED_ACCESS);
+			builder.createBuffer(GFXRID_ID(TraversalCtrl, view_id), sizeof(uint32_t) * 4, 1, BufferUsage::UNORDERED_ACCESS);
+			builder.createBuffer(GFXRID_ID(VisibleMeshlets, view_id), sizeof(MeshletCandidate), MAX_MESHLETS_PER_FRAME, BufferUsage::UNORDERED_ACCESS);
+			builder.createBuffer(GFXRID_ID(VisibleMeshletsCount, view_id), sizeof(uint32_t), 1, BufferUsage::INDIRECT_ARGS | BufferUsage::UNORDERED_ACCESS);
+			builder.createBuffer(GFXRID_ID(DrawIndexedCount, view_id), sizeof(uint32_t), 1, BufferUsage::INDIRECT_ARGS | BufferUsage::UNORDERED_ACCESS);
+			builder.createBuffer(GFXRID_ID(OccludedMeshlets, view_id), sizeof(MeshletCandidate), MAX_MESHLETS_PER_FRAME, BufferUsage::UNORDERED_ACCESS);
+			builder.createBuffer(GFXRID_ID(OccludedMeshletsCount, view_id), sizeof(uint32_t), 1, BufferUsage::UNORDERED_ACCESS);
+			builder.createBuffer(GFXRID_ID(OccludedInstances, view_id), sizeof(uint32_t), instance_count, BufferUsage::UNORDERED_ACCESS);
+			builder.createBuffer(GFXRID_ID(OccludedInstancesCount, view_id), sizeof(uint32_t), 1, BufferUsage::UNORDERED_ACCESS);
 		}
 
 		builder.writeBuffer(GFXRID_ID(TraversalCtrl, view_id));
@@ -83,7 +83,7 @@ void MeshletPass::add_counter_init_pass(FrameGraph &fg, const MeshletCullDesc &d
 	},
 	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		cmd_list->fillBuffer(resources.getBuffer(GFXRID_ID(TraversalQueue, view_id)), ~0u);
+		cmd_list->clearBuffer(resources.getBuffer(GFXRID_ID(TraversalQueue, view_id)), ~0u);
 
 		struct
 		{
@@ -101,7 +101,7 @@ void MeshletPass::add_counter_init_pass(FrameGraph &fg, const MeshletCullDesc &d
 		constants.occluded_instances_count_buffer_id = resources.getReadWriteBuffer(GFXRID_ID(OccludedInstancesCount, view_id));
 		constants.reset_occluded = is_fix ? 0u : 1u;
 
-		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/gpu_driven/meshlet_init_counters.hlsl", COMPUTE_SHADER));
+		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/gpu_driven/meshlet_init_counters.hlsl", ShaderType::COMPUTE));
 		gGlobalPipeline->flushAndBind(cmd_list);
 		gDynamicRHI->setConstantBufferData(0, &constants, sizeof(constants));
 		cmd_list->dispatch(1, 1, 1);
@@ -130,7 +130,7 @@ void MeshletPass::add_instance_culling_pass(FrameGraph &fg, const MeshletCullDes
 	},
 	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/gpu_driven/meshlet_cull_instances.hlsl", COMPUTE_SHADER, "CSMain",
+		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/gpu_driven/meshlet_cull_instances.hlsl", ShaderType::COMPUTE, "CSMain",
 											  {
 												  {"IS_FIX", is_fix ? "1" : "0"},
 												  {"REVERSE_Z", desc.reverse_z ? "1" : "0"},
@@ -169,7 +169,7 @@ void MeshletPass::add_instance_culling_pass(FrameGraph &fg, const MeshletCullDes
 		if (desc.use_occlusion)
 		{
 			RHITexture *hiz = resources.getTexture(desc.hiz);
-			constants.hiz_tex_id = hiz->getShaderResourceView(-1, desc.hiz_layer)->getBindlessIndex();
+			constants.hiz_tex_id = hiz->getShaderResourceView(ALL_MIPS, desc.hiz_layer)->getBindlessIndex();
 			constants.hiz_width = hiz->getWidth();
 			constants.hiz_height = hiz->getHeight();
 			constants.hiz_mips = hiz->getMipLevels();
@@ -197,8 +197,8 @@ void MeshletPass::add_traversal_pass(FrameGraph &fg, const MeshletCullDesc &desc
 		{
 			if (!render_meshlets_mesh_shaders)
 			{
-				builder.createBuffer(GFXRID_ID(DrawIndexedArgs, view_id), sizeof(DrawIndexedIndirect), MAX_MESHLETS_PER_FRAME, BufferUsage::INDIRECT_ARGS_BUFFER | BufferUsage::SHADER_WRITE_BUFFER);
-				builder.createBuffer(GFXRID_ID(DrawCallsInstances, view_id), sizeof(uint32_t), MAX_MESHLETS_PER_FRAME, BufferUsage::VERTEX_BUFFER | BufferUsage::SHADER_WRITE_BUFFER);
+				builder.createBuffer(GFXRID_ID(DrawIndexedArgs, view_id), sizeof(DrawIndexedIndirect), MAX_MESHLETS_PER_FRAME, BufferUsage::INDIRECT_ARGS | BufferUsage::UNORDERED_ACCESS);
+				builder.createBuffer(GFXRID_ID(DrawCallsInstances, view_id), sizeof(uint32_t), MAX_MESHLETS_PER_FRAME, BufferUsage::VERTEX | BufferUsage::UNORDERED_ACCESS);
 			}
 		}
 
@@ -225,7 +225,7 @@ void MeshletPass::add_traversal_pass(FrameGraph &fg, const MeshletCullDesc &desc
 	},
 	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/gpu_driven/meshlet_traverse.hlsl", COMPUTE_SHADER, "CSMain",
+		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/gpu_driven/meshlet_traverse.hlsl", ShaderType::COMPUTE, "CSMain",
 											  {
 												  {"USE_MESH_SHADERS", render_meshlets_mesh_shaders ? "1" : "0"},
 												  {"IS_FIX", is_fix ? "1" : "0"},
@@ -277,7 +277,7 @@ void MeshletPass::add_traversal_pass(FrameGraph &fg, const MeshletCullDesc &desc
 		if (desc.use_occlusion)
 		{
 			RHITexture *hiz = resources.getTexture(desc.hiz);
-			constants.hiz_tex_id = hiz->getShaderResourceView(-1, desc.hiz_layer)->getBindlessIndex();
+			constants.hiz_tex_id = hiz->getShaderResourceView(ALL_MIPS, desc.hiz_layer)->getBindlessIndex();
 			constants.hiz_width = hiz->getWidth();
 			constants.hiz_height = hiz->getHeight();
 			constants.hiz_mips = hiz->getMipLevels();
@@ -314,7 +314,7 @@ void MeshletPass::add_meshlet_fix_pass(FrameGraph &fg, const MeshletCullDesc &de
 	},
 	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/gpu_driven/meshlet_cull_fix.hlsl", COMPUTE_SHADER, "CSMain",
+		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/gpu_driven/meshlet_cull_fix.hlsl", ShaderType::COMPUTE, "CSMain",
 											  {
 												  {"USE_MESH_SHADERS", render_meshlets_mesh_shaders ? "1" : "0"},
 												  {"REVERSE_Z", desc.reverse_z ? "1" : "0"},
@@ -355,7 +355,7 @@ void MeshletPass::add_meshlet_fix_pass(FrameGraph &fg, const MeshletCullDesc &de
 		}
 
 		RHITexture *hiz = resources.getTexture(desc.hiz);
-		constants.hiz_tex_id = hiz->getShaderResourceView(-1, desc.hiz_layer)->getBindlessIndex();
+		constants.hiz_tex_id = hiz->getShaderResourceView(ALL_MIPS, desc.hiz_layer)->getBindlessIndex();
 		constants.hiz_width = hiz->getWidth();
 		constants.hiz_height = hiz->getHeight();
 		constants.hiz_mips = hiz->getMipLevels();
@@ -373,7 +373,7 @@ void MeshletPass::add_dispatch_args_pass(FrameGraph &fg, const char *name, Graph
 	[&](RenderPassBuilder &builder)
 	{
 		if (!builder.isBufferCreated(args_id))
-			builder.createBuffer(args_id, sizeof(DispatchIndirect), 1, BufferUsage::INDIRECT_ARGS_BUFFER | BufferUsage::SHADER_WRITE_BUFFER);
+			builder.createBuffer(args_id, sizeof(DispatchIndirect), 1, BufferUsage::INDIRECT_ARGS | BufferUsage::UNORDERED_ACCESS);
 		builder.writeBuffer(args_id);
 		builder.readBuffer(count_id);
 	},
@@ -389,7 +389,7 @@ void MeshletPass::add_dispatch_args_pass(FrameGraph &fg, const char *name, Graph
 		constants.dispatch_indirect_args_buffer_id = resources.getReadWriteBuffer(args_id);
 		constants.group_size = group_size;
 
-		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/gpu_driven/build_indirect_args.hlsl", COMPUTE_SHADER));
+		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/gpu_driven/build_indirect_args.hlsl", ShaderType::COMPUTE));
 		gGlobalPipeline->flushAndBind(cmd_list);
 		gDynamicRHI->setConstantBufferData(0, &constants, sizeof(constants));
 		cmd_list->dispatch(1, 1, 1);

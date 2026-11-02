@@ -3,6 +3,18 @@
 #include "DX12DynamicRHI.h"
 #include "DX12Utils.h"
 
+DX12Texture::DX12Texture(const TextureDescription &description, const void *initial_data): RHITexture(description)
+{
+	create_resource(initial_data);
+}
+
+DX12Texture::DX12Texture(const TextureDescription &description, ID3D12Resource *swapchain_resource): RHITexture(description)
+{
+	current_states.assign(description.mip_levels, ResourceState::COMMON);
+	resource = std::make_unique<DX12Resource>();
+	resource->resource = swapchain_resource;
+}
+
 DX12Texture::~DX12Texture()
 {
 	destroy();
@@ -17,31 +29,23 @@ void DX12Texture::destroy()
 	views.clear();
 }
 
-void DX12Texture::fill()
+void DX12Texture::recreate(const TextureDescription &new_description, const void *initial_data)
 {
 	destroy();
-	cleanup();
+	description = new_description;
+	create_resource(initial_data);
+}
 
-	uint32_t sample_count = 1;
-	switch (description.sample_count)
-	{
-		case SAMPLE_COUNT_1: sample_count = 1; break;
-		case SAMPLE_COUNT_2: sample_count = 2; break;
-		case SAMPLE_COUNT_4: sample_count = 4; break;
-		case SAMPLE_COUNT_8: sample_count = 8; break;
-		case SAMPLE_COUNT_16: sample_count = 16; break;
-		case SAMPLE_COUNT_32: sample_count = 32; break;
-		case SAMPLE_COUNT_64: sample_count = 64; break;
-	}
-
+void DX12Texture::create_resource(const void *initial_data)
+{
 	D3D12_RESOURCE_DESC resource_desc = {};
 	resource_desc.MipLevels = description.mip_levels;
 	resource_desc.Format = getNativeFormat();
 	resource_desc.Width = description.width;
 	resource_desc.Height = description.height;
 	resource_desc.Flags = get_resource_flags();
-	resource_desc.DepthOrArraySize = is3D() ? description.depth : description.is_cube ? 6 : description.array_levels;
-	resource_desc.SampleDesc.Count = sample_count;
+	resource_desc.DepthOrArraySize = is3D() ? description.depth : isCube() ? 6 : description.array_layers;
+	resource_desc.SampleDesc.Count = description.sample_count;
 	resource_desc.SampleDesc.Quality = 0;
 	resource_desc.Dimension = is3D() ? D3D12_RESOURCE_DIMENSION_TEXTURE3D : D3D12_RESOURCE_DIMENSION_TEXTURE2D;
 
@@ -80,23 +84,18 @@ void DX12Texture::fill()
 		isRenderTargetTexture() ? &clear_value : nullptr,
 		&allocation->resource,
 		IID_PPV_ARGS(&resource->resource));
-	current_layouts.assign(description.mip_levels, TEXTURE_LAYOUT_GENERAL);
-}
+	current_states.assign(description.mip_levels, ResourceState::COMMON);
 
-void DX12Texture::fill(const void *sourceData)
-{
-	fill();
+	if (!initial_data)
+		return;
 
-	int subresources_count = description.is_cube ? 6 : description.array_levels;
+	int subresources_count = isCube() ? 6 : description.array_layers;
 	subresources_count *= description.mip_levels;
 
 	BufferDescription staging_buffer_description;
 	staging_buffer_description.size = GetRequiredIntermediateSize(resource->resource, 0, subresources_count);
-	staging_buffer_description.use_staging_buffer = false;
+	staging_buffer_description.memory = BufferMemory::UPLOAD;
 	RHIBufferRef staging_buffer = gDynamicRHI->createBuffer(staging_buffer_description);
-
-
-	uint32_t format_size = getFormatSize(description.format);
 
 	size_t current_offset = 0;
 	
@@ -108,11 +107,11 @@ void DX12Texture::fill(const void *sourceData)
 
 		int cur_width = description.width >> cur_mip;
 		int cur_height = description.height >> cur_mip;
-		size_t row_pitch = get_row_size(description.format, cur_width);
-		size_t cur_size = get_slice_size(description.format, cur_width, cur_height);
+		size_t row_pitch = getFormatRowSize(description.format, cur_width);
+		size_t cur_size = getFormatSliceSize(description.format, cur_width, cur_height);
 
-		uint32_t subresource_index = D3D12CalcSubresource(cur_mip, cur_face, 0, description.mip_levels, description.is_cube ? 6 : 1);
-		uint8_t *data = (uint8_t *)sourceData;
+		uint32_t subresource_index = D3D12CalcSubresource(cur_mip, cur_face, 0, description.mip_levels, isCube() ? 6 : 1);
+		uint8_t *data = (uint8_t *)initial_data;
 		subresources_data[i].pData = &data[current_offset];
 		subresources_data[i].RowPitch = row_pitch; // Bytes per row
 		subresources_data[i].SlicePitch = cur_size; // Bytes per face
@@ -122,47 +121,19 @@ void DX12Texture::fill(const void *sourceData)
 
 
 	RHICommandList *upload_cmd_list = gDynamicRHI->getUploadCmdList();
-	transitLayout(upload_cmd_list, TEXTURE_LAYOUT_TRANSFER_DST);
+	transitState(upload_cmd_list, ResourceState::COPY_DST);
 	UpdateSubresources(((DX12CommandList *)upload_cmd_list)->cmd_list.Get(), resource->resource, ((DX12Buffer *)staging_buffer.getReference())->getResource(), 0, 0, subresources_data.size(), subresources_data.data());
-	transitLayout(upload_cmd_list, TEXTURE_LAYOUT_SHADER_READ);
+	transitState(upload_cmd_list, ResourceState::SHADER_RESOURCE);
 }
 
-void DX12Texture::clear(RHICommandList *cmd_list, const glm::vec4 &color)
-{
-	DX12DynamicRHI *native_rhi = DX12Utils::getNativeRHI();
-	DX12CommandList *native_cmd_list = (DX12CommandList *)cmd_list;
-
-	const float values[4] = { color.x, color.y, color.z, color.w };
-
-	if (isDepthTexture())
-	{
-		transitLayout(native_cmd_list, TEXTURE_LAYOUT_ATTACHMENT);
-		DX12TextureView *view = (DX12TextureView *)getRenderTargetView();
-		native_cmd_list->cmd_list->ClearDepthStencilView(view->getDescriptor().getCpuHandle(), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, color.x, 0, 0, nullptr);
-	} else if (isRenderTargetTexture() && !isUAV())
-	{
-		transitLayout(native_cmd_list, TEXTURE_LAYOUT_ATTACHMENT);
-		DX12TextureView *view = (DX12TextureView *)getRenderTargetView();
-		native_cmd_list->cmd_list->ClearRenderTargetView(view->getDescriptor().getCpuHandle(), values, 0, nullptr);
-	} else
-	{
-		transitLayout(native_cmd_list, TEXTURE_LAYOUT_UAV);
-		DX12TextureView *view = (DX12TextureView *)getUnorderedAccessView();
-		native_cmd_list->cmd_list->ClearUnorderedAccessViewFloat(
-			native_rhi->cbv_srv_uav_heap->getHandle(view->getBindlessIndex()).getGpuHandle(),
-			view->getDescriptor().getCpuHandle(),
-			getResource(), values, 0, nullptr);
-	}
-}
-
-void DX12Texture::transit_layout(RHICommandList *cmd_list, TextureLayoutType old_layout_type, TextureLayoutType new_layout_type, uint32_t first_mip, uint32_t mip_count)
+void DX12Texture::transit_state(RHICommandList *cmd_list, ResourceState old_state, ResourceState new_state, uint32_t first_mip, uint32_t mip_count)
 {
 	DX12CommandList *native_cmd_list = (DX12CommandList *)cmd_list;
-	D3D12_RESOURCE_STATES state_before = get_native_layout(old_layout_type);
-	D3D12_RESOURCE_STATES state_after = get_native_layout(new_layout_type);
+	D3D12_RESOURCE_STATES state_before = get_native_state(old_state);
+	D3D12_RESOURCE_STATES state_after = get_native_state(new_state);
 	if (state_before == state_after)
 	{
-		if (new_layout_type == TextureLayoutType::TEXTURE_LAYOUT_UAV)
+		if (new_state == ResourceState::UNORDERED_ACCESS)
 		{
 			D3D12_RESOURCE_BARRIER barrier{};
 			barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
@@ -250,8 +221,8 @@ DX12TextureView::DX12TextureView(TextureViewDescription description): RHITexture
 
 	DXGI_FORMAT native_format = DX12Utils::getNativeFormat(format);
 
-	int mip_count = description.mip == -1 ? native_texture->getMipLevels() : 1;
-	int mip_base = description.mip == -1 ? 0 : description.mip;
+	int mip_count = description.mip == ALL_MIPS ? native_texture->getMipLevels() : 1;
+	int mip_base = description.mip == ALL_MIPS ? 0 : description.mip;
 
 	if (description.view_type == TextureViewType::RENDER_TARGET)
 	{
@@ -263,11 +234,11 @@ DX12TextureView::DX12TextureView(TextureViewDescription description): RHITexture
 
 			D3D12_DEPTH_STENCIL_VIEW_DESC dsv_desc = {};
 			dsv_desc.Format = native_format;
-			if (native_texture->getDescription().is_cube)
+			if (native_texture->isCube())
 			{
 				dsv_desc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2DARRAY;
 				dsv_desc.Texture2DArray.MipSlice = description.mip;
-				if (description.layer == -1)
+				if (description.layer == ALL_LAYERS)
 				{
 					dsv_desc.Texture2DArray.FirstArraySlice = 0;
 					dsv_desc.Texture2DArray.ArraySize = 6;
@@ -276,14 +247,14 @@ DX12TextureView::DX12TextureView(TextureViewDescription description): RHITexture
 					dsv_desc.Texture2DArray.FirstArraySlice = description.layer;
 					dsv_desc.Texture2DArray.ArraySize = 1;
 				}
-			}  else if (native_texture->getDescription().array_levels > 1)
+			}  else if (native_texture->getDescription().array_layers > 1)
 			{
 				dsv_desc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2DARRAY;
 				dsv_desc.Texture2DArray.MipSlice = description.mip;
-				if (description.layer == -1)
+				if (description.layer == ALL_LAYERS)
 				{
 					dsv_desc.Texture2DArray.FirstArraySlice = 0;
-					dsv_desc.Texture2DArray.ArraySize = native_texture->getDescription().array_levels;
+					dsv_desc.Texture2DArray.ArraySize = native_texture->getDescription().array_layers;
 				} else
 				{
 					dsv_desc.Texture2DArray.FirstArraySlice = description.layer;
@@ -301,11 +272,11 @@ DX12TextureView::DX12TextureView(TextureViewDescription description): RHITexture
 
 			D3D12_RENDER_TARGET_VIEW_DESC rtv_desc = {};
 			rtv_desc.Format = native_format;
-			if (native_texture->getDescription().is_cube)
+			if (native_texture->isCube())
 			{
 				rtv_desc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2DARRAY;
 				rtv_desc.Texture2DArray.MipSlice = description.mip;
-				if (description.layer == -1)
+				if (description.layer == ALL_LAYERS)
 				{
 					rtv_desc.Texture2DArray.FirstArraySlice = 0;
 					rtv_desc.Texture2DArray.ArraySize = 6;
@@ -314,14 +285,14 @@ DX12TextureView::DX12TextureView(TextureViewDescription description): RHITexture
 					rtv_desc.Texture2DArray.FirstArraySlice = description.layer;
 					rtv_desc.Texture2DArray.ArraySize = 1;
 				}
-			} else if (native_texture->getDescription().array_levels > 1)
+			} else if (native_texture->getDescription().array_layers > 1)
 			{
 				rtv_desc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2DARRAY;
 				rtv_desc.Texture2DArray.MipSlice = description.mip;
-				if (description.layer == -1)
+				if (description.layer == ALL_LAYERS)
 				{
 					rtv_desc.Texture2DArray.FirstArraySlice = 0;
-					rtv_desc.Texture2DArray.ArraySize = native_texture->getDescription().array_levels;
+					rtv_desc.Texture2DArray.ArraySize = native_texture->getDescription().array_layers;
 				} else
 				{
 					rtv_desc.Texture2DArray.FirstArraySlice = description.layer;
@@ -340,7 +311,7 @@ DX12TextureView::DX12TextureView(TextureViewDescription description): RHITexture
 		descriptor = rhi->cbv_srv_uav_staging_heap->allocate();
 
 		DXGI_FORMAT srv_format = native_format;
-		if (format == FORMAT_D32S8)
+		if (format == Format::D32_SFLOAT_S8_UINT)
 			srv_format = DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS;
 
 		D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
@@ -351,27 +322,27 @@ DX12TextureView::DX12TextureView(TextureViewDescription description): RHITexture
 			srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE3D;
 			srv_desc.Texture3D.MipLevels = mip_count;
 			srv_desc.Texture3D.MostDetailedMip = mip_base;
-		} else if (native_texture->getDescription().is_cube && description.layer == -1)
+		} else if (native_texture->isCube() && description.layer == ALL_LAYERS)
 		{
 			srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBE;
 			srv_desc.TextureCube.MipLevels = mip_count;
 			srv_desc.TextureCube.MostDetailedMip = mip_base;
-		} else if (native_texture->getDescription().is_cube)
+		} else if (native_texture->isCube())
 		{
 			srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2DARRAY;
 			srv_desc.Texture2DArray.MipLevels = mip_count;
 			srv_desc.Texture2DArray.MostDetailedMip = mip_base;
 			srv_desc.Texture2DArray.FirstArraySlice = description.layer;
 			srv_desc.Texture2DArray.ArraySize = 1;
-		} else if (native_texture->getDescription().array_levels > 1)
+		} else if (native_texture->getDescription().array_layers > 1)
 		{
 			srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2DARRAY;
 			srv_desc.Texture2DArray.MipLevels = mip_count;
 			srv_desc.Texture2DArray.MostDetailedMip = mip_base;
-			if (description.layer == -1)
+			if (description.layer == ALL_LAYERS)
 			{
 				srv_desc.Texture2DArray.FirstArraySlice = 0;
-				srv_desc.Texture2DArray.ArraySize = native_texture->getDescription().array_levels;
+				srv_desc.Texture2DArray.ArraySize = native_texture->getDescription().array_layers;
 			} else
 			{
 				srv_desc.Texture2DArray.FirstArraySlice = description.layer;
@@ -386,7 +357,7 @@ DX12TextureView::DX12TextureView(TextureViewDescription description): RHITexture
 
 		rhi->device->CreateShaderResourceView(native_texture->getResource(), &srv_desc, descriptor.getCpuHandle());
 		bindless_index = gDynamicRHI->getBindlessResources()->addTexture(this);
-	} else if (description.view_type == TextureViewType::SHADER_RESOURCE_STORAGE)
+	} else if (description.view_type == TextureViewType::UNORDERED_ACCESS)
 	{
 		descriptor = rhi->cbv_srv_uav_staging_heap->allocate();
 
@@ -398,11 +369,11 @@ DX12TextureView::DX12TextureView(TextureViewDescription description): RHITexture
 			uav_desc.Texture3D.MipSlice = mip_base;
 			uav_desc.Texture3D.FirstWSlice = 0;
 			uav_desc.Texture3D.WSize = native_texture->getDescription().depth >> mip_base;
-		} else if (native_texture->getDescription().is_cube)
+		} else if (native_texture->isCube())
 		{
 			uav_desc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2DARRAY;
 			uav_desc.Texture2DArray.MipSlice = mip_base;
-			if (description.layer == -1)
+			if (description.layer == ALL_LAYERS)
 			{
 				uav_desc.Texture2DArray.FirstArraySlice = 0;
 				uav_desc.Texture2DArray.ArraySize = 6;
@@ -411,14 +382,14 @@ DX12TextureView::DX12TextureView(TextureViewDescription description): RHITexture
 				uav_desc.Texture2DArray.FirstArraySlice = description.layer;
 				uav_desc.Texture2DArray.ArraySize = 1;
 			}
-		} else if (native_texture->getDescription().array_levels > 1)
+		} else if (native_texture->getDescription().array_layers > 1)
 		{
 			uav_desc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2DARRAY;
 			uav_desc.Texture2DArray.MipSlice = mip_base;
-			if (description.layer == -1)
+			if (description.layer == ALL_LAYERS)
 			{
 				uav_desc.Texture2DArray.FirstArraySlice = 0;
-				uav_desc.Texture2DArray.ArraySize = native_texture->getDescription().array_levels;
+				uav_desc.Texture2DArray.ArraySize = native_texture->getDescription().array_layers;
 			} else
 			{
 				uav_desc.Texture2DArray.FirstArraySlice = description.layer;
@@ -449,7 +420,7 @@ DX12TextureView::~DX12TextureView()
 		} else if (description.view_type == TextureViewType::SHADER_RESOURCE)
 		{
 			rhi->cbv_srv_uav_staging_heap->release(descriptor);
-		} else if (description.view_type == TextureViewType::SHADER_RESOURCE_STORAGE)
+		} else if (description.view_type == TextureViewType::UNORDERED_ACCESS)
 		{
 			rhi->cbv_srv_uav_staging_heap->release(descriptor);
 		}

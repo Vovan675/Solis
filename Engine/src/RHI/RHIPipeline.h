@@ -2,72 +2,70 @@
 #include "RHIShader.h"
 #include "Math/EngineMath.h"
 #include "RHIBuffer.h"
-#include "Vulkan/Descriptors.h"
-#include "DX12/DX12Shader.h"
 
 using namespace Engine::Math;
 
-enum CullMode
+enum class CullMode
 {
-	CULL_MODE_NONE,
-	CULL_MODE_FRONT,
-	CULL_MODE_BACK
+	NONE,
+	FRONT,
+	BACK
 };
 
-enum Topology
+enum class Topology
 {
-	TOPOLOGY_POINT_LIST,
-	TOPOLOGY_LINE_LIST,
-	TOPOLOGY_TRIANGLE_LIST,
-	TOPOLOGY_TRIANGLE_STRIP
+	POINT_LIST,
+	LINE_LIST,
+	TRIANGLE_LIST,
+	TRIANGLE_STRIP
 };
 
-enum CompareFunc
+enum class CompareFunc
 {
-	COMPARE_FUNC_NEVER,
-	COMPARE_FUNC_LESS,
-	COMPARE_FUNC_EQUAL,
-	COMPARE_FUNC_LESS_EQUAL,
-	COMPARE_FUNC_GREATER,
-	COMPARE_FUNC_NOT_EQUAL,
-	COMPARE_FUNC_GREATER_EQUAL,
-	COMPARE_FUNC_ALWAYS
+	NEVER,
+	LESS,
+	EQUAL,
+	LESS_EQUAL,
+	GREATER,
+	NOT_EQUAL,
+	GREATER_EQUAL,
+	ALWAYS
 };
 
-enum Blend
+enum class BlendFactor
 {
-	BLEND_ZERO,
-	BLEND_ONE,
-	BLEND_SRC_COLOR,
-	BLEND_ONE_MINUS_SRC_COLOR,
-	BLEND_DST_COLOR,
-	BLEND_ONE_MINUS_DST_COLOR,
-	BLEND_SRC_ALPHA,
-	BLEND_ONE_MINUS_SRC_ALPHA,
-	BLEND_DST_ALPHA,
-	BLEND_ONE_MINUS_DST_ALPHA,
-	BLEND_SRC_ALPHA_SATURATE,
-	BLEND_SRC1_COLOR,
-	BLEND_ONE_MINUS_SRC1_COLOR,
-	BLEND_SRC1_ALPHA,
-	BLEND_ONE_MINUS_SRC1_ALPHA
+	ZERO,
+	ONE,
+	SRC_COLOR,
+	ONE_MINUS_SRC_COLOR,
+	DST_COLOR,
+	ONE_MINUS_DST_COLOR,
+	SRC_ALPHA,
+	ONE_MINUS_SRC_ALPHA,
+	DST_ALPHA,
+	ONE_MINUS_DST_ALPHA,
+	SRC_ALPHA_SATURATE,
+	SRC1_COLOR,
+	ONE_MINUS_SRC1_COLOR,
+	SRC1_ALPHA,
+	ONE_MINUS_SRC1_ALPHA
 };
 
-enum BlendOp
+enum class BlendOp
 {
-	BLEND_OP_ADD,
-	BLEND_OP_SUBTRACT,
-	BLEND_OP_REV_SUBTRACT,
-	BLEND_OP_MIN,
-	BLEND_OP_MAX
+	ADD,
+	SUBTRACT,
+	REV_SUBTRACT,
+	MIN,
+	MAX
 };
 
 enum class PipelineType
 {
-	Graphics,
-	Compute,
-	RayTracing,
-	Mesh
+	GRAPHICS,
+	COMPUTE,
+	RAY_TRACING,
+	MESH
 };
 
 struct VertexInputsDescription
@@ -102,23 +100,22 @@ struct PipelineDescription
 
 	VertexInputsDescription vertex_inputs_descriptions;
 	eastl::vector<Format> color_formats {}; // MAX 8, TODO: replace with array
-	eastl::vector<VkPushConstantRange> push_constant_ranges {};
-	Format depth_format = FORMAT_UNDEFINED;
+	Format depth_format = Format::UNDEFINED;
 	bool use_depth_test = true;
 	bool use_depth_write = true;
-	CompareFunc depth_compare_func = COMPARE_FUNC_GREATER;
+	CompareFunc depth_compare_func = CompareFunc::GREATER;
 	bool use_blending = false;
-	Blend src_color_blend = BLEND_SRC_ALPHA;
-	Blend dst_color_blend = BLEND_ONE_MINUS_SRC_ALPHA;
-	BlendOp color_blend_op = BLEND_OP_ADD;
-	Blend src_alpha_blend = BLEND_ONE_MINUS_SRC_ALPHA;
-	Blend dst_alpha_blend = BLEND_ONE_MINUS_SRC_ALPHA;
-	BlendOp alpha_blend_op = BLEND_OP_ADD;
-	CullMode cull_mode = CULL_MODE_BACK;
+	BlendFactor src_color_blend = BlendFactor::SRC_ALPHA;
+	BlendFactor dst_color_blend = BlendFactor::ONE_MINUS_SRC_ALPHA;
+	BlendOp color_blend_op = BlendOp::ADD;
+	BlendFactor src_alpha_blend = BlendFactor::ONE_MINUS_SRC_ALPHA;
+	BlendFactor dst_alpha_blend = BlendFactor::ONE_MINUS_SRC_ALPHA;
+	BlendOp alpha_blend_op = BlendOp::ADD;
+	CullMode cull_mode = CullMode::BACK;
 	bool depth_clip = true;
-	Topology primitive_topology = TOPOLOGY_TRIANGLE_LIST;
+	Topology primitive_topology = Topology::TRIANGLE_LIST;
 
-	PipelineType pipeline_type = PipelineType::Graphics;
+	PipelineType pipeline_type = PipelineType::GRAPHICS;
 
 	// Compute Pipeline
 	RHIShaderRef compute_shader;
@@ -136,19 +133,19 @@ struct PipelineDescription
 		eastl::fixed_vector<RHIShader *, 3> shaders;
 		switch (pipeline_type)
 		{
-			case PipelineType::Graphics:
+			case PipelineType::GRAPHICS:
 				shaders.push_back(vertex_shader);
 				shaders.push_back(fragment_shader);
 				break;
-			case PipelineType::Compute:
+			case PipelineType::COMPUTE:
 				shaders.push_back(compute_shader);
 				break;
-			case PipelineType::RayTracing:
+			case PipelineType::RAY_TRACING:
 				shaders.push_back(ray_generation_shader);
 				shaders.push_back(miss_shader);
 				shaders.push_back(closest_hit_shader);
 				break;
-			case PipelineType::Mesh:
+			case PipelineType::MESH:
 				shaders.push_back(mesh_shader);
 				shaders.push_back(fragment_shader);
 				break;
@@ -178,13 +175,6 @@ struct PipelineDescription
 		for (const auto &color_format : color_formats)
 			hashCombine(hash, color_format);
 
-		for (const auto &range : push_constant_ranges)
-		{
-			hashCombine(hash, range.stageFlags);
-			hashCombine(hash, range.offset);
-			hashCombine(hash, range.size);
-		}
-
 		hashCombine(hash, depth_format);
 		hashCombine(hash, use_depth_test);
 		hashCombine(hash, use_depth_write);
@@ -207,8 +197,8 @@ struct PipelineDescription
 class RHIPipeline : public RefCounted
 {
 public:
-	virtual void create(const PipelineDescription &description) = 0;
-	size_t getHash() const { return hash; };
+	RHIPipeline(const PipelineDescription &description): description(description), hash(description.getHash()) {}
+	size_t getHash() const { return hash; }
 
 	PipelineDescription description;
 

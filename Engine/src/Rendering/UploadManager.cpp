@@ -12,9 +12,8 @@ void UploadManager::init(uint32_t per_frame_ring_size)
 	{
 		BufferDescription desc;
 		desc.size = ring_size;
-		desc.usage = BufferUsage::STAGING_BUFFER;
-		desc.use_staging_buffer = false;
-		desc.storage_stride = sizeof(uint32_t);
+		desc.memory = BufferMemory::UPLOAD;
+		desc.stride = sizeof(uint32_t);
 		ring_buffers[i] = gDynamicRHI->createBuffer(desc);
 		ring_buffers[i]->setDebugName("UploadManager Ring Buffer");
 		ring_buffers[i]->map(&ring_mapped[i]);

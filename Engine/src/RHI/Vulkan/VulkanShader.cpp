@@ -39,23 +39,23 @@ eastl::vector<Descriptor> VulkanShader::getDescriptors(const eastl::fixed_vector
 		DescriptorStage stage;
 		switch (shader->type)
 		{
-			case VERTEX_SHADER:
-				stage = DESCRIPTOR_STAGE_VERTEX_SHADER;
+			case ShaderType::VERTEX:
+				stage = DescriptorStage::VERTEX;
 				break;
-			case FRAGMENT_SHADER:
-				stage = DESCRIPTOR_STAGE_FRAGMENT_SHADER;
+			case ShaderType::FRAGMENT:
+				stage = DescriptorStage::FRAGMENT;
 				break;
-			case COMPUTE_SHADER:
-				stage = DESCRIPTOR_STAGE_COMPUTE_SHADER;
+			case ShaderType::COMPUTE:
+				stage = DescriptorStage::COMPUTE;
 				break;
-			case RAY_GENERATION_SHADER:
-				stage = DESCRIPTOR_STAGE_RAY_GENERATION_SHADER;
+			case ShaderType::RAY_GENERATION:
+				stage = DescriptorStage::RAY_GENERATION;
 				break;
-			case MISS_SHADER:
-				stage = DESCRIPTOR_STAGE_MISS_SHADER;
+			case ShaderType::MISS:
+				stage = DescriptorStage::MISS;
 				break;
-			case CLOSEST_HIT_SHADER:
-				stage = DESCRIPTOR_STAGE_CLOSEST_HIT_SHADER;
+			case ShaderType::CLOSEST_HIT:
+				stage = DescriptorStage::CLOSEST_HIT;
 				break;
 		}
 
@@ -86,8 +86,8 @@ eastl::vector<Descriptor> VulkanShader::getDescriptors(const eastl::fixed_vector
 				int set = 0;
 				int binding = 0;
 
-				if (!isDefined(DESCRIPTOR_TYPE_PUSH_CONSTANT, set, binding))
-					auto &desc = descriptors.emplace_back(DESCRIPTOR_TYPE_PUSH_CONSTANT, set, binding, size, stage, pc->name);
+				if (!isDefined(DescriptorType::PUSH_CONSTANT, set, binding))
+					auto &desc = descriptors.emplace_back(DescriptorType::PUSH_CONSTANT, set, binding, size, stage, pc->name);
 			}
 		}
 
@@ -105,28 +105,28 @@ eastl::vector<Descriptor> VulkanShader::getDescriptors(const eastl::fixed_vector
 				if (binding->resource_type == SPV_REFLECT_RESOURCE_FLAG_CBV)
 				{
 					uint32_t size = binding->block.size;
-					if (!isDefined(DESCRIPTOR_TYPE_UNIFORM_BUFFER, binding->set, binding->binding))
-						auto &desc = descriptors.emplace_back(DESCRIPTOR_TYPE_UNIFORM_BUFFER, binding->set, binding->binding, size, stage, binding->name);
+					if (!isDefined(DescriptorType::UNIFORM_BUFFER, binding->set, binding->binding))
+						auto &desc = descriptors.emplace_back(DescriptorType::UNIFORM_BUFFER, binding->set, binding->binding, size, stage, binding->name);
 				}
 				// SRV (StructuredBuffer, Texture2D, ...)
 				else if (binding->resource_type == SPV_REFLECT_RESOURCE_FLAG_SAMPLER)
 				{
 					uint32_t size = binding->block.size;
-					//if (!isDefined(DESCRIPTOR_TYPE_SAMPLER, binding->set, binding->binding))
-					//	auto &desc = descriptors.emplace_back(DESCRIPTOR_TYPE_SAMPLER, binding->set, binding->binding, size, stage, binding->name);
+					//if (!isDefined(DescriptorType::SAMPLER, binding->set, binding->binding))
+					//	auto &desc = descriptors.emplace_back(DescriptorType::SAMPLER, binding->set, binding->binding, size, stage, binding->name);
 				}
 				else if (binding->resource_type == SPV_REFLECT_RESOURCE_FLAG_SRV)
 				{
 					if (binding->descriptor_type == SPV_REFLECT_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
 					{
 						uint32_t size = binding->block.size;
-						if (!isDefined(DESCRIPTOR_TYPE_SAMPLED_IMAGE, binding->set, binding->binding))
-							auto &desc = descriptors.emplace_back(DESCRIPTOR_TYPE_SAMPLED_IMAGE, binding->set, binding->binding, size, stage, binding->name);
+						if (!isDefined(DescriptorType::SAMPLED_IMAGE, binding->set, binding->binding))
+							auto &desc = descriptors.emplace_back(DescriptorType::SAMPLED_IMAGE, binding->set, binding->binding, size, stage, binding->name);
 					} else if (binding->descriptor_type  = SPV_REFLECT_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR)
 					{
 						uint32_t size = binding->block.size;
-						if (!isDefined(DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE, binding->set, binding->binding))
-							auto &desc = descriptors.emplace_back(DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE, binding->set, binding->binding, size, stage, binding->name);
+						if (!isDefined(DescriptorType::ACCELERATION_STRUCTURE, binding->set, binding->binding))
+							auto &desc = descriptors.emplace_back(DescriptorType::ACCELERATION_STRUCTURE, binding->set, binding->binding, size, stage, binding->name);
 					}
 				}
 				else if (binding->resource_type == SPV_REFLECT_RESOURCE_FLAG_UAV)
@@ -134,13 +134,13 @@ eastl::vector<Descriptor> VulkanShader::getDescriptors(const eastl::fixed_vector
 					if (binding->descriptor_type == SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_IMAGE)
 					{
 						uint32_t size = binding->block.size;
-						if (!isDefined(DESCRIPTOR_TYPE_STORAGE_IMAGE, binding->set, binding->binding))
-							auto &desc = descriptors.emplace_back(DESCRIPTOR_TYPE_STORAGE_IMAGE, binding->set, binding->binding, size, stage, binding->name);
+						if (!isDefined(DescriptorType::STORAGE_IMAGE, binding->set, binding->binding))
+							auto &desc = descriptors.emplace_back(DescriptorType::STORAGE_IMAGE, binding->set, binding->binding, size, stage, binding->name);
 					} else if (binding->descriptor_type == SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_BUFFER)
 					{
 						uint32_t size = binding->block.size;
-						if (!isDefined(DESCRIPTOR_TYPE_STORAGE_BUFFER, binding->set, binding->binding))
-							auto &desc = descriptors.emplace_back(DESCRIPTOR_TYPE_STORAGE_BUFFER, binding->set, binding->binding, size, stage, binding->name);
+						if (!isDefined(DescriptorType::STORAGE_BUFFER, binding->set, binding->binding))
+							auto &desc = descriptors.emplace_back(DescriptorType::STORAGE_BUFFER, binding->set, binding->binding, size, stage, binding->name);
 					}
 
 				}
@@ -157,17 +157,17 @@ eastl::vector<VkPushConstantRange> VulkanShader::getPushConstantRanges(eastl::ve
 	// Create desciptor ranges based on descriptors
 	const auto stage_to_vk = [](DescriptorStage stage) {
 		VkShaderStageFlags vk_stage = 0;
-		if (stage & DESCRIPTOR_STAGE_VERTEX_SHADER)
+		if (hasAnyFlags(stage, DescriptorStage::VERTEX))
 			vk_stage |= VK_SHADER_STAGE_VERTEX_BIT;
-		if (stage & DESCRIPTOR_STAGE_FRAGMENT_SHADER)
+		if (hasAnyFlags(stage, DescriptorStage::FRAGMENT))
 			vk_stage |= VK_SHADER_STAGE_FRAGMENT_BIT;
-		if (stage & DESCRIPTOR_STAGE_COMPUTE_SHADER)
+		if (hasAnyFlags(stage, DescriptorStage::COMPUTE))
 			vk_stage |= VK_SHADER_STAGE_COMPUTE_BIT;
-		if (stage & DESCRIPTOR_STAGE_RAY_GENERATION_SHADER)
+		if (hasAnyFlags(stage, DescriptorStage::RAY_GENERATION))
 			vk_stage |= VK_SHADER_STAGE_RAYGEN_BIT_KHR;
-		if (stage & DESCRIPTOR_STAGE_MISS_SHADER)
+		if (hasAnyFlags(stage, DescriptorStage::MISS))
 			vk_stage |= VK_SHADER_STAGE_MISS_BIT_KHR;
-		if (stage & DESCRIPTOR_STAGE_CLOSEST_HIT_SHADER)
+		if (hasAnyFlags(stage, DescriptorStage::CLOSEST_HIT))
 			vk_stage |= VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
 		return vk_stage;
 	};
@@ -175,7 +175,7 @@ eastl::vector<VkPushConstantRange> VulkanShader::getPushConstantRanges(eastl::ve
 	eastl::vector<VkPushConstantRange> ranges;
 	for (auto &desc : descriptors)
 	{
-		if (desc.type == DESCRIPTOR_TYPE_PUSH_CONSTANT)
+		if (desc.type == DescriptorType::PUSH_CONSTANT)
 		{
 			VkPushConstantRange range;
 			range.stageFlags = stage_to_vk(desc.stage);

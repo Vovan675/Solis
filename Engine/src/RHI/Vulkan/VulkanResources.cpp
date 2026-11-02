@@ -3,44 +3,44 @@
 #include "VulkanDynamicRHI.h"
 #include "VulkanUtils.h"
 
-void VkPipelineResource::Release()
+void VkPipelineResource::release()
 {
 	auto *native_rhi = VulkanUtils::getNativeRHI();
 	vkDestroyPipeline(native_rhi->device->logicalHandle, pipeline, nullptr);
 	vkDestroyPipelineLayout(native_rhi->device->logicalHandle, pipeline_layout, nullptr);
 }
 
-void VkAllocationResource::Release()
+void VkAllocationResource::release()
 {
 	auto *native_rhi = VulkanUtils::getNativeRHI();
 	vmaFreeMemory(native_rhi->allocator, resource);
 }
 
-void VkBufferResource::Release()
+void VkBufferResource::release()
 {
 	auto *native_rhi = VulkanUtils::getNativeRHI();
 	vkDestroyBuffer(native_rhi->device->logicalHandle, resource, nullptr);
 }
 
-void VkImageResource::Release()
+void VkImageResource::release()
 {
 	auto *native_rhi = VulkanUtils::getNativeRHI();
 	vkDestroyImage(native_rhi->device->logicalHandle, resource, nullptr);
 }
 
-void VkImageViewResource::Release()
+void VkImageViewResource::release()
 {
 	auto *native_rhi = VulkanUtils::getNativeRHI();
 	vkDestroyImageView(native_rhi->device->logicalHandle, resource, nullptr);
 }
 
-void VkSamplerResource::Release()
+void VkSamplerResource::release()
 {
 	auto *native_rhi = VulkanUtils::getNativeRHI();
 	vkDestroySampler(native_rhi->device->logicalHandle, resource, nullptr);
 }
 
-void VkAccelerationStructureResource::Release()
+void VkAccelerationStructureResource::release()
 {
 	VulkanUtils::vkDestroyAccelerationStructureKHR(resource, nullptr);
 }

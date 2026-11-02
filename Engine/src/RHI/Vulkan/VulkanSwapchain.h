@@ -5,7 +5,7 @@
 class VulkanSwapchain final: public RHISwapchain
 {
 public:
-	VulkanSwapchain(VkSurfaceKHR surface, const SwapchainInfo &info);
+	VulkanSwapchain(VkSurfaceKHR surface, const SwapchainDescription &description);
 	virtual ~VulkanSwapchain();
 	void cleanup();
 

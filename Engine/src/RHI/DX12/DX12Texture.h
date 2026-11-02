@@ -8,22 +8,19 @@ class DX12TextureView;
 class DX12Texture final: public RHITexture
 {
 public:
-	DX12Texture(TextureDescription description): RHITexture(description) {}
+	DX12Texture(const TextureDescription &description, const void *initial_data);
+	DX12Texture(const TextureDescription &description, ID3D12Resource *swapchain_resource);
 	~DX12Texture();
 
 	void destroy();
 
-	void fill() override;
-	void fill(const void *sourceData) override;
-	void clear(RHICommandList *cmd_list, const glm::vec4 &color) override;
-
-	void setDebugName(eastl::string name) override
+	void setDebugName(const char *name) override
 	{
 		debug_name = name;
 		wchar_t wbuf[128];
-		size_t l = std::min(size_t(127), name.size());
+		size_t l = std::min(size_t(127), strlen(name));
 		wbuf[l] = '\0';
-		mbstowcs(wbuf, name.c_str(), l);
+		mbstowcs(wbuf, name, l);
 		resource->resource->SetName(wbuf);
 	}
 
@@ -37,50 +34,45 @@ public:
 	D3D12MA::Allocation *getAllocation() const { return allocation->resource; }
 
 	DXGI_FORMAT getNativeFormat() const;
-	D3D12_RESOURCE_STATES getNativeState() { return get_native_layout(current_layouts[0]); }
+	D3D12_RESOURCE_STATES getNativeState() { return get_native_state(current_states[0]); }
 
 protected:
 	friend class DX12Swapchain;
 
-	void fill_raw(void *raw_resource) override
-	{
-		current_layouts.assign(description.mip_levels, TEXTURE_LAYOUT_GENERAL);
-		resource = std::make_unique<DX12Resource>();
-		resource->resource = reinterpret_cast<ID3D12Resource *>(raw_resource);
-	}
-
+	void recreate(const TextureDescription &new_description, const void *initial_data) override;
+	void create_resource(const void *initial_data);
 	RHITextureView *create_view(const TextureViewDescription &view_description) override;
-	void transit_layout(RHICommandList *cmd_list, TextureLayoutType old_layout_type, TextureLayoutType new_layout_type, uint32_t first_mip, uint32_t mip_count) override;
+	void transit_state(RHICommandList *cmd_list, ResourceState old_state, ResourceState new_state, uint32_t first_mip, uint32_t mip_count) override;
 
-	D3D12_RESOURCE_STATES get_native_layout(TextureLayoutType layout_type)
+	D3D12_RESOURCE_STATES get_native_state(ResourceState state)
 	{
-		switch (layout_type)
+		switch (state)
 		{
-			case TEXTURE_LAYOUT_UNDEFINED:
+			case ResourceState::UNDEFINED:
 				return D3D12_RESOURCE_STATE_COMMON;
 				break;
-			case TEXTURE_LAYOUT_GENERAL:
+			case ResourceState::COMMON:
 				return D3D12_RESOURCE_STATE_COMMON;
 				break;
-			case TEXTURE_LAYOUT_ATTACHMENT:
+			case ResourceState::RENDER_TARGET:
 				return isDepthTexture() ? D3D12_RESOURCE_STATE_DEPTH_WRITE : D3D12_RESOURCE_STATE_RENDER_TARGET;
 				break;
-			case TEXTURE_LAYOUT_DEPTH_READ:
+			case ResourceState::DEPTH_READ:
 				return D3D12_RESOURCE_STATE_DEPTH_READ;
 				break;
-			case TEXTURE_LAYOUT_SHADER_READ:
+			case ResourceState::SHADER_RESOURCE:
 				return D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
 				break;
-			case TEXTURE_LAYOUT_TRANSFER_SRC:
+			case ResourceState::COPY_SRC:
 				return D3D12_RESOURCE_STATE_COPY_SOURCE;
 				break;
-			case TEXTURE_LAYOUT_TRANSFER_DST:
+			case ResourceState::COPY_DST:
 				return D3D12_RESOURCE_STATE_COPY_DEST;
 				break;
-			case TEXTURE_LAYOUT_PRESENT:
+			case ResourceState::PRESENT:
 				return D3D12_RESOURCE_STATE_PRESENT;
 				break;
-			case TEXTURE_LAYOUT_UAV:
+			case ResourceState::UNORDERED_ACCESS:
 				return D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
 				break;
 		}
@@ -89,12 +81,12 @@ protected:
 	D3D12_RESOURCE_FLAGS get_resource_flags() const
 	{
 		D3D12_RESOURCE_FLAGS flags = D3D12_RESOURCE_FLAG_NONE;
-		if (description.usage_flags & TEXTURE_USAGE_NO_SAMPLED)
+		if (hasAnyFlags(description.usage_flags, TextureUsage::NO_SAMPLED))
 			flags |= D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE;
 
-		if (description.usage_flags & TEXTURE_USAGE_STORAGE)
+		if (hasAnyFlags(description.usage_flags, TextureUsage::UNORDERED_ACCESS))
 			flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
-		if (description.usage_flags & TEXTURE_USAGE_ATTACHMENT)
+		if (hasAnyFlags(description.usage_flags, TextureUsage::RENDER_TARGET))
 			flags |= isDepthTexture() ? D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL : D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
 		return flags;
 	}

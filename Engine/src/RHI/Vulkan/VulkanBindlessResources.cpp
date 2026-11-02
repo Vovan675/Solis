@@ -95,7 +95,7 @@ void VulkanBindlessResources::write_texture(uint32_t index, RHITextureView *view
 	if (view->getViewType() == TextureViewType::SHADER_RESOURCE)
 	{
 		descriptor_writer.writeImage(BINDLESS_RESOURCES_BINDING, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, native_view->getImageView(), nullptr, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	} else if (view->getViewType() == TextureViewType::SHADER_RESOURCE_STORAGE)
+	} else if (view->getViewType() == TextureViewType::UNORDERED_ACCESS)
 	{
 		descriptor_writer.writeImage(BINDLESS_RESOURCES_BINDING, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, native_view->getImageView(), nullptr, VK_IMAGE_LAYOUT_GENERAL);
 	}
@@ -127,7 +127,7 @@ void VulkanBindlessResources::set_invalid_texture(uint32_t index)
 	descriptor_writer.writes.back().dstArrayElement = index;
 }
 
-uint32_t VulkanBindlessResources::addSampler(const TextureDescription &description)
+uint32_t VulkanBindlessResources::addSampler(const SamplerDescription &description)
 {
 	VkSamplerResource *sampler = new VkSamplerResource();
 	sampler->resource = VK_NULL_HANDLE;
@@ -141,30 +141,30 @@ uint32_t VulkanBindlessResources::addSampler(const TextureDescription &descripti
 
 void VulkanBindlessResources::recreate_sampler(uint32_t index)
 {
-	const TextureDescription &description = sampler_descriptions[index];
+	const SamplerDescription &description = sampler_descriptions[index];
 
 	VkFilter filter = VK_FILTER_LINEAR;
-	if (description.filtering == FILTER_LINEAR)
+	if (description.filter == Filter::LINEAR)
 		filter = VK_FILTER_LINEAR;
-	else if (description.filtering == FILTER_NEAREST)
+	else if (description.filter == Filter::NEAREST)
 		filter = VK_FILTER_NEAREST;
 
-	VkSamplerAddressMode sampler_mode = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	if (description.sampler_mode == SAMPLER_MODE_REPEAT)
-		sampler_mode = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	else if (description.sampler_mode == SAMPLER_MODE_CLAMP_TO_EDGE)
-		sampler_mode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-	else if (description.sampler_mode == SAMPLER_MODE_CLAMP_TO_BORDER)
-		sampler_mode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+	VkSamplerAddressMode address_mode = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	if (description.address_mode == SamplerAddressMode::REPEAT)
+		address_mode = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	else if (description.address_mode == SamplerAddressMode::CLAMP_TO_EDGE)
+		address_mode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	else if (description.address_mode == SamplerAddressMode::CLAMP_TO_BORDER)
+		address_mode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
 
 	VkSamplerCreateInfo samplerInfo{};
 	samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
 	samplerInfo.magFilter = filter;
 	samplerInfo.minFilter = filter;
-	samplerInfo.mipmapMode = description.filtering == FILTER_LINEAR ? VK_SAMPLER_MIPMAP_MODE_LINEAR : VK_SAMPLER_MIPMAP_MODE_NEAREST;
-	samplerInfo.addressModeU = sampler_mode;
-	samplerInfo.addressModeV = sampler_mode;
-	samplerInfo.addressModeW = sampler_mode;
+	samplerInfo.mipmapMode = description.filter == Filter::LINEAR ? VK_SAMPLER_MIPMAP_MODE_LINEAR : VK_SAMPLER_MIPMAP_MODE_NEAREST;
+	samplerInfo.addressModeU = address_mode;
+	samplerInfo.addressModeV = address_mode;
+	samplerInfo.addressModeW = address_mode;
 	samplerInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
 
 	samplerInfo.compareEnable = VK_FALSE;
@@ -185,7 +185,7 @@ void VulkanBindlessResources::recreate_sampler(uint32_t index)
 
 	VkSamplerResource *sampler = samplers[index];
 	if (sampler->resource != VK_NULL_HANDLE)
-		sampler->Release();
+		sampler->release();
 	CHECK_ERROR(vkCreateSampler(VulkanUtils::getNativeRHI()->device->logicalHandle, &samplerInfo, nullptr, &sampler->resource));
 
 	descriptor_writer.writeImage(BINDLESS_SAMPLERS_BINDING, VK_DESCRIPTOR_TYPE_SAMPLER, nullptr, sampler->resource, VK_IMAGE_LAYOUT_UNDEFINED);

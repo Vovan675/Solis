@@ -32,8 +32,8 @@ DDGIRenderer::DDGIRenderer()
 	auto model = AssetManager::getModelAsset("assets/models/primitives/icosphere_3.fbx");
 	sphere_mesh = model->getRootNode()->children[0]->primitives[0].mesh;
 
-	visualize_vertex_shader = gDynamicRHI->createShader(L"shaders/ddgi/ddgi_visualize.hlsl", VERTEX_SHADER);
-	visualize_fragment_shader = gDynamicRHI->createShader(L"shaders/ddgi/ddgi_visualize.hlsl", FRAGMENT_SHADER);
+	visualize_vertex_shader = gDynamicRHI->createShader(L"shaders/ddgi/ddgi_visualize.hlsl", ShaderType::VERTEX);
+	visualize_fragment_shader = gDynamicRHI->createShader(L"shaders/ddgi/ddgi_visualize.hlsl", ShaderType::FRAGMENT);
 }
 
 void DDGIRenderer::update()
@@ -110,7 +110,7 @@ void DDGIRenderer::addVisualizePass(FrameGraph &fg)
 
 		gGlobalPipeline->setupGraphicsPipeline(cmd_list, visualize_vertex_shader, visualize_fragment_shader, Engine::Vertex::GetVertexInputsDescription());
 		gGlobalPipeline->setDepthWrite(true);
-		gGlobalPipeline->setDepthFunc(COMPARE_FUNC_GREATER_EQUAL);
+		gGlobalPipeline->setDepthFunc(CompareFunc::GREATER_EQUAL);
 		gGlobalPipeline->flushAndBind(cmd_list);
 
 		gDynamicRHI->setConstantBufferData(1, render_ddgi_visualize_mode.getPtr(), sizeof(int));
@@ -168,29 +168,29 @@ void DDGIRenderer::addPreparePass(FrameGraph &fg)
 		TextureDescription distance_desc;
 		distance_desc.width = (distance_probe_texels + border_size * 2) * volume.size.x * layers;
 		distance_desc.height = (distance_probe_texels + border_size * 2) * volume.size.z;
-		distance_desc.array_levels = cascades_count;
-		distance_desc.format = FORMAT_R16G16_SFLOAT;
-		distance_desc.usage_flags = TEXTURE_USAGE_STORAGE;
+		distance_desc.array_layers = cascades_count;
+		distance_desc.format = Format::R16G16_SFLOAT;
+		distance_desc.usage_flags = TextureUsage::UNORDERED_ACCESS;
 
 		TextureDescription irradiance_desc;
 		irradiance_desc.width = (irradiance_probe_texels + border_size * 2) * volume.size.x * layers;
 		irradiance_desc.height = (irradiance_probe_texels + border_size * 2) * volume.size.z;
-		irradiance_desc.array_levels = cascades_count;
-		irradiance_desc.format = FORMAT_R16G16B16A16_SFLOAT;
-		irradiance_desc.usage_flags = TEXTURE_USAGE_STORAGE;
+		irradiance_desc.array_layers = cascades_count;
+		irradiance_desc.format = Format::R16G16B16A16_SFLOAT;
+		irradiance_desc.usage_flags = TextureUsage::UNORDERED_ACCESS;
 
 		TextureDescription metadata_desc;
 		metadata_desc.width = volume.size.x * layers;
 		metadata_desc.height = volume.size.z * 2; // Rows: current offset + state, candidate offset + lighting scale
-		metadata_desc.array_levels = cascades_count;
-		metadata_desc.format = FORMAT_R16G16B16A16_SFLOAT;
-		metadata_desc.usage_flags = TEXTURE_USAGE_STORAGE;
+		metadata_desc.array_layers = cascades_count;
+		metadata_desc.format = Format::R16G16B16A16_SFLOAT;
+		metadata_desc.usage_flags = TextureUsage::UNORDERED_ACCESS;
 
 		builder.createPersistentTexture(GFXRID(DDGIDistance), distance_desc);
 		builder.createPersistentTexture(GFXRID(DDGIIrradiance), irradiance_desc);
 		builder.createPersistentTexture(GFXRID(DDGIMetadata), metadata_desc);
 
-		builder.createBuffer(GFXRID(DDGIProbesToUpdate), sizeof(uint32_t), probes_to_update.size(), BufferUsage::SHADER_READ_BUFFER);
+		builder.createBuffer(GFXRID(DDGIProbesToUpdate), sizeof(uint32_t), probes_to_update.size(), BufferUsage::SHADER_RESOURCE);
 		builder.writeCopyBuffer(GFXRID(DDGIProbesToUpdate));
 
 		if (reset_relocation || reset_classification)
@@ -200,7 +200,7 @@ void DDGIRenderer::addPreparePass(FrameGraph &fg)
 	{
 		if (reset_relocation || reset_classification)
 		{
-			gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/ddgi/ddgi_prepare.hlsl", COMPUTE_SHADER, "CS_ResetMetadata"));
+			gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/ddgi/ddgi_prepare.hlsl", ShaderType::COMPUTE, "CS_ResetMetadata"));
 			gGlobalPipeline->flushAndBind(cmd_list);
 
 			struct
@@ -231,7 +231,7 @@ void DDGIRenderer::addTraceRaysPass(FrameGraph &fg, Ref<RayTracingScene> rt_scen
 	fg.addCallbackPass("DDGI Trace Rays Pass",
 	[&](RenderPassBuilder &builder)
 	{
-		builder.createBuffer(GFXRID(DDGIRayData), sizeof(glm::vec4), volume.rays_per_probe * probes_to_update.size(), BufferUsage::SHADER_READ_BUFFER | BufferUsage::SHADER_WRITE_BUFFER);
+		builder.createBuffer(GFXRID(DDGIRayData), sizeof(glm::vec4), volume.rays_per_probe * probes_to_update.size(), BufferUsage::SHADER_RESOURCE | BufferUsage::UNORDERED_ACCESS);
 		builder.writeBuffer(GFXRID(DDGIRayData));
 		builder.readBuffer(GFXRID(DDGIProbesToUpdate));
 		readAtlases(builder);
@@ -239,7 +239,7 @@ void DDGIRenderer::addTraceRaysPass(FrameGraph &fg, Ref<RayTracingScene> rt_scen
 	},
 	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/ddgi/ddgi_trace_rays.hlsl", COMPUTE_SHADER, "CS_TraceRays"));
+		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/ddgi/ddgi_trace_rays.hlsl", ShaderType::COMPUTE, "CS_TraceRays"));
 		gGlobalPipeline->flushAndBind(cmd_list);
 
 		struct Constants
@@ -270,7 +270,7 @@ void DDGIRenderer::addUpdatePass(FrameGraph & fg)
 	},
 	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/ddgi/ddgi_update_probe.hlsl", COMPUTE_SHADER, "CSMain", {{"NUM_TEXELS", "8"}, {"IRRADIANCE", "1"}}));
+		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/ddgi/ddgi_update_probe.hlsl", ShaderType::COMPUTE, "CSMain", {{"NUM_TEXELS", "8"}, {"IRRADIANCE", "1"}}));
 		gGlobalPipeline->flushAndBind(cmd_list);
 
 		struct
@@ -298,7 +298,7 @@ void DDGIRenderer::addUpdatePass(FrameGraph & fg)
 	},
 	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/ddgi/ddgi_update_probe.hlsl", COMPUTE_SHADER, "CSMain", {{"NUM_TEXELS", "12"}}));
+		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/ddgi/ddgi_update_probe.hlsl", ShaderType::COMPUTE, "CSMain", {{"NUM_TEXELS", "12"}}));
 		gGlobalPipeline->flushAndBind(cmd_list);
 
 		ProbePassConstants constants;
@@ -323,7 +323,7 @@ void DDGIRenderer::addRelocationPass(FrameGraph & fg)
 	},
 	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/ddgi/ddgi_relocation.hlsl", COMPUTE_SHADER, "CS_Relocate"));
+		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/ddgi/ddgi_relocation.hlsl", ShaderType::COMPUTE, "CS_Relocate"));
 		gGlobalPipeline->flushAndBind(cmd_list);
 
 		ProbePassConstants constants;
@@ -348,7 +348,7 @@ void DDGIRenderer::addClassificationPass(FrameGraph &fg)
 	},
 	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/ddgi/ddgi_classification.hlsl", COMPUTE_SHADER, "CS_Classification"));
+		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/ddgi/ddgi_classification.hlsl", ShaderType::COMPUTE, "CS_Classification"));
 		gGlobalPipeline->flushAndBind(cmd_list);
 
 		ProbePassConstants constants;

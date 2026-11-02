@@ -51,11 +51,7 @@ void MitsubaBridge::runRender(EditorContext &context)
 		return;
 	}
 
-	TextureDescription description{};
-	description.format = FORMAT_R8G8B8A8_UNORM;
-	description.usage_flags = TEXTURE_USAGE_TRANSFER_SRC;
-	result_texture = gDynamicRHI->createTexture(description);
-	result_texture->load(output_path.string().c_str());
+	result_texture = RHITexture::load(output_path.string().c_str(), Format::R8G8B8A8_UNORM);
 }
 
 static nlohmann::json mat4_to_json_transform(const glm::mat4 &m)

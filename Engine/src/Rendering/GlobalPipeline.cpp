@@ -35,15 +35,14 @@ void GlobalPipeline::flush()
 	}
 
 	// Otherwise create new pipeline and cache it
-	auto new_pipeline = gDynamicRHI->createPipeline();
-	new_pipeline->create(current_description);
+	auto new_pipeline = gDynamicRHI->createPipeline(current_description);
 
 	cached_pipelines[new_pipeline->getHash()] = new_pipeline;
 	current_pipeline = new_pipeline;
 }
 
-void GlobalPipeline::setBlendMode(Blend src_color_blend, Blend dst_color_blend, BlendOp color_blend_op,
-								  Blend src_alpha_blend, Blend dst_alpha_blend, BlendOp alpha_blend_op)
+void GlobalPipeline::setBlendMode(BlendFactor src_color_blend, BlendFactor dst_color_blend, BlendOp color_blend_op,
+								  BlendFactor src_alpha_blend, BlendFactor dst_alpha_blend, BlendOp alpha_blend_op)
 {
 	current_description.src_color_blend = src_color_blend;
 	current_description.dst_color_blend = dst_color_blend;
@@ -56,12 +55,12 @@ void GlobalPipeline::setBlendMode(Blend src_color_blend, Blend dst_color_blend, 
 void GlobalPipeline::bindScreenQuadPipeline(RHICommandList *cmd_list, RHIShaderRef fragment_shader)
 {
 	setupGraphicsPipeline(cmd_list,
-						 gDynamicRHI->createShader(L"shaders/quad.hlsl", VERTEX_SHADER),
+						 gDynamicRHI->createShader(L"shaders/quad.hlsl", ShaderType::VERTEX),
 						 fragment_shader,
 						 VertexInputsDescription{},
 						 false, // no blending
 						 false, // no depth test
-						 CULL_MODE_BACK);
+						 CullMode::BACK);
 	flushAndBind(cmd_list);
 }
 
@@ -73,25 +72,25 @@ void GlobalPipeline::bind(RHICommandList *cmd_list)
 void GlobalPipeline::setupRayTracing(const wchar_t* shader_path)
 {
 	reset();
-	current_description.pipeline_type = PipelineType::RayTracing;
-	setRayGenerationShader(gDynamicRHI->createShader(shader_path, RAY_GENERATION_SHADER));
-	setMissShader(gDynamicRHI->createShader(shader_path, MISS_SHADER));
-	setClosestHitShader(gDynamicRHI->createShader(shader_path, CLOSEST_HIT_SHADER));
+	current_description.pipeline_type = PipelineType::RAY_TRACING;
+	setRayGenerationShader(gDynamicRHI->createShader(shader_path, ShaderType::RAY_GENERATION));
+	setMissShader(gDynamicRHI->createShader(shader_path, ShaderType::MISS));
+	setClosestHitShader(gDynamicRHI->createShader(shader_path, ShaderType::CLOSEST_HIT));
 }
 
 void GlobalPipeline::setupRayTracing(const wchar_t *shader_path, eastl::vector<eastl::pair<const char *, const char *>> defines)
 {
 	reset();
-	current_description.pipeline_type = PipelineType::RayTracing;
-	setRayGenerationShader(gDynamicRHI->createShader(shader_path, RAY_GENERATION_SHADER, "RayGen", defines));
-	setMissShader(gDynamicRHI->createShader(shader_path, MISS_SHADER, "Miss", defines));
-	setClosestHitShader(gDynamicRHI->createShader(shader_path, CLOSEST_HIT_SHADER, "ClosestHit", defines));
+	current_description.pipeline_type = PipelineType::RAY_TRACING;
+	setRayGenerationShader(gDynamicRHI->createShader(shader_path, ShaderType::RAY_GENERATION, "RayGen", defines));
+	setMissShader(gDynamicRHI->createShader(shader_path, ShaderType::MISS, "Miss", defines));
+	setClosestHitShader(gDynamicRHI->createShader(shader_path, ShaderType::CLOSEST_HIT, "ClosestHit", defines));
 }
 
 void GlobalPipeline::setupRayTracing(RHIShaderRef ray_gen, RHIShaderRef miss, RHIShaderRef closest_hit)
 {
 	reset();
-	current_description.pipeline_type = PipelineType::RayTracing;
+	current_description.pipeline_type = PipelineType::RAY_TRACING;
 	setRayGenerationShader(ray_gen);
 	setMissShader(miss);
 	setClosestHitShader(closest_hit);
@@ -105,7 +104,7 @@ void GlobalPipeline::setupGraphicsPipeline(RHIShaderRef vertex_shader, RHIShader
 										   CullMode cull_mode)
 {
 	reset();
-	current_description.pipeline_type = PipelineType::Graphics;
+	current_description.pipeline_type = PipelineType::GRAPHICS;
 	setVertexShader(vertex_shader);
 	setFragmentShader(fragment_shader);
 	if (!vertex_inputs.inputs.empty())
@@ -130,7 +129,7 @@ void GlobalPipeline::setupGraphicsPipeline(RHICommandList* cmd_list,
 void GlobalPipeline::setupMeshPipeline(RHICommandList *cmd_list, RHIShaderRef mesh_shader, RHIShaderRef fragment_shader, bool use_blending, bool depth_test, CullMode cull_mode)
 {
 	reset();
-	current_description.pipeline_type = PipelineType::Mesh;
+	current_description.pipeline_type = PipelineType::MESH;
 	setMeshShader(mesh_shader);
 	setFragmentShader(fragment_shader);
 	setRenderTargets(cmd_list->getCurrentRenderTargets());
@@ -142,14 +141,14 @@ void GlobalPipeline::setupMeshPipeline(RHICommandList *cmd_list, RHIShaderRef me
 void GlobalPipeline::setupComputePipeline(RHIShaderRef compute_shader)
 {
 	reset();
-	current_description.pipeline_type = PipelineType::Compute;
+	current_description.pipeline_type = PipelineType::COMPUTE;
 	setComputeShader(compute_shader);
 }
 
 void GlobalPipeline::setRenderTargets(eastl::vector<RHITexture *> attachments)
 {
 	current_description.color_formats.clear();
-	current_description.depth_format = FORMAT_UNDEFINED;
+	current_description.depth_format = Format::UNDEFINED;
 	current_description.use_depth_test = false;
 	for (const auto &attachment : attachments)
 	{

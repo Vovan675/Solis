@@ -13,10 +13,7 @@ SSAORenderer::SSAORenderer()
 	TextureDescription desc;
 	desc.width = 4;
 	desc.height = 4;
-	desc.format = FORMAT_R32G32B32A32_SFLOAT;
-	desc.filtering = FILTER_NEAREST;
-	
-	ssao_noise = gDynamicRHI->createTexture(desc);
+	desc.format = Format::R32G32B32A32_SFLOAT;
 
 	std::default_random_engine generator(0);
 	std::uniform_real_distribution<float> randomFloats(0.0f, 1.0f);
@@ -50,11 +47,11 @@ SSAORenderer::SSAORenderer()
 		ssao_noise_data.push_back(noise);
 	}
 
-	ssao_noise->fill(ssao_noise_data.data());
+	ssao_noise = gDynamicRHI->createTexture(desc, ssao_noise_data.data());
 	ssao_noise->setDebugName("SSAO Noise Texture");
 
-	fragment_shader_raw = gDynamicRHI->createShader(L"shaders/ssao.hlsl", FRAGMENT_SHADER);
-	fragment_shader_blur = gDynamicRHI->createShader(L"shaders/ssao_blur.hlsl", FRAGMENT_SHADER);
+	fragment_shader_raw = gDynamicRHI->createShader(L"shaders/ssao.hlsl", ShaderType::FRAGMENT);
+	fragment_shader_blur = gDynamicRHI->createShader(L"shaders/ssao_blur.hlsl", ShaderType::FRAGMENT);
 }
 
 void SSAORenderer::addPasses(FrameGraph &fg)
@@ -65,7 +62,7 @@ void SSAORenderer::addPasses(FrameGraph &fg)
 	fg.addCallbackPass("SSAO Raw Pass",
 	[&](RenderPassBuilder &builder)
 	{
-		builder.createTexture(GFXRID(SSAORaw), Renderer::getRenderWidth(), Renderer::getRenderHeight(), FORMAT_R8_UNORM);
+		builder.createTexture(GFXRID(SSAORaw), Renderer::getRenderWidth(), Renderer::getRenderHeight(), Format::R8_UNORM);
 		builder.writeTexture(GFXRID(SSAORaw));
 
 		builder.readTexture(GFXRID(SSAONoiseTexture));
@@ -101,7 +98,7 @@ void SSAORenderer::addPasses(FrameGraph &fg)
 	fg.addCallbackPass("SSAO Blur Pass",
 	[&](RenderPassBuilder &builder)
 	{
-		builder.createTexture(GFXRID(SSAOBlurred), Renderer::getRenderWidth(), Renderer::getRenderHeight(), FORMAT_R8_UNORM);
+		builder.createTexture(GFXRID(SSAOBlurred), Renderer::getRenderWidth(), Renderer::getRenderHeight(), Format::R8_UNORM);
 		builder.writeTexture(GFXRID(SSAOBlurred));
 
 		builder.readTexture(GFXRID(SSAORaw));

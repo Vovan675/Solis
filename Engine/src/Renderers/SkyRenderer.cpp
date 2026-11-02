@@ -11,11 +11,11 @@ SkyRenderer::SkyRenderer()
 	auto model = AssetManager::getModelAsset("assets/models/primitives/cube.glb");
 	mesh = model->getRootNode()->primitives[0].mesh;
 
-	vertex_shader = gDynamicRHI->createShader(L"shaders/cube.hlsl", VERTEX_SHADER);
-	fragment_shader = gDynamicRHI->createShader(L"shaders/cube.hlsl", FRAGMENT_SHADER);
+	vertex_shader = gDynamicRHI->createShader(L"shaders/cube.hlsl", ShaderType::VERTEX);
+	fragment_shader = gDynamicRHI->createShader(L"shaders/cube.hlsl", ShaderType::FRAGMENT);
 
-	vertex_procedural_shader = gDynamicRHI->createShader(L"shaders/procedural_sky.hlsl", VERTEX_SHADER);
-	fragment_procedural_shader = gDynamicRHI->createShader(L"shaders/procedural_sky.hlsl", FRAGMENT_SHADER);
+	vertex_procedural_shader = gDynamicRHI->createShader(L"shaders/procedural_sky.hlsl", ShaderType::VERTEX);
+	fragment_procedural_shader = gDynamicRHI->createShader(L"shaders/procedural_sky.hlsl", ShaderType::FRAGMENT);
 }
 
 void SkyRenderer::addProceduralPasses(FrameGraph &fg, const eastl::vector<LightGPU> &lights, uint32_t sun_light_index)
@@ -59,7 +59,7 @@ void SkyRenderer::addProceduralPasses(FrameGraph &fg, const eastl::vector<LightG
 
 			gGlobalPipeline->setupGraphicsPipeline(cmd_list, vertex_procedural_shader, fragment_procedural_shader,
 									 Engine::Vertex::GetVertexInputsDescription(),
-									 false, false, CULL_MODE_NONE);
+									 false, false, CullMode::NONE);
 			gGlobalPipeline->flushAndBind(cmd_list);
 
 			procedural_uniforms.mvp = glm::perspectiveLH(glm::radians(90.0f), 1.0f, 0.01f, 512.0f) * Math::getCubeFaceTransform(face) * glm::eulerAngleXYZ(0.0f, glm::radians(180.0f), 0.0f);
@@ -96,9 +96,9 @@ void SkyRenderer::addCompositePasses(FrameGraph &fg)
 		// PSO
 		gGlobalPipeline->setupGraphicsPipeline(cmd_list, vertex_shader, fragment_shader,
 											   Engine::Vertex::GetVertexInputsDescription(),
-											   false, true, CULL_MODE_FRONT);
+											   false, true, CullMode::FRONT);
 		gGlobalPipeline->setDepthWrite(false);
-		gGlobalPipeline->setDepthFunc(COMPARE_FUNC_GREATER_EQUAL);
+		gGlobalPipeline->setDepthFunc(CompareFunc::GREATER_EQUAL);
 		gGlobalPipeline->flushAndBind(cmd_list);
 
 	
@@ -132,19 +132,42 @@ bool SkyRenderer::update_resources()
 	TextureDescription tex_description{};
 	tex_description.width = 1024;
 	tex_description.height = 1024;
-	tex_description.format = FORMAT_R32G32B32A32_SFLOAT;
-	tex_description.usage_flags = TEXTURE_USAGE_ATTACHMENT | TEXTURE_USAGE_TRANSFER_SRC | TEXTURE_USAGE_TRANSFER_DST | TEXTURE_USAGE_STORAGE;
-	tex_description.is_cube = true;
+	tex_description.format = Format::R32G32B32A32_SFLOAT;
+	tex_description.usage_flags = TextureUsage::RENDER_TARGET | TextureUsage::UNORDERED_ACCESS;
+	tex_description.dimension = TextureDimension::TEXTURE_CUBE;
 
-	cube_texture = gDynamicRHI->createTexture(tex_description);
-
+	RHITextureRef equirect_texture;
 	if (created_mode == SKY_MODE_CUBEMAP)
 	{
-		cube_texture->loadEquirectangularCubemap(AssetManager::getPath(created_hdri).string().c_str());
-	} else
-	{
-		cube_texture->fill();
+		equirect_texture = RHITexture::load(AssetManager::getPath(created_hdri).string().c_str());
+		tex_description.width = equirect_texture->getHeight();
+		tex_description.height = equirect_texture->getHeight();
 	}
+
+	cube_texture = gDynamicRHI->createTexture(tex_description);
 	cube_texture->setDebugName("Sky Texture");
+	if (!equirect_texture)
+		return true;
+
+	// Equirectangular to cubemap
+	RHICommandList *cmd_list = gDynamicRHI->getCmdList();
+	cube_texture->transitState(cmd_list, ResourceState::COMMON);
+
+	gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/equirect_to_cubemap.hlsl", ShaderType::COMPUTE));
+	gGlobalPipeline->flushAndBind(cmd_list);
+
+	equirect_texture->transitState(cmd_list, ResourceState::SHADER_RESOURCE);
+	struct Uniforms
+	{
+		uint32_t equirect_tex_id;
+		uint32_t output_tex_id;
+	} uniforms;
+	uniforms.equirect_tex_id = equirect_texture->getShaderResourceView()->getBindlessIndex();
+	uniforms.output_tex_id = cube_texture->getUnorderedAccessView()->getBindlessIndex();
+	gDynamicRHI->setConstantBufferData(1, &uniforms, sizeof(uniforms));
+
+	cmd_list->dispatch(cube_texture->getWidth() / 32, cube_texture->getHeight() / 32, 6);
+
+	cube_texture->transitState(cmd_list, ResourceState::SHADER_RESOURCE);
 	return true;
 }

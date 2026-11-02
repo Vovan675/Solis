@@ -41,15 +41,15 @@ static Format from_nrd_format(nrd::Format format)
 {
 	switch (format)
 	{
-		case nrd::Format::R8_UNORM: return FORMAT_R8_UNORM;
-		case nrd::Format::RGBA8_UNORM: return FORMAT_R8G8B8A8_UNORM;
-		case nrd::Format::R16_SFLOAT: return FORMAT_R16_SFLOAT;
-		case nrd::Format::RGBA16_SFLOAT: return FORMAT_R16G16B16A16_SFLOAT;
-		case nrd::Format::R32_SFLOAT: return FORMAT_R32_SFLOAT;
-		case nrd::Format::RGBA32_SFLOAT: return FORMAT_R32G32B32A32_SFLOAT;
+		case nrd::Format::R8_UNORM: return Format::R8_UNORM;
+		case nrd::Format::RGBA8_UNORM: return Format::R8G8B8A8_UNORM;
+		case nrd::Format::R16_SFLOAT: return Format::R16_SFLOAT;
+		case nrd::Format::RGBA16_SFLOAT: return Format::R16G16B16A16_SFLOAT;
+		case nrd::Format::R32_SFLOAT: return Format::R32_SFLOAT;
+		case nrd::Format::RGBA32_SFLOAT: return Format::R32G32B32A32_SFLOAT;
 	}
 	ENGINE_ASSERT(false);
-	return FORMAT_UNDEFINED;
+	return Format::UNDEFINED;
 }
 
 static TextureDescription from_nrd_texture_desc(const nrd::TextureDesc &texture, glm::ivec2 resolution)
@@ -58,7 +58,7 @@ static TextureDescription from_nrd_texture_desc(const nrd::TextureDesc &texture,
 	desc.width = Math::divideRoundUp(resolution.x, texture.downsampleFactor);
 	desc.height = Math::divideRoundUp(resolution.y, texture.downsampleFactor);
 	desc.format = from_nrd_format(texture.format);
-	desc.usage_flags = TEXTURE_USAGE_STORAGE;
+	desc.usage_flags = TextureUsage::UNORDERED_ACCESS;
 	return desc;
 }
 
@@ -89,7 +89,7 @@ static RHIShaderRef create_nrd_shader(const char *shader_identifier)
 		token[equals] = '\0';
 		defines.push_back({token.c_str(), token.c_str() + equals + 1});
 	}
-	return gDynamicRHI->createShader(L"shaders/nrd/nrd_dispatch.hlsl", COMPUTE_SHADER, "main", defines);
+	return gDynamicRHI->createShader(L"shaders/nrd/nrd_dispatch.hlsl", ShaderType::COMPUTE, "main", defines);
 }
 
 NRDDenoiser::~NRDDenoiser()
@@ -138,11 +138,11 @@ void NRDDenoiser::add_guide_passes(FrameGraph &fg)
 	fg.addCallbackPass("NRD Guides",
 	[&](RenderPassBuilder &builder)
 	{
-		builder.createTexture(GFXRID(NRDViewZ), Renderer::getRenderWidth(), Renderer::getRenderHeight(), FORMAT_R32_SFLOAT);
+		builder.createTexture(GFXRID(NRDViewZ), Renderer::getRenderWidth(), Renderer::getRenderHeight(), Format::R32_SFLOAT);
 		builder.writeUAVTexture(GFXRID(NRDViewZ));
-		builder.createTexture(GFXRID(NRDNormalRoughness), Renderer::getRenderWidth(), Renderer::getRenderHeight(), FORMAT_R16G16B16A16_UNORM);
+		builder.createTexture(GFXRID(NRDNormalRoughness), Renderer::getRenderWidth(), Renderer::getRenderHeight(), Format::R16G16B16A16_UNORM);
 		builder.writeUAVTexture(GFXRID(NRDNormalRoughness));
-		builder.createTexture(GFXRID(NRDMotion), Renderer::getRenderWidth(), Renderer::getRenderHeight(), FORMAT_R16G16B16A16_SFLOAT);
+		builder.createTexture(GFXRID(NRDMotion), Renderer::getRenderWidth(), Renderer::getRenderHeight(), Format::R16G16B16A16_SFLOAT);
 		builder.writeUAVTexture(GFXRID(NRDMotion));
 
 		builder.readTexture(GFXRID(GBufferDepth));
@@ -152,7 +152,7 @@ void NRDDenoiser::add_guide_passes(FrameGraph &fg)
 	},
 	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/nrd/nrd_guides.hlsl", COMPUTE_SHADER, "CSMain"));
+		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/nrd/nrd_guides.hlsl", ShaderType::COMPUTE, "CSMain"));
 		gGlobalPipeline->flushAndBind(cmd_list);
 
 		struct Constants
@@ -264,7 +264,7 @@ void NRDDenoiser::add_dispatch_passes(FrameGraph &fg, nrd::Identifier identifier
 				else if (resource.type == nrd::ResourceType::PERMANENT_POOL)
 					builder.createPersistentTexture(name, from_nrd_texture_desc(instance_desc->permanentPool[resource.indexInPool], instance_resolution));
 				else if (resource.type == nrd::ResourceType::OUT_VALIDATION)
-					builder.createPersistentTexture(name, instance_resolution.x, instance_resolution.y, FORMAT_R8G8B8A8_UNORM);
+					builder.createPersistentTexture(name, instance_resolution.x, instance_resolution.y, Format::R8G8B8A8_UNORM);
 
 				if (resource.descriptorType == nrd::DescriptorType::STORAGE_TEXTURE)
 					builder.writeUAVTexture(name);

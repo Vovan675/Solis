@@ -29,10 +29,10 @@ public:
 		bool use_two_pass_occlusion = true;
 		bool use_reverse_z = true;
 		bool depth_clip = true;
-		CullMode cull_mode = CULL_MODE_BACK;
+		CullMode cull_mode = CullMode::BACK;
 		ShaderSet shaders;
 
-		CompareFunc getDepthFunc() const { return use_reverse_z ? COMPARE_FUNC_GREATER : COMPARE_FUNC_LESS_EQUAL; }
+		CompareFunc getDepthFunc() const { return use_reverse_z ? CompareFunc::GREATER : CompareFunc::LESS_EQUAL; }
 		float getDepthClear() const { return use_reverse_z ? 0.0f : 1.0f; }
 	};
 

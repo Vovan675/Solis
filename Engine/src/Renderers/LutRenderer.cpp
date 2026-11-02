@@ -10,12 +10,10 @@ LutRenderer::LutRenderer()
 	TextureDescription desc;
 	desc.width = 512;
 	desc.height = 512;
-	desc.format = FORMAT_R16G16_SFLOAT;
-	desc.usage_flags = TEXTURE_USAGE_ATTACHMENT;
-	desc.sampler_mode = SAMPLER_MODE_CLAMP_TO_EDGE;
+	desc.format = Format::R16G16_SFLOAT;
+	desc.usage_flags = TextureUsage::RENDER_TARGET;
 
 	brdf_lut_texture = gDynamicRHI->createTexture(desc);
-	brdf_lut_texture->fill();
 	brdf_lut_texture->setDebugName("IBL BRDF LUT Image");
 }
 
@@ -32,7 +30,7 @@ void LutRenderer::addPasses(FrameGraph &fg)
 
 		cmd_list->setRenderTargets({brdf_lut}, nullptr, -1, 0, true);
 
-		gGlobalPipeline->bindScreenQuadPipeline(cmd_list, gDynamicRHI->createShader(L"shaders/ibl/brdf_lut.hlsl", FRAGMENT_SHADER));
+		gGlobalPipeline->bindScreenQuadPipeline(cmd_list, gDynamicRHI->createShader(L"shaders/ibl/brdf_lut.hlsl", ShaderType::FRAGMENT));
 
 		// Render quad
 		cmd_list->drawInstanced(6, 1, 0, 0);

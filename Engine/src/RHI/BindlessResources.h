@@ -34,7 +34,7 @@ public:
 	uint32_t addAccelerationStructure(RHITopLevelAccelerationStructure *as);
 	void removeAccelerationStructure(RHITopLevelAccelerationStructure *as);
 
-	virtual uint32_t addSampler(const TextureDescription &description) = 0;
+	virtual uint32_t addSampler(const SamplerDescription &description) = 0;
 	void setSamplersMipBias(float bias);
 
 protected:
@@ -47,10 +47,10 @@ protected:
 protected:
 	RHITextureRef invalid_texture;
 
-	eastl::vector<TextureDescription> sampler_descriptions;
+	eastl::vector<SamplerDescription> sampler_descriptions;
 
 	eastl::unordered_map<RHITextureView *, uint32_t> texture_view_to_resource_index;
-	eastl::unordered_map<RHIBufferView *, uint32_t> buffer_to_resource_index;
+	eastl::unordered_map<RHIBufferView *, uint32_t> buffer_view_to_resource_index;
 	eastl::unordered_map<RHITopLevelAccelerationStructure *, uint32_t> acceleration_structure_to_resource_index;
 	eastl::vector<int> empty_resource_indices;
 };

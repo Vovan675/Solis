@@ -30,12 +30,12 @@ RHIBottomLevelAccelerationStructureRef RayTracingScene::ensure_blas(Engine::Mesh
 	geometry.vertex_buffer_offset = 0;
 	geometry.vertex_buffer_stride = sizeof(Engine::Vertex);
 	geometry.vertex_count = mesh->indexed->vertices.size();
-	geometry.vertex_format = FORMAT_R32G32B32_SFLOAT;
+	geometry.vertex_format = Format::R32G32B32_SFLOAT;
 
 	geometry.index_buffer = mesh->indexed->index_buffer;
 	geometry.index_buffer_offset = 0;
 	geometry.index_count = mesh->indexed->indices.size();
-	geometry.index_format = FORMAT_R32_UINT;
+	geometry.index_format = IndexFormat::UINT32;
 
 	auto blas = gDynamicRHI->createBottomLevelAccelerationStructure();
 	blas->build(geometries);

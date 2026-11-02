@@ -17,7 +17,7 @@ void GBufferPass::addPass(FrameGraph &fg, uint32_t view_id, uint32_t max_draw_ca
 	view.hiz_description = HiZ::createDescription(Renderer::getRenderResolution());
 	view.layer = 0;
 	view.use_two_pass_occlusion = true;
-	view.cull_mode = CULL_MODE_NONE;
+	view.cull_mode = CullMode::NONE;
 	view.use_reverse_z = true;
 	view.shaders = OpaqueGeometryPass::ShaderSet::fromFile(L"shaders/gbuffer.hlsl");
 

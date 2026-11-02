@@ -1,26 +1,29 @@
 #pragma once
 #include "Core/Core.h"
 #include "Math/EngineMath.h"
+#include "Utils/Math.h"
 
 #define ENABLE_RHI_VALIDATION
 
 static const int MAX_FRAMES_IN_FLIGHT = 2;
 static const int MAX_COLOR_ATTACHMENTS = 8;
+static const uint32_t ALL_MIPS = UINT32_MAX;
+static const uint32_t ALL_LAYERS = UINT32_MAX;
 
-enum ShaderType
+enum class ShaderType
 {
 	// Graphics pipeline
-	VERTEX_SHADER,
-	FRAGMENT_SHADER,
+	VERTEX,
+	FRAGMENT,
 	// Compute pipeline
-	COMPUTE_SHADER,
+	COMPUTE,
 	// Ray tracing pipeline
-	RAY_GENERATION_SHADER,
-	MISS_SHADER,
-	CLOSEST_HIT_SHADER,
+	RAY_GENERATION,
+	MISS,
+	CLOSEST_HIT,
 	// Mesh Pipeline
-	TASK_SHADER,
-	MESH_SHADER,
+	TASK,
+	MESH,
 };
 
 enum class ResourceState
@@ -32,38 +35,35 @@ enum class ResourceState
 	SHADER_RESOURCE = 1 << 3,
 	COPY_SRC = 1 << 4,
 	COPY_DST = 1 << 5,
-	UAV = 1 << 6,
+	UNORDERED_ACCESS = 1 << 6,
 	PRESENT = 1 << 7,
 
 	VERTEX_BUFFER = 1 << 8,
 	INDEX_BUFFER = 1 << 9,
 	INDIRECT_ARGS = 1 << 10,
-	SHADER_READ = 1 << 11,
 };
 ALLOW_ENUM_BITS(ResourceState)
 
 enum class BufferUsage
 {
 	NONE = 0,
-	VERTEX_BUFFER = 1 << 0,
-	INDEX_BUFFER = 1 << 1,
-	CONSTANT_BUFFER = 1 << 2,
-	SHADER_READ_BUFFER = 1 << 3, // Read-only Storage Buffer (SRV)
-	SHADER_WRITE_BUFFER = 1 << 4, // Read/Write Storage Buffer (UAV)
-	SCRATCH_BUFFER = 1 << 5, // Scratch Buffer for acceleration structures
-	INDIRECT_ARGS_BUFFER = 1 << 6,
-	ACCELERATION_STRUCTURE_BUILD_INPUT_BUFFER = 1 << 7,
-	ACCELERATION_STRUCTURE_STORAGE_BUFFER = 1 << 8,
-	SHADER_BINGING_TABLE_BUFFER = 1 << 9,
-	STAGING_BUFFER = 1 << 10,
-	READBACK_BUFFER = 1 << 11
+	VERTEX = 1 << 0,
+	INDEX = 1 << 1,
+	CONSTANT = 1 << 2,
+	SHADER_RESOURCE = 1 << 3, // Read-only Storage Buffer (SRV)
+	UNORDERED_ACCESS = 1 << 4, // Read/Write Storage Buffer (UAV)
+	SCRATCH = 1 << 5, // Scratch Buffer for acceleration structures
+	INDIRECT_ARGS = 1 << 6,
+	ACCELERATION_STRUCTURE_BUILD_INPUT = 1 << 7,
+	ACCELERATION_STRUCTURE_STORAGE = 1 << 8,
+	SHADER_BINDING_TABLE = 1 << 9,
 };
 ALLOW_ENUM_BITS(BufferUsage)
 
 enum class BufferViewType
 {
 	SHADER_RESOURCE,
-	SHADER_RESOURCE_STORAGE,
+	UNORDERED_ACCESS,
 };
 
 class RHIBuffer;
@@ -81,206 +81,214 @@ enum class IndexFormat
 	UINT32,
 };
 
+enum class BufferMemory
+{
+	GPU, // GPU only, use staging buffer for filling
+	UPLOAD, // CPU writes, GPU reads
+	READBACK, // GPU writes, CPU reads
+};
+
 struct BufferDescription
 {
 	uint64_t size = 0;
-	BufferUsage usage = BufferUsage::NONE;
+	BufferUsage usage_flags = BufferUsage::NONE;
 	uint32_t alignment = 0;
 
-	uint32_t storage_stride = 4; // storage_stride = 4 for raw access. Stride is more tied to data, thats why it is here instead of BufferView
-	bool use_staging_buffer = true; // Use separate buffer for filling data (if true then only GPU memory is used)
+	uint32_t stride = 4; // stride = 4 for raw access. Stride is more tied to data, thats why it is here instead of BufferView
+	BufferMemory memory = BufferMemory::GPU;
 
 	size_t getHash() const
 	{
 		size_t hash = 0;
 		Engine::Math::hashCombine(hash, size);
-		Engine::Math::hashCombine(hash, usage);
+		Engine::Math::hashCombine(hash, usage_flags);
 		Engine::Math::hashCombine(hash, alignment);
-		Engine::Math::hashCombine(hash, storage_stride);
-		Engine::Math::hashCombine(hash, use_staging_buffer);
+		Engine::Math::hashCombine(hash, stride);
+		Engine::Math::hashCombine(hash, memory);
 
 		return hash;
 	}
 };
 
-enum Filter
+enum class Filter
 {
-	FILTER_NEAREST,
-	FILTER_LINEAR
+	NEAREST,
+	LINEAR
 };
 
-enum SamplerMode
+enum class SamplerAddressMode
 {
-	SAMPLER_MODE_REPEAT,
-	SAMPLER_MODE_CLAMP_TO_EDGE,
-	SAMPLER_MODE_CLAMP_TO_BORDER
+	REPEAT,
+	CLAMP_TO_EDGE,
+	CLAMP_TO_BORDER
 };
 
-enum SampleCount
+struct SamplerDescription
 {
-	SAMPLE_COUNT_1,
-	SAMPLE_COUNT_2,
-	SAMPLE_COUNT_4,
-	SAMPLE_COUNT_8,
-	SAMPLE_COUNT_16,
-	SAMPLE_COUNT_32,
-	SAMPLE_COUNT_64
+	Filter filter = Filter::LINEAR;
+	SamplerAddressMode address_mode = SamplerAddressMode::REPEAT;
+	bool anisotropy = false;
+	bool use_comparison_less = false;
+	float mip_bias = 0.0f;
 };
 
-enum Format
+enum class Format
 {
-	FORMAT_UNDEFINED = 0,
+	UNDEFINED = 0,
 
 	// 8 bit
-	FORMAT_R8_UNORM,
-	FORMAT_R8G8_UNORM,
-	FORMAT_R8G8B8A8_UNORM,
-	FORMAT_R8G8B8A8_SRGB,
+	R8_UNORM,
+	R8G8_UNORM,
+	R8G8B8A8_UNORM,
+	R8G8B8A8_SRGB,
 
 	// 16 bit
-	FORMAT_R16_UNORM,
-	FORMAT_R16_SFLOAT,
-	FORMAT_R16G16_UNORM,
-	FORMAT_R16G16_SFLOAT,
-	FORMAT_R16G16_SINT,
-	FORMAT_R16G16B16A16_UNORM,
-	FORMAT_R16G16B16A16_SFLOAT,
+	R16_UNORM,
+	R16_SFLOAT,
+	R16G16_UNORM,
+	R16G16_SFLOAT,
+	R16G16_SINT,
+	R16G16B16A16_UNORM,
+	R16G16B16A16_SFLOAT,
 
 	// 32 bit
-	FORMAT_R32_UINT,
-	FORMAT_R32_SFLOAT,
-	FORMAT_R32G32_SFLOAT,
-	FORMAT_R32G32B32_SFLOAT,
-	FORMAT_R32G32B32A32_SFLOAT,
+	R32_UINT,
+	R32_SFLOAT,
+	R32G32_SFLOAT,
+	R32G32B32_SFLOAT,
+	R32G32B32A32_SFLOAT,
 
 	// depth stencil
-	FORMAT_D32S8,
+	D32_SFLOAT_S8_UINT,
 
 	// combined
-	FORMAT_R11G11B10_UFLOAT,
+	R11G11B10_UFLOAT,
 
 	// compressed
-	FORMAT_BC1,
-	FORMAT_BC3,
-	FORMAT_BC5,
-	FORMAT_BC7,
+	BC1_UNORM,
+	BC1_SRGB,
+	BC3_UNORM,
+	BC3_SRGB,
+	BC5_UNORM,
+	BC7_UNORM,
+	BC7_SRGB,
+
+	COUNT,
 };
 
-inline uint32_t getFormatSize(Format format)
+struct FormatInfo
 {
-	switch (format)
-	{
+	Format format;
+	const char *name;
+	uint32_t bytes_per_block;
+	bool is_compressed;
+	bool is_depth;
+};
+
+inline const FormatInfo &getFormatInfo(Format format)
+{
+	static const FormatInfo format_infos[] = {
+		// format						name					bytes_per_block	is_compressed	is_depth
+		{Format::UNDEFINED,				"UNDEFINED",			0,				false,			false},
+
 		// 8 bit
-		case FORMAT_R8_UNORM: return 1;
-		case FORMAT_R8G8_UNORM: return 2;
-		case FORMAT_R8G8B8A8_UNORM:
-		case FORMAT_R8G8B8A8_SRGB: return 4;
+		{Format::R8_UNORM,				"R8_UNORM",				1,				false,			false},
+		{Format::R8G8_UNORM,			"R8G8_UNORM",			2,				false,			false},
+		{Format::R8G8B8A8_UNORM,		"R8G8B8A8_UNORM",		4,				false,			false},
+		{Format::R8G8B8A8_SRGB,			"R8G8B8A8_SRGB",		4,				false,			false},
 
 		// 16 bit
-		case FORMAT_R16_UNORM: return 2;
-		case FORMAT_R16_SFLOAT: return 2;
-		case FORMAT_R16G16_UNORM: return 4;
-		case FORMAT_R16G16_SFLOAT: return 4;
-		case FORMAT_R16G16_SINT: return 4;
-		case FORMAT_R16G16B16A16_UNORM: return 8;
-		case FORMAT_R16G16B16A16_SFLOAT: return 8;
+		{Format::R16_UNORM,				"R16_UNORM",			2,				false,			false},
+		{Format::R16_SFLOAT,			"R16_SFLOAT",			2,				false,			false},
+		{Format::R16G16_UNORM,			"R16G16_UNORM",			4,				false,			false},
+		{Format::R16G16_SFLOAT,			"R16G16_SFLOAT",		4,				false,			false},
+		{Format::R16G16_SINT,			"R16G16_SINT",			4,				false,			false},
+		{Format::R16G16B16A16_UNORM,	"R16G16B16A16_UNORM",	8,				false,			false},
+		{Format::R16G16B16A16_SFLOAT,	"R16G16B16A16_SFLOAT",	8,				false,			false},
 
 		// 32 bit
-		case FORMAT_R32_UINT:
-		case FORMAT_R32_SFLOAT: return 4;
-		case FORMAT_R32G32_SFLOAT: return 8;
-		case FORMAT_R32G32B32_SFLOAT: return 12;
-		case FORMAT_R32G32B32A32_SFLOAT: return 16;
+		{Format::R32_UINT,				"R32_UINT",				4,				false,			false},
+		{Format::R32_SFLOAT,			"R32_SFLOAT",			4,				false,			false},
+		{Format::R32G32_SFLOAT,			"R32G32_SFLOAT",		8,				false,			false},
+		{Format::R32G32B32_SFLOAT,		"R32G32B32_SFLOAT",		12,				false,			false},
+		{Format::R32G32B32A32_SFLOAT,	"R32G32B32A32_SFLOAT",	16,				false,			false},
 
 		// depth stencil
-		case FORMAT_D32S8: return 5;
+		{Format::D32_SFLOAT_S8_UINT,	"D32_SFLOAT_S8_UINT",	8,				false,			true},
 
 		// combined
-		case FORMAT_R11G11B10_UFLOAT: return 4;
+		{Format::R11G11B10_UFLOAT,		"R11G11B10_UFLOAT",		4,				false,			false},
 
 		// compressed
-		case FORMAT_BC1: return 0;
-		case FORMAT_BC3: return 0;
-		case FORMAT_BC5: return 0;
-		case FORMAT_BC7: return 0;
-	}
-	return 0;
+		{Format::BC1_UNORM,				"BC1_UNORM",			8,				true,			false},
+		{Format::BC1_SRGB,				"BC1_SRGB",				8,				true,			false},
+		{Format::BC3_UNORM,				"BC3_UNORM",			16,				true,			false},
+		{Format::BC3_SRGB,				"BC3_SRGB",				16,				true,			false},
+		{Format::BC5_UNORM,				"BC5_UNORM",			16,				true,			false},
+		{Format::BC7_UNORM,				"BC7_UNORM",			16,				true,			false},
+		{Format::BC7_SRGB,				"BC7_SRGB",				16,				true,			false},
+	};
+	static_assert(_countof(format_infos) == (size_t)Format::COUNT);
+	return format_infos[(int)format];
 }
 
-inline const char *getFormatName(Format format)
+inline bool isCompressedFormat(Format format) { return getFormatInfo(format).is_compressed; }
+inline bool isDepthFormat(Format format) { return getFormatInfo(format).is_depth; }
+
+inline uint32_t getFormatRowSize(Format format, uint32_t width)
 {
-	switch (format)
-	{
-		case FORMAT_R8_UNORM: return "R8_UNORM";
-		case FORMAT_R8G8_UNORM: return "R8G8_UNORM";
-		case FORMAT_R8G8B8A8_UNORM: return "R8G8B8A8_UNORM";
-		case FORMAT_R8G8B8A8_SRGB: return "R8G8B8A8_SRGB";
-		case FORMAT_R16_UNORM: return "R16_UNORM";
-		case FORMAT_R16_SFLOAT: return "R16_SFLOAT";
-		case FORMAT_R16G16_UNORM: return "R16G16_UNORM";
-		case FORMAT_R16G16_SFLOAT: return "R16G16_SFLOAT";
-		case FORMAT_R16G16_SINT: return "R16G16_SINT";
-		case FORMAT_R16G16B16A16_UNORM: return "R16G16B16A16_UNORM";
-		case FORMAT_R16G16B16A16_SFLOAT: return "R16G16B16A16_SFLOAT";
-		case FORMAT_R32_UINT: return "R32_UINT";
-		case FORMAT_R32_SFLOAT: return "R32_SFLOAT";
-		case FORMAT_R32G32_SFLOAT: return "R32G32_SFLOAT";
-		case FORMAT_R32G32B32_SFLOAT: return "R32G32B32_SFLOAT";
- 		case FORMAT_R32G32B32A32_SFLOAT: return "R32G32B32A32_SFLOAT";
-		case FORMAT_D32S8: return "D32S8";
-		case FORMAT_R11G11B10_UFLOAT: return "R11G11B10_UFLOAT";
-		case FORMAT_BC1: return "BC1";
-		case FORMAT_BC3: return "BC3";
-		case FORMAT_BC5: return "BC5";
-		case FORMAT_BC7: return "BC7";
-	}
-	return "UNDEFINED";
+	uint32_t columns = isCompressedFormat(format) ? Math::divideRoundUp(width, 4) : width;
+	return columns * getFormatInfo(format).bytes_per_block;
 }
 
-enum TextureUsageFlags : uint32_t
+inline uint32_t getFormatSliceSize(Format format, uint32_t width, uint32_t height)
 {
-	TEXTURE_USAGE_TRANSFER_SRC = 1 << 1,
-	TEXTURE_USAGE_TRANSFER_DST = 1 << 2,
-	TEXTURE_USAGE_NO_SAMPLED = 1 << 3,
-	TEXTURE_USAGE_STORAGE = 1 << 4,
-	TEXTURE_USAGE_ATTACHMENT = 1 << 5,
+	uint32_t rows = isCompressedFormat(format) ? Math::divideRoundUp(height, 4) : height;
+	return rows * getFormatRowSize(format, width);
+}
+
+enum class TextureUsage : uint32_t
+{
+	NONE = 0,
+	NO_SAMPLED = 1 << 0,
+	UNORDERED_ACCESS = 1 << 1,
+	RENDER_TARGET = 1 << 2,
+};
+ALLOW_ENUM_BITS(TextureUsage)
+
+enum class TextureDimension
+{
+	TEXTURE_2D,
+	TEXTURE_3D,
+	TEXTURE_CUBE,
 };
 
 struct TextureDescription
 {
-	bool is_cube = false;
-	uint32_t width;
-	uint32_t height;
+	TextureDimension dimension = TextureDimension::TEXTURE_2D;
+	uint32_t width = 0;
+	uint32_t height = 0;
 	uint32_t depth = 1;
 	uint32_t mip_levels = 1;
-	uint32_t array_levels = 1;
-	SampleCount sample_count = SAMPLE_COUNT_1;
-	Format format;
-	uint32_t usage_flags = 0;
-	SamplerMode sampler_mode = SAMPLER_MODE_REPEAT;
-	Filter filtering = FILTER_LINEAR;
-	bool anisotropy = false;
-	bool use_comparison_less = false;
-	float mip_bias = 0.0f;
+	uint32_t array_layers = 1;
+	uint32_t sample_count = 1;
+	Format format = Format::UNDEFINED;
+	TextureUsage usage_flags = TextureUsage::NONE;
 	float depth_clear_value = 0.0f; // 0.0 for reverse-Z (GBuffer), 1.0 for standard Z (shadows)
 
 	size_t getHash() const
 	{
 		size_t hash = 0;
-		Engine::Math::hashCombine(hash, is_cube);
+		Engine::Math::hashCombine(hash, dimension);
 		Engine::Math::hashCombine(hash, width);
 		Engine::Math::hashCombine(hash, height);
 		Engine::Math::hashCombine(hash, depth);
 		Engine::Math::hashCombine(hash, mip_levels);
-		Engine::Math::hashCombine(hash, array_levels);
+		Engine::Math::hashCombine(hash, array_layers);
 		Engine::Math::hashCombine(hash, sample_count);
 		Engine::Math::hashCombine(hash, format);
 		Engine::Math::hashCombine(hash, usage_flags);
-		Engine::Math::hashCombine(hash, sampler_mode);
-		Engine::Math::hashCombine(hash, filtering);
-		Engine::Math::hashCombine(hash, anisotropy);
-		Engine::Math::hashCombine(hash, use_comparison_less);
-		Engine::Math::hashCombine(hash, mip_bias);
+		Engine::Math::hashCombine(hash, depth_clear_value);
 
 		return hash;
 	}
@@ -290,7 +298,7 @@ enum class TextureViewType
 {
 	RENDER_TARGET, 
 	SHADER_RESOURCE,
-	SHADER_RESOURCE_STORAGE,
+	UNORDERED_ACCESS,
 };
 
 class RHITexture;
@@ -298,8 +306,8 @@ struct TextureViewDescription
 {
 	RHITexture *texture;
 	TextureViewType view_type;
-	uint32_t mip = -1;
-	uint32_t layer = -1;
+	uint32_t mip = ALL_MIPS;
+	uint32_t layer = ALL_LAYERS;
 
 	TextureViewDescription(RHITexture *texture, TextureViewType view_type): texture(texture), view_type(view_type) {};
 	TextureViewDescription(RHITexture *texture, TextureViewType view_type, uint32_t mip, uint32_t layer): texture(texture), view_type(view_type), mip(mip), layer(layer) {};
@@ -307,7 +315,7 @@ struct TextureViewDescription
 
 struct RenderResource
 {
-	virtual void Release() = 0;
+	virtual void release() = 0;
 };
 
 class RHISwapchain;
@@ -324,6 +332,5 @@ using RHIShaderRef = Ref<RHIShader>;
 using RHIPipelineRef = Ref<RHIPipeline>;
 using RHIBufferRef = Ref<RHIBuffer>;
 using RHITextureRef = Ref<RHITexture>;
-using RHIBindlessResourcesRef = Ref<RHIBindlessResources>;
 using RHIBottomLevelAccelerationStructureRef = Ref<RHIBottomLevelAccelerationStructure>;
 using RHITopLevelAccelerationStructureRef = Ref<RHITopLevelAccelerationStructure>;

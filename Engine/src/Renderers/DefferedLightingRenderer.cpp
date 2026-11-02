@@ -17,10 +17,10 @@ void DefferedLightingRenderer::renderLights(FrameGraph &fg, uint32_t lights_coun
 	fg.addCallbackPass("Deffered Lighting Pass",
 	[&](RenderPassBuilder &builder)
 	{
-		builder.createTexture(GFXRID(DiffuseLight), Renderer::getRenderWidth(), Renderer::getRenderHeight(), FORMAT_R16G16B16A16_SFLOAT);
+		builder.createTexture(GFXRID(DiffuseLight), Renderer::getRenderWidth(), Renderer::getRenderHeight(), Format::R16G16B16A16_SFLOAT);
 		builder.writeTexture(GFXRID(DiffuseLight));
 
-		builder.createTexture(GFXRID(SpecularLight), Renderer::getRenderWidth(), Renderer::getRenderHeight(), FORMAT_R16G16B16A16_SFLOAT);
+		builder.createTexture(GFXRID(SpecularLight), Renderer::getRenderWidth(), Renderer::getRenderHeight(), Format::R16G16B16A16_SFLOAT);
 		builder.writeTexture(GFXRID(SpecularLight));
 
 		builder.readTexture(GFXRID(GBufferAlbedo));
@@ -47,12 +47,12 @@ void DefferedLightingRenderer::renderLights(FrameGraph &fg, uint32_t lights_coun
 		cmd_list->setRenderTargets({diffuse, specular}, nullptr, -1, 0, true);
 
 		gGlobalPipeline->setupGraphicsPipeline(cmd_list,
-								  gDynamicRHI->createShader(L"shaders/lighting/deferred_lighting.hlsl", VERTEX_SHADER, "VSMain"),
-								  gDynamicRHI->createShader(L"shaders/lighting/deferred_lighting.hlsl", FRAGMENT_SHADER, "PSMain"),
+								  gDynamicRHI->createShader(L"shaders/lighting/deferred_lighting.hlsl", ShaderType::VERTEX, "VSMain"),
+								  gDynamicRHI->createShader(L"shaders/lighting/deferred_lighting.hlsl", ShaderType::FRAGMENT, "PSMain"),
 								  Engine::Vertex::GetVertexInputsDescription(),
-								  true, false, CULL_MODE_FRONT);
-		gGlobalPipeline->setBlendMode(BLEND_ONE, BLEND_ONE, BLEND_OP_ADD,
-						BLEND_ONE, BLEND_ONE, BLEND_OP_ADD);
+								  true, false, CullMode::FRONT);
+		gGlobalPipeline->setBlendMode(BlendFactor::ONE, BlendFactor::ONE, BlendOp::ADD,
+						BlendFactor::ONE, BlendFactor::ONE, BlendOp::ADD);
 		gGlobalPipeline->flushAndBind(cmd_list);
 
 		bool has_ray_traced_visibility = Renderer::isRayTracedShadowsEnabled() && resources.has(GFXRID(RayTracedVisibility));

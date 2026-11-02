@@ -2,6 +2,50 @@
 #include "Device.h"
 #include <EASTL/deque.h>
 
+enum class DescriptorStage : uint32_t
+{
+	// Default pipeline
+	VERTEX = 2 << 0,
+	FRAGMENT = 2 << 1,
+	// Compute pipeline
+	COMPUTE = 2 << 2,
+	// Ray tracing pipeline
+	RAY_GENERATION = 2 << 3,
+	MISS = 2 << 4,
+	CLOSEST_HIT = 2 << 5,
+};
+ALLOW_ENUM_BITS(DescriptorStage)
+
+enum class DescriptorType
+{
+	PUSH_CONSTANT,
+	UNIFORM_BUFFER,
+	STORAGE_BUFFER,
+	SAMPLER,
+	SAMPLED_IMAGE,
+	COMBINED_IMAGE,
+	STORAGE_IMAGE,
+	ACCELERATION_STRUCTURE,
+};
+
+struct Descriptor
+{
+	Descriptor(DescriptorType type, unsigned int set, unsigned int binding, size_t size, DescriptorStage stage, eastl::string name = "")
+		: type(type), set(set), binding(binding), size(size), stage(stage), name(name)
+	{
+
+	}
+
+	DescriptorType type;
+	unsigned int set;
+	unsigned int binding;
+	size_t size;
+	DescriptorStage stage;
+	eastl::string name;
+
+	unsigned int first_member_offset = 0;
+};
+
 struct DescriptorLayout
 {
     VkDescriptorSetLayout layout = nullptr;

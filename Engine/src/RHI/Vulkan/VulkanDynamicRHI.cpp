@@ -139,11 +139,11 @@ RHISwapchainRef VulkanDynamicRHI::createSwapchain(GLFWwindow *window)
 	int width, height;
 	glfwGetWindowSize(window, &width, &height);
 
-	SwapchainInfo info;
+	SwapchainDescription info;
 	info.width = width;
 	info.height = height;
-	info.format = FORMAT_R8G8B8A8_UNORM;
-	info.textures_count = MAX_FRAMES_IN_FLIGHT;
+	info.format = Format::R8G8B8A8_UNORM;
+	info.texture_count = MAX_FRAMES_IN_FLIGHT;
 	swapchain = new VulkanSwapchain(surface, info);
 	return swapchain;
 }
@@ -158,22 +158,19 @@ RHIShader *VulkanDynamicRHI::create_shader(eastl::wstring path, ShaderType type,
 	return new VulkanShader(path, type, entry_point, defines);
 }
 
-RHIPipelineRef VulkanDynamicRHI::createPipeline()
+RHIBuffer *VulkanDynamicRHI::create_buffer(const BufferDescription &description)
 {
-	auto pipeline = new VulkanPipeline();
-	return pipeline;
+	return new VulkanBuffer(description);
 }
 
-RHIBufferRef VulkanDynamicRHI::createBuffer(BufferDescription description)
+RHIPipelineRef VulkanDynamicRHI::createPipeline(const PipelineDescription &description)
 {
-	auto buffer = new VulkanBuffer(description);
-	return buffer;
+	return new VulkanPipeline(description);
 }
 
-RHITextureRef VulkanDynamicRHI::createTexture(TextureDescription description)
+RHITextureRef VulkanDynamicRHI::createTexture(const TextureDescription &description, const void *initial_data)
 {
-	auto texture = new VulkanTexture(description);
-	return texture;
+	return new VulkanTexture(description, initial_data);
 }
 
 RHIBottomLevelAccelerationStructureRef VulkanDynamicRHI::createBottomLevelAccelerationStructure()
@@ -203,7 +200,7 @@ void VulkanDynamicRHI::prepareRenderCall()
 {
 	PROFILE_CPU_FUNCTION();
 	VulkanCommandList *cmd_list_native = static_cast<VulkanCommandList *>(getCmdList());
-	VulkanPipeline *native_pso = static_cast<VulkanPipeline *>(cmd_list_native->current_pipeline);
+	VulkanPipeline *native_pso = static_cast<VulkanPipeline *>(cmd_list_native->getCurrentPipeline());
 	bool pso_changed = false;
 	if (native_pso != last_native_pso)
 	{
@@ -248,7 +245,7 @@ void VulkanDynamicRHI::prepareRenderCall()
 		{
 			for (auto &desc : descriptors_info)
 			{
-				if (desc.type != DESCRIPTOR_TYPE_UNIFORM_BUFFER || desc.set != 0)
+				if (desc.type != DescriptorType::UNIFORM_BUFFER || desc.set != 0)
 					continue;
 
 				VulkanBuffer *buffer = (VulkanBuffer *)current_bind_buffers[desc.binding];
@@ -266,9 +263,9 @@ void VulkanDynamicRHI::prepareRenderCall()
 	}
 
 	VkPipelineBindPoint bind_point = VK_PIPELINE_BIND_POINT_GRAPHICS;
-	if (native_pso->description.pipeline_type == PipelineType::Compute)
+	if (native_pso->description.pipeline_type == PipelineType::COMPUTE)
 		bind_point = VK_PIPELINE_BIND_POINT_COMPUTE;
-	else if (native_pso->description.pipeline_type == PipelineType::RayTracing)
+	else if (native_pso->description.pipeline_type == PipelineType::RAY_TRACING)
 		bind_point = VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR;
 	VulkanCommandList *native_cmd_list = cmd_lists[frame_in_flight];
 	// use offset?
@@ -387,7 +384,7 @@ void VulkanDynamicRHI::endFrame()
 	gDynamicRHI->getCmdList()->close();
 
 	eastl::vector<RHICommandList *> submit_cmd_lists;
-	if (native_upload_cmd_list->is_open)
+	if (native_upload_cmd_list->isOpen())
 	{
 		// Wait for all transfer operations (batched for all tranfer operations in this frame)
 		VulkanUtils::cmdMemoryBarrier(native_upload_cmd_list->cmd_buffer,

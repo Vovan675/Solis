@@ -10,7 +10,7 @@ public:
 	static void begin();
 	static void render(RHICommandList *cmd_list);
 
-	static ImTextureID getTextureId(RHITextureRef tex, int mip = 0, int layer = -1);
+	static ImTextureID getTextureId(RHITextureRef tex, uint32_t mip = 0, uint32_t layer = ALL_LAYERS);
 private:
 	static VkDescriptorPool descriptor_pool;
 	

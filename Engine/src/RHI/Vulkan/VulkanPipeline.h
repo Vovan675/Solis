@@ -1,15 +1,13 @@
 #pragma once
 #include "RHI/RHIPipeline.h"
 #include "VulkanResources.h"
+#include "Descriptors.h"
 
 class VulkanPipeline final: public RHIPipeline
 {
 public:
+	VulkanPipeline(const PipelineDescription &description);
 	~VulkanPipeline();
-
-	void destroy();
-	
-	void create(const PipelineDescription &description) override;
 
 	std::unique_ptr<VkPipelineResource> resource;
 	DescriptorLayout descriptor_layout;

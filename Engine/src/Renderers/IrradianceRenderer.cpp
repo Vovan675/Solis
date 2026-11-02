@@ -7,18 +7,17 @@
 
 IrradianceRenderer::IrradianceRenderer()
 {
-	compute_shader = gDynamicRHI->createShader(L"shaders/ibl/irradiance.hlsl", COMPUTE_SHADER);
+	compute_shader = gDynamicRHI->createShader(L"shaders/ibl/irradiance.hlsl", ShaderType::COMPUTE);
 
 	TextureDescription desc;
 	desc.width = 128;
 	desc.height = 128;
-	desc.is_cube = true;
+	desc.dimension = TextureDimension::TEXTURE_CUBE;
 	desc.mip_levels = 1;
-	desc.format = FORMAT_R32G32B32A32_SFLOAT;
-	desc.usage_flags = TEXTURE_USAGE_TRANSFER_SRC | TEXTURE_USAGE_TRANSFER_DST | TEXTURE_USAGE_STORAGE;
+	desc.format = Format::R32G32B32A32_SFLOAT;
+	desc.usage_flags = TextureUsage::UNORDERED_ACCESS;
 
 	irradiance_texture = gDynamicRHI->createTexture(desc);
-	irradiance_texture->fill();
 	irradiance_texture->setDebugName("IBL Irradiance Image");
 }
 

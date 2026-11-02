@@ -15,7 +15,7 @@ static VkSemaphore create_semaphore()
 	return semaphore;
 }
 
-VulkanSwapchain::VulkanSwapchain(VkSurfaceKHR surface, const SwapchainInfo &info): surface(surface), RHISwapchain(info)
+VulkanSwapchain::VulkanSwapchain(VkSurfaceKHR surface, const SwapchainDescription &description): surface(surface), RHISwapchain(description)
 {
 	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 		image_acquired_semaphores.push_back(create_semaphore());
@@ -53,8 +53,8 @@ void VulkanSwapchain::resize(uint32_t width, uint32_t height)
 {
 	gDynamicRHI->waitGPU();
 
-	info.width = width;
-	info.height = height;
+	description.width = width;
+	description.height = height;
 
 	cleanup();
 	create_swapchain();
@@ -68,7 +68,7 @@ void VulkanSwapchain::acquire()
 
 	// Recreate swapchain if needed
 	if (is_resize_needed || vsync != render_vsync)
-		resize(info.width, info.height);
+		resize(description.width, description.height);
 
 	VkDevice device = VulkanUtils::getNativeRHI()->device->logicalHandle;
 
@@ -77,7 +77,7 @@ void VulkanSwapchain::acquire()
 	// VK_ERROR_OUT_OF_DATE_KHR leaves semaphore unsignaled
 	if (result == VK_ERROR_OUT_OF_DATE_KHR)
 	{
-		resize(info.width, info.height);
+		resize(description.width, description.height);
 		result = vkAcquireNextImageKHR(device, swapchain, UINT64_MAX, getImageAcquiredSemaphore(), VK_NULL_HANDLE, &current_index);
 	}
 
@@ -143,7 +143,7 @@ void VulkanSwapchain::create_swapchain()
 	VkSurfaceFormatKHR surface_format;
 	for (const auto& format : surface_formats)
 	{
-		if (format.format == VulkanUtils::getNativeFormat(info.format))
+		if (format.format == VulkanUtils::getNativeFormat(description.format))
 		{
 			surface_format = format;
 		}
@@ -165,14 +165,14 @@ void VulkanSwapchain::create_swapchain()
 		}
 	}
 
-	swap_extent = { info.width, info.height };
+	swap_extent = { description.width, description.height };
 	swap_extent.width = std::clamp(swap_extent.width, surface_capabilities.minImageExtent.width, surface_capabilities.maxImageExtent.width);
 	swap_extent.height = std::clamp(swap_extent.height, surface_capabilities.minImageExtent.height, surface_capabilities.maxImageExtent.height);
 
 	VkSwapchainCreateInfoKHR create_info{};
 	create_info.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
 	create_info.surface = surface;
-	create_info.minImageCount = info.textures_count;
+	create_info.minImageCount = description.texture_count;
 	create_info.imageFormat = surface_format.format;
 	create_info.imageColorSpace = surface_format.colorSpace;
 	create_info.imageExtent = swap_extent;
@@ -207,10 +207,9 @@ void VulkanSwapchain::create_resources()
 		TextureDescription desc{};
 		desc.width = swap_extent.width;
 		desc.height = swap_extent.height;
-		desc.usage_flags = TEXTURE_USAGE_ATTACHMENT | TEXTURE_USAGE_NO_SAMPLED;
-		desc.format = info.format;
-		RHITextureRef tex = gDynamicRHI->createTexture(desc);
-		tex->fill_raw(&swapchain_images[i]);
+		desc.usage_flags = TextureUsage::RENDER_TARGET | TextureUsage::NO_SAMPLED;
+		desc.format = description.format;
+		RHITextureRef tex = new VulkanTexture(desc, swapchain_images[i]);
 		tex->setDebugName("Swapchain Texture");
 		textures.push_back(tex);
 

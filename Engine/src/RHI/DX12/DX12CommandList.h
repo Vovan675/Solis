@@ -49,16 +49,16 @@ public:
 
 	void setIndexBuffer(RHIBuffer *buffer, uint32_t offset, IndexFormat format = IndexFormat::UINT32) override;
 
-	void drawIndexedInstanced(uint32_t indexCount, uint32_t instanceCount, uint32_t firstIndex, int32_t vertexOffset, uint32_t firstInstance) override
+	void drawIndexedInstanced(uint32_t index_count, uint32_t instance_count, uint32_t first_index, int32_t vertex_offset, uint32_t first_instance) override
 	{
 		gDynamicRHI->prepareRenderCall();
-		cmd_list->DrawIndexedInstanced(indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
+		cmd_list->DrawIndexedInstanced(index_count, instance_count, first_index, vertex_offset, first_instance);
 	}
 
-	void drawInstanced(uint32_t vertex_count_per_instance, uint32_t instance_count, uint32_t firstVertex, uint32_t firstInstance)
+	void drawInstanced(uint32_t vertex_count, uint32_t instance_count, uint32_t first_vertex, uint32_t first_instance)
 	{
 		gDynamicRHI->prepareRenderCall();
-		cmd_list->DrawInstanced(vertex_count_per_instance, instance_count, firstVertex, firstInstance);
+		cmd_list->DrawInstanced(vertex_count, instance_count, first_vertex, first_instance);
 	}
 
 	void drawIndexedIndirect(RHIBuffer *args_buffer, uint32_t max_draw_count, RHIBuffer *count_buffer) override;
@@ -83,10 +83,11 @@ public:
 	}
 	void dispatchMeshIndirect(RHIBuffer *args_buffer, uint32_t draw_count) override;
 
-	void copyBuffer(RHIBuffer *src, RHIBuffer *dest, uint64_t src_offset, uint64_t dest_offset, uint64_t size) override;
-	void copyTexture(RHITexture *src, RHITexture *dest) override;
+	void copyBuffer(RHIBuffer *src, RHIBuffer *dst, uint64_t src_offset, uint64_t dst_offset, uint64_t size) override;
+	void copyTexture(RHITexture *src, RHITexture *dst) override;
 	void copyTextureToBuffer(RHITexture *src, RHIBuffer *dst) override;
-	void fillBuffer(RHIBuffer *buffer, uint32_t value) override;
+	void clearBuffer(RHIBuffer *buffer, uint32_t value) override;
+	void clearTexture(RHITexture *texture, const glm::vec4 &color) override;
 
 	void beginDebugLabel(const char *label, glm::vec3 color, uint32_t line, const char* source, size_t source_size, const char* function, size_t function_size);
 	void endDebugLabel();

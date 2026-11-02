@@ -56,22 +56,19 @@ public:
 
 			if (material_texture.bindless_id == 0 && material_texture.asset.isValid())
 			{
-				TextureDescription desc{};
-				desc.format = format;
-				desc.usage_flags = TEXTURE_USAGE_TRANSFER_SRC;
-				auto tex = AssetManager::getTextureAsset(material_texture.asset, desc);
+				auto tex = AssetManager::getTextureAsset(material_texture.asset, format);
 				if (!tex || !tex->isValid())
 					return;
 				material_texture.bindless_id = tex->getShaderResourceView()->getBindlessIndex();
 			}
 		};
 
-		update_texture(albedo_tex, FORMAT_R8G8B8A8_SRGB);
-		update_texture(metalness_tex, FORMAT_R8G8B8A8_UNORM);
-		update_texture(roughness_tex, FORMAT_R8G8B8A8_UNORM);
-		update_texture(specular_tex, FORMAT_R8G8B8A8_UNORM);
-		update_texture(normal_tex, FORMAT_R8G8B8A8_UNORM);
-		update_texture(emissive_tex, FORMAT_R8G8B8A8_SRGB);
+		update_texture(albedo_tex, Format::R8G8B8A8_SRGB);
+		update_texture(metalness_tex, Format::R8G8B8A8_UNORM);
+		update_texture(roughness_tex, Format::R8G8B8A8_UNORM);
+		update_texture(specular_tex, Format::R8G8B8A8_UNORM);
+		update_texture(normal_tex, Format::R8G8B8A8_UNORM);
+		update_texture(emissive_tex, Format::R8G8B8A8_SRGB);
 	}
 
 	bool usesTexture(Engine::GUID guid) const

@@ -23,8 +23,8 @@ public:
 	template<typename T>
 	static Ref<T> getAsset(const AssetReference &reference) { return getAsset(getPath(reference), getTypeInfo<T>()); }
 
-	static RHITextureRef getTextureAsset(eastl::string path, TextureDescription desc);
-	static RHITextureRef getTextureAsset(const AssetReference &reference, TextureDescription desc);
+	static RHITextureRef getTextureAsset(eastl::string path, Format format);
+	static RHITextureRef getTextureAsset(const AssetReference &reference, Format format);
 	static RHITextureRef getTextureAsset(eastl::string path);
 
 	static Ref<Model> getModelAsset(eastl::string path);

@@ -41,10 +41,11 @@ void PostProcessingRenderer::addTonemapLutPass(FrameGraph &fg)
 	[=](RenderPassBuilder &builder)
 	{
 		TextureDescription lut_desc;
+		lut_desc.dimension = TextureDimension::TEXTURE_3D;
 		lut_desc.width = lut_size;
 		lut_desc.height = lut_size;
 		lut_desc.depth = lut_size;
-		lut_desc.format = FORMAT_R16G16B16A16_SFLOAT;
+		lut_desc.format = Format::R16G16B16A16_SFLOAT;
 		builder.createTexture(GFXRID(TonemapLUT), lut_desc);
 
 		builder.writeUAVTexture(GFXRID(TonemapLUT));
@@ -63,7 +64,7 @@ void PostProcessingRenderer::addTonemapLutPass(FrameGraph &fg)
 		constants.uchimura = GFXOPTIONS(film).uchimura;
 		constants.color_grading = GFXOPTIONS(color_grading);
 
-		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/build_lut.hlsl", COMPUTE_SHADER));
+		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/build_lut.hlsl", ShaderType::COMPUTE));
 		gGlobalPipeline->flushAndBind(cmd_list);
 
 		gDynamicRHI->setConstantBufferData(0, &constants, sizeof(constants));
@@ -82,7 +83,7 @@ void PostProcessingRenderer::addBloomPass(FrameGraph &fg)
 		TextureDescription input_desc = builder.getTextureDescription(input);
 
 		TextureDescription bloom_desc;
-		bloom_desc.format = FORMAT_R11G11B10_UFLOAT;
+		bloom_desc.format = Format::R11G11B10_UFLOAT;
 		bloom_desc.width = input_desc.width / 2;
 		bloom_desc.height = input_desc.height / 2;
 		bloom_desc.mip_levels = std::min(GFXOPTIONS(bloom).mip_count, (uint32_t)std::log2(std::min(bloom_desc.width, bloom_desc.height)) + 1);
@@ -117,23 +118,23 @@ void PostProcessingRenderer::addBloomPass(FrameGraph &fg)
 			gDynamicRHI->setConstantBufferData(0, &constants, sizeof(constants));
 
 			cmd_list->dispatch(Math::divideRoundUp(constants.output_size.x, 8), Math::divideRoundUp(constants.output_size.y, 8), 1);
-			bloom->transitLayout(cmd_list, TEXTURE_LAYOUT_UAV);
+			bloom->transitState(cmd_list, ResourceState::UNORDERED_ACCESS);
 		};
 
 		// Downsample
-		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/bloom.hlsl", COMPUTE_SHADER, "CSFirstDownsample"));
+		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/bloom.hlsl", ShaderType::COMPUTE, "CSFirstDownsample"));
 		gGlobalPipeline->flushAndBind(cmd_list);
 
 		dispatch(resources.getReadTexture(input), resources.getTexture(input)->getSize(), 0);
 
-		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/bloom.hlsl", COMPUTE_SHADER, "CSDownsample"));
+		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/bloom.hlsl", ShaderType::COMPUTE, "CSDownsample"));
 		gGlobalPipeline->flushAndBind(cmd_list);
 
 		for (int mip = 1; mip < bloom->getMipLevels(); mip++)
 			dispatch(bloom->getShaderResourceView(mip - 1)->getBindlessIndex(), bloom->getSize(mip - 1), mip);
 
 		// Upsample
-		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/bloom.hlsl", COMPUTE_SHADER, "CSUpsample"));
+		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/bloom.hlsl", ShaderType::COMPUTE, "CSUpsample"));
 		gGlobalPipeline->flushAndBind(cmd_list);
 
 		for (int mip = bloom->getMipLevels() - 2; mip >= 0; mip--)
@@ -180,7 +181,7 @@ void PostProcessingRenderer::addFilmPass(FrameGraph &fg)
 		if (capture_hdr)
 		{
 			TextureDescription input_desc = builder.getTextureDescription(last_output);
-			builder.createTexture(GFXRID(FilmHDR), input_desc.width, input_desc.height, FORMAT_R32G32B32A32_SFLOAT);
+			builder.createTexture(GFXRID(FilmHDR), input_desc.width, input_desc.height, Format::R32G32B32A32_SFLOAT);
 			builder.writeTexture(GFXRID(FilmHDR));
 		}
 
@@ -195,11 +196,11 @@ void PostProcessingRenderer::addFilmPass(FrameGraph &fg)
 		if (capture_hdr)
 		{
 			cmd_list->setRenderTargets({output, resources.getTexture(GFXRID(FilmHDR))}, {}, 0, 0, true);
-			gGlobalPipeline->bindScreenQuadPipeline(cmd_list, gDynamicRHI->createShader(L"shaders/film.hlsl", FRAGMENT_SHADER, "PSMain", {{"HDR_CAPTURE", "1"}, {"HDR_CAPTURE_RAW", capture_raw ? "1" : "0"}}));
+			gGlobalPipeline->bindScreenQuadPipeline(cmd_list, gDynamicRHI->createShader(L"shaders/film.hlsl", ShaderType::FRAGMENT, "PSMain", {{"HDR_CAPTURE", "1"}, {"HDR_CAPTURE_RAW", capture_raw ? "1" : "0"}}));
 		} else
 		{
 			cmd_list->setRenderTargets({output}, {}, 0, 0, true);
-			gGlobalPipeline->bindScreenQuadPipeline(cmd_list, gDynamicRHI->createShader(L"shaders/film.hlsl", FRAGMENT_SHADER));
+			gGlobalPipeline->bindScreenQuadPipeline(cmd_list, gDynamicRHI->createShader(L"shaders/film.hlsl", ShaderType::FRAGMENT));
 		}
 
 		const FilmSettings &film = GFXOPTIONS(film);
@@ -241,7 +242,7 @@ void PostProcessingRenderer::addFxaaPass(FrameGraph &fg)
 		cmd_list->setRenderTargets({final}, {}, 0, 0, true);
 
 		// PSO
-		gGlobalPipeline->bindScreenQuadPipeline(cmd_list, gDynamicRHI->createShader(L"shaders/fxaa.hlsl", FRAGMENT_SHADER));
+		gGlobalPipeline->bindScreenQuadPipeline(cmd_list, gDynamicRHI->createShader(L"shaders/fxaa.hlsl", ShaderType::FRAGMENT));
 
 		struct UBO
 		{

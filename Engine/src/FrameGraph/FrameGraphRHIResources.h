@@ -85,29 +85,13 @@ struct FrameGraphTexture : public FrameGraphResource<FrameGraphResourceType::TEX
 
 	FrameGraphTexture(FrameGraphTexture &&) noexcept = default;
 
-	void transition(RHICommandList *cmd_list, ResourceState usage)
-	{
-		TextureLayoutType new_layout = TEXTURE_LAYOUT_SHADER_READ;
-		if (usage == ResourceState::UAV)
-			new_layout = TEXTURE_LAYOUT_UAV;
-		else if (usage == ResourceState::RENDER_TARGET)
-			new_layout = TEXTURE_LAYOUT_ATTACHMENT;
-		else if (usage == ResourceState::DEPTH_READ)
-			new_layout = TEXTURE_LAYOUT_DEPTH_READ;
-		else if (usage == ResourceState::COPY_SRC)
-			new_layout = TEXTURE_LAYOUT_TRANSFER_SRC;
-		else if (usage == ResourceState::COPY_DST)
-			new_layout = TEXTURE_LAYOUT_TRANSFER_DST;
-		resource->transitLayout(cmd_list, new_layout);
-	}
-
 	eastl::string toString() const
 	{
 		std::ostringstream out;
 		if (desc.depth > 1)
-			out << desc.width << "x" << desc.height << "x" << desc.depth << " (" << getFormatName(desc.format) << ")";
+			out << desc.width << "x" << desc.height << "x" << desc.depth << " (" << getFormatInfo(desc.format).name << ")";
 		else
-			out << desc.width << "x" << desc.height << " (" << getFormatName(desc.format) << ")";
+			out << desc.width << "x" << desc.height << " (" << getFormatInfo(desc.format).name << ")";
 		return out.str().c_str();
 	}
 };

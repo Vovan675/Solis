@@ -1,16 +1,13 @@
 #pragma once
 #include "RHI/RHIPipeline.h"
 #include "DX12Resources.h"
+#include "DX12Shader.h"
 
 class DX12Pipeline final: public RHIPipeline
 {
 public:
-	DX12Pipeline(ID3D12Device *device): device(device) {}
+	DX12Pipeline(ID3D12Device *device, const PipelineDescription &description);
 	~DX12Pipeline();
-
-	void destroy();
-
-	void create(const PipelineDescription &description) override;
 
 	ID3D12Device *device;
 	std::unique_ptr<DX12PipelineResource> pipeline;

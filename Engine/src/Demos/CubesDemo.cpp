@@ -47,93 +47,60 @@ void CubesDemo::initResources()
 	// Vertex & Index buffers
 	BufferDescription desc{};
 	desc.size = sizeof(cube_vertices[0]) * _countof(cube_vertices);
-	desc.usage = BufferUsage::VERTEX_BUFFER;
-	desc.use_staging_buffer = true;
-	desc.storage_stride = sizeof(cube_vertices[0]);
-	vertex_buffer = gDynamicRHI->createBuffer(desc);
+	desc.usage_flags = BufferUsage::VERTEX;
+	desc.stride = sizeof(cube_vertices[0]);
+	vertex_buffer = gDynamicRHI->createBuffer(desc, cube_vertices);
 
 	desc.size = sizeof(cube_indices[0]) * _countof(cube_indices);
-	desc.usage = BufferUsage::INDEX_BUFFER;
-	desc.use_staging_buffer = true;
-	index_buffer = gDynamicRHI->createBuffer(desc);
-
-	vertex_buffer->fill(cube_vertices);
-	index_buffer->fill(cube_indices);
+	desc.usage_flags = BufferUsage::INDEX;
+	index_buffer = gDynamicRHI->createBuffer(desc, cube_indices);
 
 	// Shaders (cache it and get in render?)
-	vertex_shader = gDynamicRHI->createShader(L"shaders/demos/test_shaders.hlsl", VERTEX_SHADER, "VSMain");
-	pixel_shader = gDynamicRHI->createShader(L"shaders/demos/test_shaders.hlsl", FRAGMENT_SHADER, "PSMain");
-
-	// Create PSO (cache it and set via global pso)
-	pso = gDynamicRHI->createPipeline();
-
-	PipelineDescription pso_desc{};
-	pso_desc.vertex_shader = vertex_shader;
-	pso_desc.fragment_shader = pixel_shader;
-
-	pso_desc.color_formats = {FORMAT_R8G8B8A8_UNORM}; //VK_FORMAT_B8G8R8A8_UNORM?
-	pso_desc.depth_format = FORMAT_D32S8;
-	pso_desc.use_depth_test = true;
-	pso_desc.use_blending = false;
-
-	pso_desc.vertex_inputs_descriptions.inputs.push_back({"POSITION", 0, FORMAT_R32G32B32_SFLOAT});
-	pso_desc.vertex_inputs_descriptions.inputs.push_back({"UV", 0, FORMAT_R32G32_SFLOAT});
-
-	///pso->create(pso_desc);
+	vertex_shader = gDynamicRHI->createShader(L"shaders/demos/test_shaders.hlsl", ShaderType::VERTEX, "VSMain");
+	pixel_shader = gDynamicRHI->createShader(L"shaders/demos/test_shaders.hlsl", ShaderType::FRAGMENT, "PSMain");
 
 	// Texture
 	TextureDescription tex_desc;
-	tex_desc.format = FORMAT_D32S8;
-	tex_desc.usage_flags = TEXTURE_USAGE_ATTACHMENT;
+	tex_desc.format = Format::D32_SFLOAT_S8_UINT;
+	tex_desc.usage_flags = TextureUsage::RENDER_TARGET;
 	tex_desc.width = gDynamicRHI->getSwapchainTexture(0)->getWidth();
 	tex_desc.height = gDynamicRHI->getSwapchainTexture(0)->getHeight();
 
 	depth_stencil_texture = gDynamicRHI->createTexture(tex_desc);
-	depth_stencil_texture->fill();
-
-
-	tex_desc.format = FORMAT_R8G8B8A8_SRGB;
-	tex_desc.usage_flags = TEXTURE_USAGE_TRANSFER_SRC;
 
 	for (size_t i = 0; i < 5; i++)
-	{
-		auto texture = gDynamicRHI->createTexture(tex_desc);
-		texture->load((std::string("assets/textures/checker/checker_") + std::to_string(i + 1) + ".png").c_str());
-		checker_textures.push_back(texture);
-	}
+		checker_textures.push_back(RHITexture::load((std::string("assets/textures/checker/checker_") + std::to_string(i + 1) + ".png").c_str(), Format::R8G8B8A8_SRGB));
 
 	// Bindless
 	{
-		vertex_shader_bindless = gDynamicRHI->createShader(L"shaders/demos/bindless.hlsl", VERTEX_SHADER, "VSMain");
-		pixel_shader_bindless = gDynamicRHI->createShader(L"shaders/demos/bindless.hlsl", FRAGMENT_SHADER, "PSMain");
-
-		pso_bindless = gDynamicRHI->createPipeline();
+		vertex_shader_bindless = gDynamicRHI->createShader(L"shaders/demos/bindless.hlsl", ShaderType::VERTEX, "VSMain");
+		pixel_shader_bindless = gDynamicRHI->createShader(L"shaders/demos/bindless.hlsl", ShaderType::FRAGMENT, "PSMain");
 
 		PipelineDescription pso_desc{};
 		pso_desc.vertex_shader = vertex_shader_bindless;
 		pso_desc.fragment_shader = pixel_shader_bindless;
 
-		pso_desc.color_formats = {FORMAT_R8G8B8A8_UNORM}; //VK_FORMAT_B8G8R8A8_UNORM?
-		pso_desc.depth_format = FORMAT_D32S8;
+		pso_desc.color_formats = {Format::R8G8B8A8_UNORM}; //VK_FORMAT_B8G8R8A8_UNORM?
+		pso_desc.depth_format = Format::D32_SFLOAT_S8_UINT;
 		pso_desc.use_depth_test = true;
 		pso_desc.use_blending = false;
 
-		pso_desc.vertex_inputs_descriptions.inputs.push_back({"POSITION", 0, FORMAT_R32G32B32_SFLOAT});
-		pso_desc.vertex_inputs_descriptions.inputs.push_back({"UV", 0, FORMAT_R32G32_SFLOAT});
+		pso_desc.vertex_inputs_descriptions.inputs.push_back({"POSITION", 0, Format::R32G32B32_SFLOAT});
+		pso_desc.vertex_inputs_descriptions.inputs.push_back({"UV", 0, Format::R32G32_SFLOAT});
 
-		pso_bindless->create(pso_desc);
+		pso_bindless = gDynamicRHI->createPipeline(pso_desc);
 	}
 }
 
 void CubesDemo::render(RHICommandList *cmd_list)
 {
 	for (auto &texture : checker_textures)
-		texture->transitLayout(cmd_list, TEXTURE_LAYOUT_SHADER_READ);
+		texture->transitState(cmd_list, ResourceState::SHADER_RESOURCE);
 
 	// Set swapchain color image layout for writing
 	auto swapchain_texture = gDynamicRHI->getCurrentSwapchainTexture();
-	swapchain_texture->transitLayout(cmd_list, TEXTURE_LAYOUT_ATTACHMENT);
-	depth_stencil_texture->transitLayout(cmd_list, TEXTURE_LAYOUT_ATTACHMENT);
+	swapchain_texture->transitState(cmd_list, ResourceState::RENDER_TARGET);
+	depth_stencil_texture->transitState(cmd_list, ResourceState::RENDER_TARGET);
 	cmd_list->setRenderTargets({swapchain_texture.getReference()}, {depth_stencil_texture.getReference()}, 0, 0, true);
 
 	// Set PSO
@@ -144,10 +111,10 @@ void CubesDemo::render(RHICommandList *cmd_list)
 	} else
 	{
 		VertexInputsDescription input_desc;
-		input_desc.inputs.push_back({"POSITION", 0, FORMAT_R32G32B32_SFLOAT});
-		input_desc.inputs.push_back({"UV", 0, FORMAT_R32G32_SFLOAT});
+		input_desc.inputs.push_back({"POSITION", 0, Format::R32G32B32_SFLOAT});
+		input_desc.inputs.push_back({"UV", 0, Format::R32G32_SFLOAT});
 		gGlobalPipeline->setupGraphicsPipeline(cmd_list, vertex_shader, pixel_shader,
-											   input_desc, false, true, CULL_MODE_BACK);
+											   input_desc, false, true, CullMode::BACK);
 		gGlobalPipeline->flushAndBind(cmd_list);
 	}
 
@@ -199,29 +166,27 @@ void RenderTargetsDemo::initResources()
 {
 	// Depth Texture
 	TextureDescription tex_desc;
-	tex_desc.format = FORMAT_D32S8;
-	tex_desc.usage_flags = TEXTURE_USAGE_ATTACHMENT;
+	tex_desc.format = Format::D32_SFLOAT_S8_UINT;
+	tex_desc.usage_flags = TextureUsage::RENDER_TARGET;
 	tex_desc.width = gDynamicRHI->getSwapchainTexture(0)->getWidth();
 	tex_desc.height = gDynamicRHI->getSwapchainTexture(0)->getHeight();
 
 	depth_stencil_texture = gDynamicRHI->createTexture(tex_desc);
-	depth_stencil_texture->fill();
 
 	// Result Texture
-	tex_desc.format = FORMAT_R11G11B10_UFLOAT;
-	tex_desc.usage_flags = TEXTURE_USAGE_ATTACHMENT;
+	tex_desc.format = Format::R11G11B10_UFLOAT;
+	tex_desc.usage_flags = TextureUsage::RENDER_TARGET;
 	tex_desc.width = gDynamicRHI->getSwapchainTexture(0)->getWidth();
 	tex_desc.height = gDynamicRHI->getSwapchainTexture(0)->getHeight();
 
 	result_texture = gDynamicRHI->createTexture(tex_desc);
-	result_texture->fill();
 
 	// Shaders (cache it and get in render?)
-	vertex_shader = gDynamicRHI->createShader(L"shaders/demos/mesh_render.hlsl", VERTEX_SHADER, "VSMain");
-	pixel_shader = gDynamicRHI->createShader(L"shaders/demos/mesh_render.hlsl", FRAGMENT_SHADER, "PSMain");
+	vertex_shader = gDynamicRHI->createShader(L"shaders/demos/mesh_render.hlsl", ShaderType::VERTEX, "VSMain");
+	pixel_shader = gDynamicRHI->createShader(L"shaders/demos/mesh_render.hlsl", ShaderType::FRAGMENT, "PSMain");
 
-	vertex_shader_quad = gDynamicRHI->createShader(L"shaders/demos/quad.hlsl", VERTEX_SHADER, "VSMain");
-	pixel_shader_quad = gDynamicRHI->createShader(L"shaders/demos/quad.hlsl", FRAGMENT_SHADER, "PSMain");
+	vertex_shader_quad = gDynamicRHI->createShader(L"shaders/demos/quad.hlsl", ShaderType::VERTEX, "VSMain");
+	pixel_shader_quad = gDynamicRHI->createShader(L"shaders/demos/quad.hlsl", ShaderType::FRAGMENT, "PSMain");
 
 	model.load("assets/models/demo_scene/demo_scene.fbx");
 	//model.load("assets/models/primitives/cube.glb");
@@ -231,14 +196,14 @@ void RenderTargetsDemo::render(RHICommandList *cmd_list)
 {
 	auto swapchain_texture = gDynamicRHI->getCurrentSwapchainTexture();
 
-	result_texture->transitLayout(cmd_list, TEXTURE_LAYOUT_ATTACHMENT);
-	depth_stencil_texture->transitLayout(cmd_list, TEXTURE_LAYOUT_ATTACHMENT);
+	result_texture->transitState(cmd_list, ResourceState::RENDER_TARGET);
+	depth_stencil_texture->transitState(cmd_list, ResourceState::RENDER_TARGET);
 	cmd_list->setRenderTargets({result_texture.getReference()}, {depth_stencil_texture.getReference()}, 0, 0, true);
 
 	// PSO
 	gGlobalPipeline->setupGraphicsPipeline(cmd_list, vertex_shader, pixel_shader,
 										   Engine::Vertex::GetVertexInputsDescription(),
-										   false, true, CULL_MODE_BACK);
+										   false, true, CullMode::BACK);
 	gGlobalPipeline->flushAndBind(cmd_list);
 
 
@@ -279,13 +244,13 @@ void RenderTargetsDemo::render(RHICommandList *cmd_list)
 	cmd_list->resetRenderTargets();
 
 	// Render result texture to swap chain
-	result_texture->transitLayout(cmd_list, TEXTURE_LAYOUT_SHADER_READ);
+	result_texture->transitState(cmd_list, ResourceState::SHADER_RESOURCE);
 
-	swapchain_texture->transitLayout(cmd_list, TEXTURE_LAYOUT_ATTACHMENT);
+	swapchain_texture->transitState(cmd_list, ResourceState::RENDER_TARGET);
 	cmd_list->setRenderTargets({swapchain_texture}, {}, 0, 0, true);
 
 	gGlobalPipeline->setupGraphicsPipeline(cmd_list, vertex_shader_quad, pixel_shader_quad,
-										   VertexInputsDescription{}, false, false, CULL_MODE_BACK);
+										   VertexInputsDescription{}, false, false, CullMode::BACK);
 	gGlobalPipeline->flushAndBind(cmd_list);
 
 	struct Uniform
@@ -333,11 +298,11 @@ void RenderTargetsDemo::renderFrameGraph(RHICommandList *cmd_list)
 		builder.setSideEffect(true); // Don't cull
 
 		// Result
-		builder.createTexture(GFXRID(Result), swapchain_texture->getWidth(), swapchain_texture->getHeight(), FORMAT_R8G8B8A8_UNORM);
+		builder.createTexture(GFXRID(Result), swapchain_texture->getWidth(), swapchain_texture->getHeight(), Format::R8G8B8A8_UNORM);
 		builder.writeTexture(GFXRID(Result));
 
 		// Depth-Stencil
-		builder.createTexture(GFXRID(GBufferDepth), swapchain_texture->getWidth(), swapchain_texture->getHeight(), FORMAT_D32S8);
+		builder.createTexture(GFXRID(GBufferDepth), swapchain_texture->getWidth(), swapchain_texture->getHeight(), Format::D32_SFLOAT_S8_UINT);
 		builder.writeTexture(GFXRID(GBufferDepth));
 	},
 	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
@@ -350,7 +315,7 @@ void RenderTargetsDemo::renderFrameGraph(RHICommandList *cmd_list)
 		// PSO
 		gGlobalPipeline->setupGraphicsPipeline(cmd_list, vertex_shader, pixel_shader,
 											   Engine::Vertex::GetVertexInputsDescription(),
-											   false, true, CULL_MODE_BACK);
+											   false, true, CullMode::BACK);
 		gGlobalPipeline->flushAndBind(cmd_list);
 
 		model.getRootNode()->local_model_matrix = glm::translate(glm::vec3(0, 0, 0)) * glm::scale(glm::vec3(0.04f));
@@ -400,11 +365,11 @@ void RenderTargetsDemo::renderFrameGraph(RHICommandList *cmd_list)
 		
 		// Render result texture to swap chain
 
-		swapchain_texture->transitLayout(cmd_list, TEXTURE_LAYOUT_ATTACHMENT);
+		swapchain_texture->transitState(cmd_list, ResourceState::RENDER_TARGET);
 		cmd_list->setRenderTargets({swapchain_texture}, {}, 0, 0, true);
 
 		gGlobalPipeline->setupGraphicsPipeline(cmd_list, vertex_shader_quad, pixel_shader_quad,
-											   VertexInputsDescription{}, false, false, CULL_MODE_BACK);
+											   VertexInputsDescription{}, false, false, CullMode::BACK);
 		gGlobalPipeline->flushAndBind(cmd_list);
 
 		struct Uniform

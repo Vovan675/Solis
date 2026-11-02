@@ -101,9 +101,9 @@ void VulkanCommandList::setPipeline(RHIPipeline *pipeline)
 {
 	VulkanPipeline *native_pipeline = static_cast<VulkanPipeline *>(pipeline);
 	VkPipelineBindPoint bind_point = VK_PIPELINE_BIND_POINT_GRAPHICS;
-	if (native_pipeline->description.pipeline_type == PipelineType::RayTracing)
+	if (native_pipeline->description.pipeline_type == PipelineType::RAY_TRACING)
 		bind_point = VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR;
-	else if (native_pipeline->description.pipeline_type == PipelineType::Compute)
+	else if (native_pipeline->description.pipeline_type == PipelineType::COMPUTE)
 		bind_point = VK_PIPELINE_BIND_POINT_COMPUTE;
 	vkCmdBindPipeline(cmd_buffer, bind_point, native_pipeline->resource->pipeline);
 	current_pipeline = pipeline;
@@ -230,39 +230,63 @@ void VulkanCommandList::dispatchMeshIndirect(RHIBuffer *args_buffer, uint32_t dr
 	VulkanUtils::vkCmdDrawMeshTasksIndirect(cmd_buffer, native_args_buffer->getBuffer(), 0, draw_count, sizeof(VkDispatchIndirectCommand));
 }
 
-void VulkanCommandList::fillBuffer(RHIBuffer *buffer, uint32_t value)
+void VulkanCommandList::clearBuffer(RHIBuffer *buffer, uint32_t value)
 {
 	VulkanBuffer *native_buffer = static_cast<VulkanBuffer *>(buffer);
 	native_buffer->transitState(this, ResourceState::COPY_DST);
 	vkCmdFillBuffer(cmd_buffer, native_buffer->getBuffer(), 0, VK_WHOLE_SIZE, value);
 }
 
-void VulkanCommandList::copyBuffer(RHIBuffer *src, RHIBuffer *dest, uint64_t src_offset, uint64_t dest_offset, uint64_t size)
+void VulkanCommandList::clearTexture(RHITexture *texture, const glm::vec4 &color)
+{
+	VulkanTexture *native_texture = (VulkanTexture *)texture;
+	native_texture->transitState(this, ResourceState::COPY_DST);
+
+	VkImageSubresourceRange range{};
+	range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	range.levelCount = texture->getMipLevels();
+	range.layerCount = texture->isCube() ? 6 : texture->getArrayLayers();
+
+	if (texture->isDepthTexture())
+	{
+		range.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+		VkClearDepthStencilValue clear_value{};
+		clear_value.depth = color.x;
+		vkCmdClearDepthStencilImage(cmd_buffer, native_texture->getImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clear_value, 1, &range);
+		return;
+	}
+
+	VkClearColorValue clear_value;
+	memcpy(clear_value.float32, &color.x, sizeof(clear_value.float32));
+	vkCmdClearColorImage(cmd_buffer, native_texture->getImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clear_value, 1, &range);
+}
+
+void VulkanCommandList::copyBuffer(RHIBuffer *src, RHIBuffer *dst, uint64_t src_offset, uint64_t dst_offset, uint64_t size)
 {
 	VulkanBuffer *native_src_buffer = (VulkanBuffer *)src;
-	VulkanBuffer *native_dst_buffer = (VulkanBuffer *)dest;
+	VulkanBuffer *native_dst_buffer = (VulkanBuffer *)dst;
 
 	native_src_buffer->transitState(this, ResourceState::COPY_SRC);
 	native_dst_buffer->transitState(this, ResourceState::COPY_DST);
 
 	VkBufferCopy copyRegion{};
 	copyRegion.srcOffset = src_offset;
-	copyRegion.dstOffset = dest_offset;
+	copyRegion.dstOffset = dst_offset;
 	copyRegion.size = size;
 	vkCmdCopyBuffer(cmd_buffer, native_src_buffer->getBuffer(), native_dst_buffer->getBuffer(), 1, &copyRegion);
 }
 
-void VulkanCommandList::copyTexture(RHITexture *src, RHITexture *dest)
+void VulkanCommandList::copyTexture(RHITexture *src, RHITexture *dst)
 {
 	VulkanTexture *native_src_texture = (VulkanTexture *)src;
-	VulkanTexture *native_dst_texture = (VulkanTexture *)dest;
+	VulkanTexture *native_dst_texture = (VulkanTexture *)dst;
 
-	native_src_texture->transitLayout(this, TEXTURE_LAYOUT_TRANSFER_SRC);
-	native_dst_texture->transitLayout(this, TEXTURE_LAYOUT_TRANSFER_DST);
+	native_src_texture->transitState(this, ResourceState::COPY_SRC);
+	native_dst_texture->transitState(this, ResourceState::COPY_DST);
 
 	VkImageCopy region{};
 	region.srcSubresource.aspectMask = src->isDepthTexture() ? VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
-	region.srcSubresource.layerCount = src->getArrayLevels();
+	region.srcSubresource.layerCount = src->getArrayLayers();
 	region.dstSubresource = region.srcSubresource;
 	for (int mip = 0; mip < src->getMipLevels(); mip++)
 	{
@@ -278,7 +302,7 @@ void VulkanCommandList::copyTextureToBuffer(RHITexture *src, RHIBuffer *dst)
 	VulkanTexture *native_src_texture = (VulkanTexture *)src;
 	VulkanBuffer *native_dst_buffer = (VulkanBuffer *)dst;
 
-	native_src_texture->transitLayout(this, TEXTURE_LAYOUT_TRANSFER_SRC);
+	native_src_texture->transitState(this, ResourceState::COPY_SRC);
 	native_dst_buffer->transitState(this, ResourceState::COPY_DST);
 
 	VkBufferImageCopy region{};

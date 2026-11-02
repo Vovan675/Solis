@@ -149,7 +149,7 @@ void ImGuiWrapper::render(RHICommandList *cmd_list)
 }
 
 
-ImTextureID ImGuiWrapper::getTextureId(RHITextureRef tex, int mip, int layer)
+ImTextureID ImGuiWrapper::getTextureId(RHITextureRef tex, uint32_t mip, uint32_t layer)
 {
 	if (gDynamicRHI->isVulkan())
 	{

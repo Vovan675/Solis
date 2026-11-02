@@ -3,7 +3,7 @@
 #include "DX12Utils.h"
 #include "Core/Variables.h"
 
-DX12Swapchain::DX12Swapchain(HWND hWnd, const SwapchainInfo &info) : hWnd(hWnd), RHISwapchain(info)
+DX12Swapchain::DX12Swapchain(HWND hWnd, const SwapchainDescription &description) : hWnd(hWnd), RHISwapchain(description)
 {
 	create_swapchain();
 	create_resources();
@@ -38,8 +38,8 @@ void DX12Swapchain::resize(uint32_t width, uint32_t height)
 {
 	gDynamicRHI->waitGPU();
 
-	info.width = width;
-	info.height = height;
+	description.width = width;
+	description.height = height;
 
 	release_resources();
 	swap_chain->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, allow_tearing ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0);
@@ -55,12 +55,12 @@ void DX12Swapchain::create_swapchain()
 	factory_5->CheckFeatureSupport(DXGI_FEATURE_PRESENT_ALLOW_TEARING, &allow_tearing, sizeof(allow_tearing));
 
 	DXGI_SWAP_CHAIN_DESC1 desc{};
-	desc.Width = info.width;
-	desc.Height = info.height;
-	desc.Format = DX12Utils::getNativeFormat(info.format);
+	desc.Width = description.width;
+	desc.Height = description.height;
+	desc.Format = DX12Utils::getNativeFormat(description.format);
 	desc.SampleDesc.Count = 1;
 	desc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-	desc.BufferCount = info.textures_count;
+	desc.BufferCount = description.texture_count;
 	desc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
 	desc.Flags = allow_tearing ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0;
 
@@ -72,18 +72,17 @@ void DX12Swapchain::create_swapchain()
 void DX12Swapchain::create_resources()
 {
 	// Create a RTV for each frame.
-	for (int i = 0; i < info.textures_count; i++)
+	for (int i = 0; i < description.texture_count; i++)
 	{
 		ID3D12Resource *buffer;
 		swap_chain->GetBuffer(i, IID_PPV_ARGS(&buffer));
 
 		TextureDescription desc{};
-		desc.width = info.width;
-		desc.height = info.height;
-		desc.usage_flags = TEXTURE_USAGE_ATTACHMENT | TEXTURE_USAGE_NO_SAMPLED;
-		desc.format = info.format;
-		RHITextureRef texture = gDynamicRHI->createTexture(desc);
-		texture->fill_raw(buffer);
+		desc.width = description.width;
+		desc.height = description.height;
+		desc.usage_flags = TextureUsage::RENDER_TARGET | TextureUsage::NO_SAMPLED;
+		desc.format = description.format;
+		RHITextureRef texture = new DX12Texture(desc, buffer);
 		texture->setDebugName("Swapchain Texture");
 		textures.push_back(texture);
 	}
@@ -94,7 +93,7 @@ void DX12Swapchain::release_resources()
 	for (RHITextureRef &texture : textures)
 	{
 		DX12Texture *native_texture = (DX12Texture *)texture.getReference();
-		native_texture->resource->Release();
+		native_texture->resource->release();
 		native_texture->resource = nullptr;
 	}
 	textures.clear();

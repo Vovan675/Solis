@@ -18,7 +18,7 @@ void DX12Shader::load_bytecode(IDxcBlob *bytecode)
 	reflectionBuffer.Size = blob->GetBufferSize();
 	reflectionBuffer.Encoding = 0;
 
-	if (type == RAY_GENERATION_SHADER || type == MISS_SHADER || type == CLOSEST_HIT_SHADER)
+	if (type == ShaderType::RAY_GENERATION || type == ShaderType::MISS || type == ShaderType::CLOSEST_HIT)
 		dxc_utils->CreateReflection(&reflectionBuffer, IID_PPV_ARGS(&reflection_library));
 	else
 		dxc_utils->CreateReflection(&reflectionBuffer, IID_PPV_ARGS(&reflection));
@@ -63,10 +63,10 @@ eastl::vector<CD3DX12_ROOT_PARAMETER1> DX12Shader::getRootParameters(const eastl
 		D3D12_SHADER_VISIBILITY visibility;
 		switch (shader->type)
 		{
-			case VERTEX_SHADER:
+			case ShaderType::VERTEX:
 				visibility = D3D12_SHADER_VISIBILITY_VERTEX;
 				break;
-			case FRAGMENT_SHADER:
+			case ShaderType::FRAGMENT:
 				visibility = D3D12_SHADER_VISIBILITY_PIXEL;
 				break;
 			default:
@@ -104,13 +104,6 @@ eastl::vector<CD3DX12_ROOT_PARAMETER1> DX12Shader::getRootParameters(const eastl
 
 					if (bind_desc.Type == D3D_SIT_CBUFFER)
 					{
-						//const auto cb = shader->reflection->GetConstantBufferByIndex(bind_desc.BindPoint);
-						//D3D12_SHADER_BUFFER_DESC cb_desc;
-						//cb->GetDesc(&cb_desc);
-
-						//auto &param = params.emplace_back();
-						//param.InitAsConstants(cb_desc.Size / 4, bind_desc.BindPoint, bind_desc.Space, visibility);
-						//param.InitAsConstantBufferView(bind_desc.BindPoint, bind_desc.Space, D3D12_ROOT_DESCRIPTOR_FLAG_NONE, visibility);
 						auto &bindings = cbv_by_space[bind_desc.Space];
 						if (!isDefined(bindings, bind_desc.BindPoint))
 						{
@@ -121,7 +114,6 @@ eastl::vector<CD3DX12_ROOT_PARAMETER1> DX12Shader::getRootParameters(const eastl
 							bind_info.bind_point = bind_desc.BindPoint;
 
 							auto &param = params.emplace_back();
-							//param.InitAsConstants(cb_desc.Size / 4, bind_desc.BindPoint, bind_desc.Space, visibility);
 							param.InitAsConstantBufferView(bind_desc.BindPoint, bind_desc.Space, D3D12_ROOT_DESCRIPTOR_FLAG_NONE, D3D12_SHADER_VISIBILITY_ALL);
 						}
 
@@ -178,13 +170,6 @@ eastl::vector<CD3DX12_ROOT_PARAMETER1> DX12Shader::getRootParameters(const eastl
 
 				if (bind_desc.Type == D3D_SIT_CBUFFER)
 				{
-					//const auto cb = shader->reflection->GetConstantBufferByIndex(bind_desc.BindPoint);
-					//D3D12_SHADER_BUFFER_DESC cb_desc;
-					//cb->GetDesc(&cb_desc);
-
-					//auto &param = params.emplace_back();
-					//param.InitAsConstants(cb_desc.Size / 4, bind_desc.BindPoint, bind_desc.Space, visibility);
-					//param.InitAsConstantBufferView(bind_desc.BindPoint, bind_desc.Space, D3D12_ROOT_DESCRIPTOR_FLAG_NONE, visibility);
 					auto &bindings = cbv_by_space[bind_desc.Space];
 					if (!isDefined(bindings, bind_desc.BindPoint))
 					{
@@ -195,7 +180,6 @@ eastl::vector<CD3DX12_ROOT_PARAMETER1> DX12Shader::getRootParameters(const eastl
 						bind_info.bind_point = bind_desc.BindPoint;
 
 						auto &param = params.emplace_back();
-						//param.InitAsConstants(cb_desc.Size / 4, bind_desc.BindPoint, bind_desc.Space, visibility);
 						param.InitAsConstantBufferView(bind_desc.BindPoint, bind_desc.Space, D3D12_ROOT_DESCRIPTOR_FLAG_NONE, D3D12_SHADER_VISIBILITY_ALL);
 					}
 
@@ -242,19 +226,6 @@ eastl::vector<CD3DX12_ROOT_PARAMETER1> DX12Shader::getRootParameters(const eastl
 			}
 		}
 	}
-
-	// CBVs
-	/*
-	for (const auto& [space, bindings] : cbv_by_space)
-	{
-	for (const auto& [bind_point, resource] : bindings.binding_by_bind)
-	{
-	auto &param = params.emplace_back();
-	//param.InitAsConstants(cb_desc.Size / 4, bind_desc.BindPoint, bind_desc.Space, visibility);
-	param.InitAsConstantBufferView(bind_point, space, D3D12_ROOT_DESCRIPTOR_FLAG_NONE, D3D12_SHADER_VISIBILITY_ALL);
-	}
-	}
-	*/
 
 	static eastl::vector<CD3DX12_DESCRIPTOR_RANGE1> descriptor_ranges;
 

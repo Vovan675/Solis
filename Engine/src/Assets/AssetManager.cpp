@@ -126,22 +126,17 @@ Ref<Asset> AssetManager::getAsset(const std::filesystem::path &path, const Asset
 	return get_or_load(path, type);
 }
 
-RHITextureRef AssetManager::getTextureAsset(eastl::string path, TextureDescription desc)
+RHITextureRef AssetManager::getTextureAsset(eastl::string path, Format format)
 {
-	return get_or_load<RHITexture>(path.c_str(), [&]() -> Ref<Asset>
-	{
-		RHITextureRef texture = gDynamicRHI->createTexture(desc);
-		texture->load(path.c_str());
-		return texture;
-	});
+	return get_or_load<RHITexture>(path.c_str(), [&]() -> Ref<Asset> { return RHITexture::load(path.c_str(), format); });
 }
 
-RHITextureRef AssetManager::getTextureAsset(const AssetReference &reference, TextureDescription desc)
+RHITextureRef AssetManager::getTextureAsset(const AssetReference &reference, Format format)
 {
 	std::filesystem::path path = getPath(reference);
 	if (path.empty())
 		return nullptr;
-	return getTextureAsset(path.string().c_str(), desc);
+	return getTextureAsset(path.string().c_str(), format);
 }
 
 RHITextureRef AssetManager::getTextureAsset(eastl::string path) { return getAsset<RHITexture>(path.c_str()); }

@@ -14,13 +14,12 @@ static TextureDescription create_texture_desc(uint32_t width, uint32_t height, F
 	return desc;
 }
 
-static BufferDescription create_buffer_desc(size_t stride, size_t count, BufferUsage usage)
+static BufferDescription create_buffer_desc(size_t stride, size_t count, BufferUsage usage_flags)
 {
 	BufferDescription desc;
 	desc.size = stride * count;
-	desc.usage = usage;
-	desc.use_staging_buffer = true;
-	desc.storage_stride = stride;
+	desc.usage_flags = usage_flags;
+	desc.stride = stride;
 	return desc;
 }
 
@@ -36,9 +35,9 @@ FrameGraphTextureId RenderPassBuilder::createTexture(GraphicsResourceName name, 
 	return createTexture(name, create_texture_desc(width, height, format));
 }
 
-FrameGraphBufferId RenderPassBuilder::createBuffer(GraphicsResourceName name, size_t stride, size_t count, BufferUsage usage)
+FrameGraphBufferId RenderPassBuilder::createBuffer(GraphicsResourceName name, size_t stride, size_t count, BufferUsage usage_flags)
 {
-	FrameGraphBufferId resource_id = frameGraph.createBufferResource(name, create_buffer_desc(stride, count, usage));
+	FrameGraphBufferId resource_id = frameGraph.createBufferResource(name, create_buffer_desc(stride, count, usage_flags));
 	renderpass_node.buffer_creates.emplace_back(resource_id);
 	return resource_id;
 }
@@ -53,9 +52,9 @@ bool RenderPassBuilder::createPersistentTexture(GraphicsResourceName name, uint3
 	return createPersistentTexture(name, create_texture_desc(width, height, format));
 }
 
-bool RenderPassBuilder::createPersistentBuffer(GraphicsResourceName name, size_t stride, size_t count, BufferUsage usage)
+bool RenderPassBuilder::createPersistentBuffer(GraphicsResourceName name, size_t stride, size_t count, BufferUsage usage_flags)
 {
-	return frameGraph.createPersistentBuffer(name, create_buffer_desc(stride, count, usage));
+	return frameGraph.createPersistentBuffer(name, create_buffer_desc(stride, count, usage_flags));
 }
 
 FrameGraphTextureId RenderPassBuilder::readTexture(GraphicsResourceName texture)
@@ -75,7 +74,6 @@ FrameGraphTextureId RenderPassBuilder::readDepthTexture(GraphicsResourceName tex
 FrameGraphTextureId RenderPassBuilder::readCopyTexture(GraphicsResourceName texture)
 {
 	auto resource_id = frameGraph.texture_name_to_id[texture];
-	frameGraph.all_textures[resource_id.id].desc.usage_flags |= TEXTURE_USAGE_TRANSFER_SRC;
 	renderpass_node.texture_usage[resource_id] = ResourceState::COPY_SRC;
 	return renderpass_node.texture_reads.emplace_back(resource_id);
 }
@@ -83,29 +81,28 @@ FrameGraphTextureId RenderPassBuilder::readCopyTexture(GraphicsResourceName text
 FrameGraphTextureId RenderPassBuilder::writeTexture(GraphicsResourceName name)
 {
 	auto resource_id = frameGraph.texture_name_to_id[name];
-	frameGraph.all_textures[resource_id.id].desc.usage_flags |= TEXTURE_USAGE_ATTACHMENT;
+	frameGraph.all_textures[resource_id.id].desc.usage_flags |= TextureUsage::RENDER_TARGET;
 	return declare_texture_write(resource_id, ResourceState::RENDER_TARGET);
 }
 
 FrameGraphTextureId RenderPassBuilder::writeUAVTexture(GraphicsResourceName name)
 {
 	auto resource_id = frameGraph.texture_name_to_id[name];
-	frameGraph.all_textures[resource_id.id].desc.usage_flags |= TEXTURE_USAGE_STORAGE;
-	return declare_texture_write(resource_id, ResourceState::UAV);
+	frameGraph.all_textures[resource_id.id].desc.usage_flags |= TextureUsage::UNORDERED_ACCESS;
+	return declare_texture_write(resource_id, ResourceState::UNORDERED_ACCESS);
 }
 
 FrameGraphTextureId RenderPassBuilder::writeCopyTexture(GraphicsResourceName name)
 {
 	auto resource_id = frameGraph.texture_name_to_id[name];
-	frameGraph.all_textures[resource_id.id].desc.usage_flags |= TEXTURE_USAGE_TRANSFER_DST;
 	return declare_texture_write(resource_id, ResourceState::COPY_DST);
 }
 
 FrameGraphBufferId RenderPassBuilder::writeBuffer(GraphicsResourceName name)
 {
 	auto resource_id = frameGraph.buffer_name_to_id[name];
-	frameGraph.all_buffers[resource_id.id].desc.usage |= BufferUsage::SHADER_WRITE_BUFFER;
-	return declare_buffer_write(resource_id, ResourceState::UAV);
+	frameGraph.all_buffers[resource_id.id].desc.usage_flags |= BufferUsage::UNORDERED_ACCESS;
+	return declare_buffer_write(resource_id, ResourceState::UNORDERED_ACCESS);
 }
 
 FrameGraphBufferId RenderPassBuilder::writeCopyBuffer(GraphicsResourceName name)
@@ -117,21 +114,21 @@ FrameGraphBufferId RenderPassBuilder::writeCopyBuffer(GraphicsResourceName name)
 FrameGraphBufferId RenderPassBuilder::readBuffer(GraphicsResourceName name)
 {
 	FrameGraphBufferId buffer = frameGraph.buffer_name_to_id[name];
-	frameGraph.all_buffers[buffer.id].desc.usage |= BufferUsage::SHADER_READ_BUFFER;
-	return declare_buffer_read(buffer, ResourceState::SHADER_READ);
+	frameGraph.all_buffers[buffer.id].desc.usage_flags |= BufferUsage::SHADER_RESOURCE;
+	return declare_buffer_read(buffer, ResourceState::SHADER_RESOURCE);
 }
 
 FrameGraphBufferId RenderPassBuilder::readIndirectArgsBuffer(GraphicsResourceName name)
 {
 	FrameGraphBufferId buffer = frameGraph.buffer_name_to_id[name];
-	frameGraph.all_buffers[buffer.id].desc.usage |= BufferUsage::INDIRECT_ARGS_BUFFER;
+	frameGraph.all_buffers[buffer.id].desc.usage_flags |= BufferUsage::INDIRECT_ARGS;
 	return declare_buffer_read(buffer, ResourceState::INDIRECT_ARGS);
 }
 
 FrameGraphBufferId RenderPassBuilder::readVertexBuffer(GraphicsResourceName name)
 {
 	FrameGraphBufferId buffer = frameGraph.buffer_name_to_id[name];
-	frameGraph.all_buffers[buffer.id].desc.usage |= BufferUsage::VERTEX_BUFFER;
+	frameGraph.all_buffers[buffer.id].desc.usage_flags |= BufferUsage::VERTEX;
 	return declare_buffer_read(buffer, ResourceState::VERTEX_BUFFER);
 }
 

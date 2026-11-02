@@ -26,10 +26,10 @@ struct Vertex
 	static VertexInputsDescription GetVertexInputsDescription()
 	{
 		VertexInputsDescription desc;
-		desc.inputs.push_back({"POSITION", 0, FORMAT_R32G32B32_SFLOAT});
-		desc.inputs.push_back({"NORMAL", 0, FORMAT_R32G32B32_SFLOAT});
-		desc.inputs.push_back({"TANGENT",  0, FORMAT_R32G32B32A32_SFLOAT});
-		desc.inputs.push_back({"TEXCOORD", 0, FORMAT_R32G32_SFLOAT});
+		desc.inputs.push_back({"POSITION", 0, Format::R32G32B32_SFLOAT});
+		desc.inputs.push_back({"NORMAL", 0, Format::R32G32B32_SFLOAT});
+		desc.inputs.push_back({"TANGENT",  0, Format::R32G32B32A32_SFLOAT});
+		desc.inputs.push_back({"TEXCOORD", 0, Format::R32G32_SFLOAT});
 		return desc;
 	}
 };

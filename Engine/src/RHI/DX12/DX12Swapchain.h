@@ -6,7 +6,7 @@
 class DX12Swapchain final: public RHISwapchain
 {
 public:
-	DX12Swapchain(HWND hWnd, const SwapchainInfo &info);
+	DX12Swapchain(HWND hWnd, const SwapchainDescription &description);
 	virtual ~DX12Swapchain();
 	void cleanup();
 

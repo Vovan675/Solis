@@ -56,7 +56,7 @@ void VulkanStreamline::appendDeviceExtensions(eastl::vector<const char *> &exten
 
 sl::Resource VulkanStreamline::wrapResource(RHICommandList *cmd_list, RHITexture *texture, bool for_write)
 {
-	texture->transitLayout(cmd_list, TEXTURE_LAYOUT_GENERAL);
+	texture->transitState(cmd_list, ResourceState::COMMON);
 
 	VulkanTexture *native_texture = (VulkanTexture *)texture;
 	RHITextureView *view = for_write ? texture->getUnorderedAccessView() : texture->getShaderResourceView();

@@ -17,6 +17,7 @@ public:
 
 	static void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VmaMemoryUsage memory_usage, VmaAllocationCreateFlags flags, VkBuffer &buffer, VmaAllocation &allocation, VkDeviceSize alignment = 0);
 
+	static VkPipelineStageFlags2 getAllShaderStages();
 
 	static void cmdMemoryBarrier(VkCommandBuffer cmd_buffer, VkPipelineStageFlags2 src_stage_mask, VkAccessFlags2 src_access_mask, VkPipelineStageFlags2 dst_stage_mask, VkAccessFlags2 dst_access_mask);
 
@@ -40,28 +41,20 @@ public:
 			if (descriptor.set != 0)
 				continue;
 
-			// Skip bindless textures
-			/*
-			if ((descriptor.type == DESCRIPTOR_TYPE_SAMPLER && descriptor.set == 1 && descriptor.binding == 0) // Bindless Textures
-			|| (descriptor.type == DESCRIPTOR_TYPE_UNIFORM_BUFFER && descriptor.set == 2 && descriptor.binding == 0) // Default uniforms
-			)
-			continue;
-			*/
-
 			VkDescriptorType descriptor_type;
-			if (descriptor.type == DESCRIPTOR_TYPE_UNIFORM_BUFFER)
+			if (descriptor.type == DescriptorType::UNIFORM_BUFFER)
 				descriptor_type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-			else if (descriptor.type == DESCRIPTOR_TYPE_STORAGE_BUFFER)
+			else if (descriptor.type == DescriptorType::STORAGE_BUFFER)
 				descriptor_type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-			else if (descriptor.type == DESCRIPTOR_TYPE_SAMPLER)
+			else if (descriptor.type == DescriptorType::SAMPLER)
 				descriptor_type = VK_DESCRIPTOR_TYPE_SAMPLER;
-			else if (descriptor.type == DESCRIPTOR_TYPE_SAMPLED_IMAGE)
+			else if (descriptor.type == DescriptorType::SAMPLED_IMAGE)
 				descriptor_type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-			else if (descriptor.type == DESCRIPTOR_TYPE_COMBINED_IMAGE)
+			else if (descriptor.type == DescriptorType::COMBINED_IMAGE)
 				descriptor_type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-			else if (descriptor.type == DESCRIPTOR_TYPE_STORAGE_IMAGE)
+			else if (descriptor.type == DescriptorType::STORAGE_IMAGE)
 				descriptor_type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-			else if (descriptor.type == DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE)
+			else if (descriptor.type == DescriptorType::ACCELERATION_STRUCTURE)
 				descriptor_type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
 			else
 				continue;
@@ -75,38 +68,41 @@ public:
 		switch (format)
 		{
 			// 8 bit
-			case FORMAT_R8_UNORM: return VK_FORMAT_R8_UNORM;
-			case FORMAT_R8G8_UNORM: return VK_FORMAT_R8G8_UNORM;
-			case FORMAT_R8G8B8A8_UNORM: return VK_FORMAT_R8G8B8A8_UNORM;
-			case FORMAT_R8G8B8A8_SRGB: return VK_FORMAT_R8G8B8A8_SRGB;
+			case Format::R8_UNORM: return VK_FORMAT_R8_UNORM;
+			case Format::R8G8_UNORM: return VK_FORMAT_R8G8_UNORM;
+			case Format::R8G8B8A8_UNORM: return VK_FORMAT_R8G8B8A8_UNORM;
+			case Format::R8G8B8A8_SRGB: return VK_FORMAT_R8G8B8A8_SRGB;
 
 			// 16 bit
-			case FORMAT_R16_UNORM: return VK_FORMAT_R16_UNORM;
-			case FORMAT_R16_SFLOAT: return VK_FORMAT_R16_SFLOAT;
-			case FORMAT_R16G16_UNORM: return VK_FORMAT_R16G16_UNORM;
-			case FORMAT_R16G16_SFLOAT: return VK_FORMAT_R16G16_SFLOAT;
-			case FORMAT_R16G16_SINT: return VK_FORMAT_R16G16_SINT;
-			case FORMAT_R16G16B16A16_UNORM: return VK_FORMAT_R16G16B16A16_UNORM;
-			case FORMAT_R16G16B16A16_SFLOAT: return VK_FORMAT_R16G16B16A16_SFLOAT;
+			case Format::R16_UNORM: return VK_FORMAT_R16_UNORM;
+			case Format::R16_SFLOAT: return VK_FORMAT_R16_SFLOAT;
+			case Format::R16G16_UNORM: return VK_FORMAT_R16G16_UNORM;
+			case Format::R16G16_SFLOAT: return VK_FORMAT_R16G16_SFLOAT;
+			case Format::R16G16_SINT: return VK_FORMAT_R16G16_SINT;
+			case Format::R16G16B16A16_UNORM: return VK_FORMAT_R16G16B16A16_UNORM;
+			case Format::R16G16B16A16_SFLOAT: return VK_FORMAT_R16G16B16A16_SFLOAT;
 
 			// 32 bit
-			case FORMAT_R32_SFLOAT: return VK_FORMAT_R32_SFLOAT;
-			case FORMAT_R32_UINT: return VK_FORMAT_R32_UINT;
-			case FORMAT_R32G32_SFLOAT: return VK_FORMAT_R32G32_SFLOAT;
-			case FORMAT_R32G32B32_SFLOAT: return VK_FORMAT_R32G32B32_SFLOAT;
-			case FORMAT_R32G32B32A32_SFLOAT: return VK_FORMAT_R32G32B32A32_SFLOAT;
+			case Format::R32_SFLOAT: return VK_FORMAT_R32_SFLOAT;
+			case Format::R32_UINT: return VK_FORMAT_R32_UINT;
+			case Format::R32G32_SFLOAT: return VK_FORMAT_R32G32_SFLOAT;
+			case Format::R32G32B32_SFLOAT: return VK_FORMAT_R32G32B32_SFLOAT;
+			case Format::R32G32B32A32_SFLOAT: return VK_FORMAT_R32G32B32A32_SFLOAT;
 
 			// depth stencil
-			case FORMAT_D32S8: return VK_FORMAT_D32_SFLOAT_S8_UINT;
+			case Format::D32_SFLOAT_S8_UINT: return VK_FORMAT_D32_SFLOAT_S8_UINT;
 
 			// combined
-			case FORMAT_R11G11B10_UFLOAT: return VK_FORMAT_B10G11R11_UFLOAT_PACK32;
+			case Format::R11G11B10_UFLOAT: return VK_FORMAT_B10G11R11_UFLOAT_PACK32;
 
 			// compressed
-			case FORMAT_BC1: return VK_FORMAT_BC1_RGB_UNORM_BLOCK;
-			case FORMAT_BC3: return VK_FORMAT_BC3_UNORM_BLOCK;
-			case FORMAT_BC5: return VK_FORMAT_BC5_UNORM_BLOCK;
-			case FORMAT_BC7: return VK_FORMAT_BC7_UNORM_BLOCK;
+			case Format::BC1_UNORM: return VK_FORMAT_BC1_RGBA_UNORM_BLOCK;
+			case Format::BC1_SRGB: return VK_FORMAT_BC1_RGBA_SRGB_BLOCK;
+			case Format::BC3_UNORM: return VK_FORMAT_BC3_UNORM_BLOCK;
+			case Format::BC3_SRGB: return VK_FORMAT_BC3_SRGB_BLOCK;
+			case Format::BC5_UNORM: return VK_FORMAT_BC5_UNORM_BLOCK;
+			case Format::BC7_UNORM: return VK_FORMAT_BC7_UNORM_BLOCK;
+			case Format::BC7_SRGB: return VK_FORMAT_BC7_SRGB_BLOCK;
 		}
 	}
 

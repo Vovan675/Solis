@@ -15,7 +15,6 @@ private:
 	inline static RHIShaderRef vertex_shader;
 	inline static RHIShaderRef pixel_shader;
 	inline static RHITextureRef depth_stencil_texture;
-	inline static RHIPipelineRef pso;
 
 	inline static eastl::vector<RHITextureRef> checker_textures;
 
@@ -44,7 +43,6 @@ private:
 
 	inline static RHITextureRef depth_stencil_texture;
 	inline static RHITextureRef result_texture;
-	inline static RHIPipelineRef pso;
 
 	inline static eastl::vector<RHITextureRef> checker_textures;
 

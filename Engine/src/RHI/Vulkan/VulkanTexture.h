@@ -7,41 +7,32 @@ class VulkanTextureView;
 class VulkanTexture final: public RHITexture
 {
 public:
-	VulkanTexture(TextureDescription description): RHITexture(description) {}
+	VulkanTexture(const TextureDescription &description, const void *initial_data);
+	VulkanTexture(const TextureDescription &description, VkImage swapchain_image);
 	~VulkanTexture();
 
 	void destroy();
 
-	void fill() override;
-	void fill(const void *sourceData) override;
-	void clear(RHICommandList *cmd_list, const glm::vec4 &color) override;
-
-	void setDebugName(eastl::string name) override;
+	void setDebugName(const char *name) override;
 
 	void generateMipmaps(RHICommandList *cmd_list) override;
 
 	bool isValid() const override { return image != nullptr; }
-	uint32_t getBufferRowPitch() const override { return get_row_size(description.format, getWidth()); }
+	uint32_t getBufferRowPitch() const override { return getFormatRowSize(description.format, getWidth()); }
 
 public:
 	VkImage getImage() const { return image->resource; }
-	VkImageLayout getNativeLayout() { return get_native_layout(current_layouts[0]); }
+	VkImageLayout getNativeLayout() { return get_native_layout(current_states[0]); }
 	VkFormat getNativeFormat() const { return VulkanUtils::getNativeFormat(description.format); }
 	VkImageUsageFlags getNativeUsage() const { return get_vk_image_usage_flags(); }
 
 protected:
 	friend class VulkanSwapchain;
 
-	void fill_raw(void *raw_resource) override
-	{
-		current_layouts.assign(description.mip_levels, TEXTURE_LAYOUT_UNDEFINED);
-		if (!image)
-			image = std::make_unique<VkImageResource>();
-		image->resource = *reinterpret_cast<VkImage *>(raw_resource);
-	}
-
+	void recreate(const TextureDescription &new_description, const void *initial_data) override;
+	void create_resource(const void *initial_data);
 	RHITextureView *create_view(const TextureViewDescription &view_description) override;
-	void transit_layout(RHICommandList *cmd_list, TextureLayoutType old_layout_type, TextureLayoutType new_layout_type, uint32_t first_mip, uint32_t mip_count) override;
+	void transit_state(RHICommandList *cmd_list, ResourceState old_state, ResourceState new_state, uint32_t first_mip, uint32_t mip_count) override;
 
 	void copy_buffer_to_image(VkCommandBuffer command_buffer, VkBuffer buffer)
 	{
@@ -58,7 +49,7 @@ protected:
 			region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 			region.imageSubresource.mipLevel = i;
 			region.imageSubresource.baseArrayLayer = 0;
-			region.imageSubresource.layerCount = description.is_cube ? 6 : 1;
+			region.imageSubresource.layerCount = isCube() ? 6 : 1;
 			region.imageOffset = {0, 0, 0};
 			region.imageExtent = {
 				getWidth(i),
@@ -71,35 +62,35 @@ protected:
 		vkCmdCopyBufferToImage(command_buffer, buffer, image->resource, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, regions.size(), regions.data());
 	}
 
-	VkImageLayout get_native_layout(TextureLayoutType layout_type)
+	VkImageLayout get_native_layout(ResourceState state)
 	{
-		switch (layout_type)
+		switch (state)
 		{
-			case TEXTURE_LAYOUT_UNDEFINED:
+			case ResourceState::UNDEFINED:
 				return VK_IMAGE_LAYOUT_UNDEFINED;
 				break;
-			case TEXTURE_LAYOUT_GENERAL:
+			case ResourceState::COMMON:
 				return VK_IMAGE_LAYOUT_GENERAL;
 				break;
-			case TEXTURE_LAYOUT_ATTACHMENT:
+			case ResourceState::RENDER_TARGET:
 				return isDepthTexture() ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 				break;
-			case TEXTURE_LAYOUT_DEPTH_READ:
+			case ResourceState::DEPTH_READ:
 				return VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
 				break;
-			case TEXTURE_LAYOUT_SHADER_READ:
+			case ResourceState::SHADER_RESOURCE:
 				return VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL;
 				break;
-			case TEXTURE_LAYOUT_TRANSFER_SRC:
+			case ResourceState::COPY_SRC:
 				return VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
 				break;
-			case TEXTURE_LAYOUT_TRANSFER_DST:
+			case ResourceState::COPY_DST:
 				return VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
 				break;
-			case TEXTURE_LAYOUT_PRESENT:
+			case ResourceState::PRESENT:
 				return VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 				break;
-			case TEXTURE_LAYOUT_UAV:
+			case ResourceState::UNORDERED_ACCESS:
 				return VK_IMAGE_LAYOUT_GENERAL;
 				break;
 			default:
@@ -109,27 +100,22 @@ protected:
 
 	VkImageUsageFlags get_vk_image_usage_flags() const
 	{
-		VkImageUsageFlags flags = 0;
-		if ((description.usage_flags & TEXTURE_USAGE_NO_SAMPLED) == 0)
+		VkImageUsageFlags flags = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+		if (!hasAnyFlags(description.usage_flags, TextureUsage::NO_SAMPLED))
 			flags |= VK_IMAGE_USAGE_SAMPLED_BIT;
 
-		if (description.usage_flags & TEXTURE_USAGE_TRANSFER_SRC)
-			flags |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-		if (description.usage_flags & TEXTURE_USAGE_TRANSFER_DST)
-			flags |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-
-		if (description.usage_flags & TEXTURE_USAGE_STORAGE)
+		if (hasAnyFlags(description.usage_flags, TextureUsage::UNORDERED_ACCESS))
 			flags |= VK_IMAGE_USAGE_STORAGE_BIT;
-		if (description.usage_flags & TEXTURE_USAGE_ATTACHMENT)
+		if (hasAnyFlags(description.usage_flags, TextureUsage::RENDER_TARGET))
 			flags |= isDepthTexture() ? VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT : VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 		return flags;
 	}
 
 	VkDeviceSize get_image_size(uint32_t mip) const
 	{
-		VkDeviceSize image_size = get_slice_size(description.format, getWidth(mip), getHeight(mip));
+		VkDeviceSize image_size = getFormatSliceSize(description.format, getWidth(mip), getHeight(mip));
 
-		if (description.is_cube)
+		if (isCube())
 			image_size *= 6;
 
 		return image_size;

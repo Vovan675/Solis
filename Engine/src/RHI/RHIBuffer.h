@@ -23,14 +23,13 @@ public:
 	RHIBuffer(BufferDescription description): description(description) {}
 	virtual ~RHIBuffer() = default;
 
-	void fill(const void *source_data);
 	virtual void map(void **data) = 0;
 	virtual void unmap() = 0;
 
 	const BufferDescription &getDescription() const { return description; }
 	uint64_t getSize() const { return description.size; }
-	BufferUsage getUsage() const { return description.usage; }
-	uint32_t getStride() const { return description.storage_stride; }
+	BufferUsage getUsageFlags() const { return description.usage_flags; }
+	uint32_t getStride() const { return description.stride; }
 	virtual void setDebugName(const char *name) = 0;
 	virtual uint64_t getGPUAddress() const = 0;
 

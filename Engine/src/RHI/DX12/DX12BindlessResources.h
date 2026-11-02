@@ -5,7 +5,7 @@
 class DX12BindlessResources final: public RHIBindlessResources
 {
 public:
-	uint32_t addSampler(const TextureDescription &description) override;
+	uint32_t addSampler(const SamplerDescription &description) override;
 
 private:
 	void write_texture(uint32_t index, RHITextureView *view) override;

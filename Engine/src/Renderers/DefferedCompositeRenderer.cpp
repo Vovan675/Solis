@@ -11,10 +11,10 @@ void DefferedCompositeRenderer::addPasses(FrameGraph &fg)
 	fg.addCallbackPass("Composite Indirect Pass",
 	[&](RenderPassBuilder &builder)
 	{
-		builder.createTexture(GFXRID(CompositeIndirectAmbient), Renderer::getRenderWidth(), Renderer::getRenderHeight(), FORMAT_R32G32B32A32_SFLOAT);
+		builder.createTexture(GFXRID(CompositeIndirectAmbient), Renderer::getRenderWidth(), Renderer::getRenderHeight(), Format::R32G32B32A32_SFLOAT);
 		builder.writeTexture(GFXRID(CompositeIndirectAmbient));
 
-		builder.createTexture(GFXRID(CompositeIndirectSpecular), Renderer::getRenderWidth(), Renderer::getRenderHeight(), FORMAT_R32G32B32A32_SFLOAT);
+		builder.createTexture(GFXRID(CompositeIndirectSpecular), Renderer::getRenderWidth(), Renderer::getRenderHeight(), Format::R32G32B32A32_SFLOAT);
 		builder.writeTexture(GFXRID(CompositeIndirectSpecular));
 
 		builder.readTexture(GFXRID(DiffuseLight));
@@ -74,7 +74,7 @@ void DefferedCompositeRenderer::addPasses(FrameGraph &fg)
 			ubo.ssr_tex_id = resources.getReadTexture(GFXRID(SSR));
 
 		bool ddgi = resources.has(GFXRID(DDGIIrradiance));
-		auto shader = gDynamicRHI->createShader(L"shaders/composite_indirect.hlsl", FRAGMENT_SHADER, "PSMain", {
+		auto shader = gDynamicRHI->createShader(L"shaders/composite_indirect.hlsl", ShaderType::FRAGMENT, "PSMain", {
 			{"SSR", ubo.ssr_tex_id ? "1" : "0"},
 			{"SSAO", ubo.ssao_tex_id ? "1" : "0"},
 			{"DDGI", ddgi ? "1" : "0"},
@@ -95,7 +95,7 @@ void DefferedCompositeRenderer::addPasses(FrameGraph &fg)
 	fg.addCallbackPass("Deffered Composite Pass",
 	[&](RenderPassBuilder &builder)
 	{
-		builder.createTexture(GFXRID(FinalNoPostTexture), Renderer::getRenderWidth(),  Renderer::getRenderHeight(), FORMAT_R32G32B32A32_SFLOAT);
+		builder.createTexture(GFXRID(FinalNoPostTexture), Renderer::getRenderWidth(),  Renderer::getRenderHeight(), Format::R32G32B32A32_SFLOAT);
 		builder.writeTexture(GFXRID(FinalNoPostTexture));
 
 		builder.readTexture(GFXRID(CompositeIndirectAmbient));
@@ -131,7 +131,7 @@ void DefferedCompositeRenderer::addPasses(FrameGraph &fg)
 		ubo.depth_tex_id = resources.getReadTexture(GFXRID(GBufferDepth));
 		ubo.emissive_tex_id = resources.getReadTexture(GFXRID(GBufferEmissive));
 
-		gGlobalPipeline->bindScreenQuadPipeline(cmd_list, gDynamicRHI->createShader(L"shaders/deffered_composite.hlsl", FRAGMENT_SHADER));
+		gGlobalPipeline->bindScreenQuadPipeline(cmd_list, gDynamicRHI->createShader(L"shaders/deffered_composite.hlsl", ShaderType::FRAGMENT));
 
 		gDynamicRHI->setConstantBufferData(0, &ubo, sizeof(UBO));
 

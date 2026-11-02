@@ -90,12 +90,10 @@ bool ViewportPanel::renderImGui(EditorContext &context, float delta_time, bool f
 		description.width = output_resolution.x;
 		description.height = output_resolution.y;
 
-		description.format = FORMAT_R8G8B8A8_UNORM;
-		description.usage_flags = TEXTURE_USAGE_ATTACHMENT | TEXTURE_USAGE_TRANSFER_SRC;
-		description.sampler_mode = SAMPLER_MODE_REPEAT;
+		description.format = Format::R8G8B8A8_UNORM;
+		description.usage_flags = TextureUsage::RENDER_TARGET;
 		
 		viewport_texture = gDynamicRHI->createTexture(description);
-		viewport_texture->fill();
 		viewport_texture->setDebugName("Viewport Texture");
 	}
 

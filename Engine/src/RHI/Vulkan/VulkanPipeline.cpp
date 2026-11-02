@@ -5,22 +5,13 @@
 
 VulkanPipeline::~VulkanPipeline()
 {
-	destroy();
+	VulkanUtils::getNativeRHI()->releaseGPUResource(resource.release());
 }
 
-void VulkanPipeline::destroy()
-{
-	auto *native_rhi = VulkanUtils::getNativeRHI();
-	native_rhi->releaseGPUResource(resource.release());
-}
-
-void VulkanPipeline::create(const PipelineDescription &description)
+VulkanPipeline::VulkanPipeline(const PipelineDescription &description): RHIPipeline(description)
 {
 	PROFILE_CPU_FUNCTION();
-	destroy();
 	resource = std::make_unique<VkPipelineResource>();
-	this->description = description;
-	hash = description.getHash();
 
 	descriptors = VulkanShader::getDescriptors(description.getShaders());
 	descriptor_layout = VulkanUtils::getDescriptorLayout(descriptors);
@@ -45,7 +36,7 @@ void VulkanPipeline::create(const PipelineDescription &description)
 	pipeline_layout_info.pPushConstantRanges = push_constant_ranges.data();
 	CHECK_ERROR(vkCreatePipelineLayout(native_rhi->device->logicalHandle, &pipeline_layout_info, nullptr, &resource->pipeline_layout));
 
-	if (description.pipeline_type == PipelineType::Compute)
+	if (description.pipeline_type == PipelineType::COMPUTE)
 	{
 		VkPipelineShaderStageCreateInfo compShaderStageInfo{};
 		compShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -58,7 +49,7 @@ void VulkanPipeline::create(const PipelineDescription &description)
 		pipelineInfo.layout = resource->pipeline_layout;
 		pipelineInfo.stage = compShaderStageInfo;
 		CHECK_ERROR(vkCreateComputePipelines(native_rhi->device->logicalHandle, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &resource->pipeline));
-	} else if (description.pipeline_type == PipelineType::RayTracing)
+	} else if (description.pipeline_type == PipelineType::RAY_TRACING)
 	{
 		eastl::fixed_vector<VkPipelineShaderStageCreateInfo, 3> shader_stages;
 
@@ -141,21 +132,16 @@ void VulkanPipeline::create(const PipelineDescription &description)
 
 		BufferDescription sbt_buffer_desc;
 		sbt_buffer_desc.size = handle_size;
-		sbt_buffer_desc.use_staging_buffer = true;
-		sbt_buffer_desc.usage = BufferUsage::SHADER_BINGING_TABLE_BUFFER;
+		sbt_buffer_desc.usage_flags = BufferUsage::SHADER_BINDING_TABLE;
 		sbt_buffer_desc.alignment = native_rhi->device->physicalRayTracingProperties.shaderGroupBaseAlignment;
 
-		raygen_sbt = gDynamicRHI->createBuffer(sbt_buffer_desc);
-		miss_sbt = gDynamicRHI->createBuffer(sbt_buffer_desc);
-		hit_sbt = gDynamicRHI->createBuffer(sbt_buffer_desc);
-
 		// Copy handles
-		raygen_sbt->fill(shader_handle_storage.data());
-		miss_sbt->fill(shader_handle_storage.data() + handle_size_aligned);
-		hit_sbt->fill(shader_handle_storage.data() + handle_size_aligned * 2);
+		raygen_sbt = gDynamicRHI->createBuffer(sbt_buffer_desc, shader_handle_storage.data());
+		miss_sbt = gDynamicRHI->createBuffer(sbt_buffer_desc, shader_handle_storage.data() + handle_size_aligned);
+		hit_sbt = gDynamicRHI->createBuffer(sbt_buffer_desc, shader_handle_storage.data() + handle_size_aligned * 2);
 	} else
 	{
-		bool is_graphics_pipeline = description.pipeline_type == PipelineType::Graphics;
+		bool is_graphics_pipeline = description.pipeline_type == PipelineType::GRAPHICS;
 
 		// Shaders state
 
@@ -218,7 +204,7 @@ void VulkanPipeline::create(const PipelineDescription &description)
 				attribute.format = VulkanUtils::getNativeFormat(input.format);
 				attribute.offset = state.stride;
 
-				state.stride += getFormatSize(input.format);
+				state.stride += getFormatInfo(input.format).bytes_per_block;
 				state.input_rate = input.per_instance ? VK_VERTEX_INPUT_RATE_INSTANCE : VK_VERTEX_INPUT_RATE_VERTEX;
 				location++;
 			}
@@ -246,10 +232,10 @@ void VulkanPipeline::create(const PipelineDescription &description)
 		VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
 		switch (description.primitive_topology)
 		{
-			case TOPOLOGY_POINT_LIST: topology = VK_PRIMITIVE_TOPOLOGY_POINT_LIST; break;
-			case TOPOLOGY_LINE_LIST: topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST; break;
-			case TOPOLOGY_TRIANGLE_LIST: topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST; break;
-			case TOPOLOGY_TRIANGLE_STRIP: topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP; break;
+			case Topology::POINT_LIST: topology = VK_PRIMITIVE_TOPOLOGY_POINT_LIST; break;
+			case Topology::LINE_LIST: topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST; break;
+			case Topology::TRIANGLE_LIST: topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST; break;
+			case Topology::TRIANGLE_STRIP: topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP; break;
 		}
 		VkPipelineInputAssemblyStateCreateInfo input_assembly_info{};
 		input_assembly_info.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
@@ -267,9 +253,9 @@ void VulkanPipeline::create(const PipelineDescription &description)
 		VkCullModeFlags cull_mode = VK_CULL_MODE_BACK_BIT;
 		switch (description.cull_mode)
 		{
-			case CULL_MODE_NONE: cull_mode = VK_CULL_MODE_NONE; break;
-			case CULL_MODE_BACK: cull_mode = VK_CULL_MODE_BACK_BIT; break;
-			case CULL_MODE_FRONT: cull_mode = VK_CULL_MODE_FRONT_BIT; break;
+			case CullMode::NONE: cull_mode = VK_CULL_MODE_NONE; break;
+			case CullMode::BACK: cull_mode = VK_CULL_MODE_BACK_BIT; break;
+			case CullMode::FRONT: cull_mode = VK_CULL_MODE_FRONT_BIT; break;
 		}
 
 		// Rasterizer state
@@ -293,25 +279,25 @@ void VulkanPipeline::create(const PipelineDescription &description)
 		multisampling_info.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 
 		// Color blend state
-		auto get_blend = [](Blend blend)
+		auto get_blend = [](BlendFactor blend)
 		{
 			switch (blend)
 			{
-				case BLEND_ZERO: return VK_BLEND_FACTOR_ZERO;
-				case BLEND_ONE: return VK_BLEND_FACTOR_ONE;
-				case BLEND_SRC_COLOR: return VK_BLEND_FACTOR_SRC_COLOR;
-				case BLEND_ONE_MINUS_SRC_COLOR: return VK_BLEND_FACTOR_ONE_MINUS_SRC_COLOR;
-				case BLEND_DST_COLOR: return VK_BLEND_FACTOR_DST_COLOR;
-				case BLEND_ONE_MINUS_DST_COLOR: return VK_BLEND_FACTOR_ONE_MINUS_DST_COLOR;
-				case BLEND_SRC_ALPHA: return VK_BLEND_FACTOR_SRC_ALPHA;
-				case BLEND_ONE_MINUS_SRC_ALPHA: return VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-				case BLEND_DST_ALPHA: return VK_BLEND_FACTOR_DST_ALPHA;
-				case BLEND_ONE_MINUS_DST_ALPHA: return VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA;
-				case BLEND_SRC_ALPHA_SATURATE: return VK_BLEND_FACTOR_SRC_ALPHA_SATURATE;
-				case BLEND_SRC1_COLOR: return VK_BLEND_FACTOR_SRC1_COLOR;
-				case BLEND_ONE_MINUS_SRC1_COLOR: return VK_BLEND_FACTOR_ONE_MINUS_SRC1_COLOR;
-				case BLEND_SRC1_ALPHA: return VK_BLEND_FACTOR_SRC1_ALPHA;
-				case BLEND_ONE_MINUS_SRC1_ALPHA: return VK_BLEND_FACTOR_ONE_MINUS_SRC1_ALPHA;
+				case BlendFactor::ZERO: return VK_BLEND_FACTOR_ZERO;
+				case BlendFactor::ONE: return VK_BLEND_FACTOR_ONE;
+				case BlendFactor::SRC_COLOR: return VK_BLEND_FACTOR_SRC_COLOR;
+				case BlendFactor::ONE_MINUS_SRC_COLOR: return VK_BLEND_FACTOR_ONE_MINUS_SRC_COLOR;
+				case BlendFactor::DST_COLOR: return VK_BLEND_FACTOR_DST_COLOR;
+				case BlendFactor::ONE_MINUS_DST_COLOR: return VK_BLEND_FACTOR_ONE_MINUS_DST_COLOR;
+				case BlendFactor::SRC_ALPHA: return VK_BLEND_FACTOR_SRC_ALPHA;
+				case BlendFactor::ONE_MINUS_SRC_ALPHA: return VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+				case BlendFactor::DST_ALPHA: return VK_BLEND_FACTOR_DST_ALPHA;
+				case BlendFactor::ONE_MINUS_DST_ALPHA: return VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA;
+				case BlendFactor::SRC_ALPHA_SATURATE: return VK_BLEND_FACTOR_SRC_ALPHA_SATURATE;
+				case BlendFactor::SRC1_COLOR: return VK_BLEND_FACTOR_SRC1_COLOR;
+				case BlendFactor::ONE_MINUS_SRC1_COLOR: return VK_BLEND_FACTOR_ONE_MINUS_SRC1_COLOR;
+				case BlendFactor::SRC1_ALPHA: return VK_BLEND_FACTOR_SRC1_ALPHA;
+				case BlendFactor::ONE_MINUS_SRC1_ALPHA: return VK_BLEND_FACTOR_ONE_MINUS_SRC1_ALPHA;
 			}
 			return VK_BLEND_FACTOR_ZERO;
 		};
@@ -320,11 +306,11 @@ void VulkanPipeline::create(const PipelineDescription &description)
 		{
 			switch (op)
 			{
-				case BLEND_OP_ADD: return VK_BLEND_OP_ADD;
-				case BLEND_OP_SUBTRACT: return VK_BLEND_OP_SUBTRACT;
-				case BLEND_OP_REV_SUBTRACT: return VK_BLEND_OP_REVERSE_SUBTRACT;
-				case BLEND_OP_MIN: return VK_BLEND_OP_MIN;
-				case BLEND_OP_MAX: return VK_BLEND_OP_MAX;
+				case BlendOp::ADD: return VK_BLEND_OP_ADD;
+				case BlendOp::SUBTRACT: return VK_BLEND_OP_SUBTRACT;
+				case BlendOp::REV_SUBTRACT: return VK_BLEND_OP_REVERSE_SUBTRACT;
+				case BlendOp::MIN: return VK_BLEND_OP_MIN;
+				case BlendOp::MAX: return VK_BLEND_OP_MAX;
 			}
 			return VK_BLEND_OP_ADD;
 		};
@@ -359,14 +345,14 @@ void VulkanPipeline::create(const PipelineDescription &description)
 		VkCompareOp depth_compare_op = VK_COMPARE_OP_LESS;
 		switch (description.depth_compare_func)
 		{
-			case COMPARE_FUNC_NEVER: depth_compare_op = VK_COMPARE_OP_NEVER; break;
-			case COMPARE_FUNC_LESS: depth_compare_op = VK_COMPARE_OP_LESS; break;
-			case COMPARE_FUNC_EQUAL: depth_compare_op = VK_COMPARE_OP_EQUAL; break;
-			case COMPARE_FUNC_LESS_EQUAL: depth_compare_op = VK_COMPARE_OP_LESS_OR_EQUAL; break;
-			case COMPARE_FUNC_GREATER: depth_compare_op = VK_COMPARE_OP_GREATER; break;
-			case COMPARE_FUNC_NOT_EQUAL: depth_compare_op = VK_COMPARE_OP_NOT_EQUAL; break;
-			case COMPARE_FUNC_GREATER_EQUAL: depth_compare_op = VK_COMPARE_OP_GREATER_OR_EQUAL; break;
-			case COMPARE_FUNC_ALWAYS: depth_compare_op = VK_COMPARE_OP_ALWAYS; break;
+			case CompareFunc::NEVER: depth_compare_op = VK_COMPARE_OP_NEVER; break;
+			case CompareFunc::LESS: depth_compare_op = VK_COMPARE_OP_LESS; break;
+			case CompareFunc::EQUAL: depth_compare_op = VK_COMPARE_OP_EQUAL; break;
+			case CompareFunc::LESS_EQUAL: depth_compare_op = VK_COMPARE_OP_LESS_OR_EQUAL; break;
+			case CompareFunc::GREATER: depth_compare_op = VK_COMPARE_OP_GREATER; break;
+			case CompareFunc::NOT_EQUAL: depth_compare_op = VK_COMPARE_OP_NOT_EQUAL; break;
+			case CompareFunc::GREATER_EQUAL: depth_compare_op = VK_COMPARE_OP_GREATER_OR_EQUAL; break;
+			case CompareFunc::ALWAYS: depth_compare_op = VK_COMPARE_OP_ALWAYS; break;
 		}
 
 		VkPipelineDepthStencilStateCreateInfo depth_stencil_info{};
@@ -404,7 +390,7 @@ void VulkanPipeline::create(const PipelineDescription &description)
 		pipeline_rendering_info.colorAttachmentCount = color_attachments.size();
 		pipeline_rendering_info.pColorAttachmentFormats = color_attachments.data();
 
-		if (description.depth_format != FORMAT_UNDEFINED)
+		if (description.depth_format != Format::UNDEFINED)
 			pipeline_rendering_info.depthAttachmentFormat = VulkanUtils::getNativeFormat(description.depth_format);
 
 		// Finally create graphics pipeline

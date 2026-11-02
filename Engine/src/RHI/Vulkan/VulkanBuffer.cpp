@@ -8,30 +8,30 @@ VulkanBuffer::VulkanBuffer(BufferDescription description) : RHIBuffer(descriptio
 {
 	VkBufferUsageFlags usage_flags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
 
-	if (hasAnyFlags(description.usage, BufferUsage::VERTEX_BUFFER))
+	if (hasAnyFlags(description.usage_flags, BufferUsage::VERTEX))
 		usage_flags |= VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-	if (hasAnyFlags(description.usage, BufferUsage::INDEX_BUFFER))
+	if (hasAnyFlags(description.usage_flags, BufferUsage::INDEX))
 		usage_flags |= VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
-	if (hasAnyFlags(description.usage, BufferUsage::CONSTANT_BUFFER))
+	if (hasAnyFlags(description.usage_flags, BufferUsage::CONSTANT))
 		usage_flags |= VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-	if (hasAnyFlags(description.usage, (BufferUsage::SHADER_READ_BUFFER | BufferUsage::SHADER_WRITE_BUFFER | BufferUsage::SCRATCH_BUFFER)))
+	if (hasAnyFlags(description.usage_flags, (BufferUsage::SHADER_RESOURCE | BufferUsage::UNORDERED_ACCESS | BufferUsage::SCRATCH)))
 		usage_flags |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-	if (hasAnyFlags(description.usage, BufferUsage::INDIRECT_ARGS_BUFFER))
+	if (hasAnyFlags(description.usage_flags, BufferUsage::INDIRECT_ARGS))
 		usage_flags |= VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT;
-	if (hasAnyFlags(description.usage, BufferUsage::ACCELERATION_STRUCTURE_BUILD_INPUT_BUFFER))
+	if (hasAnyFlags(description.usage_flags, BufferUsage::ACCELERATION_STRUCTURE_BUILD_INPUT))
 		usage_flags |= VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
-	if (hasAnyFlags(description.usage, BufferUsage::ACCELERATION_STRUCTURE_STORAGE_BUFFER))
+	if (hasAnyFlags(description.usage_flags, BufferUsage::ACCELERATION_STRUCTURE_STORAGE))
 		usage_flags |= VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR;
-	if (hasAnyFlags(description.usage, BufferUsage::SHADER_BINGING_TABLE_BUFFER))
+	if (hasAnyFlags(description.usage_flags, BufferUsage::SHADER_BINDING_TABLE))
 		usage_flags |= VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR;
 
 	VmaMemoryUsage memory_usage = VMA_MEMORY_USAGE_AUTO;
 	VmaAllocationCreateFlags flags = 0;
-	if (hasAnyFlags(description.usage, BufferUsage::READBACK_BUFFER))
+	if (description.memory == BufferMemory::READBACK)
 	{
 		memory_usage = VMA_MEMORY_USAGE_AUTO_PREFER_HOST;
 		flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
-	} else if (description.use_staging_buffer && !hasAnyFlags(description.usage, BufferUsage::STAGING_BUFFER))
+	} else if (description.memory == BufferMemory::GPU)
 	{
 		memory_usage = VMA_MEMORY_USAGE_GPU_ONLY;
 	} else
@@ -88,8 +88,8 @@ uint64_t VulkanBuffer::getGPUAddress() const
 
 struct VulkanAccessInfo
 {
-	VkPipelineStageFlags stage;
-	VkAccessFlags access;
+	VkPipelineStageFlags2 stage;
+	VkAccessFlags2 access;
 };
 
 static VulkanAccessInfo toVulkanAccessInfo(ResourceState state)
@@ -100,38 +100,38 @@ static VulkanAccessInfo toVulkanAccessInfo(ResourceState state)
 
 	if (hasAnyFlags(state, ResourceState::SHADER_RESOURCE))
 	{
-		info.stage |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-		info.access |= VK_ACCESS_SHADER_READ_BIT;
+		info.stage |= VulkanUtils::getAllShaderStages();
+		info.access |= VK_ACCESS_2_SHADER_READ_BIT;
 	}
 	if (hasAnyFlags(state, ResourceState::COPY_SRC))
 	{
-		info.stage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
-		info.access |= VK_ACCESS_TRANSFER_READ_BIT;
+		info.stage |= VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT;
+		info.access |= VK_ACCESS_2_TRANSFER_READ_BIT;
 	}
-	if (hasAnyFlags(state, ResourceState::COPY_DST)) 
+	if (hasAnyFlags(state, ResourceState::COPY_DST))
 	{
-		info.stage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
-		info.access |= VK_ACCESS_TRANSFER_WRITE_BIT;
+		info.stage |= VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT;
+		info.access |= VK_ACCESS_2_TRANSFER_WRITE_BIT;
 	}
-	if (hasAnyFlags(state, ResourceState::UAV))
+	if (hasAnyFlags(state, ResourceState::UNORDERED_ACCESS))
 	{
-		info.stage |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
-		info.access |= VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+		info.stage |= VulkanUtils::getAllShaderStages();
+		info.access |= VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT;
 	}
 	if (hasAnyFlags(state, ResourceState::VERTEX_BUFFER))
 	{
-		info.stage |= VK_PIPELINE_STAGE_VERTEX_INPUT_BIT;
-		info.access |= VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT;
+		info.stage |= VK_PIPELINE_STAGE_2_VERTEX_INPUT_BIT;
+		info.access |= VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT;
 	}
 	if (hasAnyFlags(state, ResourceState::INDEX_BUFFER))
 	{
-		info.stage |= VK_PIPELINE_STAGE_VERTEX_INPUT_BIT;
-		info.access |= VK_ACCESS_INDEX_READ_BIT;
+		info.stage |= VK_PIPELINE_STAGE_2_VERTEX_INPUT_BIT;
+		info.access |= VK_ACCESS_2_INDEX_READ_BIT;
 	}
 	if (hasAnyFlags(state, ResourceState::INDIRECT_ARGS))
 	{
-		info.stage |= VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT;
-		info.access |= VK_ACCESS_INDIRECT_COMMAND_READ_BIT;
+		info.stage |= VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT;
+		info.access |= VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT;
 	}
 	return info;
 }
@@ -140,7 +140,7 @@ void VulkanBuffer::transitState(RHICommandList *cmd_list, ResourceState new_stat
 {
 	VulkanCommandList *native_cmd_list = (VulkanCommandList *)cmd_list;
 
-	auto writes = [](ResourceState state) { return hasAnyFlags(state, ResourceState::UAV | ResourceState::COPY_DST); };
+	auto writes = [](ResourceState state) { return hasAnyFlags(state, ResourceState::UNORDERED_ACCESS | ResourceState::COPY_DST); };
 
 	if (!writes(current_state) && !writes(new_state))
 	{
@@ -183,7 +183,7 @@ VulkanBufferView::VulkanBufferView(BufferViewDescription description): RHIBuffer
 	
 	if (description.view_type == BufferViewType::SHADER_RESOURCE)
 		bindless_index = gDynamicRHI->getBindlessResources()->addBuffer(this);
-	else if (description.view_type == BufferViewType::SHADER_RESOURCE_STORAGE)
+	else if (description.view_type == BufferViewType::UNORDERED_ACCESS)
 		bindless_index = gDynamicRHI->getBindlessResources()->addBuffer(this);
 }
 

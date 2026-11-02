@@ -16,9 +16,7 @@ RHITextureRef TransientResources::getTexture(const TextureDescription &desc)
 	// Create new if no free textures
 	if (free_textures.empty())
 	{
-		RHITextureRef texture = gDynamicRHI->createTexture(desc);
-		texture->fill();
-		return texture;
+		return gDynamicRHI->createTexture(desc);
 	}
 
 	// Return last free texture

@@ -665,7 +665,7 @@ void SceneRenderer::update(Camera *camera)
 	frame_constants.materials_buffer_id = materials_table.getBindlessIndex();
 	frame_constants.instances_buffer_id = instances_table.getBindlessIndex();
 	frame_constants.meshes_buffer_id = meshes_table.getBindlessIndex();
-	frame_constants.tlas_id = engine_ray_tracing ? rt_scene->getTopLevelAS()->getBindlessId() : 0;
+	frame_constants.tlas_id = engine_ray_tracing ? rt_scene->getTopLevelAS()->getBindlessIndex() : 0;
 	frame_constants.lines_gpu_buffer_id = debug_renderer.getLinesGpuBuffer()->getUnorderedAccessView()->getBindlessIndex();
 	if (Renderer::isDDGIEnabled())
 		frame_constants.ddgi_volume = ddgi_renderer.getVolume();
@@ -722,7 +722,7 @@ void SceneRenderer::gpu_frame_cull(FrameGraph &frame_graph)
 	frame_graph.addCallbackPass("GPU Frame Cull Pass",
 	[&](RenderPassBuilder &builder)
 	{
-		builder.createBuffer(GFXRID(InstancesPassMask), sizeof(uint32_t), indirect_draw_calls_max_count, BufferUsage::SHADER_WRITE_BUFFER);
+		builder.createBuffer(GFXRID(InstancesPassMask), sizeof(uint32_t), indirect_draw_calls_max_count, BufferUsage::UNORDERED_ACCESS);
 		builder.writeBuffer(GFXRID(InstancesPassMask));
 		builder.readBuffer(GFXRID(CullViews));
 	},
@@ -731,7 +731,7 @@ void SceneRenderer::gpu_frame_cull(FrameGraph &frame_graph)
 		if (render_culling_freeze)
 			return;
 
-		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/gpu_driven/frame_cull_instances.hlsl", COMPUTE_SHADER, "CS_CullInstances"));
+		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/gpu_driven/frame_cull_instances.hlsl", ShaderType::COMPUTE, "CS_CullInstances"));
 		gGlobalPipeline->flushAndBind(cmd_list);
 
 		struct Constants

@@ -1,24 +1,8 @@
 #pragma once
-#include "vma/vk_mem_alloc.h"
 #include "Core/Log.h"
-#include "Vulkan/Device.h"
-#include <yaml-cpp/yaml.h>
 #include "Assets/Asset.h"
 #include "Math/EngineMath.h"
 #include "RHI/DynamicRHI.h"
-
-enum TextureLayoutType
-{
-	TEXTURE_LAYOUT_UNDEFINED,
-	TEXTURE_LAYOUT_GENERAL,
-	TEXTURE_LAYOUT_ATTACHMENT,
-	TEXTURE_LAYOUT_DEPTH_READ,
-	TEXTURE_LAYOUT_SHADER_READ,
-	TEXTURE_LAYOUT_TRANSFER_SRC,
-	TEXTURE_LAYOUT_TRANSFER_DST,
-	TEXTURE_LAYOUT_PRESENT,
-	TEXTURE_LAYOUT_UAV,
-};
 
 class RHITextureView : public RefCounted
 {
@@ -42,16 +26,10 @@ protected:
 public:
 	virtual ~RHITexture() = default;
 
+	static RHITextureRef load(const char *path, Format format = Format::UNDEFINED);
 	void reload() override;
 
-	virtual void cleanup() {}
-	virtual void fill() {}
-	virtual void fill(const void *sourceData) {}
-	virtual void clear(RHICommandList *cmd_list, const glm::vec4 &color) {}
-	void load(const char *path);
-	void loadEquirectangularCubemap(const char *path);
-
-	virtual void setDebugName(eastl::string name) = 0;
+	virtual void setDebugName(const char *name) = 0;
 	const char *getDebugName() const { return debug_name.c_str(); }
 
 	eastl::string getPath() const { return path; }
@@ -60,53 +38,34 @@ public:
 	uint32_t getWidth(int mip = 0) const { return std::max(description.width >> mip, 1u); }
 	uint32_t getHeight(int mip = 0) const { return std::max(description.height >> mip, 1u); }
 	uint32_t getMipLevels() const { return description.mip_levels; }
-	uint32_t getArrayLevels() const { return description.array_levels; }
+	uint32_t getArrayLayers() const { return description.array_layers; }
 	Format getFormat() const { return description.format; }
 	virtual uint32_t getBufferRowPitch() const = 0;
 
-	void transitLayout(RHICommandList *cmd_list, TextureLayoutType new_layout_type, int mip = -1);
+	void transitState(RHICommandList *cmd_list, ResourceState new_state, uint32_t mip = ALL_MIPS);
 
 	virtual void generateMipmaps(RHICommandList *cmd_list) {}
 
-	uint32_t getUsageFlags() const { return description.usage_flags; }
+	TextureUsage getUsageFlags() const { return description.usage_flags; }
 
-	bool isCompressedFormat() const
-	{ 
-		return description.format >= FORMAT_BC1 && description.format <= FORMAT_BC7;
-	}
+	bool isDepthTexture() const { return isDepthFormat(description.format); }
 
-	bool isDepthTexture() const
-	{
-		switch (description.format)
-		{
-			case FORMAT_D32S8:
-				return true;
-		}
-		return false;
-	}
-
-	bool is3D() const { return description.depth > 1; }
-	bool isUAV() const { return description.usage_flags & TEXTURE_USAGE_STORAGE; }
-	bool isRenderTargetTexture() const { return description.usage_flags & TEXTURE_USAGE_ATTACHMENT; }
+	bool is3D() const { return description.dimension == TextureDimension::TEXTURE_3D; }
+	bool isCube() const { return description.dimension == TextureDimension::TEXTURE_CUBE; }
+	bool isUnorderedAccess() const { return hasAnyFlags(description.usage_flags, TextureUsage::UNORDERED_ACCESS); }
+	bool isRenderTargetTexture() const { return hasAnyFlags(description.usage_flags, TextureUsage::RENDER_TARGET); }
 
 	virtual bool isValid() const { return true; }
 
 	RHITextureView *getRenderTargetView(uint32_t mip = 0, uint32_t layer = 0) { return get_view(TextureViewType::RENDER_TARGET, mip, layer); }
-	RHITextureView *getShaderResourceView(uint32_t mip = -1, uint32_t layer = -1) { return get_view(TextureViewType::SHADER_RESOURCE, mip, layer); }
-	RHITextureView *getUnorderedAccessView(uint32_t mip = -1, uint32_t layer = -1) { return get_view(TextureViewType::SHADER_RESOURCE_STORAGE, mip, layer); }
+	RHITextureView *getShaderResourceView(uint32_t mip = ALL_MIPS, uint32_t layer = ALL_LAYERS) { return get_view(TextureViewType::SHADER_RESOURCE, mip, layer); }
+	RHITextureView *getUnorderedAccessView(uint32_t mip = ALL_MIPS, uint32_t layer = ALL_LAYERS) { return get_view(TextureViewType::UNORDERED_ACCESS, mip, layer); }
 
 protected:
-	friend class VulkanSwapchain;
-	friend class DX12Swapchain;
-	virtual void fill_raw(void *raw_resource) {}
+	virtual void recreate(const TextureDescription &new_description, const void *initial_data) = 0;
 	virtual RHITextureView *create_view(const TextureViewDescription &view_description) = 0;
 	RHITextureView *get_view(TextureViewType view_type, uint32_t mip, uint32_t layer);
-	virtual void transit_layout(RHICommandList *cmd_list, TextureLayoutType old_layout_type, TextureLayoutType new_layout_type, uint32_t first_mip, uint32_t mip_count) = 0;
-
-	uint32_t get_block_size(Format format) const;
-	uint32_t get_block_stride(Format format) const;
-	uint32_t get_row_size(Format format, uint32_t width) const;
-	uint32_t get_slice_size(Format format, uint32_t width, uint32_t height) const;
+	virtual void transit_state(RHICommandList *cmd_list, ResourceState old_state, ResourceState new_state, uint32_t first_mip, uint32_t mip_count) = 0;
 
 protected:
 	TextureDescription description;
@@ -115,5 +74,5 @@ protected:
 	eastl::string debug_name = "";
 
 	eastl::vector<Ref<RHITextureView>> views;
-	eastl::vector<TextureLayoutType> current_layouts; // Image layouts for each mip map
+	eastl::vector<ResourceState> current_states; // Image states for each mip map
 };

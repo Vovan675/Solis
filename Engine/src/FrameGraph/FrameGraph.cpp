@@ -145,10 +145,10 @@ void FrameGraph::execute(RHICommandList *cmd_list)
 		{
 			FrameGraphTexture *texture = getFrameGraphTexture(id);
 			texture->resource = transient_resources.getTexture(texture->desc);
-			texture->resource->setDebugName(texture->name);
+			texture->resource->setDebugName(texture->name.c_str());
 		}
 		for (const auto &[id, usage] : pass.texture_usage)
-			getFrameGraphTexture(id)->transition(cmd_list, usage);
+			getFrameGraphTexture(id)->resource->transitState(cmd_list, usage);
 
 		for (const auto &id : pass.buffer_creates)
 		{

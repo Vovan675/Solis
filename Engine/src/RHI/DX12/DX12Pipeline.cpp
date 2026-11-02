@@ -6,25 +6,13 @@
 
 DX12Pipeline::~DX12Pipeline()
 {
-	destroy();
+	DX12Utils::getNativeRHI()->releaseGPUResource(pipeline.release());
 }
 
-void DX12Pipeline::destroy()
-{
-	auto *native_rhi = DX12Utils::getNativeRHI();
-	native_rhi->releaseGPUResource(pipeline.release());
-	sbt_buffer = nullptr;
-}
-
-void DX12Pipeline::create(const PipelineDescription &description)
+DX12Pipeline::DX12Pipeline(ID3D12Device *device, const PipelineDescription &description): RHIPipeline(description), device(device)
 {
 	PROFILE_CPU_FUNCTION();
-	destroy();
-
 	pipeline = std::make_unique<DX12PipelineResource>();
-
-	this->description = description;
-	hash = description.getHash();
 
 	// Allow input layout and deny unnecessary access to certain pipeline stages.
 	D3D12_ROOT_SIGNATURE_FLAGS rootSignatureFlags =
@@ -68,7 +56,7 @@ void DX12Pipeline::create(const PipelineDescription &description)
 	// Create the root signature.
 	device->CreateRootSignature(0, root_signature_blob->GetBufferPointer(), root_signature_blob->GetBufferSize(), IID_PPV_ARGS(&pipeline->root_signature));
 
-	if (description.pipeline_type == PipelineType::Compute)
+	if (description.pipeline_type == PipelineType::COMPUTE)
 	{
 		DX12Shader *cs = static_cast<DX12Shader *>(description.compute_shader.getReference());
 
@@ -77,7 +65,7 @@ void DX12Pipeline::create(const PipelineDescription &description)
 		pipeline_desc.CS = {cs->blob->GetBufferPointer(), cs->blob->GetBufferSize()};
 		pipeline_desc.Flags = D3D12_PIPELINE_STATE_FLAG_NONE;
 		device->CreateComputePipelineState(&pipeline_desc, IID_PPV_ARGS(&pipeline->pipeline_state));
-	} else if (description.pipeline_type == PipelineType::RayTracing)
+	} else if (description.pipeline_type == PipelineType::RAY_TRACING)
 	{
 		DX12Shader *ray_gen = static_cast<DX12Shader *>(description.ray_generation_shader.getReference());
 		DX12Shader *miss = static_cast<DX12Shader *>(description.miss_shader.getReference());
@@ -142,36 +130,36 @@ void DX12Pipeline::create(const PipelineDescription &description)
 		DX12Utils::getNativeRHI()->device->CreateStateObject(ray_tracing_pipeline_desc, IID_PPV_ARGS(&pipeline->rt_pso));
 
 		pipeline->rt_pso->QueryInterface(IID_PPV_ARGS(&pipeline->rt_props));
-	} else if (description.pipeline_type == PipelineType::Graphics || description.pipeline_type == PipelineType::Mesh)
+	} else if (description.pipeline_type == PipelineType::GRAPHICS || description.pipeline_type == PipelineType::MESH)
 	{
 		D3D12_PRIMITIVE_TOPOLOGY_TYPE topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_UNDEFINED;
 		switch (description.primitive_topology)
 		{
-			case TOPOLOGY_POINT_LIST: topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_POINT; break;
-			case TOPOLOGY_LINE_LIST: topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE; break;
-			case TOPOLOGY_TRIANGLE_LIST: topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE; break;
-			case TOPOLOGY_TRIANGLE_STRIP: topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE; break;
+			case Topology::POINT_LIST: topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_POINT; break;
+			case Topology::LINE_LIST: topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE; break;
+			case Topology::TRIANGLE_LIST: topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE; break;
+			case Topology::TRIANGLE_STRIP: topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE; break;
 		}
 
 		D3D12_CULL_MODE cull_mode = D3D12_CULL_MODE_BACK;
 		switch (description.cull_mode)
 		{
-			case CULL_MODE_NONE: cull_mode = D3D12_CULL_MODE_NONE; break;
-			case CULL_MODE_BACK: cull_mode = D3D12_CULL_MODE_BACK; break;
-			case CULL_MODE_FRONT: cull_mode = D3D12_CULL_MODE_FRONT; break;
+			case CullMode::NONE: cull_mode = D3D12_CULL_MODE_NONE; break;
+			case CullMode::BACK: cull_mode = D3D12_CULL_MODE_BACK; break;
+			case CullMode::FRONT: cull_mode = D3D12_CULL_MODE_FRONT; break;
 		}
 
 		D3D12_COMPARISON_FUNC depth_comparison_func = D3D12_COMPARISON_FUNC_LESS;
 		switch (description.depth_compare_func)
 		{
-			case COMPARE_FUNC_NEVER: depth_comparison_func = D3D12_COMPARISON_FUNC_NEVER; break;
-			case COMPARE_FUNC_LESS: depth_comparison_func = D3D12_COMPARISON_FUNC_LESS; break;
-			case COMPARE_FUNC_EQUAL: depth_comparison_func = D3D12_COMPARISON_FUNC_EQUAL; break;
-			case COMPARE_FUNC_LESS_EQUAL: depth_comparison_func = D3D12_COMPARISON_FUNC_LESS_EQUAL; break;
-			case COMPARE_FUNC_GREATER: depth_comparison_func = D3D12_COMPARISON_FUNC_GREATER; break;
-			case COMPARE_FUNC_NOT_EQUAL: depth_comparison_func = D3D12_COMPARISON_FUNC_NOT_EQUAL; break;
-			case COMPARE_FUNC_GREATER_EQUAL: depth_comparison_func = D3D12_COMPARISON_FUNC_GREATER_EQUAL; break;
-			case COMPARE_FUNC_ALWAYS: depth_comparison_func = D3D12_COMPARISON_FUNC_ALWAYS; break;
+			case CompareFunc::NEVER: depth_comparison_func = D3D12_COMPARISON_FUNC_NEVER; break;
+			case CompareFunc::LESS: depth_comparison_func = D3D12_COMPARISON_FUNC_LESS; break;
+			case CompareFunc::EQUAL: depth_comparison_func = D3D12_COMPARISON_FUNC_EQUAL; break;
+			case CompareFunc::LESS_EQUAL: depth_comparison_func = D3D12_COMPARISON_FUNC_LESS_EQUAL; break;
+			case CompareFunc::GREATER: depth_comparison_func = D3D12_COMPARISON_FUNC_GREATER; break;
+			case CompareFunc::NOT_EQUAL: depth_comparison_func = D3D12_COMPARISON_FUNC_NOT_EQUAL; break;
+			case CompareFunc::GREATER_EQUAL: depth_comparison_func = D3D12_COMPARISON_FUNC_GREATER_EQUAL; break;
+			case CompareFunc::ALWAYS: depth_comparison_func = D3D12_COMPARISON_FUNC_ALWAYS; break;
 		}
 
 		D3D12_DEPTH_STENCIL_DESC depth_stencil_desc = {};
@@ -186,25 +174,25 @@ void DX12Pipeline::create(const PipelineDescription &description)
 		depth_stencil_desc.BackFace = defaultStencilOp;
 
 
-		auto getBlend = [](Blend blend)
+		auto getBlend = [](BlendFactor blend)
 		{
 			switch (blend)
 			{
-				case BLEND_ZERO: return D3D12_BLEND_ZERO;
-				case BLEND_ONE: return D3D12_BLEND_ONE;
-				case BLEND_SRC_COLOR: return D3D12_BLEND_SRC_COLOR;
-				case BLEND_ONE_MINUS_SRC_COLOR: return D3D12_BLEND_INV_SRC_COLOR;
-				case BLEND_DST_COLOR: return D3D12_BLEND_DEST_COLOR;
-				case BLEND_ONE_MINUS_DST_COLOR: return D3D12_BLEND_INV_DEST_COLOR;
-				case BLEND_SRC_ALPHA: return D3D12_BLEND_SRC_ALPHA;
-				case BLEND_ONE_MINUS_SRC_ALPHA: return D3D12_BLEND_INV_SRC_ALPHA;
-				case BLEND_DST_ALPHA: return D3D12_BLEND_DEST_ALPHA;
-				case BLEND_ONE_MINUS_DST_ALPHA: return D3D12_BLEND_INV_DEST_ALPHA;
-				case BLEND_SRC_ALPHA_SATURATE: return D3D12_BLEND_SRC_ALPHA_SAT;
-				case BLEND_SRC1_COLOR: return D3D12_BLEND_SRC1_COLOR;
-				case BLEND_ONE_MINUS_SRC1_COLOR: return D3D12_BLEND_INV_SRC1_COLOR;
-				case BLEND_SRC1_ALPHA: return D3D12_BLEND_SRC1_ALPHA;
-				case BLEND_ONE_MINUS_SRC1_ALPHA: return D3D12_BLEND_INV_SRC1_ALPHA;
+				case BlendFactor::ZERO: return D3D12_BLEND_ZERO;
+				case BlendFactor::ONE: return D3D12_BLEND_ONE;
+				case BlendFactor::SRC_COLOR: return D3D12_BLEND_SRC_COLOR;
+				case BlendFactor::ONE_MINUS_SRC_COLOR: return D3D12_BLEND_INV_SRC_COLOR;
+				case BlendFactor::DST_COLOR: return D3D12_BLEND_DEST_COLOR;
+				case BlendFactor::ONE_MINUS_DST_COLOR: return D3D12_BLEND_INV_DEST_COLOR;
+				case BlendFactor::SRC_ALPHA: return D3D12_BLEND_SRC_ALPHA;
+				case BlendFactor::ONE_MINUS_SRC_ALPHA: return D3D12_BLEND_INV_SRC_ALPHA;
+				case BlendFactor::DST_ALPHA: return D3D12_BLEND_DEST_ALPHA;
+				case BlendFactor::ONE_MINUS_DST_ALPHA: return D3D12_BLEND_INV_DEST_ALPHA;
+				case BlendFactor::SRC_ALPHA_SATURATE: return D3D12_BLEND_SRC_ALPHA_SAT;
+				case BlendFactor::SRC1_COLOR: return D3D12_BLEND_SRC1_COLOR;
+				case BlendFactor::ONE_MINUS_SRC1_COLOR: return D3D12_BLEND_INV_SRC1_COLOR;
+				case BlendFactor::SRC1_ALPHA: return D3D12_BLEND_SRC1_ALPHA;
+				case BlendFactor::ONE_MINUS_SRC1_ALPHA: return D3D12_BLEND_INV_SRC1_ALPHA;
 			}
 			return D3D12_BLEND_ZERO;
 		};
@@ -213,11 +201,11 @@ void DX12Pipeline::create(const PipelineDescription &description)
 		{
 			switch (op)
 			{
-				case BLEND_OP_ADD: return D3D12_BLEND_OP_ADD;
-				case BLEND_OP_SUBTRACT: return D3D12_BLEND_OP_SUBTRACT;
-				case BLEND_OP_REV_SUBTRACT: return D3D12_BLEND_OP_REV_SUBTRACT;
-				case BLEND_OP_MIN: return D3D12_BLEND_OP_MIN;
-				case BLEND_OP_MAX: return D3D12_BLEND_OP_MAX;
+				case BlendOp::ADD: return D3D12_BLEND_OP_ADD;
+				case BlendOp::SUBTRACT: return D3D12_BLEND_OP_SUBTRACT;
+				case BlendOp::REV_SUBTRACT: return D3D12_BLEND_OP_REV_SUBTRACT;
+				case BlendOp::MIN: return D3D12_BLEND_OP_MIN;
+				case BlendOp::MAX: return D3D12_BLEND_OP_MAX;
 			}
 			return D3D12_BLEND_OP_ADD;
 		};
@@ -248,7 +236,7 @@ void DX12Pipeline::create(const PipelineDescription &description)
 			rt.RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
 		}
 
-		if (description.pipeline_type == PipelineType::Graphics)
+		if (description.pipeline_type == PipelineType::GRAPHICS)
 		{
 			DX12Shader *vs = static_cast<DX12Shader *>(description.vertex_shader.getReference());
 			DX12Shader *ps = static_cast<DX12Shader *>(description.fragment_shader.getReference());
@@ -278,12 +266,12 @@ void DX12Pipeline::create(const PipelineDescription &description)
 				pso_desc.RTVFormats[i] = DX12Utils::getNativeFormat(description.color_formats[i]);
 			}
 
-			if (description.depth_format != FORMAT_UNDEFINED)
+			if (description.depth_format != Format::UNDEFINED)
 				pso_desc.DSVFormat = DX12Utils::getNativeFormat(description.depth_format);
 
 			pso_desc.SampleDesc.Count = 1;
 			device->CreateGraphicsPipelineState(&pso_desc, IID_PPV_ARGS(&pipeline->pipeline_state));
-		} else if (description.pipeline_type == PipelineType::Mesh)
+		} else if (description.pipeline_type == PipelineType::MESH)
 		{
 			DX12Shader *ms = static_cast<DX12Shader *>(description.mesh_shader.getReference());
 			DX12Shader *ps = static_cast<DX12Shader *>(description.fragment_shader.getReference());
@@ -308,7 +296,7 @@ void DX12Pipeline::create(const PipelineDescription &description)
 				pso_desc.RTVFormats[i] = DX12Utils::getNativeFormat(description.color_formats[i]);
 			}
 
-			if (description.depth_format != FORMAT_UNDEFINED)
+			if (description.depth_format != Format::UNDEFINED)
 				pso_desc.DSVFormat = DX12Utils::getNativeFormat(description.depth_format);
 
 			pso_desc.SampleDesc.Count = 1;
@@ -327,7 +315,7 @@ void DX12Pipeline::fillDispatchRaysDesc(D3D12_DISPATCH_RAYS_DESC &desc)
 {
 	BufferDescription sbt_buffer_desc;
 	sbt_buffer_desc.size = D3D12_RAYTRACING_SHADER_TABLE_BYTE_ALIGNMENT * 3;
-	sbt_buffer_desc.use_staging_buffer = false;
+	sbt_buffer_desc.memory = BufferMemory::UPLOAD;
 	sbt_buffer_desc.alignment = D3D12_RAYTRACING_SHADER_TABLE_BYTE_ALIGNMENT;
 	if (!sbt_buffer)
 	{

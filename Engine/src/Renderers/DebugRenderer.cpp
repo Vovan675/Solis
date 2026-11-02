@@ -10,35 +10,34 @@
 
 DebugRenderer::DebugRenderer()
 {
-	vertex_shader_lines = gDynamicRHI->createShader(L"shaders/debug_lines.hlsl", VERTEX_SHADER);
-	fragment_shader_lines = gDynamicRHI->createShader(L"shaders/debug_lines.hlsl", FRAGMENT_SHADER);
+	vertex_shader_lines = gDynamicRHI->createShader(L"shaders/debug_lines.hlsl", ShaderType::VERTEX);
+	fragment_shader_lines = gDynamicRHI->createShader(L"shaders/debug_lines.hlsl", ShaderType::FRAGMENT);
 
-	vertex_shader_gpu_lines = gDynamicRHI->createShader(L"shaders/debug_lines.hlsl", VERTEX_SHADER, "VSGpuLines");
+	vertex_shader_gpu_lines = gDynamicRHI->createShader(L"shaders/debug_lines.hlsl", ShaderType::VERTEX, "VSGpuLines");
 
 	BufferDescription desc;
 
 	vertices = new LineVertex[MAX_NUM_LINES];
 	
 	desc.size = sizeof(LineVertex) * MAX_NUM_LINES;
-	desc.storage_stride = sizeof(LineVertex);
-	desc.use_staging_buffer = false;
-	desc.usage = BufferUsage::VERTEX_BUFFER;
+	desc.stride = sizeof(LineVertex);
+	desc.memory = BufferMemory::UPLOAD;
+	desc.usage_flags = BufferUsage::VERTEX;
 
 	lines_vertex_buffer = gDynamicRHI->createBuffer(desc);
 	lines_vertex_buffer->map((void **)&vertices);
 	lines_vertex_buffer->setDebugName("Lines Vertex Buffer");
 
 	desc.size = sizeof(uint32_t) + sizeof(LineVertex) * MAX_NUM_LINES;
-	desc.storage_stride = sizeof(uint32_t);
-	desc.use_staging_buffer = true;
-	desc.usage = BufferUsage::SHADER_WRITE_BUFFER;
+	desc.stride = sizeof(uint32_t);
+	desc.memory = BufferMemory::GPU;
+	desc.usage_flags = BufferUsage::UNORDERED_ACCESS;
 	lines_gpu_buffer = gDynamicRHI->createBuffer(desc);
 	lines_gpu_buffer->setDebugName("Lines GPU Vertex Buffer");
 
 	desc.size = sizeof(DrawIndirect);
-	desc.storage_stride = sizeof(DrawIndirect);
-	desc.use_staging_buffer = true;
-	desc.usage = BufferUsage::INDIRECT_ARGS_BUFFER | BufferUsage::SHADER_WRITE_BUFFER;
+	desc.stride = sizeof(DrawIndirect);
+	desc.usage_flags = BufferUsage::INDIRECT_ARGS | BufferUsage::UNORDERED_ACCESS;
 	lines_draw_args_buffer = gDynamicRHI->createBuffer(desc);
 	lines_draw_args_buffer->setDebugName("Lines GPU Draw Args Buffer");
 }
@@ -280,7 +279,7 @@ void DebugRenderer::addTextureDebugPass(FrameGraph &fg)
 		else
 			ubo.hiz_tex_id = 0;
 
-		gGlobalPipeline->bindScreenQuadPipeline(cmd_list, gDynamicRHI->createShader(L"shaders/debug_quad.hlsl", FRAGMENT_SHADER));
+		gGlobalPipeline->bindScreenQuadPipeline(cmd_list, gDynamicRHI->createShader(L"shaders/debug_quad.hlsl", ShaderType::FRAGMENT));
 
 		// Uniforms
 		gDynamicRHI->setConstantBufferData(0, &ubo, sizeof(PresentUBO));
@@ -311,13 +310,13 @@ void DebugRenderer::addVisualizerPass(FrameGraph & fg)
 		cmd_list->setRenderTargets({final}, depth, 0, 0, false);
 
 		VertexInputsDescription input_desc;
-		input_desc.inputs.push_back({"POSITION", 0, FORMAT_R32G32B32A32_SFLOAT});
-		input_desc.inputs.push_back({"COLOR", 0, FORMAT_R32G32B32_SFLOAT});
+		input_desc.inputs.push_back({"POSITION", 0, Format::R32G32B32A32_SFLOAT});
+		input_desc.inputs.push_back({"COLOR", 0, Format::R32G32B32_SFLOAT});
 		gGlobalPipeline->setupGraphicsPipeline(cmd_list, vertex_shader_lines, fragment_shader_lines,
-								 input_desc, false, true, CULL_MODE_NONE);
+								 input_desc, false, true, CullMode::NONE);
 		gGlobalPipeline->setDepthWrite(false);
-		gGlobalPipeline->setDepthFunc(COMPARE_FUNC_GREATER_EQUAL);
-		gGlobalPipeline->setPrimitiveTopology(TOPOLOGY_LINE_LIST);
+		gGlobalPipeline->setDepthFunc(CompareFunc::GREATER_EQUAL);
+		gGlobalPipeline->setPrimitiveTopology(Topology::LINE_LIST);
 		gGlobalPipeline->flushAndBind(cmd_list);
 
 		cmd_list->setVertexBuffer(lines_vertex_buffer, 0, sizeof(LineVertex));
@@ -342,7 +341,7 @@ void DebugRenderer::addVisualizerPass(FrameGraph & fg)
 		} constants;
 		constants.lines_draw_args_buffer_id = lines_draw_args_buffer->getUnorderedAccessView()->getBindlessIndex();
 
-		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/debug_lines.hlsl", COMPUTE_SHADER, "CSGenerateDrawCalls"));
+		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/debug_lines.hlsl", ShaderType::COMPUTE, "CSGenerateDrawCalls"));
 		gGlobalPipeline->flushAndBind(cmd_list);
 
 		gDynamicRHI->setConstantBufferData(0, &constants, sizeof(constants));
@@ -365,10 +364,10 @@ void DebugRenderer::addVisualizerPass(FrameGraph & fg)
 		cmd_list->setRenderTargets({final}, depth, 0, 0, false);
 
 		gGlobalPipeline->setupGraphicsPipeline(cmd_list, vertex_shader_gpu_lines, fragment_shader_lines,
-								 {}, false, true, CULL_MODE_NONE);
+								 {}, false, true, CullMode::NONE);
 		gGlobalPipeline->setDepthWrite(false);
-		gGlobalPipeline->setDepthFunc(COMPARE_FUNC_GREATER_EQUAL);
-		gGlobalPipeline->setPrimitiveTopology(TOPOLOGY_LINE_LIST);
+		gGlobalPipeline->setDepthFunc(CompareFunc::GREATER_EQUAL);
+		gGlobalPipeline->setPrimitiveTopology(Topology::LINE_LIST);
 		gGlobalPipeline->flushAndBind(cmd_list);
 
 		cmd_list->drawIndirect(lines_draw_args_buffer, 1);

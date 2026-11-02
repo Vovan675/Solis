@@ -21,28 +21,24 @@ namespace Engine
 
 	void Mesh::uploadTraditionalBuffers()
 	{
-		BufferUsage extra = BufferUsage::SHADER_READ_BUFFER;
+		BufferUsage extra = BufferUsage::SHADER_RESOURCE;
 		if (engine_ray_tracing)
-			extra |= BufferUsage::ACCELERATION_STRUCTURE_BUILD_INPUT_BUFFER;
+			extra |= BufferUsage::ACCELERATION_STRUCTURE_BUILD_INPUT;
 
 		BufferDescription vd;
 		vd.size = sizeof(indexed->vertices[0]) * indexed->vertices.size();
-		vd.use_staging_buffer = true;
-		vd.usage = BufferUsage::VERTEX_BUFFER | extra;
-		vd.storage_stride = sizeof(uint32_t);
+		vd.usage_flags = BufferUsage::VERTEX | extra;
+		vd.stride = sizeof(uint32_t);
 		vd.alignment = 16;
-		indexed->vertex_buffer = gDynamicRHI->createBuffer(vd);
-		indexed->vertex_buffer->fill(indexed->vertices.data());
+		indexed->vertex_buffer = gDynamicRHI->createBuffer(vd, indexed->vertices.data());
 		indexed->vertex_buffer->setDebugName("Vertex Buffer");
 
 		BufferDescription id;
 		id.size = sizeof(indexed->indices[0]) * indexed->indices.size();
-		id.use_staging_buffer = true;
-		id.usage = BufferUsage::INDEX_BUFFER | extra;
+		id.usage_flags = BufferUsage::INDEX | extra;
 		id.alignment = 0;
-		id.storage_stride = sizeof(uint32_t);
-		indexed->index_buffer = gDynamicRHI->createBuffer(id);
-		indexed->index_buffer->fill(indexed->indices.data());
+		id.stride = sizeof(uint32_t);
+		indexed->index_buffer = gDynamicRHI->createBuffer(id, indexed->indices.data());
 		indexed->index_buffer->setDebugName("Index Buffer");
 	}
 

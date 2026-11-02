@@ -2,12 +2,12 @@
 #include "RHIDefinitions.h"
 #include "RHITexture.h"
 
-struct SwapchainInfo
+struct SwapchainDescription
 {
 	uint32_t width;
 	uint32_t height;
 	Format format;
-	uint8_t textures_count;
+	uint8_t texture_count;
 };
 
 // Flow of frame:
@@ -17,8 +17,8 @@ struct SwapchainInfo
 class RHISwapchain : public RefCounted
 {
 public:
-	Format getFormat() const { return info.format; }
-	uint8_t getTexturesCount() const { return info.textures_count; }
+	Format getFormat() const { return description.format; }
+	uint8_t getTextureCount() const { return description.texture_count; }
 	RHITextureRef getTexture(uint8_t index) const { return textures[index]; }
 	RHITextureRef getCurrentTexture() const { return textures[current_index]; }
 	uint32_t getCurrentIndex() const { return current_index; }
@@ -28,9 +28,9 @@ public:
 	virtual void resize(uint32_t width, uint32_t height) = 0;
 
 protected:
-	RHISwapchain(const SwapchainInfo &info): info(info) {}
+	RHISwapchain(const SwapchainDescription &description): description(description) {}
 
-	SwapchainInfo info;
+	SwapchainDescription description;
 	eastl::vector<RHITextureRef> textures;
 	uint32_t current_index = 0;
 };

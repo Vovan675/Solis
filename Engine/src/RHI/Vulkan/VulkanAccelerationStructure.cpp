@@ -55,7 +55,7 @@ void VulkanBottomLevelAccelerationStructure::build(const eastl::vector<RayTracin
 		triangles.vertexStride = geometry.vertex_buffer_stride;
 		triangles.maxVertex = geometry.vertex_count - 1;
 
-		triangles.indexType = geometry.index_format == FORMAT_R32_UINT ? VK_INDEX_TYPE_UINT32 : VK_INDEX_TYPE_NONE_KHR;
+		triangles.indexType = geometry.index_format == IndexFormat::UINT32 ? VK_INDEX_TYPE_UINT32 : VK_INDEX_TYPE_NONE_KHR;
 		triangles.indexData.deviceAddress = geometry.index_buffer->getGPUAddress() + geometry.index_buffer_offset;
 		triangles.transformData.deviceAddress = 0;
 		desc.geometry.triangles = triangles;
@@ -90,8 +90,7 @@ void VulkanBottomLevelAccelerationStructure::build(const eastl::vector<RayTracin
 	// Create Acceleration structure buffer
 	BufferDescription accDesc;
 	accDesc.size = Math::roundUp(accelerationStructureBuildSizesInfo.accelerationStructureSize, 256);
-	accDesc.use_staging_buffer = true;
-	accDesc.usage = BufferUsage::ACCELERATION_STRUCTURE_STORAGE_BUFFER;
+	accDesc.usage_flags = BufferUsage::ACCELERATION_STRUCTURE_STORAGE;
 
 	buffer = gDynamicRHI->createBuffer(accDesc);
 
@@ -109,8 +108,7 @@ void VulkanBottomLevelAccelerationStructure::build(const eastl::vector<RayTracin
 	BufferDescription scratchDesc;
 	scratchDesc.size = Math::roundUp(accelerationStructureBuildSizesInfo.buildScratchSize, min_scratch_alignment);
 	scratchDesc.alignment = min_scratch_alignment;
-	scratchDesc.use_staging_buffer = true;
-	scratchDesc.usage = BufferUsage::SCRATCH_BUFFER;
+	scratchDesc.usage_flags = BufferUsage::SCRATCH;
 
 	RHIBufferRef scratch_buffer = gDynamicRHI->createBuffer(scratchDesc);
 
@@ -180,12 +178,11 @@ void VulkanTopLevelAccelerationStructure::build(const eastl::vector<RayTracingIn
 	{
 		BufferDescription instanceDesc;
 		instanceDesc.size = instances_desc.size() * sizeof(VkAccelerationStructureInstanceKHR);
-		instanceDesc.use_staging_buffer = false;
-		instanceDesc.usage = BufferUsage::ACCELERATION_STRUCTURE_BUILD_INPUT_BUFFER;
+		instanceDesc.memory = BufferMemory::UPLOAD;
+		instanceDesc.usage_flags = BufferUsage::ACCELERATION_STRUCTURE_BUILD_INPUT;
 		instanceDesc.alignment = 16;
 
-		auto instanceBuffer = gDynamicRHI->createBuffer(instanceDesc);
-		instanceBuffer->fill(instances_desc.data());
+		auto instanceBuffer = gDynamicRHI->createBuffer(instanceDesc, instances_desc.data());
 
 		instanceDataDeviceAddress.deviceAddress = instanceBuffer->getGPUAddress();
 	}
@@ -236,8 +233,7 @@ void VulkanTopLevelAccelerationStructure::build(const eastl::vector<RayTracingIn
 		// Create acceleration structure buffer
 		BufferDescription accDesc;
 		accDesc.size = acceleration_structure_size;
-		accDesc.use_staging_buffer = true;
-		accDesc.usage = BufferUsage::ACCELERATION_STRUCTURE_STORAGE_BUFFER;
+		accDesc.usage_flags = BufferUsage::ACCELERATION_STRUCTURE_STORAGE;
 
 		buffer = gDynamicRHI->createBuffer(accDesc);
 		VulkanBuffer *native_buffer = (VulkanBuffer *)buffer.getReference();
@@ -255,7 +251,7 @@ void VulkanTopLevelAccelerationStructure::build(const eastl::vector<RayTracingIn
 		accelerationDeviceAddressInfo.accelerationStructure = handle->resource;
 		deviceAddress = VulkanUtils::vkGetAccelerationStructureDeviceAddressKHR(&accelerationDeviceAddressInfo);
 
-		bindless_id = gDynamicRHI->getBindlessResources()->addAccelerationStructure(this);
+		bindless_index = gDynamicRHI->getBindlessResources()->addAccelerationStructure(this);
 	}
 
 	// Create a small scratch buffer used during build of the top level acceleration structure
@@ -266,8 +262,7 @@ void VulkanTopLevelAccelerationStructure::build(const eastl::vector<RayTracingIn
 		BufferDescription scratchDesc;
 		scratchDesc.size = scratch_size;
 		scratchDesc.alignment = min_scratch_alignment;
-		scratchDesc.use_staging_buffer = true;
-		scratchDesc.usage = BufferUsage::SCRATCH_BUFFER;
+		scratchDesc.usage_flags = BufferUsage::SCRATCH;
 
 		scratch_buffer = gDynamicRHI->createBuffer(scratchDesc);
 	}

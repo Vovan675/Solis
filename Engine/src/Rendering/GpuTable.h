@@ -247,9 +247,8 @@ private:
 
 		BufferDescription desc;
 		desc.size = new_capacity * sizeof(T);
-		desc.usage = BufferUsage::SHADER_READ_BUFFER;
-		desc.use_staging_buffer = true;
-		desc.storage_stride = sizeof(T);
+		desc.usage_flags = BufferUsage::SHADER_RESOURCE;
+		desc.stride = sizeof(T);
 		gpu_buffer = gDynamicRHI->createBuffer(desc);
 		gpu_buffer->setDebugName(name.name);
 		full_upload_needed = true;

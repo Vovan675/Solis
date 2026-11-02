@@ -16,8 +16,8 @@ public:
 	void setFragmentShader(RHIShaderRef shader) { current_description.fragment_shader = shader; }
 	void setVertexInputsDescription(VertexInputsDescription desc) { current_description.vertex_inputs_descriptions = desc; }
 	void setUseBlending(bool use_blending) { current_description.use_blending = use_blending; }
-	void setBlendMode(Blend src_color_blend, Blend dst_color_blend, BlendOp color_blend_op,
-					  Blend src_alpha_blend, Blend dst_alpha_blend, BlendOp alpha_blend_op);
+	void setBlendMode(BlendFactor src_color_blend, BlendFactor dst_color_blend, BlendOp color_blend_op,
+					  BlendFactor src_alpha_blend, BlendFactor dst_alpha_blend, BlendOp alpha_blend_op);
 	void setDepthTest(bool depth_test) { current_description.use_depth_test = depth_test; }
 	void setDepthWrite(bool depth_write) { current_description.use_depth_write = depth_write; }
 	void setDepthFunc(CompareFunc func) { current_description.depth_compare_func = func; }
@@ -42,18 +42,18 @@ public:
 							   VertexInputsDescription vertex_inputs = VertexInputsDescription{},
 							   bool use_blending = false,
 							   bool depth_test = true,
-							   CullMode cull_mode = CULL_MODE_BACK);
+							   CullMode cull_mode = CullMode::BACK);
 	void setupGraphicsPipeline(RHICommandList* cmd_list,
 							   RHIShaderRef vertex_shader, RHIShaderRef fragment_shader,
 							   VertexInputsDescription vertex_inputs = VertexInputsDescription{},
 							   bool use_blending = false,
 							   bool depth_test = true,
-							   CullMode cull_mode = CULL_MODE_BACK);
+							   CullMode cull_mode = CullMode::BACK);
 	void setupMeshPipeline(RHICommandList* cmd_list,
 							RHIShaderRef mesh_shader, RHIShaderRef fragment_shader,
 							bool use_blending = false,
 							bool depth_test = true,
-							CullMode cull_mode = CULL_MODE_BACK);
+							CullMode cull_mode = CullMode::BACK);
 
 	void flushAndBind(RHICommandList *cmd_list);
 

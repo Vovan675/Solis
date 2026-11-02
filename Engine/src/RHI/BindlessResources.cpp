@@ -9,23 +9,23 @@ void RHIBindlessResources::init()
 		empty_resource_indices.push_back(i);
 
 	// Init default samplers
-	auto createSampler = [](Filter filtering, SamplerMode sampler_mode, bool use_comparison_less = false)
+	auto createSampler = [](Filter filter, SamplerAddressMode address_mode, bool use_comparison_less = false)
 	{
-		TextureDescription sampler;
-		sampler.filtering = filtering;
-		sampler.sampler_mode = sampler_mode;
+		SamplerDescription sampler;
+		sampler.filter = filter;
+		sampler.address_mode = address_mode;
 		sampler.anisotropy = true;
 		sampler.use_comparison_less = use_comparison_less;
 		return sampler;
 	};
 
 	// Must match in shaders
-	TextureDescription linearWrapSampler = createSampler(FILTER_LINEAR, SAMPLER_MODE_REPEAT);
-	TextureDescription linearClampSampler = createSampler(FILTER_LINEAR, SAMPLER_MODE_CLAMP_TO_EDGE);
-	TextureDescription pointWrapSampler = createSampler(FILTER_NEAREST, SAMPLER_MODE_REPEAT);
-	TextureDescription pointClampSampler = createSampler(FILTER_NEAREST, SAMPLER_MODE_CLAMP_TO_EDGE);
-	TextureDescription shadowWrapSampler = createSampler(FILTER_LINEAR, SAMPLER_MODE_REPEAT, true);
-	TextureDescription shadowClampSampler = createSampler(FILTER_LINEAR, SAMPLER_MODE_CLAMP_TO_EDGE, true);
+	SamplerDescription linearWrapSampler = createSampler(Filter::LINEAR, SamplerAddressMode::REPEAT);
+	SamplerDescription linearClampSampler = createSampler(Filter::LINEAR, SamplerAddressMode::CLAMP_TO_EDGE);
+	SamplerDescription pointWrapSampler = createSampler(Filter::NEAREST, SamplerAddressMode::REPEAT);
+	SamplerDescription pointClampSampler = createSampler(Filter::NEAREST, SamplerAddressMode::CLAMP_TO_EDGE);
+	SamplerDescription shadowWrapSampler = createSampler(Filter::LINEAR, SamplerAddressMode::REPEAT, true);
+	SamplerDescription shadowClampSampler = createSampler(Filter::LINEAR, SamplerAddressMode::CLAMP_TO_EDGE, true);
 
 	addSampler(linearWrapSampler);
 	addSampler(linearClampSampler);
@@ -43,8 +43,8 @@ void RHIBindlessResources::setSamplersMipBias(float bias)
 {
 	for (uint32_t i = 0; i < sampler_descriptions.size(); i++)
 	{
-		TextureDescription &description = sampler_descriptions[i];
-		if (description.mip_bias == bias || description.filtering != FILTER_LINEAR || description.use_comparison_less)
+		SamplerDescription &description = sampler_descriptions[i];
+		if (description.mip_bias == bias || description.filter != Filter::LINEAR || description.use_comparison_less)
 			continue;
 		description.mip_bias = bias;
 		recreate_sampler(i);
@@ -105,15 +105,15 @@ uint32_t RHIBindlessResources::addBuffer(RHIBufferView *view)
 		CORE_CRITICAL("Bindless: not enough indices");
 
 	// If already exists, return index
-	auto it = buffer_to_resource_index.find(view);
-	if (it != buffer_to_resource_index.end())
+	auto it = buffer_view_to_resource_index.find(view);
+	if (it != buffer_view_to_resource_index.end())
 		return it->second;
 	uint32_t index = empty_resource_indices.back();
 	empty_resource_indices.pop_back();
-	buffer_to_resource_index[view] = index;
+	buffer_view_to_resource_index[view] = index;
 
 	RHIBuffer *buffer = view->getDescription().buffer;
-	ENGINE_ASSERT_MSG(hasAnyFlags(buffer->getUsage(), BufferUsage::SHADER_READ_BUFFER | BufferUsage::SHADER_WRITE_BUFFER), "Only Bindless Storage Buffers Supported");
+	ENGINE_ASSERT_MSG(hasAnyFlags(buffer->getUsageFlags(), BufferUsage::SHADER_RESOURCE | BufferUsage::UNORDERED_ACCESS), "Only Bindless Storage Buffers Supported");
 	CORE_INFO("Set buffer at index {} size {}", index, buffer->getSize());
 	write_buffer(index, view);
 	return index;
@@ -121,15 +121,15 @@ uint32_t RHIBindlessResources::addBuffer(RHIBufferView *view)
 
 void RHIBindlessResources::removeBuffer(RHIBufferView *view)
 {
-	if (buffer_to_resource_index.empty())
+	if (buffer_view_to_resource_index.empty())
 		return;
 	// If not found, return
-	auto it = buffer_to_resource_index.find(view);
-	if (it == buffer_to_resource_index.end())
+	auto it = buffer_view_to_resource_index.find(view);
+	if (it == buffer_view_to_resource_index.end())
 		return;
 
-	uint32_t index = buffer_to_resource_index[view];
-	buffer_to_resource_index.erase(view);
+	uint32_t index = buffer_view_to_resource_index[view];
+	buffer_view_to_resource_index.erase(view);
 
 	gDynamicRHI->runAfterGPUFrame([this, index]()
 	{

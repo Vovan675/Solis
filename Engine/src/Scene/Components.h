@@ -200,31 +200,25 @@ struct LightComponent
 			TextureDescription description;
 			description.width = shadow_map_size;
 			description.height = shadow_map_size;
-			description.format = FORMAT_D32S8;
-			description.usage_flags = TEXTURE_USAGE_ATTACHMENT;
-			description.is_cube = true;
+			description.format = Format::D32_SFLOAT_S8_UINT;
+			description.usage_flags = TextureUsage::RENDER_TARGET;
+			description.dimension = TextureDimension::TEXTURE_CUBE;
 			description.mip_levels = 1;
-			description.filtering = FILTER_NEAREST;
 			description.depth_clear_value = 0.0f;
 			shadow_map = gDynamicRHI->createTexture(description);
-			shadow_map->fill();
 			shadow_map->setDebugName("Cube Shadow Map");
 		} else if (type == LIGHT_TYPE_DIRECTIONAL)
 		{
 			TextureDescription description;
 			description.width = shadow_map_size;
 			description.height = shadow_map_size;
-			description.format = FORMAT_D32S8;
-			description.usage_flags = TEXTURE_USAGE_ATTACHMENT;
-			description.is_cube = false;
+			description.format = Format::D32_SFLOAT_S8_UINT;
+			description.usage_flags = TextureUsage::RENDER_TARGET;
+			description.dimension = TextureDimension::TEXTURE_2D;
 			description.mip_levels = 1;
-			description.array_levels = 4;
-			description.filtering = FILTER_LINEAR;
-			description.sampler_mode = SAMPLER_MODE_CLAMP_TO_EDGE;
-			description.use_comparison_less = true;
+			description.array_layers = 4;
 			description.depth_clear_value = 1.0f;
 			shadow_map = gDynamicRHI->createTexture(description);
-			shadow_map->fill();
 			shadow_map->setDebugName("Cascaded Shadow Map");
 		}
 	}

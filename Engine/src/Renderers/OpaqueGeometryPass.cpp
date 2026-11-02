@@ -16,23 +16,23 @@ OpaqueGeometryPass::ShaderSet OpaqueGeometryPass::ShaderSet::fromFile(const wcha
 {
 	ShaderSet shaders;
 	if (render_meshlets_mesh_shaders)
-		shaders.meshlet_mesh_shader = gDynamicRHI->createShader(file, MESH_SHADER, "MSMainMeshlet");
+		shaders.meshlet_mesh_shader = gDynamicRHI->createShader(file, ShaderType::MESH, "MSMainMeshlet");
 	else
-		shaders.meshlet_vertex_shader = gDynamicRHI->createShader(file, VERTEX_SHADER, "VSMainMeshlet");
-	shaders.traditional_vertex_shader = gDynamicRHI->createShader(file, VERTEX_SHADER, "VSMainTraditional");
-	shaders.pixel_shader = gDynamicRHI->createShader(file, FRAGMENT_SHADER);
+		shaders.meshlet_vertex_shader = gDynamicRHI->createShader(file, ShaderType::VERTEX, "VSMainMeshlet");
+	shaders.traditional_vertex_shader = gDynamicRHI->createShader(file, ShaderType::VERTEX, "VSMainTraditional");
+	shaders.pixel_shader = gDynamicRHI->createShader(file, ShaderType::FRAGMENT);
 	return shaders;
 }
 
 void OpaqueGeometryPass::renderGBuffer(FrameGraph &fg, const RenderView &view, const GBufferOutput &output)
 {
 	RenderTargets targets;
-	targets.color.push_back({output.albedo, FORMAT_R8G8B8A8_SRGB});
-	targets.color.push_back({output.normal, FORMAT_R8G8B8A8_UNORM});
-	targets.color.push_back({output.shading, FORMAT_R8G8B8A8_UNORM});
-	targets.color.push_back({output.emissive, FORMAT_R11G11B10_UFLOAT});
-	targets.color.push_back({output.motion_vectors, FORMAT_R16G16_SFLOAT});
-	targets.depth = {output.depth, FORMAT_D32S8};
+	targets.color.push_back({output.albedo, Format::R8G8B8A8_SRGB});
+	targets.color.push_back({output.normal, Format::R8G8B8A8_UNORM});
+	targets.color.push_back({output.shading, Format::R8G8B8A8_UNORM});
+	targets.color.push_back({output.emissive, Format::R11G11B10_UFLOAT});
+	targets.color.push_back({output.motion_vectors, Format::R16G16_SFLOAT});
+	targets.depth = {output.depth, Format::D32_SFLOAT_S8_UINT};
 	targets.layer = view.layer;
 	render(fg, view, targets);
 }
@@ -40,7 +40,7 @@ void OpaqueGeometryPass::renderGBuffer(FrameGraph &fg, const RenderView &view, c
 void OpaqueGeometryPass::renderDepth(FrameGraph &fg, const RenderView &view, const DepthOutput &output)
 {
 	RenderTargets targets;
-	targets.depth = {output.depth, FORMAT_D32S8};
+	targets.depth = {output.depth, Format::D32_SFLOAT_S8_UINT};
 	targets.layer = view.layer;
 	render(fg, view, targets);
 }
@@ -126,7 +126,7 @@ void OpaqueGeometryPass::render_meshlets(FrameGraph &fg, const RenderView &view,
 		} else
 		{
 			VertexInputsDescription inputs;
-			inputs.inputs.push_back({"INSTANCE_ID", 0, FORMAT_R32_UINT, true});
+			inputs.inputs.push_back({"INSTANCE_ID", 0, Format::R32_UINT, true});
 			gGlobalPipeline->setupGraphicsPipeline(cmd_list, view.shaders.meshlet_vertex_shader, view.shaders.pixel_shader, inputs, false, true, view.cull_mode);
 		}
 		gGlobalPipeline->setDepthFunc(view.getDepthFunc());
@@ -160,9 +160,9 @@ void OpaqueGeometryPass::cull_traditional(FrameGraph &fg, const RenderView &view
 	fg.addCallbackPass("Cull Traditional",
 	[view](RenderPassBuilder &builder)
 	{
-		builder.createBuffer(GFXRID_ID(TraditionalDrawArgs, view.view_id), sizeof(DrawIndirect), view.instance_count, BufferUsage::INDIRECT_ARGS_BUFFER | BufferUsage::SHADER_WRITE_BUFFER);
-		builder.createBuffer(GFXRID_ID(TraditionalDrawCount, view.view_id), sizeof(uint32_t), 1, BufferUsage::INDIRECT_ARGS_BUFFER | BufferUsage::SHADER_WRITE_BUFFER);
-		builder.createBuffer(GFXRID_ID(TraditionalDrawInstances, view.view_id), sizeof(uint32_t), view.instance_count, BufferUsage::VERTEX_BUFFER | BufferUsage::SHADER_WRITE_BUFFER);
+		builder.createBuffer(GFXRID_ID(TraditionalDrawArgs, view.view_id), sizeof(DrawIndirect), view.instance_count, BufferUsage::INDIRECT_ARGS | BufferUsage::UNORDERED_ACCESS);
+		builder.createBuffer(GFXRID_ID(TraditionalDrawCount, view.view_id), sizeof(uint32_t), 1, BufferUsage::INDIRECT_ARGS | BufferUsage::UNORDERED_ACCESS);
+		builder.createBuffer(GFXRID_ID(TraditionalDrawInstances, view.view_id), sizeof(uint32_t), view.instance_count, BufferUsage::VERTEX | BufferUsage::UNORDERED_ACCESS);
 
 		builder.writeBuffer(GFXRID_ID(TraditionalDrawArgs, view.view_id));
 		builder.writeBuffer(GFXRID_ID(TraditionalDrawCount, view.view_id));
@@ -172,9 +172,9 @@ void OpaqueGeometryPass::cull_traditional(FrameGraph &fg, const RenderView &view
 	},
 	[view](const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		cmd_list->fillBuffer(resources.getBuffer(GFXRID_ID(TraditionalDrawCount, view.view_id)), 0);
+		cmd_list->clearBuffer(resources.getBuffer(GFXRID_ID(TraditionalDrawCount, view.view_id)), 0);
 
-		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/gpu_driven/traditional_cull_instances.hlsl", COMPUTE_SHADER, "CSMain",
+		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/gpu_driven/traditional_cull_instances.hlsl", ShaderType::COMPUTE, "CSMain",
 											  {
 												  {"THREADGROUP_SIZE", std::to_string(TRADITIONAL_CULLING_THREADGROUP_SIZE).c_str()}
 											  }));
@@ -230,7 +230,7 @@ void OpaqueGeometryPass::render_traditional(FrameGraph &fg, const RenderView &vi
 		cmd_list->setRenderTargets(color_textures, depth, targets.layer, 0, false);
 
 		VertexInputsDescription inputs;
-		inputs.inputs.push_back({"INSTANCE_ID", 0, FORMAT_R32_UINT, true});
+		inputs.inputs.push_back({"INSTANCE_ID", 0, Format::R32_UINT, true});
 		gGlobalPipeline->setupGraphicsPipeline(cmd_list, view.shaders.traditional_vertex_shader, view.shaders.pixel_shader, inputs, false, true, view.cull_mode);
 		gGlobalPipeline->setDepthFunc(view.getDepthFunc());
 		gGlobalPipeline->setDepthClip(view.depth_clip);

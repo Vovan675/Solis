@@ -4,7 +4,7 @@
 
 struct VkPipelineResource final: public RenderResource
 {
-	void Release() override;
+	void release() override;
 
 	VkPipeline pipeline;
 	VkPipelineLayout pipeline_layout;
@@ -12,42 +12,42 @@ struct VkPipelineResource final: public RenderResource
 
 struct VkAllocationResource final: public RenderResource
 {
-	void Release() override;
+	void release() override;
 
 	VmaAllocation resource;
 };
 
 struct VkBufferResource final: public RenderResource
 {
-	void Release() override;
+	void release() override;
 
 	VkBuffer resource;
 };
 
 struct VkImageResource final: public RenderResource
 {
-	void Release() override;
+	void release() override;
 
 	VkImage resource;
 };
 
 struct VkImageViewResource final: public RenderResource
 {
-	void Release() override;
+	void release() override;
 
 	VkImageView resource;
 };
 
 struct VkSamplerResource final: public RenderResource
 {
-	void Release() override;
+	void release() override;
 
 	VkSampler resource;
 };
 
 struct VkAccelerationStructureResource final: public RenderResource
 {
-	void Release() override;
+	void release() override;
 
 	VkAccelerationStructureKHR resource;
 };

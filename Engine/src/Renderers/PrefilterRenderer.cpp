@@ -7,18 +7,17 @@
 
 PrefilterRenderer::PrefilterRenderer()
 {
-	compute_shader = gDynamicRHI->createShader(L"shaders/ibl/prefilter.hlsl", COMPUTE_SHADER);
+	compute_shader = gDynamicRHI->createShader(L"shaders/ibl/prefilter.hlsl", ShaderType::COMPUTE);
 
 	TextureDescription desc;
 	desc.width = 512;
 	desc.height = 512;
-	desc.is_cube = true;
+	desc.dimension = TextureDimension::TEXTURE_CUBE;
 	desc.mip_levels = 5;
-	desc.format = FORMAT_R32G32B32A32_SFLOAT;
-	desc.usage_flags = TEXTURE_USAGE_STORAGE;
+	desc.format = Format::R32G32B32A32_SFLOAT;
+	desc.usage_flags = TextureUsage::UNORDERED_ACCESS;
 
 	prefilter_texture = gDynamicRHI->createTexture(desc);
-	prefilter_texture->fill();
 	prefilter_texture->setDebugName("IBL Prefilter Image");
 }
 

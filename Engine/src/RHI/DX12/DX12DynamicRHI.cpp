@@ -281,11 +281,11 @@ RHISwapchainRef DX12DynamicRHI::createSwapchain(GLFWwindow *window)
 	int width, height;
 	glfwGetWindowSize(window, &width, &height);
 
-	SwapchainInfo info;
+	SwapchainDescription info;
 	info.width = width;
 	info.height = height;
-	info.format = FORMAT_R8G8B8A8_UNORM;
-	info.textures_count = MAX_FRAMES_IN_FLIGHT;
+	info.format = Format::R8G8B8A8_UNORM;
+	info.texture_count = MAX_FRAMES_IN_FLIGHT;
 	swapchain = new DX12Swapchain(hWnd, info);
 	return swapchain;
 }
@@ -300,22 +300,19 @@ RHIShader *DX12DynamicRHI::create_shader(eastl::wstring path, ShaderType type, e
 	return new DX12Shader(path, type, entry_point, defines, dxc_utils);
 }
 
-RHIPipelineRef DX12DynamicRHI::createPipeline()
+RHIBuffer *DX12DynamicRHI::create_buffer(const BufferDescription &description)
 {
-	auto pipeline = new DX12Pipeline(device.Get());
-	return pipeline;
+	return new DX12Buffer(description);
 }
 
-RHIBufferRef DX12DynamicRHI::createBuffer(BufferDescription description)
+RHIPipelineRef DX12DynamicRHI::createPipeline(const PipelineDescription &description)
 {
-	auto buffer = new DX12Buffer(description);
-	return buffer;
+	return new DX12Pipeline(device.Get(), description);
 }
 
-RHITextureRef DX12DynamicRHI::createTexture(TextureDescription description)
+RHITextureRef DX12DynamicRHI::createTexture(const TextureDescription &description, const void *initial_data)
 {
-	auto texture = new DX12Texture(description);
-	return texture;
+	return new DX12Texture(description, initial_data);
 }
 
 RHIBottomLevelAccelerationStructureRef DX12DynamicRHI::createBottomLevelAccelerationStructure()
@@ -345,7 +342,7 @@ void DX12DynamicRHI::prepareRenderCall()
 {
 	PROFILE_CPU_FUNCTION();
 	DX12CommandList *cmd_list_native = static_cast<DX12CommandList *>(getCmdList());
-	DX12Pipeline *native_pso = static_cast<DX12Pipeline *>(cmd_list_native->current_pipeline);
+	DX12Pipeline *native_pso = static_cast<DX12Pipeline *>(cmd_list_native->getCurrentPipeline());
 	bool pso_changed = false;
 	if (native_pso != last_native_pso)
 	{
@@ -364,7 +361,7 @@ void DX12DynamicRHI::prepareRenderCall()
 	if (binding_info.uav_table.registersCount() > 0)
 		first_cbv_heap_uav_textures_descriptor = cbv_srv_uav_heap->allocate(binding_info.uav_table.registersCount());
 
-	bool is_compute_pipeline = native_pso->description.pipeline_type == PipelineType::Compute || native_pso->description.pipeline_type == PipelineType::RayTracing;
+	bool is_compute_pipeline = native_pso->description.pipeline_type == PipelineType::COMPUTE || native_pso->description.pipeline_type == PipelineType::RAY_TRACING;
 
 	// Constant buffers
 	if (pso_changed || is_buffers_dirty)
@@ -454,7 +451,7 @@ void DX12DynamicRHI::endFrame()
 	gDynamicRHI->getCmdList()->close();
 
 	eastl::vector<RHICommandList *> execute_cmd_lists;
-	if (upload_cmd_lists[frame_in_flight]->is_open)
+	if (upload_cmd_lists[frame_in_flight]->isOpen())
 	{
 		upload_cmd_lists[frame_in_flight]->close();
 		execute_cmd_lists.push_back(upload_cmd_lists[frame_in_flight]);

@@ -3,10 +3,10 @@
 #include "Core/Variables.h"
 #include "RHI/DynamicRHI.h"
 
-void GlobalBufferCache::GlobalBuffer::init(uint64_t initial_max_size, BufferUsage usage, const char *name, bool growable)
+void GlobalBufferCache::GlobalBuffer::init(uint64_t initial_max_size, BufferUsage usage_flags, const char *name, bool growable)
 {
 	this->initial_max_size = initial_max_size;
-	buffer_usage = usage;
+	buffer_usage_flags = usage_flags;
 	debug_name = name;
 	can_grow = growable;
 
@@ -23,9 +23,8 @@ void GlobalBufferCache::GlobalBuffer::ensure_created(uint64_t minimum_size)
 
 	BufferDescription desc;
 	desc.size = new_size;
-	desc.use_staging_buffer = true;
-	desc.usage = buffer_usage;
-	desc.storage_stride = sizeof(uint32_t);
+	desc.usage_flags = buffer_usage_flags;
+	desc.stride = sizeof(uint32_t);
 	buffer = gDynamicRHI->createBuffer(desc);
 	buffer->setDebugName(debug_name);
 
@@ -59,9 +58,8 @@ uint64_t GlobalBufferCache::GlobalBuffer::allocate_range(uint64_t needed_size, R
 
 		BufferDescription desc;
 		desc.size = new_size;
-		desc.use_staging_buffer = true;
-		desc.usage = buffer_usage;
-		desc.storage_stride = sizeof(uint32_t);
+		desc.usage_flags = buffer_usage_flags;
+		desc.stride = sizeof(uint32_t);
 		RHIBufferRef new_buffer = gDynamicRHI->createBuffer(desc);
 		new_buffer->setDebugName(debug_name);
 
@@ -98,11 +96,9 @@ uint64_t GlobalBufferCache::GlobalBuffer::add(const void *cpu_data, uint64_t siz
 
 	BufferDescription staging_desc;
 	staging_desc.size = size;
-	staging_desc.usage = BufferUsage::STAGING_BUFFER;
-	staging_desc.use_staging_buffer = false;
-	staging_desc.storage_stride = sizeof(uint32_t);
-	RHIBufferRef staging = gDynamicRHI->createBuffer(staging_desc);
-	staging->fill(cpu_data);
+	staging_desc.memory = BufferMemory::UPLOAD;
+	staging_desc.stride = sizeof(uint32_t);
+	RHIBufferRef staging = gDynamicRHI->createBuffer(staging_desc, cpu_data);
 
 	cmd_list->copyBuffer(staging, buffer, 0, offset, size);
 	buffer->transitState(cmd_list, ResourceState::SHADER_RESOURCE);
@@ -174,7 +170,7 @@ GlobalBufferCache::MeshGlobalOffsets GlobalBufferCache::getMeshOffsets(size_t me
 uint64_t GlobalBufferCache::addMeshletLodGroupData(LODGroup *data, uint32_t count, RHICommandList *cmd_list)
 {
 	if (!lod_groups.isInitialized())
-		lod_groups.init(3'000'000 * sizeof(LODGroup), BufferUsage::SHADER_READ_BUFFER, "LOD Groups");
+		lod_groups.init(3'000'000 * sizeof(LODGroup), BufferUsage::SHADER_RESOURCE, "LOD Groups");
 	uint64_t byte_offset = lod_groups.add(data, count * sizeof(LODGroup), cmd_list);
 	return byte_offset == UINT64_MAX ? UINT64_MAX : byte_offset / sizeof(LODGroup);
 }
@@ -182,7 +178,7 @@ uint64_t GlobalBufferCache::addMeshletLodGroupData(LODGroup *data, uint32_t coun
 uint64_t GlobalBufferCache::addLodNodeData(LodNode *data, uint32_t count, RHICommandList *cmd_list)
 {
 	if (!lod_nodes.isInitialized())
-		lod_nodes.init(3'000'000 * sizeof(LodNode), BufferUsage::SHADER_READ_BUFFER, "LOD Nodes");
+		lod_nodes.init(3'000'000 * sizeof(LodNode), BufferUsage::SHADER_RESOURCE, "LOD Nodes");
 	uint64_t byte_offset = lod_nodes.add(data, count * sizeof(LodNode), cmd_list);
 	return byte_offset == UINT64_MAX ? UINT64_MAX : byte_offset / sizeof(LodNode);
 }
@@ -190,7 +186,7 @@ uint64_t GlobalBufferCache::addLodNodeData(LodNode *data, uint32_t count, RHICom
 uint64_t GlobalBufferCache::addMeshletGeometryData(RHIBuffer *source, uint64_t source_offset, uint32_t size, RHICommandList *cmd_list)
 {
 	if (!geometry.isInitialized())
-		geometry.init(1024ull * 1024 * 1024 * 1.5, BufferUsage::VERTEX_BUFFER | BufferUsage::INDEX_BUFFER | BufferUsage::SHADER_READ_BUFFER, "Global Meshlet Geometry", false);
+		geometry.init(1024ull * 1024 * 1024 * 1.5, BufferUsage::VERTEX | BufferUsage::INDEX | BufferUsage::SHADER_RESOURCE, "Global Meshlet Geometry", false);
 	return geometry.add(source, source_offset, size, cmd_list);
 }
 

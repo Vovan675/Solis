@@ -16,39 +16,9 @@ public:
 
 	eastl::vector<uint8_t> &getRawData() { return data; }
 
-
-	bool isCompressedFormat() const
-	{ 
-		return format >= FORMAT_BC1 && format <= FORMAT_BC7;
-	}
-
 	uint64_t getImageSize(uint32_t mip) const
 	{
-		uint64_t image_size = getWidth(mip) * getHeight(mip) * getFormatSize(format);
-
-		unsigned int block_width = 4;
-		unsigned int block_height = 4;
-		if (isCompressedFormat())
-		{
-			unsigned int block_size = 8;
-			unsigned int blocks_width = (getWidth(mip) + block_width - 1) / block_width;
-			unsigned int blocks_height = (getHeight(mip) + block_height - 1) / block_height;
-
-			switch (format)
-			{
-				case FORMAT_BC1:
-					block_size = 8;
-					break;
-				case FORMAT_BC3:
-				case FORMAT_BC5:
-				case FORMAT_BC7:
-					block_size = 16;
-					break;
-			}
-			image_size = blocks_width * blocks_height * block_size;
-		}
-
-		return image_size;
+		return getFormatSliceSize(format, getWidth(mip), getHeight(mip));
 	}
 
 	uint64_t getImageSize() const

@@ -5,7 +5,7 @@
 
 struct DX12PipelineResource final: public RenderResource
 {
-	void Release() override;
+	void release() override;
 
 	ID3D12PipelineState *pipeline_state;
 	ID3D12RootSignature *root_signature;
@@ -16,14 +16,14 @@ struct DX12PipelineResource final: public RenderResource
 
 struct DX12Resource final: public RenderResource
 {
-	void Release() override;
+	void release() override;
 
 	ID3D12Resource *resource;
 };
 
 struct DX12AllocationResource final: public RenderResource
 {
-	void Release() override;
+	void release() override;
 
 	D3D12MA::Allocation *resource;
 };

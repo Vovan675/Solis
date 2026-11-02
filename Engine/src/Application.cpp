@@ -47,7 +47,7 @@ Application::Application(int argc, char *argv[])
 	gInput.init(window);
 	Log::init();
 
-	GraphicsAPI gapi = GRAPHICS_API_NONE;
+	GraphicsAPI gapi = GraphicsAPI::NONE;
 
 	for (int i = 1; i < argc; i++)
 	{
@@ -58,9 +58,9 @@ Application::Application(int argc, char *argv[])
 			{
 				eastl::string api = argv[i + 1];
 				if (api == "vk" || api == "vulkan")
-					gapi = GRAPHICS_API_VULKAN;
+					gapi = GraphicsAPI::VULKAN;
 				else if (api == "dx12" || api == "directx12")
-					gapi = GRAPHICS_API_DX12;
+					gapi = GraphicsAPI::DX12;
 				i++;
 			}
 		} else if (arg == "-rhi_validation")
@@ -98,7 +98,7 @@ Application::Application(int argc, char *argv[])
 		}
 	}
 
-	if (gapi == GRAPHICS_API_VULKAN)
+	if (gapi == GraphicsAPI::VULKAN)
 		gDynamicRHI = new VulkanDynamicRHI();
 	else
 		gDynamicRHI = new DX12DynamicRHI();
@@ -196,7 +196,7 @@ void Application::render(RHICommandList *cmd_list)
 	
 	// Set swapchain color image layout for writing
 	auto swapchain_texture = gDynamicRHI->getCurrentSwapchainTexture();
-	swapchain_texture->transitLayout(cmd_list, TEXTURE_LAYOUT_ATTACHMENT);
+	swapchain_texture->transitState(cmd_list, ResourceState::RENDER_TARGET);
 
 	if (current_demo == DEMO_NONE)
 	{
@@ -207,7 +207,7 @@ void Application::render(RHICommandList *cmd_list)
 	} else if (current_demo == DEMO_OTHER)
 	{
 		//auto swapchain_texture = gDynamicRHI->getCurrentSwapchainTexture();
-		//swapchain_texture->transitLayout(cmd_list, TEXTURE_LAYOUT_ATTACHMENT);
+		//swapchain_texture->transitState(cmd_list, ResourceState::RENDER_TARGET);
 		//cmd_list->setRenderTargets({swapchain_texture}, nullptr, 0, 0, true);
 
 		CubesDemo::render(cmd_list);
@@ -219,7 +219,7 @@ void Application::render(RHICommandList *cmd_list)
 	}
 
 	// Set swapchain color image layout for presenting
-	gDynamicRHI->getCurrentSwapchainTexture()->transitLayout(cmd_list, TEXTURE_LAYOUT_PRESENT);
+	gDynamicRHI->getCurrentSwapchainTexture()->transitState(cmd_list, ResourceState::PRESENT);
 }
 
 void Application::cleanup()

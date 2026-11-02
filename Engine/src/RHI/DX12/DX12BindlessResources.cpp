@@ -35,7 +35,7 @@ void DX12BindlessResources::set_invalid_texture(uint32_t index)
 	write_texture(index, invalid_texture->getShaderResourceView());
 }
 
-uint32_t DX12BindlessResources::addSampler(const TextureDescription &description)
+uint32_t DX12BindlessResources::addSampler(const SamplerDescription &description)
 {
 	DX12DynamicRHI *rhi = DX12Utils::getNativeRHI();
 
@@ -52,20 +52,20 @@ uint32_t DX12BindlessResources::addSampler(const TextureDescription &description
 void DX12BindlessResources::recreate_sampler(uint32_t index)
 {
 	DX12DynamicRHI *rhi = DX12Utils::getNativeRHI();
-	const TextureDescription &description = sampler_descriptions[index];
+	const SamplerDescription &description = sampler_descriptions[index];
 
 	D3D12_FILTER filter = D3D12_FILTER_MIN_MAG_MIP_POINT;
-	if (description.filtering == FILTER_LINEAR)
+	if (description.filter == Filter::LINEAR)
 		filter = description.anisotropy ? D3D12_FILTER_ANISOTROPIC : D3D12_FILTER_MIN_MAG_MIP_LINEAR;
-	else if (description.filtering == FILTER_NEAREST)
+	else if (description.filter == Filter::NEAREST)
 		filter = D3D12_FILTER_MIN_MAG_MIP_POINT;
 
 	D3D12_TEXTURE_ADDRESS_MODE address_mode = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-	if (description.sampler_mode == SAMPLER_MODE_REPEAT)
+	if (description.address_mode == SamplerAddressMode::REPEAT)
 		address_mode = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-	else if (description.sampler_mode == SAMPLER_MODE_CLAMP_TO_EDGE)
+	else if (description.address_mode == SamplerAddressMode::CLAMP_TO_EDGE)
 		address_mode = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
-	else if (description.sampler_mode == SAMPLER_MODE_CLAMP_TO_BORDER)
+	else if (description.address_mode == SamplerAddressMode::CLAMP_TO_BORDER)
 		address_mode = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
 
 
@@ -87,9 +87,9 @@ void DX12BindlessResources::recreate_sampler(uint32_t index)
 	if (description.use_comparison_less)
 	{
 		D3D12_FILTER filter = D3D12_FILTER_COMPARISON_MIN_MAG_MIP_POINT;
-		if (description.filtering == FILTER_LINEAR)
+		if (description.filter == Filter::LINEAR)
 			filter = D3D12_FILTER_COMPARISON_MIN_MAG_MIP_LINEAR;
-		else if (description.filtering == FILTER_NEAREST)
+		else if (description.filter == Filter::NEAREST)
 			filter = D3D12_FILTER_COMPARISON_MIN_MAG_MIP_POINT;
 		sampler_desc.Filter = filter;
 		sampler_desc.ComparisonFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL; // For shadows - standard approach (regular Z)

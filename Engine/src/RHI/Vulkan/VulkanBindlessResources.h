@@ -9,7 +9,7 @@ public:
 	void init() override;
 	void cleanup() override;
 
-	uint32_t addSampler(const TextureDescription &description) override;
+	uint32_t addSampler(const SamplerDescription &description) override;
 	VkSampler getNativeSampler(uint32_t sampler_index);
 
 	void updateSets();
