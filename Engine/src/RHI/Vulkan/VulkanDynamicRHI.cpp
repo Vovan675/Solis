@@ -32,6 +32,7 @@ static VkBool32 validation_callback(VkDebugUtilsMessageSeverityFlagBitsEXT sever
 
 void VulkanDynamicRHI::init()
 {
+	PROFILE_CPU_FUNCTION();
 	if (engine_streamline)
 		StreamlineWrapper::init();
 
@@ -76,11 +77,6 @@ void VulkanDynamicRHI::init()
 		upload_cmd_lists[i] = new VulkanCommandList();
 	}
 	tracy_cmd_list = new VulkanCommandList();
-
-	DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(&dxc_utils));
-	DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(&dxc_compiler));
-
-	dxc_utils->CreateDefaultIncludeHandler(&dxc_include_handler);
 
 	bindless_resources = new VulkanBindlessResources();
 	bindless_resources->init();

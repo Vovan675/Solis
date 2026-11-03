@@ -3,7 +3,7 @@
 
 class DX12Shader final: public RHIShader {
 public:
-	DX12Shader(const eastl::wstring &path, ShaderType type, eastl::string entry_point, eastl::vector<eastl::pair<const char *, const char *>> defines, IDxcUtils* dxc_utils);
+	DX12Shader(const eastl::wstring &path, ShaderType type, eastl::string entry_point, eastl::vector<eastl::pair<const char *, const char *>> defines);
 
 	struct TableInfo
 	{
@@ -33,8 +33,6 @@ public:
 	static eastl::vector<CD3DX12_ROOT_PARAMETER1> getRootParameters(const eastl::fixed_vector<RHIShader *, 3> &shaders, BindingInfo &binding_info);
 
 	ComPtr<IDxcBlob> blob; // Compiled shader bytecode
-
-	IDxcUtils *dxc_utils;
 
 	ComPtr<ID3D12ShaderReflection> reflection;
 	ComPtr<ID3D12LibraryReflection> reflection_library;

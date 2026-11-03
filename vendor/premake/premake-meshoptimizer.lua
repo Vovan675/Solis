@@ -3,6 +3,7 @@ project "Meshoptimizer"
 	language "C++"
 	cppdialect "C++17"
 	staticruntime "On"
+	optimize "On"
 
 	targetdir ("meshoptimizer/bin/" .. outputdir .. "/%{prj.name}")
 	objdir ("meshoptimizer/bin-int/" .. outputdir .. "/%{prj.name}")
@@ -26,4 +27,3 @@ project "Meshoptimizer"
 
 	filter "configurations:Release"
 		runtime "Release"
-		optimize "on"

@@ -1,6 +1,7 @@
 project "ImGui"
 	kind "StaticLib"
 	language "C++"
+	optimize "On"
 
 	targetdir "bin/%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}/"
     objdir "obj/%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}/"
@@ -41,4 +42,3 @@ project "ImGui"
 
 	filter "configurations:Release"
 		runtime "Release"
-		optimize "on"

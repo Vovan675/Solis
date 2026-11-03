@@ -3,8 +3,8 @@
 #include "RHI/DynamicRHI.h"
 
 
-DX12Shader::DX12Shader(const eastl::wstring &path, ShaderType type, eastl::string entry_point, eastl::vector<eastl::pair<const char *, const char *>> defines, IDxcUtils* dxc_utils)
-	: RHIShader(path, type, entry_point, defines), dxc_utils(dxc_utils)
+DX12Shader::DX12Shader(const eastl::wstring &path, ShaderType type, eastl::string entry_point, eastl::vector<eastl::pair<const char *, const char *>> defines)
+	: RHIShader(path, type, entry_point, defines)
 {
 	recompile();
 }
@@ -18,6 +18,7 @@ void DX12Shader::load_bytecode(IDxcBlob *bytecode)
 	reflectionBuffer.Size = blob->GetBufferSize();
 	reflectionBuffer.Encoding = 0;
 
+	IDxcUtils *dxc_utils = gDynamicRHI->getShaderCompiler().getDxcUtils();
 	if (type == ShaderType::RAY_GENERATION || type == ShaderType::MISS || type == ShaderType::CLOSEST_HIT)
 		dxc_utils->CreateReflection(&reflectionBuffer, IID_PPV_ARGS(&reflection_library));
 	else

@@ -5,6 +5,7 @@
 #include "RHI/RHIDefinitions.h"
 #include "RHI/RHICommandQueue.h"
 #include "RHI/RHICommandList.h"
+#include "RHI/ShaderCompiler.h"
 #include "Tracy.hpp"
 
 class DynamicRHI;
@@ -49,6 +50,7 @@ public:
 	virtual RHISwapchainRef createSwapchain(GLFWwindow *window) = 0;
 	virtual void resizeSwapchain(int width, int height) {};
 	RHIShaderRef createShader(eastl::wstring path, ShaderType type, eastl::string entry_point = "", eastl::vector<eastl::pair<const char *, const char *>> defines = {});
+	ShaderCompiler &getShaderCompiler() { return shader_compiler; }
 	virtual RHIPipelineRef createPipeline(const PipelineDescription &description) = 0;
 	RHIBufferRef createBuffer(const BufferDescription &description, const void *initial_data = nullptr);
 	virtual RHITextureRef createTexture(const TextureDescription &description, const void *initial_data = nullptr) = 0;
@@ -76,15 +78,6 @@ public:
 	virtual void prepareRenderCall() = 0;
 	void setConstantBufferData(unsigned int binding, void *params_struct, size_t params_size);
 	void setConstantBufferDataPerFrame(unsigned int binding, void *params_struct, size_t params_size);
-
-	struct CompileShaderResult
-	{
-		ComPtr<IDxcBlob> data;
-		size_t source_hash;
-		eastl::hash_set<eastl::wstring> included_files;
-	};
-
-	CompileShaderResult compileShader(eastl::wstring path, ShaderType type, eastl::string entry_point, const eastl::vector<eastl::pair<eastl::string, eastl::string>> &defines);
 
 	void releaseGPUResource(RenderResource *resource)
 	{
@@ -123,6 +116,7 @@ protected:
 
 	GPUStatistics gpu_statistics;
 
+	ShaderCompiler shader_compiler;
 	static eastl::unordered_map<size_t, RHIShaderRef> cached_shaders;
 
 	struct ShaderDataBuffer
@@ -140,10 +134,6 @@ protected:
 	eastl::unordered_map<size_t, ShaderDataBuffers> buffers_for_shaders;
 	eastl::array<RHIBuffer *, 64> current_bind_buffers{};
 	bool is_buffers_dirty = false;
-
-	IDxcUtils* dxc_utils;
-	IDxcCompiler3* dxc_compiler;
-	IDxcIncludeHandler* dxc_include_handler;
 
 private:
 	struct ReleaseItem

@@ -3,6 +3,7 @@ project "YamlCpp"
 	language "C++"
 	cppdialect "C++17"
 	staticruntime "On"
+	optimize "On"
 
 	targetdir "bin/%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}/"
     objdir "obj/%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}/"
@@ -41,4 +42,3 @@ project "YamlCpp"
 
 	filter "configurations:Release"
 		runtime "Release"
-		optimize "on"

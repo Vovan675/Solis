@@ -6,6 +6,7 @@
 
 void UploadManager::init(uint32_t per_frame_ring_size)
 {
+	PROFILE_CPU_FUNCTION();
 	ring_size = per_frame_ring_size;
 
 	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
@@ -104,6 +105,7 @@ void UploadManager::flush(FrameGraph &fg)
 	if (pending_copies.empty() && pending_scatters.empty())
 		return;
 
+	PROFILE_CPU_FUNCTION();
 	eastl::hash_map<uint32_t, eastl::vector<CopyCommand>> copies_by_dst;
 	for (const CopyCommand &cmd : pending_copies)
 		copies_by_dst[cmd.dst.hashed_name].push_back(cmd);

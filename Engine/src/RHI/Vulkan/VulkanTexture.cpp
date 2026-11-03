@@ -32,6 +32,7 @@ void VulkanTexture::destroy()
 
 void VulkanTexture::recreate(const TextureDescription &new_description, const void *initial_data)
 {
+	PROFILE_CPU_FUNCTION();
 	destroy();
 	description = new_description;
 	create_resource(initial_data);
@@ -39,6 +40,7 @@ void VulkanTexture::recreate(const TextureDescription &new_description, const vo
 
 void VulkanTexture::create_resource(const void *initial_data)
 {
+	PROFILE_CPU_FUNCTION();
 	image = std::make_unique<VkImageResource>();
 	allocation = std::make_unique<VkAllocationResource>();
 

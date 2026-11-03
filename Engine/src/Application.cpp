@@ -29,6 +29,7 @@ static TowerGame tower_game;
 
 Application::Application(int argc, char *argv[])
 {
+	PROFILE_CPU_FUNCTION();
 	// Create Window
 	glfwInit();
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
@@ -175,6 +176,7 @@ void Application::run()
 		render(gDynamicRHI->getCmdList());
 
 		gDynamicRHI->endFrame();
+		gDynamicRHI->getShaderCompiler().saveDirtyCache();
 
 		if (framebuffer_resized)
 		{

@@ -252,6 +252,7 @@ void EditorApplication::draw_screenshot_popup()
 
 void EditorApplication::init()
 {
+	PROFILE_CPU_FUNCTION();
 	shaders_watcher.addPath(L"shaders", true);
 
 	context.editor_camera = Camera(glm::vec3(0, 2, 0));

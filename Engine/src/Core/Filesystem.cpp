@@ -48,8 +48,5 @@ eastl::string Filesystem::normalizePath(eastl::string path)
 eastl::string Filesystem::canonicalPath(const std::filesystem::path &path)
 {
 	std::error_code ec;
-	std::filesystem::path canonical = std::filesystem::weakly_canonical(path, ec);
-	if (ec || canonical.empty())
-		canonical = path.lexically_normal();
-	return canonical.generic_string().c_str();
+	return std::filesystem::absolute(path, ec).lexically_normal().generic_string().c_str();
 }

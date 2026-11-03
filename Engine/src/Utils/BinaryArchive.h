@@ -35,12 +35,28 @@ public:
 	template<typename T>
 	BinaryArchive &operator<<(eastl::vector<T> &vector)
 	{
-		static_assert(eastl::is_trivially_copyable_v<T>);
 		uint32_t count = vector.size();
 		*this << count;
 		if (isLoading())
 			vector.resize(count);
-		serialize_raw_bytes_aligned(vector.data(), vector.size() * sizeof(T));
+		if constexpr (eastl::is_trivially_copyable_v<T>)
+		{
+			serialize_raw_bytes_aligned(vector.data(), vector.size() * sizeof(T));
+		} else
+		{
+			for (T &element : vector)
+				*this << element;
+		}
+		return *this;
+	}
+
+	BinaryArchive &operator<<(eastl::wstring &string)
+	{
+		uint32_t length = string.size();
+		*this << length;
+		if (isLoading())
+			string.resize(length);
+		serialize_raw_bytes_aligned(string.data(), length * sizeof(wchar_t));
 		return *this;
 	}
 

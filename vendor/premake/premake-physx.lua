@@ -1,5 +1,6 @@
 project "PhysX"
 	kind "StaticLib"
+	optimize "On"
 
 	targetdir ("physx/bin/" .. outputdir .. "/%{prj.name}")
 	objdir ("physx/bin-int/" .. outputdir .. "/%{prj.name}")
@@ -24,7 +25,6 @@ project "PhysX"
 
 	filter "configurations:Release"
 		runtime "Release"
-		optimize "on"
 		defines
 		{
 			"NDEBUG"

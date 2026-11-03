@@ -20,6 +20,7 @@ static void validation_callback(D3D12_MESSAGE_CATEGORY category, D3D12_MESSAGE_S
 
 void DX12DynamicRHI::init()
 {
+	PROFILE_CPU_FUNCTION();
 	if (engine_streamline)
 		StreamlineWrapper::init();
 
@@ -61,14 +62,10 @@ void DX12DynamicRHI::init()
 		if (desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE)
 			continue;
 
-		if (SUCCEEDED(D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_12_2, __uuidof(ID3D12Device), nullptr)))
+		// Try create Device (aka Logical Device)
+		if (SUCCEEDED(D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_12_2, IID_PPV_ARGS(&device))))
 			break;
-
-		adapter->Release();
 	}
-
-	// Device (aka Logical Device)
-	D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_12_2, IID_PPV_ARGS(&device));
 
 	#ifdef ENABLE_RHI_VALIDATION
 	if (engine_rhi_validation)
@@ -120,11 +117,6 @@ void DX12DynamicRHI::init()
 		cmd_lists[i] = new DX12CommandList(device, D3D12_COMMAND_LIST_TYPE_DIRECT);
 		upload_cmd_lists[i] = new DX12CommandList(device, D3D12_COMMAND_LIST_TYPE_DIRECT);
 	}
-
-	DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(&dxc_utils));
-	DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(&dxc_compiler));
-
-	dxc_utils->CreateDefaultIncludeHandler(&dxc_include_handler);
 
 	// For resources (one for all srv types, because docs says that it will be better)
 	cbv_srv_uav_heap = new DX12FrameDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 100'000, MAX_BINDLESS_RESOURCES);
@@ -253,10 +245,6 @@ void DX12DynamicRHI::shutdown()
 
 	delete cbv_srv_uav_additional_heap;
 
-	SAFE_RELEASE(dxc_include_handler);
-	SAFE_RELEASE(dxc_compiler);
-	SAFE_RELEASE(dxc_utils);
-
 	if (adapter)
 		adapter.Reset();
 	if (factory)
@@ -297,7 +285,7 @@ void DX12DynamicRHI::resizeSwapchain(int width, int height)
 
 RHIShader *DX12DynamicRHI::create_shader(eastl::wstring path, ShaderType type, eastl::string entry_point, eastl::vector<eastl::pair<const char *, const char *>> defines)
 {
-	return new DX12Shader(path, type, entry_point, defines, dxc_utils);
+	return new DX12Shader(path, type, entry_point, defines);
 }
 
 RHIBuffer *DX12DynamicRHI::create_buffer(const BufferDescription &description)

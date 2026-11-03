@@ -25,7 +25,7 @@ void RHIShader::recompile()
 	for (const auto &included_file : included_files)
 		path_to_shaders[included_file].remove(this);
 
-	DynamicRHI::CompileShaderResult result = gDynamicRHI->compileShader(path.wstring().c_str(), type, entry_point, defines);
+	ShaderCompiler::Result result = gDynamicRHI->getShaderCompiler().compile(path.wstring().c_str(), type, entry_point, defines);
 	hash = result.source_hash;
 	included_files = result.included_files;
 

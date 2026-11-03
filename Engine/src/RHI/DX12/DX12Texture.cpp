@@ -31,6 +31,7 @@ void DX12Texture::destroy()
 
 void DX12Texture::recreate(const TextureDescription &new_description, const void *initial_data)
 {
+	PROFILE_CPU_FUNCTION();
 	destroy();
 	description = new_description;
 	create_resource(initial_data);
@@ -38,6 +39,7 @@ void DX12Texture::recreate(const TextureDescription &new_description, const void
 
 void DX12Texture::create_resource(const void *initial_data)
 {
+	PROFILE_CPU_FUNCTION();
 	D3D12_RESOURCE_DESC resource_desc = {};
 	resource_desc.MipLevels = description.mip_levels;
 	resource_desc.Format = getNativeFormat();
