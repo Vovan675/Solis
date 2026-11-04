@@ -63,9 +63,6 @@ uint32_t RHIBindlessResources::addTexture(RHITextureView *view)
 	uint32_t index = empty_resource_indices.back();
 	empty_resource_indices.pop_back();
 	texture_view_to_resource_index[view] = index;
-
-	RHITexture *texture = view->getDescription().texture;
-	CORE_INFO("Set texture {} at index {} w {} h {}", texture->getDebugName(), index, texture->getWidth(), texture->getHeight());
 	write_texture(index, view);
 	return index;
 }
@@ -114,7 +111,6 @@ uint32_t RHIBindlessResources::addBuffer(RHIBufferView *view)
 
 	RHIBuffer *buffer = view->getDescription().buffer;
 	ENGINE_ASSERT_MSG(hasAnyFlags(buffer->getUsageFlags(), BufferUsage::SHADER_RESOURCE | BufferUsage::UNORDERED_ACCESS), "Only Bindless Storage Buffers Supported");
-	CORE_INFO("Set buffer at index {} size {}", index, buffer->getSize());
 	write_buffer(index, view);
 	return index;
 }

@@ -4,20 +4,44 @@
 #include "Rendering/Model.h"
 #include "Core/Filesystem.h"
 #include "Core/Variables.h"
+#include "Math/EngineMath.h"
+#include "Utils/BinaryArchive.h"
+#include "Utils/FileMemory.h"
 
-eastl::unordered_map<Engine::GUID, AssetMetadata> AssetManager::guid_to_metadata;
-eastl::unordered_map<Engine::GUID, Ref<Asset>> AssetManager::guid_to_asset;
+eastl::unordered_map<Engine::GUID, AssetManager::AssetRecord> AssetManager::guid_to_record;
 eastl::unordered_map<eastl::string, Engine::GUID> AssetManager::path_to_guid;
 std::filesystem::path AssetManager::assets_root = "assets";
+size_t AssetManager::cache_version = 0;
+bool AssetManager::cache_dirty = false;
+uint32_t AssetManager::refresh_index = 0;
+uint32_t AssetManager::generation = 0;
 entt::sigh<void(Asset *)> AssetManager::pre_reimport_signal;
 entt::sigh<void(Asset *)> AssetManager::post_reimport_signal;
 
 static AssetMetadata invalid_metadata;
 
+static const char *CACHE_PATH = "cache/assets_metadata.cache";
+static const uint32_t CACHE_FORMAT_VERSION = 1;
+
 static std::filesystem::path calc_meta_path(const std::filesystem::path &source_path)
 {
 	std::filesystem::path path = source_path;
 	return path.replace_extension(source_path.extension().string() + ".meta");
+}
+
+static size_t calc_asset_record_hash(const std::filesystem::path &source_path)
+{
+	auto hash_file = [](const std::filesystem::path &path)
+	{
+		FileMemory file;
+		if (!file.open(path.string().c_str(), true, 0))
+			return 0ull;
+		return Engine::Math::fnv1aHash(file.getData(), file.getSize());
+	};
+
+	size_t hash = hash_file(source_path);
+	Engine::Math::hashCombine(hash, hash_file(calc_meta_path(source_path)));
+	return hash;
 }
 
 static bool read_metadata_file(const std::filesystem::path &meta_path, const std::filesystem::path &source_path, AssetMetadata &out)
@@ -48,9 +72,9 @@ Ref<T> AssetManager::get_or_load(const std::filesystem::path &path, Loader &&loa
 	if (!metadata.isValid())
 		return nullptr;
 
-	auto it = guid_to_asset.find(metadata.guid);
-	if (it != guid_to_asset.end())
-		return it->second;
+	AssetRecord &record = guid_to_record[metadata.guid];
+	if (record.asset)
+		return record.asset;
 
 	if (engine_assets_reimport || !hasValidRuntime(path))
 		recreateRuntime(path);
@@ -61,7 +85,7 @@ Ref<T> AssetManager::get_or_load(const std::filesystem::path &path, Loader &&loa
 
 	new_asset->guid = metadata.guid;
 	new_asset->type = metadata.type;
-	guid_to_asset[metadata.guid] = new_asset;
+	record.asset = new_asset;
 	return new_asset;
 }
 
@@ -72,6 +96,7 @@ Ref<Asset> AssetManager::get_or_load(const std::filesystem::path &path, const As
 
 void AssetManager::init()
 {
+	load_cache();
 	refresh();
 }
 
@@ -80,36 +105,186 @@ void AssetManager::refresh()
 	if (!std::filesystem::exists(assets_root))
 		return;
 
-	eastl::vector<std::filesystem::path> junk_metas;
-
+	// Scan: Collect all meta writes and sources
+	eastl::vector<std::filesystem::directory_entry> source_files;
+	std::unordered_map<std::string, std::filesystem::file_time_type> meta_write_times;
 	for (auto it = std::filesystem::recursive_directory_iterator(assets_root); it != std::filesystem::recursive_directory_iterator(); ++it)
 	{
 		if (it->is_directory())
 		{
 			if (it->path().filename() == ".runtimes")
 				it.disable_recursion_pending();
-			continue;
-		}
-
-		if (it->path().extension() == ".meta")
+		} else if (it->path().extension() == ".meta")
 		{
-			std::filesystem::path source_path = it->path();
-			source_path.replace_extension();
-			if (!std::filesystem::exists(source_path))
-				junk_metas.push_back(it->path());
-			continue;
+			meta_write_times[it->path().generic_string()] = it->last_write_time();
+		} else
+		{
+			source_files.push_back(*it);
 		}
-
-		getOrCreateMetadata(it->path());
 	}
 
-	for (const std::filesystem::path &meta : junk_metas)
-		std::filesystem::remove(meta);
+	// Check each source's meta
+	refresh_index++;
+	for (const std::filesystem::directory_entry &source_file : source_files)
+	{
+		const std::filesystem::path &source_path = source_file.path();
+		const AssetMetadata &metadata = getOrCreateMetadata(source_path);
+		if (!metadata.isValid())
+			continue;
+
+		AssetRecord &record = guid_to_record[metadata.guid];
+		record.last_seen_refresh = refresh_index;
+
+		// No meta in scan stage
+		std::filesystem::path meta_path = calc_meta_path(source_path);
+		auto meta = meta_write_times.find(meta_path.generic_string());
+		if (meta == meta_write_times.end())
+		{
+			// If metadata just got from cache inside getOrCreateMetadata and file is deleted, then restore it back to disk
+			if (!std::filesystem::exists(meta_path))
+				saveMetadata(metadata);
+			// In any case, we have valid metadata, dont make anything with it
+			continue;
+		}
+
+		std::filesystem::file_time_type meta_write_time = meta->second;
+		meta_write_times.erase(meta); // Consume, so in future can check which metas can be deleted
+
+		// If source and meta files didn't touch, dont do anything
+		std::filesystem::file_time_type source_write_time = source_file.last_write_time();
+		if (record.source_write_time == source_write_time && record.meta_write_time == meta_write_time)
+			continue;
+
+		record.source_write_time = source_write_time;
+		record.meta_write_time = meta_write_time;
+		cache_dirty = true;
+
+		// Touched, but real content is the same (just resaved)
+		if (calc_asset_record_hash(source_path) == record.hash)
+			continue;
+
+		// Guid changed or invalid meta
+		AssetMetadata new_metadata;
+		if (!read_metadata_file(meta_path, source_path, new_metadata) || new_metadata.guid != metadata.guid)
+		{
+			// Remove asset with old guid
+			remove_asset(metadata.guid);
+			// Recreate asset with new guid and meta
+			getOrCreateMetadata(source_path);
+			continue;
+		}
+
+		// Metadata changed, and reimport with new metadata
+		record.metadata = new_metadata;
+		reimport(source_path);
+	}
+
+	// Removed: not seen in this scan and gone from disk (assets outside assets/ are never scanned)
+	eastl::vector<Engine::GUID> removed_guids;
+	for (const auto &[guid, record] : guid_to_record)
+	{
+		if (record.last_seen_refresh != refresh_index && !std::filesystem::exists(record.metadata.sourcePath))
+			removed_guids.push_back(guid);
+	}
+	for (Engine::GUID guid : removed_guids)
+		remove_asset(guid);
+
+	// Meta that not found in any source just removed
+	for (const auto &[meta_path, meta_write_time] : meta_write_times)
+		std::filesystem::remove(meta_path);
+
+	save_dirty_cache();
 }
 
 void AssetManager::shutdown()
 {
-	guid_to_asset.clear();
+	save_dirty_cache();
+	guid_to_record.clear();
+}
+
+void AssetManager::remove_asset(Engine::GUID guid)
+{
+	auto it = guid_to_record.find(guid);
+	Ref<Asset> asset = it->second.asset;
+	path_to_guid.erase(Filesystem::canonicalPath(it->second.metadata.sourcePath));
+	guid_to_record.erase(it);
+	cache_dirty = true;
+	generation++;
+
+	if (!asset)
+		return;
+
+	pre_reimport_signal.publish(asset);
+	post_reimport_signal.publish(asset);
+}
+
+void AssetManager::load_cache()
+{
+	cache_version = CACHE_FORMAT_VERSION;
+
+	// Cache version also auto change with changing anything in asset types
+	for (const AssetTypeInfo *type : get_type_infos())
+	{
+		const StructInfo *info = type->importSettingsInfo;
+		if (!info)
+			continue;
+
+		for (int i = 0; i < info->fieldsCount; i++)
+		{
+			Engine::Math::hashCombine(cache_version, info->fields[i].name);
+			Engine::Math::hashCombine(cache_version, info->fields[i].offset);
+		}
+	}
+
+	FileMemory file;
+	if (!file.open(CACHE_PATH, true, 0))
+		return;
+
+	BinaryArchive archive = BinaryArchive::createForLoading((const uint8_t *)file.getData(), file.getSize(), 0);
+	size_t version = 0;
+	archive << version;
+	if (version != cache_version)
+		return;
+
+	uint32_t count = 0;
+	archive << count;
+
+	for (int i = 0; i < count; i++)
+	{
+		AssetRecord record;
+		record.serialize(archive);
+		if (!record.metadata.isValid())
+			continue;
+
+		path_to_guid[Filesystem::canonicalPath(record.metadata.sourcePath)] = record.metadata.guid;
+		guid_to_record[record.metadata.guid] = record;
+	}
+}
+
+void AssetManager::save_dirty_cache()
+{
+	if (!cache_dirty)
+		return;
+	cache_dirty = false;
+
+	std::filesystem::create_directories("cache");
+	std::ofstream file(CACHE_PATH, std::ios::binary);
+	BinaryArchive archive = BinaryArchive::createForSaving(file);
+	uint32_t count = guid_to_record.size();
+	archive << cache_version;
+	archive << count;
+	for (auto &it : guid_to_record)
+		it.second.serialize(archive);
+}
+
+void AssetManager::AssetRecord::serialize(BinaryArchive &archive)
+{
+	eastl::string type_name = metadata.type ? metadata.type->name : "";
+	archive << metadata.guid << metadata.runtimeGuid << metadata.runtimeVersion << metadata.sourcePath << type_name << metadata.importSettings;
+	archive << source_write_time << meta_write_time << hash;
+
+	if (archive.isLoading())
+		metadata.type = findTypeInfoByName(type_name.c_str());
 }
 
 Ref<Asset> AssetManager::getAsset(const std::filesystem::path &path, const AssetTypeInfo *type)
@@ -156,16 +331,16 @@ void AssetManager::reimport(const std::filesystem::path &source_path)
 	if (!metadata.isValid())
 		return;
 
-	auto it = guid_to_asset.find(metadata.guid);
-	if (it == guid_to_asset.end())
+	Ref<Asset> asset = guid_to_record[metadata.guid].asset;
+	if (!asset)
 	{
-		recreateRuntime(source_path);
+		std::filesystem::remove(calc_runtime_path(metadata));
 		return;
 	}
 
-	pre_reimport_signal.publish(it->second);
-	it->second->reload();
-	post_reimport_signal.publish(it->second);
+	pre_reimport_signal.publish(asset);
+	asset->reload();
+	post_reimport_signal.publish(asset);
 }
 
 void AssetManager::moveAsset(const std::filesystem::path &from, const std::filesystem::path &to)
@@ -180,6 +355,7 @@ void AssetManager::moveAsset(const std::filesystem::path &from, const std::files
 	std::filesystem::rename(calc_meta_path(from), calc_meta_path(to));
 
 	metadata.sourcePath = to;
+	cache_dirty = true;
 
 	path_to_guid.erase(old_key);
 	path_to_guid[Filesystem::canonicalPath(to)] = metadata.guid;
@@ -191,18 +367,10 @@ void AssetManager::deleteAsset(const std::filesystem::path &source_path)
 	if (!metadata.isValid())
 		return;
 
-	Engine::GUID guid = metadata.guid;
-	eastl::string path_key = Filesystem::canonicalPath(source_path);
-	std::filesystem::path runtime_path = calc_runtime_path(metadata);
-	std::filesystem::path meta_path = calc_meta_path(source_path);
-
-	guid_to_asset.erase(guid);
-	path_to_guid.erase(path_key);
-	guid_to_metadata.erase(guid);
-
 	std::filesystem::remove(source_path);
-	std::filesystem::remove(meta_path);
-	std::filesystem::remove(runtime_path);
+	std::filesystem::remove(calc_meta_path(source_path));
+	std::filesystem::remove(calc_runtime_path(metadata));
+	remove_asset(metadata.guid);
 }
 
 AssetMetadata &AssetManager::getOrCreateMetadata(const std::filesystem::path &source_path)
@@ -211,7 +379,9 @@ AssetMetadata &AssetManager::getOrCreateMetadata(const std::filesystem::path &so
 	if (existing.isValid())
 		return existing;
 
-	if (!std::filesystem::exists(source_path))
+	std::error_code error;
+	std::filesystem::file_time_type source_write_time = std::filesystem::last_write_time(source_path, error);
+	if (error)
 		return invalid_metadata;
 
 	AssetMetadata new_metadata;
@@ -245,10 +415,16 @@ AssetMetadata &AssetManager::getOrCreateMetadata(const std::filesystem::path &so
 		saveMetadata(new_metadata);
 	}
 
-	AssetMetadata &stored = guid_to_metadata[new_metadata.guid];
-	stored = new_metadata;
-	path_to_guid[Filesystem::canonicalPath(stored.sourcePath)] = stored.guid;
-	return stored;
+	AssetRecord &record = guid_to_record[new_metadata.guid];
+	if (record.metadata.isValid())
+		path_to_guid.erase(Filesystem::canonicalPath(record.metadata.sourcePath));
+	record.metadata = new_metadata;
+	record.source_write_time = source_write_time;
+	record.meta_write_time = std::filesystem::last_write_time(metadata_path);
+	path_to_guid[Filesystem::canonicalPath(source_path)] = new_metadata.guid;
+	cache_dirty = true;
+	generation++;
+	return record.metadata;
 }
 
 AssetMetadata &AssetManager::getMetadata(const std::filesystem::path &source_path)
@@ -262,13 +438,14 @@ AssetMetadata &AssetManager::getMetadata(const std::filesystem::path &source_pat
 
 AssetMetadata &AssetManager::getMetadata(Engine::GUID guid)
 {
-	auto it = guid_to_metadata.find(guid);
-	return it != guid_to_metadata.end() ? it->second : invalid_metadata;
+	auto it = guid_to_record.find(guid);
+	return it != guid_to_record.end() ? it->second.metadata : invalid_metadata;
 }
 
 void AssetManager::saveMetadata(const AssetMetadata &metadata)
 {
-	std::ofstream file(calc_meta_path(metadata.sourcePath));
+	std::filesystem::path meta_path = calc_meta_path(metadata.sourcePath);
+	std::ofstream file(meta_path);
 	YAML::Emitter out(file);
 
 	out << YAML::BeginMap;
@@ -286,6 +463,14 @@ void AssetManager::saveMetadata(const AssetMetadata &metadata)
 		out << YAML::EndMap;
 	}
 	out << YAML::EndMap;
+
+	file.close();
+	auto it = guid_to_record.find(metadata.guid);
+	if (it != guid_to_record.end())
+	{
+		it->second.meta_write_time = std::filesystem::last_write_time(meta_path);
+		cache_dirty = true;
+	}
 }
 
 std::filesystem::path AssetManager::calc_runtime_path(const AssetMetadata &metadata)
@@ -331,6 +516,9 @@ void AssetManager::recreateRuntime(const std::filesystem::path &source_path)
 		metadata.runtimeVersion = runtime_version;
 		saveMetadata(metadata);
 	}
+
+	guid_to_record[metadata.guid].hash = calc_asset_record_hash(source_path);
+	cache_dirty = true;
 }
 
 const AssetTypeInfo *AssetManager::findTypeInfoByExtension(const eastl::string &extension)

@@ -9,7 +9,6 @@ namespace Engine
 	public:
 		GUID() = default;
 		GUID(uint64_t guid);
-		GUID(const Engine::GUID &other);
 
 		static GUID generate();
 

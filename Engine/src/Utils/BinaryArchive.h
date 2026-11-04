@@ -50,13 +50,23 @@ public:
 		return *this;
 	}
 
-	BinaryArchive &operator<<(eastl::wstring &string)
+	template<typename T>
+	BinaryArchive &operator<<(eastl::basic_string<T> &string)
 	{
 		uint32_t length = string.size();
 		*this << length;
 		if (isLoading())
 			string.resize(length);
-		serialize_raw_bytes_aligned(string.data(), length * sizeof(wchar_t));
+		serialize_raw_bytes_aligned(string.data(), length * sizeof(T));
+		return *this;
+	}
+
+	BinaryArchive &operator<<(std::filesystem::path &path)
+	{
+		eastl::wstring string = path.generic_wstring().c_str();
+		*this << string;
+		if (isLoading())
+			path = string.c_str();
 		return *this;
 	}
 

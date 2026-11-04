@@ -11,9 +11,6 @@ namespace Engine
 	GUID::GUID(uint64_t guid): guid(guid)
 	{}
 
-	GUID::GUID(const GUID &other): guid(other)
-	{}
-
 	GUID GUID::generate()
 	{
 		return GUID(random_distribution(random_engine));

@@ -17,9 +17,7 @@ void TransformComponent::setParent(entt::entity new_parent)
 
 Model *MeshRendererComponent::MeshId::getModel()
 {
-	if (!model)
-		model = AssetManager::getAsset<Model>(model_asset).getReference();
-	return model;
+	return model_asset.load<Model>();
 }
 
 Engine::Mesh *MeshRendererComponent::MeshId::getMesh()
@@ -30,19 +28,13 @@ Engine::Mesh *MeshRendererComponent::MeshId::getMesh()
 
 Material *MeshRendererComponent::MaterialSlot::getMaterial()
 {
-	if (material && material_asset.guid.isValid() && material->guid != material_asset.guid)
-		material = nullptr;
-
-	if (!material && material_asset.isValid())
-		material = AssetManager::getAsset<Material>(material_asset);
-
-	return material.getReference();
+	return material_asset.isValid() ? material_asset.load<Material>() : runtime_material.getReference();
 }
 
 void MeshRendererComponent::MaterialSlot::setMaterial(Ref<Material> mat)
 {
-	material = mat;
 	material_asset = AssetReference(mat.getReference());
+	runtime_material = material_asset.isValid() ? nullptr : mat;
 }
 
 void MeshRendererComponent::setMaterial(int index, Ref<Material> material)

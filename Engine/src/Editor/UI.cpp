@@ -298,8 +298,9 @@ static void draw_asset_search_picker(std::filesystem::path *path, const AssetTyp
 	search.make_lower();
 
 	eastl::vector<const std::filesystem::path *> matched_paths;
-	for (const auto &[guid, metadata] : AssetManager::getAllMetadata())
+	for (const auto &[guid, record] : AssetManager::getAllRecords())
 	{
+		const AssetMetadata &metadata = record.metadata;
 		if (!is_asset_of_type(metadata.sourcePath, asset_type))
 			continue;
 

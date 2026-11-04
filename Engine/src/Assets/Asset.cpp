@@ -24,3 +24,14 @@ void AssetReference::repair()
 	else if (!path.empty())
 		guid = AssetManager::getOrCreateMetadata(path.c_str()).guid;
 }
+
+Asset *AssetReference::resolve(const AssetTypeInfo *type)
+{
+	if (guid.isValid() && cached_guid == guid && cached_generation == AssetManager::getGeneration())
+		return cached_asset;
+
+	cached_asset = AssetManager::getAsset(AssetManager::getPath(*this), type).getReference();
+	cached_guid = guid;
+	cached_generation = AssetManager::getGeneration();
+	return cached_asset;
+}

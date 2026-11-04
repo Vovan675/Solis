@@ -19,6 +19,16 @@ struct AssetReference
 
 	bool isValid() const { return guid.isValid() || !path.empty(); }
 	bool operator ==(const AssetReference &other) const { return guid == other.guid && path == other.path; }
+
+	template<typename T>
+	T *load();
+
+private:
+	Asset *resolve(const AssetTypeInfo *type);
+
+	Asset *cached_asset = nullptr; // Used for all loads after first. Reseted when guid changed or assets changed
+	Engine::GUID cached_guid = 0;
+	uint32_t cached_generation = 0;
 };
 
 class Asset : public RefCounted
@@ -67,3 +77,9 @@ struct AssetTypeInfo
 	bool isImported() const { return cook != nullptr; }
 	bool isAuthored() const { return structInfo != nullptr; }
 };
+
+template<typename T>
+T *AssetReference::load()
+{
+	return static_cast<T *>(resolve(AssetTypeInfo::registered<T>));
+}

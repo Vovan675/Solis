@@ -127,9 +127,6 @@ struct MeshRendererComponent
 
 		Model *getModel();
 		Engine::Mesh *getMesh();
-
-	private:
-		Model *model = nullptr;
 	};
 
 	struct MaterialSlot
@@ -140,7 +137,7 @@ struct MeshRendererComponent
 		void setMaterial(Ref<Material> mat);
 
 	private:
-		Ref<Material> material;
+		Ref<Material> runtime_material;
 	};
 
 	eastl::vector<MeshId> meshes;

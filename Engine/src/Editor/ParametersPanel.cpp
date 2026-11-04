@@ -114,7 +114,7 @@ bool ParametersPanel::renderImGui(EditorContext &context, DebugRenderer &debug_r
 			if (UI::assetField("Mesh", &model_reference, AssetManager::getTypeInfo<Model>()))
 			{
 				mesh_renderer.meshes.clear();
-				Ref<Model> model = AssetManager::getAsset<Model>(model_reference);
+				Ref<Model> model = model_reference.load<Model>();
 				if (model)
 				{
 					for (auto node : model->getLinearNodes())
@@ -141,7 +141,7 @@ bool ParametersPanel::renderImGui(EditorContext &context, DebugRenderer &debug_r
 
 				if (UI::assetField(slot_name.c_str(), &slot_asset, AssetManager::getTypeInfo<Material>()))
 				{
-					mesh_renderer.setMaterial(i, AssetManager::getAsset<Material>(slot_asset));
+					mesh_renderer.setMaterial(i, slot_asset.load<Material>());
 					entity.markDirty(DIRTY_MATERIAL);
 				}
 

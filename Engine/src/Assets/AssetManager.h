@@ -8,6 +8,7 @@
 
 class RHITexture;
 class Model;
+class BinaryArchive;
 struct TextureDescription;
 
 class AssetManager
@@ -20,8 +21,6 @@ public:
 	static Ref<Asset> getAsset(const std::filesystem::path &path, const AssetTypeInfo *type);
 	template<typename T>
 	static Ref<T> getAsset(const std::filesystem::path &path) { return getAsset(path, getTypeInfo<T>()); }
-	template<typename T>
-	static Ref<T> getAsset(const AssetReference &reference) { return getAsset(getPath(reference), getTypeInfo<T>()); }
 
 	static RHITextureRef getTextureAsset(eastl::string path, Format format);
 	static RHITextureRef getTextureAsset(const AssetReference &reference, Format format);
@@ -80,8 +79,21 @@ public:
 	static const AssetTypeInfo *findTypeInfoByName(const char *name);
 	static const eastl::vector<const AssetTypeInfo *> &getTypeInfos() { return get_type_infos(); }
 
-	static const eastl::unordered_map<Engine::GUID, AssetMetadata> &getAllMetadata() { return guid_to_metadata; }
+	struct AssetRecord
+	{
+		AssetMetadata metadata;
+		Ref<Asset> asset;
+		std::filesystem::file_time_type source_write_time;
+		std::filesystem::file_time_type meta_write_time;
+		size_t hash = 0; // consists of hash of .meta file and source file
+		uint32_t last_seen_refresh = 0;
+
+		void serialize(BinaryArchive &archive);
+	};
+
+	static const eastl::unordered_map<Engine::GUID, AssetRecord> &getAllRecords() { return guid_to_record; }
 	static const std::filesystem::path &getAssetsRoot() { return assets_root; }
+	static uint32_t getGeneration() { return generation; }
 private:
 	AssetManager() = delete;
 
@@ -97,10 +109,18 @@ private:
 	static Ref<T> get_or_load(const std::filesystem::path &path, Loader &&loader);
 	static Ref<Asset> get_or_load(const std::filesystem::path &path, const AssetTypeInfo *type);
 
+	static void remove_asset(Engine::GUID guid);
+	static void load_cache();
+	static void save_dirty_cache();
+
 	static std::filesystem::path assets_root;
-	static eastl::unordered_map<Engine::GUID, AssetMetadata> guid_to_metadata;
-	static eastl::unordered_map<Engine::GUID, Ref<Asset>> guid_to_asset;
+	static eastl::unordered_map<Engine::GUID, AssetRecord> guid_to_record;
 	static eastl::unordered_map<eastl::string, Engine::GUID> path_to_guid;
+
+	static size_t cache_version;
+	static bool cache_dirty;
+	static uint32_t refresh_index;
+	static uint32_t generation;
 
 	static entt::sigh<void (Asset *)> pre_reimport_signal;
 	static entt::sigh<void (Asset *)> post_reimport_signal;

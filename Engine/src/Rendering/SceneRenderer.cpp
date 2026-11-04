@@ -256,9 +256,9 @@ void SceneRenderer::on_asset_post_reimport(Asset *asset)
 		for (entt::entity entity : view)
 		{
 			MeshRendererComponent &mesh_renderer = view.get<MeshRendererComponent>(entity);
-			for (int i = 0; i < mesh_renderer.meshes.size(); i++)
+			for (const auto &slot : mesh_renderer.materials)
 			{
-				if (mesh_renderer.getMaterial(i) != asset)
+				if (slot.material_asset.guid != asset->guid)
 					continue;
 
 				scene->markDirty(entity, DIRTY_MATERIAL);
@@ -267,14 +267,13 @@ void SceneRenderer::on_asset_post_reimport(Asset *asset)
 		}
 	} else if (asset->type == AssetManager::getTypeInfo<Model>())
 	{
-		Model *model = static_cast<Model *>(asset);
 		auto view = scene->registry.view<MeshRendererComponent>();
 		for (entt::entity entity : view)
 		{
 			MeshRendererComponent &mesh_renderer = view.get<MeshRendererComponent>(entity);
-			for (auto &mesh_id : mesh_renderer.meshes)
+			for (const auto &mesh_id : mesh_renderer.meshes)
 			{
-				if (mesh_id.getModel() == model)
+				if (mesh_id.model_asset.guid == asset->guid)
 				{
 					scene->markDirty(entity, DIRTY_RENDER_STATE);
 					break;
