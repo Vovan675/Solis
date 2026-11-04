@@ -107,8 +107,8 @@ void DX12Texture::create_resource(const void *initial_data)
 		int cur_face = i / description.mip_levels;
 		int cur_mip = i % description.mip_levels;
 
-		int cur_width = description.width >> cur_mip;
-		int cur_height = description.height >> cur_mip;
+		int cur_width = getWidth(cur_mip);
+		int cur_height = getHeight(cur_mip);
 		size_t row_pitch = getFormatRowSize(description.format, cur_width);
 		size_t cur_size = getFormatSliceSize(description.format, cur_width, cur_height);
 

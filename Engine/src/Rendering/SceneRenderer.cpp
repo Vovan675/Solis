@@ -541,8 +541,10 @@ void SceneRenderer::update(Camera *camera)
 
 		eastl::hash_set<entt::entity> moved_this_frame;
 
-		for (entt::entity entity_id : scene->getDirtyList())
+		const eastl::vector<entt::entity> &dirty_list = scene->getDirtyList();
+		for (int i = 0; i < dirty_list.size(); i++)
 		{
+			entt::entity entity_id = dirty_list[i];
 			if (!scene->registry.valid(entity_id) || !scene->registry.all_of<MeshRendererComponent>(entity_id))
 				continue;
 

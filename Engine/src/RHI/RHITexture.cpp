@@ -1,12 +1,10 @@
 #include "pch.h"
 #include "RHITexture.h"
 #include "Assets/AssetManager.h"
-#include "Utils/Image.h"
-#define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
-#define TINYDDSLOADER_IMPLEMENTATION
-#include "tinyddsloader.h"
 #include "Assets/TextureImportSettings.h"
+#include "Utils/Image.h"
+
+static const uint32_t TEXTURE_RUNTIME_VERSION = 1;
 
 static TextureDescription image_to_texture_description(const Image &image, Format format)
 {
@@ -21,25 +19,19 @@ static TextureDescription image_to_texture_description(const Image &image, Forma
 RHITextureRef RHITexture::load(const char *path, Format format)
 {
 	Image image(path);
-	RHITextureRef texture = gDynamicRHI->createTexture(image_to_texture_description(image, format), image.getRawData().data());
-	texture->guid = image.guid;
-	texture->path = path;
-	return texture;
+	if (!image.getRawData())
+		return nullptr;
+	return gDynamicRHI->createTexture(image_to_texture_description(image, format), image.getRawData());
 }
 
 void RHITexture::reload()
 {
-	std::filesystem::path current = AssetManager::getPath(guid);
-	if (current.empty())
-		current = path.c_str();
-	if (current.empty())
-		return;
+	std::filesystem::path source_path = AssetManager::getPath(guid);
+	AssetManager::recreateRuntime(source_path);
 
-	AssetManager::recreateRuntime(current);
-	Image image(current.string().c_str());
-	recreate(image_to_texture_description(image, description.format), image.getRawData().data());
-	guid = image.guid;
-	path = current.string().c_str();
+	Image image(AssetManager::getRuntimePath(source_path).string().c_str());
+	if (image.getRawData())
+		recreate(image_to_texture_description(image, Format::UNDEFINED), image.getRawData());
 }
 
 void RHITexture::transitState(RHICommandList *cmd_list, ResourceState new_state, uint32_t mip)
@@ -85,19 +77,76 @@ RHITextureView *RHITexture::get_view(TextureViewType view_type, uint32_t mip, ui
 
 static Ref<Asset> load_texture(const std::filesystem::path &path)
 {
-	return RHITexture::load(path.string().c_str(), Format::R8G8B8A8_UNORM);
+	return RHITexture::load(AssetManager::getRuntimePath(path).string().c_str());
 }
 
 static void cook_texture(const AssetMetadata &metadata, const std::filesystem::path &runtime_path)
 {
-	Ref<Image> image = new Image(metadata.sourcePath.string().c_str());
-	if (metadata.getImportSettings<TextureImportSettings>().generate_mipmaps)
-		image->createMipmaps();
+	const TextureImportSettings &settings = metadata.getImportSettings<TextureImportSettings>();
 
-	image->save(runtime_path);
+	Image image(metadata.sourcePath.string().c_str());
+	if (!image.getRawData())
+		return;
+
+	bool srgb = settings.srgb && settings.format != TEXTURE_FORMAT_BC5;
+
+	// Mips
+	uint32_t max_size = settings.max_size > 0 ? settings.max_size : UINT32_MAX;
+	bool is_too_large = std::max(image.getWidth(), image.getHeight()) > max_size;
+	if ((settings.generate_mipmaps || is_too_large) && image.getMipLevels() == 1 && !image.isCompressed())
+		image.createMipmaps(srgb);
+
+	// Remove first mips for max_size
+	uint32_t first_mip = 0;
+	while (first_mip + 1 < image.getMipLevels() && std::max(image.getWidth(first_mip), image.getHeight(first_mip)) > max_size)
+		first_mip++;
+	image.removeMips(0, first_mip);
+
+	// If mips were created only for resizing, remove it
+	if (!settings.generate_mipmaps)
+		image.removeMips(1, image.getMipLevels() - 1);
+
+	// Format
+	Format cooked_format = image.getFormat();
+	if (image.getFormat() == Format::R32G32B32A32_SFLOAT)
+	{
+		cooked_format = Format::R16G16B16A16_SFLOAT;
+	} else if (!image.isCompressed() && image.isBlockAligned())
+	{
+		switch (settings.format)
+		{
+			case TEXTURE_FORMAT_AUTO:
+				cooked_format = image.hasAlpha() ? Format::BC7_UNORM : Format::BC1_UNORM;
+				break;
+			case TEXTURE_FORMAT_BC1:
+				cooked_format = Format::BC1_UNORM;
+				break;
+			case TEXTURE_FORMAT_BC5:
+				cooked_format = Format::BC5_UNORM;
+				break;
+			case TEXTURE_FORMAT_BC7:
+				cooked_format = Format::BC7_UNORM;
+				break;
+		}
+	}
+
+	if (srgb)
+	{
+		if (cooked_format == Format::R8G8B8A8_UNORM)
+			cooked_format = Format::R8G8B8A8_SRGB;
+		else if (cooked_format == Format::BC1_UNORM)
+			cooked_format = Format::BC1_SRGB;
+		else if (cooked_format == Format::BC3_UNORM)
+			cooked_format = Format::BC3_SRGB;
+		else if (cooked_format == Format::BC7_UNORM)
+			cooked_format = Format::BC7_SRGB;
+	}
+
+	image.convert(cooked_format);
+	image.save(runtime_path);
 }
 
 static const AssetTypeInfo *registered_texture_type = AssetManager::registerType<RHITexture>({
 	"Texture", {".dds", ".png", ".jpg", ".jpeg", ".hdr", ".tga"}, load_texture,
-	".dds", cook_texture, &Reflected<TextureImportSettings>::getInfo(),
+	".dds", cook_texture, &Reflected<TextureImportSettings>::getInfo(), [](const AssetMetadata &) { return TEXTURE_RUNTIME_VERSION; },
 });

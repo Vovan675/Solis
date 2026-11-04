@@ -22,8 +22,6 @@ public:
 	template<typename T>
 	static Ref<T> getAsset(const std::filesystem::path &path) { return getAsset(path, getTypeInfo<T>()); }
 
-	static RHITextureRef getTextureAsset(eastl::string path, Format format);
-	static RHITextureRef getTextureAsset(const AssetReference &reference, Format format);
 	static RHITextureRef getTextureAsset(eastl::string path);
 
 	static Ref<Model> getModelAsset(eastl::string path);
@@ -104,10 +102,6 @@ private:
 	}
 
 	static std::filesystem::path calc_runtime_path(const AssetMetadata &metadata);
-
-	template<class T, class Loader>
-	static Ref<T> get_or_load(const std::filesystem::path &path, Loader &&loader);
-	static Ref<Asset> get_or_load(const std::filesystem::path &path, const AssetTypeInfo *type);
 
 	static void remove_asset(Engine::GUID guid);
 	static void load_cache();

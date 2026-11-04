@@ -136,10 +136,10 @@ bool SkyRenderer::update_resources()
 	tex_description.usage_flags = TextureUsage::RENDER_TARGET | TextureUsage::UNORDERED_ACCESS;
 	tex_description.dimension = TextureDimension::TEXTURE_CUBE;
 
-	RHITextureRef equirect_texture;
+	RHITextureRef equirect_texture = nullptr;
 	if (created_mode == SKY_MODE_CUBEMAP)
 	{
-		equirect_texture = RHITexture::load(AssetManager::getPath(created_hdri).string().c_str());
+		equirect_texture = created_hdri.load<RHITexture>();
 		tex_description.width = equirect_texture->getHeight();
 		tex_description.height = equirect_texture->getHeight();
 	}

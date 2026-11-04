@@ -2,6 +2,7 @@
 #include "Core/Core.h"
 #include "Assets/Asset.h"
 #include "RHI/RHIDefinitions.h"
+#include "Utils/FileMemory.h"
 
 class Image : public Asset
 {
@@ -9,12 +10,15 @@ public:
 	Image(eastl::string path);
 	Image(uint32_t width, uint32_t height, Format format, eastl::vector<uint8_t> data);
 
-	uint32_t getWidth(int mip = 0) const { return width >> mip; }
-	uint32_t getHeight(int mip = 0) const { return height >> mip; }
+	uint32_t getWidth(int mip = 0) const { return std::max(width >> mip, 1u); }
+	uint32_t getHeight(int mip = 0) const { return std::max(height >> mip, 1u); }
 	uint32_t getMipLevels() const { return mip_levels; }
 	Format getFormat() const { return format; }
+	bool isCompressed() const { return isCompressedFormat(format); }
+	bool isBlockAligned() const { return width % 4 == 0 && height % 4 == 0; }
+	bool hasAlpha() const;
 
-	eastl::vector<uint8_t> &getRawData() { return data; }
+	const uint8_t *getRawData() const { return data.empty() ? (const uint8_t *)file.getData() + file_offset : data.data(); }
 
 	uint64_t getImageSize(uint32_t mip) const
 	{
@@ -29,14 +33,19 @@ public:
 		return image_size;
 	}
 
-	void createMipmaps();
+	void createMipmaps(bool srgb);
+	void removeMips(uint32_t first_mip, uint32_t count);
+	void convert(Format new_format);
 
 	void load(eastl::string path);
 
 	void save(const std::filesystem::path &path);
 private:
+	void copy_mapped_file();
+
 	eastl::vector<uint8_t> data;
-	eastl::string path;
+	FileMemory file;
+	uint64_t file_offset = 0;
 
 	uint32_t width;
 	uint32_t height;

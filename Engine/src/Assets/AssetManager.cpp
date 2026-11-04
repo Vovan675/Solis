@@ -65,35 +65,6 @@ static bool read_metadata_file(const std::filesystem::path &meta_path, const std
 	return true;
 }
 
-template<class T, class Loader>
-Ref<T> AssetManager::get_or_load(const std::filesystem::path &path, Loader &&loader)
-{
-	const AssetMetadata &metadata = getOrCreateMetadata(path);
-	if (!metadata.isValid())
-		return nullptr;
-
-	AssetRecord &record = guid_to_record[metadata.guid];
-	if (record.asset)
-		return record.asset;
-
-	if (engine_assets_reimport || !hasValidRuntime(path))
-		recreateRuntime(path);
-
-	Ref<Asset> new_asset = loader();
-	if (!new_asset)
-		return nullptr;
-
-	new_asset->guid = metadata.guid;
-	new_asset->type = metadata.type;
-	record.asset = new_asset;
-	return new_asset;
-}
-
-Ref<Asset> AssetManager::get_or_load(const std::filesystem::path &path, const AssetTypeInfo *type)
-{
-	return get_or_load<Asset>(path, [&] { return type->load(path); });
-}
-
 void AssetManager::init()
 {
 	load_cache();
@@ -298,20 +269,25 @@ Ref<Asset> AssetManager::getAsset(const std::filesystem::path &path, const Asset
 		return nullptr;
 	}
 
-	return get_or_load(path, type);
-}
-
-RHITextureRef AssetManager::getTextureAsset(eastl::string path, Format format)
-{
-	return get_or_load<RHITexture>(path.c_str(), [&]() -> Ref<Asset> { return RHITexture::load(path.c_str(), format); });
-}
-
-RHITextureRef AssetManager::getTextureAsset(const AssetReference &reference, Format format)
-{
-	std::filesystem::path path = getPath(reference);
-	if (path.empty())
+	const AssetMetadata &metadata = getOrCreateMetadata(path);
+	if (!metadata.isValid())
 		return nullptr;
-	return getTextureAsset(path.string().c_str(), format);
+
+	AssetRecord &record = guid_to_record[metadata.guid];
+	if (record.asset)
+		return record.asset;
+
+	if (engine_assets_reimport || !hasValidRuntime(path))
+		recreateRuntime(path);
+
+	Ref<Asset> new_asset = type->load(path);
+	if (!new_asset)
+		return nullptr;
+
+	new_asset->guid = metadata.guid;
+	new_asset->type = metadata.type;
+	record.asset = new_asset;
+	return new_asset;
 }
 
 RHITextureRef AssetManager::getTextureAsset(eastl::string path) { return getAsset<RHITexture>(path.c_str()); }

@@ -58,6 +58,9 @@ namespace Math
 
 	bool isPowerOfTwo(uint32_t x);
 
+	float srgb8ToLinear(uint8_t value);
+	uint8_t linearToSRGB8(float value);
+
 	inline float halton(uint32_t index, uint32_t base)
 	{
 		float result = 0.0f;

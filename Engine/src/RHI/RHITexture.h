@@ -32,7 +32,6 @@ public:
 	virtual void setDebugName(const char *name) = 0;
 	const char *getDebugName() const { return debug_name.c_str(); }
 
-	eastl::string getPath() const { return path; }
 	const TextureDescription &getDescription() const { return description; }
 	glm::ivec2 getSize(int mip = 0) const { return glm::ivec2(getWidth(mip), getHeight(mip)); }
 	uint32_t getWidth(int mip = 0) const { return std::max(description.width >> mip, 1u); }
@@ -70,7 +69,6 @@ protected:
 protected:
 	TextureDescription description;
 
-	eastl::string path = "";
 	eastl::string debug_name = "";
 
 	eastl::vector<Ref<RHITextureView>> views;

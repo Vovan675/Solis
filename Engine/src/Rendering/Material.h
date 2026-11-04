@@ -46,7 +46,7 @@ public:
 
 	void update()
 	{
-		auto update_texture = [](MaterialTexture &material_texture, Format format)
+		auto update_texture = [](MaterialTexture &material_texture)
 		{
 			if (material_texture.resolved_handle != material_texture.asset.guid)
 			{
@@ -56,19 +56,19 @@ public:
 
 			if (material_texture.bindless_id == 0 && material_texture.asset.isValid())
 			{
-				auto tex = AssetManager::getTextureAsset(material_texture.asset, format);
+				auto tex = material_texture.asset.load<RHITexture>();
 				if (!tex || !tex->isValid())
 					return;
 				material_texture.bindless_id = tex->getShaderResourceView()->getBindlessIndex();
 			}
 		};
 
-		update_texture(albedo_tex, Format::R8G8B8A8_SRGB);
-		update_texture(metalness_tex, Format::R8G8B8A8_UNORM);
-		update_texture(roughness_tex, Format::R8G8B8A8_UNORM);
-		update_texture(specular_tex, Format::R8G8B8A8_UNORM);
-		update_texture(normal_tex, Format::R8G8B8A8_UNORM);
-		update_texture(emissive_tex, Format::R8G8B8A8_SRGB);
+		update_texture(albedo_tex);
+		update_texture(metalness_tex);
+		update_texture(roughness_tex);
+		update_texture(specular_tex);
+		update_texture(normal_tex);
+		update_texture(emissive_tex);
 	}
 
 	bool usesTexture(Engine::GUID guid) const

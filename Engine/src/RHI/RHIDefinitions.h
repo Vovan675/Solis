@@ -2,6 +2,7 @@
 #include "Core/Core.h"
 #include "Math/EngineMath.h"
 #include "Utils/Math.h"
+#include "Utils/dds.h"
 
 #define ENABLE_RHI_VALIDATION
 
@@ -183,50 +184,51 @@ struct FormatInfo
 	uint32_t bytes_per_block;
 	bool is_compressed;
 	bool is_depth;
+	dds::DXGI_FORMAT dxgi_format;
 };
 
 inline const FormatInfo &getFormatInfo(Format format)
 {
 	static const FormatInfo format_infos[] = {
-		// format						name					bytes_per_block	is_compressed	is_depth
-		{Format::UNDEFINED,				"UNDEFINED",			0,				false,			false},
+		// format						name					bytes_per_block	is_compressed	is_depth		dxgi_format
+		{Format::UNDEFINED,				"UNDEFINED",			0,				false,			false,			dds::DXGI_FORMAT_UNKNOWN},
 
 		// 8 bit
-		{Format::R8_UNORM,				"R8_UNORM",				1,				false,			false},
-		{Format::R8G8_UNORM,			"R8G8_UNORM",			2,				false,			false},
-		{Format::R8G8B8A8_UNORM,		"R8G8B8A8_UNORM",		4,				false,			false},
-		{Format::R8G8B8A8_SRGB,			"R8G8B8A8_SRGB",		4,				false,			false},
+		{Format::R8_UNORM,				"R8_UNORM",				1,				false,			false,			dds::DXGI_FORMAT_R8_UNORM},
+		{Format::R8G8_UNORM,			"R8G8_UNORM",			2,				false,			false,			dds::DXGI_FORMAT_R8G8_UNORM},
+		{Format::R8G8B8A8_UNORM,		"R8G8B8A8_UNORM",		4,				false,			false,			dds::DXGI_FORMAT_R8G8B8A8_UNORM},
+		{Format::R8G8B8A8_SRGB,			"R8G8B8A8_SRGB",		4,				false,			false,			dds::DXGI_FORMAT_R8G8B8A8_UNORM_SRGB},
 
 		// 16 bit
-		{Format::R16_UNORM,				"R16_UNORM",			2,				false,			false},
-		{Format::R16_SFLOAT,			"R16_SFLOAT",			2,				false,			false},
-		{Format::R16G16_UNORM,			"R16G16_UNORM",			4,				false,			false},
-		{Format::R16G16_SFLOAT,			"R16G16_SFLOAT",		4,				false,			false},
-		{Format::R16G16_SINT,			"R16G16_SINT",			4,				false,			false},
-		{Format::R16G16B16A16_UNORM,	"R16G16B16A16_UNORM",	8,				false,			false},
-		{Format::R16G16B16A16_SFLOAT,	"R16G16B16A16_SFLOAT",	8,				false,			false},
+		{Format::R16_UNORM,				"R16_UNORM",			2,				false,			false,			dds::DXGI_FORMAT_R16_UNORM},
+		{Format::R16_SFLOAT,			"R16_SFLOAT",			2,				false,			false,			dds::DXGI_FORMAT_R16_FLOAT},
+		{Format::R16G16_UNORM,			"R16G16_UNORM",			4,				false,			false,			dds::DXGI_FORMAT_R16G16_UNORM},
+		{Format::R16G16_SFLOAT,			"R16G16_SFLOAT",		4,				false,			false,			dds::DXGI_FORMAT_R16G16_FLOAT},
+		{Format::R16G16_SINT,			"R16G16_SINT",			4,				false,			false,			dds::DXGI_FORMAT_R16G16_SINT},
+		{Format::R16G16B16A16_UNORM,	"R16G16B16A16_UNORM",	8,				false,			false,			dds::DXGI_FORMAT_R16G16B16A16_UNORM},
+		{Format::R16G16B16A16_SFLOAT,	"R16G16B16A16_SFLOAT",	8,				false,			false,			dds::DXGI_FORMAT_R16G16B16A16_FLOAT},
 
 		// 32 bit
-		{Format::R32_UINT,				"R32_UINT",				4,				false,			false},
-		{Format::R32_SFLOAT,			"R32_SFLOAT",			4,				false,			false},
-		{Format::R32G32_SFLOAT,			"R32G32_SFLOAT",		8,				false,			false},
-		{Format::R32G32B32_SFLOAT,		"R32G32B32_SFLOAT",		12,				false,			false},
-		{Format::R32G32B32A32_SFLOAT,	"R32G32B32A32_SFLOAT",	16,				false,			false},
+		{Format::R32_UINT,				"R32_UINT",				4,				false,			false,			dds::DXGI_FORMAT_R32_UINT},
+		{Format::R32_SFLOAT,			"R32_SFLOAT",			4,				false,			false,			dds::DXGI_FORMAT_R32_FLOAT},
+		{Format::R32G32_SFLOAT,			"R32G32_SFLOAT",		8,				false,			false,			dds::DXGI_FORMAT_R32G32_FLOAT},
+		{Format::R32G32B32_SFLOAT,		"R32G32B32_SFLOAT",		12,				false,			false,			dds::DXGI_FORMAT_R32G32B32_FLOAT},
+		{Format::R32G32B32A32_SFLOAT,	"R32G32B32A32_SFLOAT",	16,				false,			false,			dds::DXGI_FORMAT_R32G32B32A32_FLOAT},
 
 		// depth stencil
-		{Format::D32_SFLOAT_S8_UINT,	"D32_SFLOAT_S8_UINT",	8,				false,			true},
+		{Format::D32_SFLOAT_S8_UINT,	"D32_SFLOAT_S8_UINT",	8,				false,			true,			dds::DXGI_FORMAT_D32_FLOAT_S8X24_UINT},
 
 		// combined
-		{Format::R11G11B10_UFLOAT,		"R11G11B10_UFLOAT",		4,				false,			false},
+		{Format::R11G11B10_UFLOAT,		"R11G11B10_UFLOAT",		4,				false,			false,			dds::DXGI_FORMAT_R11G11B10_FLOAT},
 
 		// compressed
-		{Format::BC1_UNORM,				"BC1_UNORM",			8,				true,			false},
-		{Format::BC1_SRGB,				"BC1_SRGB",				8,				true,			false},
-		{Format::BC3_UNORM,				"BC3_UNORM",			16,				true,			false},
-		{Format::BC3_SRGB,				"BC3_SRGB",				16,				true,			false},
-		{Format::BC5_UNORM,				"BC5_UNORM",			16,				true,			false},
-		{Format::BC7_UNORM,				"BC7_UNORM",			16,				true,			false},
-		{Format::BC7_SRGB,				"BC7_SRGB",				16,				true,			false},
+		{Format::BC1_UNORM,				"BC1_UNORM",			8,				true,			false,			dds::DXGI_FORMAT_BC1_UNORM},
+		{Format::BC1_SRGB,				"BC1_SRGB",				8,				true,			false,			dds::DXGI_FORMAT_BC1_UNORM_SRGB},
+		{Format::BC3_UNORM,				"BC3_UNORM",			16,				true,			false,			dds::DXGI_FORMAT_BC3_UNORM},
+		{Format::BC3_SRGB,				"BC3_SRGB",				16,				true,			false,			dds::DXGI_FORMAT_BC3_UNORM_SRGB},
+		{Format::BC5_UNORM,				"BC5_UNORM",			16,				true,			false,			dds::DXGI_FORMAT_BC5_UNORM},
+		{Format::BC7_UNORM,				"BC7_UNORM",			16,				true,			false,			dds::DXGI_FORMAT_BC7_UNORM},
+		{Format::BC7_SRGB,				"BC7_SRGB",				16,				true,			false,			dds::DXGI_FORMAT_BC7_UNORM_SRGB},
 	};
 	static_assert(_countof(format_infos) == (size_t)Format::COUNT);
 	return format_infos[(int)format];
@@ -234,6 +236,16 @@ inline const FormatInfo &getFormatInfo(Format format)
 
 inline bool isCompressedFormat(Format format) { return getFormatInfo(format).is_compressed; }
 inline bool isDepthFormat(Format format) { return getFormatInfo(format).is_depth; }
+
+inline Format fromDXGIFormat(dds::DXGI_FORMAT dxgi_format)
+{
+	for (int i = 0; i < (int)Format::COUNT; i++)
+	{
+		if (getFormatInfo((Format)i).dxgi_format == dxgi_format)
+			return (Format)i;
+	}
+	return Format::UNDEFINED;
+}
 
 inline uint32_t getFormatRowSize(Format format, uint32_t width)
 {

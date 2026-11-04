@@ -3,6 +3,7 @@
 #include "Assets/MeshSerializer.h"
 #include "Assets/ModelImporter.h"
 #include "Assets/AssetManager.h"
+#include "Assets/TextureImportSettings.h"
 #include "Rendering/Material.h"
 #include "Scene/Components.h"
 #include "Math/EngineMath.h"
@@ -105,6 +106,38 @@ static void cook_model(const AssetMetadata &metadata, const std::filesystem::pat
 	ModelImportSettings settings = metadata.getImportSettings<ModelImportSettings>();
 	Ref<Model> model = new Model();
 	ModelImporter::import(metadata.sourcePath.string().c_str(), model, settings, runtime_path);
+
+	// Auto set texture import settings based on slots
+	TextureImportSettings linear_settings{};
+	linear_settings.srgb = false;
+
+	TextureImportSettings normal_map_settings{};
+	normal_map_settings.format = TEXTURE_FORMAT_BC5;
+	normal_map_settings.srgb = false;
+
+	auto set_texture_import_settings = [](const MaterialTexture &texture, const TextureImportSettings &texture_settings)
+	{
+		AssetMetadata &texture_metadata = AssetManager::getMetadata(texture.asset.guid);
+		const StructInfo &info = Reflected<TextureImportSettings>::getInfo();
+		// Replace settings only if import settings are default
+		if (!texture_metadata.isValid() || !info.isDefault(texture_metadata.importSettings.data(), info.defaults))
+			return;
+
+		memcpy(texture_metadata.importSettings.data(), &texture_settings, sizeof(texture_settings));
+		AssetManager::saveMetadata(texture_metadata);
+		AssetManager::reimport(texture_metadata.sourcePath);
+	};
+
+	for (MeshNode *node : model->getLinearNodes())
+	{
+		for (const MeshNode::Primitive &primitive : node->primitives)
+		{
+			set_texture_import_settings(primitive.material->metalness_tex, linear_settings);
+			set_texture_import_settings(primitive.material->roughness_tex, linear_settings);
+			set_texture_import_settings(primitive.material->specular_tex, linear_settings);
+			set_texture_import_settings(primitive.material->normal_tex, normal_map_settings);
+		}
+	}
 }
 
 static uint32_t model_runtime_version(const AssetMetadata &metadata)
