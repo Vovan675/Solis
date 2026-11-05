@@ -215,6 +215,7 @@ struct Mesh
 };
 
 #define MESH_ATTR_TANGENT (1u << 1)
+#define MESH_ATTR_UV (1u << 2)
 #define MESH_FLAG_MESHLET 0x1
 
 struct LODGroup

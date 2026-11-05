@@ -276,7 +276,7 @@ static uint32_t extract_vertices(const cgltf_primitive *prim, eastl::vector<Engi
 		tan_acc = nullptr;
 	}
 
-	return tan_acc ? MeshFormat::MESH_ATTR_TANGENT : 0;
+	return (tan_acc ? MeshFormat::MESH_ATTR_TANGENT : 0) | (uv_acc ? MeshFormat::MESH_ATTR_UV : 0);
 }
 
 static AssetReference resolve_texture(const cgltf_texture_view &view, const char *gltf_path)
@@ -556,16 +556,7 @@ void GltfImporter::import(const char *path, Model *model, ModelImportSettings &s
 				if (vertices.empty() || indices.empty())
 					continue;
 
-				// Dedup some vertices (about 20%)
-				size_t src_count = vertices.size();
-				remap.resize(src_count);
-				size_t unique = meshopt_generateVertexRemap(remap.data(), indices.data(), indices.size(), vertices.data(), src_count, sizeof(Engine::Vertex));
-				if (unique < src_count)
-				{
-					meshopt_remapIndexBuffer(indices.data(), indices.data(), indices.size(), remap.data());
-					meshopt_remapVertexBuffer(vertices.data(), vertices.data(), src_count, sizeof(Engine::Vertex), remap.data());
-					vertices.resize(unique);
-				}
+				MeshFormat::deduplicateVertices(vertices, indices, remap);
 
 				discard_primitive_pages(primitive);
 

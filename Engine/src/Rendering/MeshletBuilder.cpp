@@ -29,12 +29,12 @@ MeshletBuildData build(Engine::Mesh *mesh, const char *debug_name, const eastl::
 	};
 
 	clodMesh input_mesh{};
-	input_mesh.indices = const_cast<uint32_t *>(indices.data());
+	input_mesh.indices = indices.data();
 	input_mesh.index_count = indices.size();
 	input_mesh.vertex_count = vertices.size();
-	input_mesh.vertex_positions = (const float *)const_cast<Engine::Vertex *>(vertices.data());
+	input_mesh.vertex_positions = &vertices[0].pos.x;
 	input_mesh.vertex_positions_stride = sizeof(Engine::Vertex);
-	input_mesh.vertex_attributes = (const float *)&const_cast<Engine::Vertex *>(vertices.data())[0].normal;
+	input_mesh.vertex_attributes = &vertices[0].normal.x;
 	input_mesh.vertex_attributes_stride = sizeof(Engine::Vertex);
 	input_mesh.attribute_weights = attr_weights;
 	input_mesh.attribute_count = _countof(attr_weights);

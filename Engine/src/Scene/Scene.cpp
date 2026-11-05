@@ -57,6 +57,9 @@ void Scene::clearDirty()
 {
 	for (entt::entity entity_id : dirty_list)
 	{
+		if (!registry.valid(entity_id))
+			continue;
+
 		TransformComponent &transform = registry.get<TransformComponent>(entity_id);
 		transform.old_world_transform = transform.world_transform;
 	}

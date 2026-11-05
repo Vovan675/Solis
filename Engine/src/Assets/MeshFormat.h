@@ -24,12 +24,14 @@ inline uint32_t calcRuntimeVersion(const ModelImportSettings &import_settings)
 enum MeshAttributeFlags: uint32_t
 {
 	MESH_ATTR_TANGENT = 1 << 1,
+	MESH_ATTR_UV = 1 << 2,
 };
 
 // Vertex on disk is packed, this is format:
-// 24 bytes:
+// 16 bytes:
 //	vec3 pos (12 bytes)
 //	snorm16x2 oct_normal (4 bytes)
+// 8 bytes additional (MESH_ATTR_UV):
 //	vec2 uv (8 bytes)
 // 8 bytes additional (MESH_ATTR_TANGENT): 
 //	snorm16x2 oct_tangent (4)
@@ -37,7 +39,7 @@ enum MeshAttributeFlags: uint32_t
 //	pad 3 bytes
 inline uint32_t diskVertexStride(uint32_t attribute_flags)
 {
-	return (attribute_flags & MESH_ATTR_TANGENT) ? 32u : 24u;
+	return 16 + ((attribute_flags & MESH_ATTR_UV) ? 8 : 0) + ((attribute_flags & MESH_ATTR_TANGENT) ? 8 : 0);
 }
 
 struct DiskMeshlet
@@ -138,6 +140,7 @@ struct Material;
 namespace MeshFormat
 {
 uint32_t encodeVertex(uint8_t *dst, const Engine::Vertex &v, uint32_t attr_flags);
+void deduplicateVertices(eastl::vector<Engine::Vertex> &vertices, eastl::vector<uint32_t> &indices, eastl::vector<uint32_t> &remap);
 Engine::Vertex decodeVertex(const uint8_t *src, uint32_t attr_flags);
 DiskMeshlet encodeMeshlet(const Meshlet &m);
 Meshlet decodeMeshlet(const DiskMeshlet &d);

@@ -252,6 +252,8 @@ bool ParametersPanel::renderImGui(EditorContext &context, DebugRenderer &debug_r
 				reimported = true;
 				AssetManager::saveMetadata(metadata);
 				AssetManager::reimport(selected_path);
+				if (!AssetManager::hasValidRuntime(selected_path))
+					AssetManager::recreateRuntime(selected_path);
 				settings_dirty = false;
 			}
 			if (highlight_reimport)

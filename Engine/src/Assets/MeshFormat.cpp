@@ -19,9 +19,14 @@ uint32_t encodeVertex(uint8_t *dst, const Engine::Vertex &v, uint32_t attr_flags
 		(int16_t)meshopt_quantizeSnorm(oct_n.y, 16),
 	};
 	memcpy(dst + 12, oct_normal, 4);
+	uint32_t offset = 16;
 
-	float uv[2] = {v.uv.x, v.uv.y};
-	memcpy(dst + 16, uv, 8);
+	if (attr_flags & MESH_ATTR_UV)
+	{
+		float uv[2] = {v.uv.x, v.uv.y};
+		memcpy(dst + offset, uv, 8);
+		offset += 8;
+	}
 
 	if (attr_flags & MESH_ATTR_TANGENT)
 	{
@@ -30,15 +35,27 @@ uint32_t encodeVertex(uint8_t *dst, const Engine::Vertex &v, uint32_t attr_flags
 			(int16_t)meshopt_quantizeSnorm(oct_t.x, 16),
 			(int16_t)meshopt_quantizeSnorm(oct_t.y, 16),
 		};
-		memcpy(dst + 24, oct_tangent, 4);
+		memcpy(dst + offset, oct_tangent, 4);
 		int8_t sign = v.tangent_sign >= 0.0f ? 1 : -1;
-		dst[28] = sign;
-		dst[29] = 0;
-		dst[30] = 0;
-		dst[31] = 0;
-		return 32;
+		dst[offset + 4] = sign;
+		dst[offset + 5] = 0;
+		dst[offset + 6] = 0;
+		dst[offset + 7] = 0;
+		offset += 8;
 	}
-	return 24;
+	return offset;
+}
+
+void deduplicateVertices(eastl::vector<Engine::Vertex> &vertices, eastl::vector<uint32_t> &indices, eastl::vector<uint32_t> &remap)
+{
+	remap.resize(vertices.size());
+	size_t unique_vertex_count = meshopt_generateVertexRemap(remap.data(), indices.data(), indices.size(), vertices.data(), vertices.size(), sizeof(Engine::Vertex));
+	if (unique_vertex_count < vertices.size())
+	{
+		meshopt_remapIndexBuffer(indices.data(), indices.data(), indices.size(), remap.data());
+		meshopt_remapVertexBuffer(vertices.data(), vertices.data(), vertices.size(), sizeof(Engine::Vertex), remap.data());
+		vertices.resize(unique_vertex_count);
+	}
 }
 
 Engine::Vertex decodeVertex(const uint8_t *src, uint32_t attr_flags)
@@ -52,17 +69,22 @@ Engine::Vertex decodeVertex(const uint8_t *src, uint32_t attr_flags)
 	int16_t oct_normal[2];
 	memcpy(oct_normal, src + 12, 4);
 	v.normal = Engine::Math::octDecode(oct_normal[0] / 32767.0f, oct_normal[1] / 32767.0f);
+	uint32_t offset = 16;
 
-	float uv[2];
-	memcpy(uv, src + 16, 8);
-	v.uv = glm::vec2(uv[0], uv[1]);
+	if (attr_flags & MESH_ATTR_UV)
+	{
+		float uv[2];
+		memcpy(uv, src + offset, 8);
+		v.uv = glm::vec2(uv[0], uv[1]);
+		offset += 8;
+	}
 
 	if (attr_flags & MESH_ATTR_TANGENT)
 	{
 		int16_t oct_tangent[2];
-		memcpy(oct_tangent, src + 24, 4);
+		memcpy(oct_tangent, src + offset, 4);
 		v.tangent = Engine::Math::octDecode(oct_tangent[0] / 32767.0f, oct_tangent[1] / 32767.0f);
-		v.tangent_sign = (float)(int8_t)src[28];
+		v.tangent_sign = (float)(int8_t)src[offset + 4];
 	}
 	return v;
 }

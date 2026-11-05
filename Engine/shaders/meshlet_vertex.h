@@ -49,21 +49,22 @@ struct RawVertexData
 
 RawVertexData loadMeshletVertex(uint local_vertex_id, MeshletDraw draw)
 {
-	// Vertex layout (stride 24, or 32 with tangent):
-	// pos float3 | normal oct-snorm16 | uv float2
-	// [ tangent oct-snorm16 | sign int8 | pad 3B ]
+	// Vertex layout (stride 16, +8 with uv, +8 with tangent):
+	// pos float3 | normal oct-snorm16 | [ uv float2 ] | [ tangent oct-snorm16 | sign int8 | pad 3B ]
+	bool has_uv = (draw.mesh.attribute_flags & MESH_ATTR_UV) != 0;
 	bool has_tangent = (draw.mesh.attribute_flags & MESH_ATTR_TANGENT) != 0;
-	uint stride = has_tangent ? 32u : 24u;
+	uint tangent_offset = has_uv ? 24u : 16u;
+	uint stride = has_tangent ? tangent_offset + 8u : tangent_offset;
 	uint base = draw.geometry_base + draw.meshlet.vertex_offset + local_vertex_id * stride;
 
 	RawVertexData vertex;
 	vertex.position = asfloat(meshlets_geometry_buffer.Load3(base));
 	vertex.normal = octDecode(unpackSnorm16x2(meshlets_geometry_buffer.Load(base + 12)));
-	vertex.uv = asfloat(meshlets_geometry_buffer.Load2(base + 16));
+	vertex.uv = has_uv ? asfloat(meshlets_geometry_buffer.Load2(base + 16)) : float2(0, 0);
 
 	if (has_tangent)
 	{
-		uint2 packed_tangent = meshlets_geometry_buffer.Load2(base + 24);
+		uint2 packed_tangent = meshlets_geometry_buffer.Load2(base + tangent_offset);
 		float3 tangent_dir = octDecode(unpackSnorm16x2(packed_tangent.x));
 		float sign = (packed_tangent.y & 0xFF) == 1 ? 1.0 : -1.0;
 		vertex.tangent = float4(tangent_dir, sign);

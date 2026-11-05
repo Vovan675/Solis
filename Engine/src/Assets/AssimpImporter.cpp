@@ -37,6 +37,7 @@ void AssimpImporter::processNode(MeshNode *mesh_node, aiNode *node, const aiScen
 
 	eastl::vector<Engine::Vertex> vertices;
 	eastl::vector<uint32_t> indices;
+	eastl::vector<uint32_t> remap;
 
 	for (int m = 0; m < (int)node->mNumMeshes; m++)
 	{
@@ -93,6 +94,9 @@ void AssimpImporter::processNode(MeshNode *mesh_node, aiNode *node, const aiScen
 		Ref<Engine::Mesh> engine_mesh = new Engine::Mesh();
 		if (mesh->HasTangentsAndBitangents())
 			engine_mesh->attribute_flags |= MeshFormat::MESH_ATTR_TANGENT;
+		if (mesh->mTextureCoords[0] != nullptr)
+			engine_mesh->attribute_flags |= MeshFormat::MESH_ATTR_UV;
+		MeshFormat::deduplicateVertices(vertices, indices, remap);
 		if (settings.meshlet_mode == MESHLET_MODE_ENABLED)
 			build_data_map[engine_mesh.getReference()] = MeshletBuilder::build(engine_mesh, mesh->mName.C_Str(), vertices, indices, settings);
 
