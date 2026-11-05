@@ -2,6 +2,7 @@
 #include "ParametersPanel.h"
 #include "UI.h"
 #include "Rendering/Model.h"
+#include "Assets/MeshSerializer.h"
 #include "imgui/ImGuiWrapper.h"
 #include "Scene/Components.h"
 #include "AssetBrowserPanel.h"

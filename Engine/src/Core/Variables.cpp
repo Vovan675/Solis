@@ -39,5 +39,4 @@ AutoConVarBool render_screenshot_raw("render.screenshot.raw", "Raw EXR (no posts
 AutoConVarBool render_screenshot("render.screenshot", "Capture Screenshot", false, ConVarFlag::CON_VAR_FLAG_HIDDEN);
 AutoConVarBool engine_quit_after_screenshot("engine.quit_after_screenshot", "Quit After Screenshot", false, ConVarFlag::CON_VAR_FLAG_HIDDEN);
 
-// high thread counts leads to more maximum used RAM on importing
-AutoConVarInt engine_gltf_import_threads("engine.gltf.import_threads", "glTF Import Threads", 10);
+AutoConVarInt engine_gltf_import_threads("engine.gltf.import_threads", "glTF Import Threads (0 = all cores)", 0);

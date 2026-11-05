@@ -8,6 +8,7 @@ namespace Platform
 	void discardMemory(void* ptr, size_t size);
 	size_t getPageSize();
 	size_t getProcessMemoryUsage();
+	size_t getAvailableMemory();
 
 	// Apply specific window settings (for example dark mode)
 	void configureNativeWindow(GLFWwindow* window);

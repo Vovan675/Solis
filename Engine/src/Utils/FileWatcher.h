@@ -1,4 +1,5 @@
 #pragma once
+#include "Timer.h"
 #include <string>
 #include <filesystem>
 #include <unordered_map>
@@ -29,11 +30,9 @@ public:
 	template <typename F>
 	void checkUpdates(F callback_function)
 	{
-		auto time_point = std::chrono::steady_clock::now();
-
-		if (std::chrono::duration<double, std::milli>(time_point - last_time_point).count() < 300)
+		if (timer.getSeconds() < 0.3)
 			return;
-		last_time_point = time_point;
+		timer.reset();
 
 		eastl::vector<eastl::wstring> files;
 		for (auto &[file, time]: files_times)
@@ -54,5 +53,5 @@ public:
 
 private:
 	eastl::unordered_map<eastl::wstring, std::filesystem::file_time_type> files_times;
-	std::chrono::steady_clock::time_point last_time_point = std::chrono::steady_clock::now();
+	Timer timer;
 };

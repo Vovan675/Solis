@@ -31,15 +31,15 @@ enum MeshAttributeFlags: uint32_t
 // 16 bytes:
 //	vec3 pos (12 bytes)
 //	snorm16x2 oct_normal (4 bytes)
-// 8 bytes additional (MESH_ATTR_UV):
-//	vec2 uv (8 bytes)
-// 8 bytes additional (MESH_ATTR_TANGENT): 
+// 8 bytes additional (MESH_ATTR_TANGENT):
 //	snorm16x2 oct_tangent (4)
 //	int8 tangent_sign (1)
 //	pad 3 bytes
+// 8 bytes additional (MESH_ATTR_UV):
+//	vec2 uv (8 bytes)
 inline uint32_t diskVertexStride(uint32_t attribute_flags)
 {
-	return 16 + ((attribute_flags & MESH_ATTR_UV) ? 8 : 0) + ((attribute_flags & MESH_ATTR_TANGENT) ? 8 : 0);
+	return 16 + ((attribute_flags & MESH_ATTR_TANGENT) ? 8 : 0) + ((attribute_flags & MESH_ATTR_UV) ? 8 : 0);
 }
 
 struct DiskMeshlet

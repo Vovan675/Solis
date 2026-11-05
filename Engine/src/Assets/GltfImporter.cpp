@@ -9,6 +9,8 @@
 #include "Math/EngineMath.h"
 #include "Core/Variables.h"
 #include "Utils/FileMemory.h"
+#include "Utils/LinearAllocator.h"
+#include "Utils/Timer.h"
 #include <Utils/Math.h>
 #define CGLTF_IMPLEMENTATION
 #include <cgltf.h>
@@ -16,6 +18,7 @@
 #include <filesystem>
 #include <thread>
 #include <atomic>
+#include <condition_variable>
 #include <mutex>
 #include <unordered_set>
 
@@ -389,9 +392,28 @@ static void process_node(const cgltf_node *gltf_node, MeshNode *parent,
 
 static constexpr uint64_t AUTO_MESHLET_VERTEX_COUNT = 1'000'000;
 
+// Meshopt uses custom simple linear allocator for its operations
+static thread_local LinearAllocator *meshopt_allocator = nullptr;
+
+static void *meshopt_allocate(size_t size)
+{
+	void *result = meshopt_allocator ? meshopt_allocator->allocate(size) : nullptr;
+	return result ? result : malloc(size);
+}
+
+static void meshopt_deallocate(void *pointer)
+{
+	if (meshopt_allocator && meshopt_allocator->contains(pointer))
+		meshopt_allocator->free(pointer);
+	else
+		free(pointer);
+}
+
 void GltfImporter::import(const char *path, Model *model, ModelImportSettings &settings, const std::filesystem::path &runtime_path)
 {
 	PROFILE_CPU_FUNCTION();
+
+	Timer timer;
 
 	cgltf_options options{};
 	cgltf_data *data = nullptr;
@@ -441,6 +463,8 @@ void GltfImporter::import(const char *path, Model *model, ModelImportSettings &s
 	{
 		const cgltf_mesh *gltf_mesh;
 		GltfMeshKey key;
+		uint64_t vertex_count = 0;
+		uint64_t needed_memory = 0;
 		eastl::vector<PrimBuildResult> prims;
 	};
 
@@ -460,40 +484,35 @@ void GltfImporter::import(const char *path, Model *model, ModelImportSettings &s
 			job.key = key;
 			job.prims.resize(m->primitives_count);
 			for (cgltf_size p = 0; p < m->primitives_count; p++)
-				if (m->primitives[p].type == cgltf_primitive_type_triangles)
-					job.prims[p].engine_mesh = new Engine::Mesh();
+			{
+				const cgltf_primitive *primitive = &m->primitives[p];
+				if (primitive->type != cgltf_primitive_type_triangles)
+					continue;
+
+				job.prims[p].engine_mesh = new Engine::Mesh();
+
+				const cgltf_accessor *positions = cgltf_find_accessor(primitive, cgltf_attribute_type_position, 0);
+				if (!positions)
+					continue;
+
+				uint64_t index_count = primitive->indices ? primitive->indices->count : positions->count;
+				job.vertex_count += positions->count;
+				job.needed_memory += 4 * (positions->count * sizeof(Engine::Vertex) + index_count * sizeof(uint32_t)); // Measured that 4 multiplier is enough
+			}
 		}
 	}
 
 	// Sort that biggest meshes go first, better shows peak memory consumption, better multithreaded
-	auto get_total_vertices = [](const cgltf_mesh *m)
+	eastl::sort(jobs.begin(), jobs.end(), [](const MeshBuildJob &a, const MeshBuildJob &b)
 	{
-		size_t total = 0;
-		for (cgltf_size p = 0; p < m->primitives_count; p++)
-		{
-			const cgltf_primitive &prim = m->primitives[p];
-			for (cgltf_size i = 0; i < prim.attributes_count; i++)
-			{
-				const cgltf_attribute &attribute = prim.attributes[i];
-				if (attribute.type == cgltf_attribute_type_position && attribute.data)
-				{
-					total += attribute.data->count;
-					break;
-				}
-			}
-		}
-		return total;
-	};
-	eastl::sort(jobs.begin(), jobs.end(), [&](const MeshBuildJob &a, const MeshBuildJob &b)
-	{
-		return get_total_vertices(a.gltf_mesh) > get_total_vertices(b.gltf_mesh);
+		return a.vertex_count > b.vertex_count;
 	});
 
 	if (settings.meshlet_mode == MESHLET_MODE_AUTO)
 	{
 		uint64_t total_vertices = 0;
 		for (const MeshBuildJob &job : jobs)
-			total_vertices += get_total_vertices(job.gltf_mesh);
+			total_vertices += job.vertex_count;
 		settings.meshlet_mode = total_vertices > AUTO_MESHLET_VERTEX_COUNT ? MESHLET_MODE_ENABLED : MESHLET_MODE_DISABLED;
 	}
 
@@ -522,8 +541,22 @@ void GltfImporter::import(const char *path, Model *model, ModelImportSettings &s
 	std::filesystem::create_directories(runtime_path.parent_path());
 	auto writer = MeshSerializer::beginStream(runtime_path.string().c_str());
 
-	std::atomic<int> job_counter = 0;
 	std::atomic<int> done_counter = 0;
+
+	const uint64_t memory_budget = Platform::getAvailableMemory();
+	uint64_t memory_used = 0;
+	const size_t job_scratch_size = jobs.empty() ? 0 : jobs[0].vertex_count * 3 * sizeof(uint32_t);
+
+	int biggest_job_id = 0;
+	int smallest_job_id = total_jobs - 1;
+
+	std::mutex jobs_mutex;
+	std::condition_variable job_finished;
+
+	auto job_fits = [&](int job_id)
+	{
+		return memory_used == 0 || memory_used + jobs[job_id].needed_memory <= memory_budget;
+	};
 
 	auto worker = [&]()
 	{
@@ -531,13 +564,25 @@ void GltfImporter::import(const char *path, Model *model, ModelImportSettings &s
 		eastl::vector<Engine::Vertex> vertices;
 		eastl::vector<uint32_t> indices;
 		eastl::vector<uint32_t> remap;
+		LinearAllocator worker_allocator(job_scratch_size);
+		meshopt_allocator = &worker_allocator;
 
 		while (true)
 		{
-			const int job_id = job_counter.fetch_add(1, std::memory_order_relaxed);
-			if (job_id >= total_jobs)
+			std::unique_lock jobs_lock(jobs_mutex);
+			
+			// Wait when at least smallest job fits
+			job_finished.wait(jobs_lock,[&]() { return biggest_job_id > smallest_job_id || job_fits(smallest_job_id); });
+
+			// No job
+			if (biggest_job_id > smallest_job_id)
 				break;
-			MeshBuildJob &job = jobs[job_id];
+
+			// Take job from two ends (biggest if fits, otherwise smallest)
+			MeshBuildJob &job = jobs[job_fits(biggest_job_id) ? biggest_job_id++ : smallest_job_id--];
+			memory_used += job.needed_memory;
+			jobs_lock.unlock();
+
 			const char *mesh_name = job.gltf_mesh->name ? job.gltf_mesh->name : "mesh";
 
 			for (cgltf_size p = 0; p < job.prims.size(); p++)
@@ -594,15 +639,22 @@ void GltfImporter::import(const char *path, Model *model, ModelImportSettings &s
 				double memory_usage = Platform::getProcessMemoryUsage() / (1024.0 * 1024.0);
 				CORE_INFO("GltfImporter: [{}/{}] Memory Usage={:.0f}MB", done, total_jobs, memory_usage);
 			}
+
+			jobs_lock.lock();
+			memory_used -= job.needed_memory;
+			job_finished.notify_all();
 		}
+
+		meshopt_allocator = nullptr;
 	};
 
-	// Cap threads to avoid exhausting memory on large models.
 	int threads_count;
 	if (engine_gltf_import_threads > 0)
 		threads_count = engine_gltf_import_threads;
 	else
 		threads_count = std::max(1u, std::thread::hardware_concurrency());
+
+	meshopt_setAllocator(meshopt_allocate, meshopt_deallocate);
 
 	eastl::vector<std::thread> threads(threads_count - 1);
 	for (auto &t : threads)
@@ -652,7 +704,6 @@ void GltfImporter::import(const char *path, Model *model, ModelImportSettings &s
 		for (cgltf_size i = 0; i < scene->nodes_count; i++)
 			process_node(scene->nodes[i], synthetic, model->linear_nodes, mesh_cache, path, settings);
 	}
-	CORE_INFO("GltfImporter: done, {} unique meshes built, {} total nodes", total_jobs, model->linear_nodes.size());
 
 	if (!model->linear_nodes.empty())
 	{
@@ -665,4 +716,6 @@ void GltfImporter::import(const char *path, Model *model, ModelImportSettings &s
 	for (cgltf_size i = 0; i < data->buffer_views_count; i++)
 		release_meshopt_buffer_view(&data->buffer_views[i]);
 	cgltf_free(data);
+
+	CORE_INFO("GltfImporter: done in {:.1f} s, {} unique meshes built, {} total nodes", timer.getSeconds(), total_jobs, model->linear_nodes.size());
 }

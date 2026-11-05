@@ -27,6 +27,14 @@ size_t Platform::getProcessMemoryUsage()
 	return 0;
 }
 
+size_t Platform::getAvailableMemory()
+{
+	MEMORYSTATUSEX status{};
+	status.dwLength = sizeof(status);
+	GlobalMemoryStatusEx(&status);
+	return std::min(status.ullAvailPhys, status.ullAvailPageFile);
+}
+
 size_t Platform::getPageSize()
 {
 	static SYSTEM_INFO info{};

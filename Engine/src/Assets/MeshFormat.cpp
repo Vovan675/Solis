@@ -21,13 +21,6 @@ uint32_t encodeVertex(uint8_t *dst, const Engine::Vertex &v, uint32_t attr_flags
 	memcpy(dst + 12, oct_normal, 4);
 	uint32_t offset = 16;
 
-	if (attr_flags & MESH_ATTR_UV)
-	{
-		float uv[2] = {v.uv.x, v.uv.y};
-		memcpy(dst + offset, uv, 8);
-		offset += 8;
-	}
-
 	if (attr_flags & MESH_ATTR_TANGENT)
 	{
 		auto oct_t = Engine::Math::octEncode(v.tangent);
@@ -41,6 +34,13 @@ uint32_t encodeVertex(uint8_t *dst, const Engine::Vertex &v, uint32_t attr_flags
 		dst[offset + 5] = 0;
 		dst[offset + 6] = 0;
 		dst[offset + 7] = 0;
+		offset += 8;
+	}
+
+	if (attr_flags & MESH_ATTR_UV)
+	{
+		float uv[2] = {v.uv.x, v.uv.y};
+		memcpy(dst + offset, uv, 8);
 		offset += 8;
 	}
 	return offset;
@@ -71,20 +71,20 @@ Engine::Vertex decodeVertex(const uint8_t *src, uint32_t attr_flags)
 	v.normal = Engine::Math::octDecode(oct_normal[0] / 32767.0f, oct_normal[1] / 32767.0f);
 	uint32_t offset = 16;
 
-	if (attr_flags & MESH_ATTR_UV)
-	{
-		float uv[2];
-		memcpy(uv, src + offset, 8);
-		v.uv = glm::vec2(uv[0], uv[1]);
-		offset += 8;
-	}
-
 	if (attr_flags & MESH_ATTR_TANGENT)
 	{
 		int16_t oct_tangent[2];
 		memcpy(oct_tangent, src + offset, 4);
 		v.tangent = Engine::Math::octDecode(oct_tangent[0] / 32767.0f, oct_tangent[1] / 32767.0f);
 		v.tangent_sign = (float)(int8_t)src[offset + 4];
+		offset += 8;
+	}
+
+	if (attr_flags & MESH_ATTR_UV)
+	{
+		float uv[2];
+		memcpy(uv, src + offset, 8);
+		v.uv = glm::vec2(uv[0], uv[1]);
 	}
 	return v;
 }

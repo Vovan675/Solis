@@ -21,11 +21,16 @@ MeshletBuildData build(Engine::Mesh *mesh, const char *debug_name, const eastl::
 	config.partition_sort = true;
 	config.partition_size = 16;
 
+	const uint32_t attribute_flags = mesh->attribute_flags;
+	const bool has_tangent = attribute_flags & MeshFormat::MESH_ATTR_TANGENT;
+	const bool has_uv = attribute_flags & MeshFormat::MESH_ATTR_UV;
+	const float tangent_weight = has_tangent ? settings.tangent_weight : 0.0f;
+	const float uv_weight = has_uv ? settings.uv_weight : 0.0f;
 	float attr_weights[9] = {
 		settings.normal_weight, settings.normal_weight, settings.normal_weight,
-		settings.tangent_weight, settings.tangent_weight, settings.tangent_weight,
-		settings.tangent_weight,
-		settings.uv_weight, settings.uv_weight,
+		tangent_weight, tangent_weight, tangent_weight,
+		tangent_weight,
+		uv_weight, uv_weight,
 	};
 
 	clodMesh input_mesh{};
@@ -38,12 +43,11 @@ MeshletBuildData build(Engine::Mesh *mesh, const char *debug_name, const eastl::
 	input_mesh.vertex_attributes_stride = sizeof(Engine::Vertex);
 	input_mesh.attribute_weights = attr_weights;
 	input_mesh.attribute_count = _countof(attr_weights);
-	input_mesh.attribute_protect_mask = 1 << 7 | 1 << 8;
+	input_mesh.attribute_protect_mask = has_uv ? 1 << 7 | 1 << 8 : 0;
 
 	mesh->meshlet_data.emplace();
 	Engine::MeshletGeometry &geometry = *mesh->meshlet_data;
 	MeshletBuildData build_data;
-	const uint32_t attribute_flags = mesh->attribute_flags;
 	const uint32_t disk_stride = MeshFormat::diskVertexStride(attribute_flags);
 
 	// Reserve memory conservatively to avoid possible reallocations
