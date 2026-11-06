@@ -16,6 +16,6 @@ static RWStructuredBuffer<DispatchIndirect> dispatch_args = ResourceDescriptorHe
 void CSMain(uint3 dispatchID : SV_DispatchThreadID)
 {
 	uint count = count_buffer.Load(0);
-	uint num_groups = (count + group_size - 1) / group_size;
+	uint num_groups = divideRoundUp(count, group_size);
 	dispatch_args[0].group = uint3(num_groups, 1, 1);
 }

@@ -8,18 +8,15 @@
 namespace MeshFormat
 {
 
-uint32_t encodeVertex(uint8_t *dst, const Engine::Vertex &v, uint32_t attr_flags)
+void encodeVertexAttributes(uint8_t *dst, const Engine::Vertex &v, uint32_t attr_flags)
 {
-	float pos[3] = {v.pos.x, v.pos.y, v.pos.z};
-	memcpy(dst + 0, pos, 12);
-
 	auto oct_n = Engine::Math::octEncode(v.normal);
 	int16_t oct_normal[2] = {
 		(int16_t)meshopt_quantizeSnorm(oct_n.x, 16),
 		(int16_t)meshopt_quantizeSnorm(oct_n.y, 16),
 	};
-	memcpy(dst + 12, oct_normal, 4);
-	uint32_t offset = 16;
+	memcpy(dst, oct_normal, 4);
+	uint32_t offset = 4;
 
 	if (attr_flags & MESH_ATTR_TANGENT)
 	{
@@ -41,9 +38,7 @@ uint32_t encodeVertex(uint8_t *dst, const Engine::Vertex &v, uint32_t attr_flags
 	{
 		float uv[2] = {v.uv.x, v.uv.y};
 		memcpy(dst + offset, uv, 8);
-		offset += 8;
 	}
-	return offset;
 }
 
 void deduplicateVertices(eastl::vector<Engine::Vertex> &vertices, eastl::vector<uint32_t> &indices, eastl::vector<uint32_t> &remap)
@@ -58,38 +53,7 @@ void deduplicateVertices(eastl::vector<Engine::Vertex> &vertices, eastl::vector<
 	}
 }
 
-Engine::Vertex decodeVertex(const uint8_t *src, uint32_t attr_flags)
-{
-	Engine::Vertex v{};
-
-	float pos[3];
-	memcpy(pos, src + 0, 12);
-	v.pos = glm::vec3(pos[0], pos[1], pos[2]);
-
-	int16_t oct_normal[2];
-	memcpy(oct_normal, src + 12, 4);
-	v.normal = Engine::Math::octDecode(oct_normal[0] / 32767.0f, oct_normal[1] / 32767.0f);
-	uint32_t offset = 16;
-
-	if (attr_flags & MESH_ATTR_TANGENT)
-	{
-		int16_t oct_tangent[2];
-		memcpy(oct_tangent, src + offset, 4);
-		v.tangent = Engine::Math::octDecode(oct_tangent[0] / 32767.0f, oct_tangent[1] / 32767.0f);
-		v.tangent_sign = (float)(int8_t)src[offset + 4];
-		offset += 8;
-	}
-
-	if (attr_flags & MESH_ATTR_UV)
-	{
-		float uv[2];
-		memcpy(uv, src + offset, 8);
-		v.uv = glm::vec2(uv[0], uv[1]);
-	}
-	return v;
-}
-
-DiskMeshlet encodeMeshlet(const Meshlet &m)
+DiskMeshlet encodeMeshlet(const Meshlet &m, float position_scale)
 {
 	ENGINE_ASSERT(m.vertex_count <= 255 && m.triangle_count <= 255);
 	DiskMeshlet d{};
@@ -97,32 +61,33 @@ DiskMeshlet encodeMeshlet(const Meshlet &m)
 	d.refined_group_id = m.refined_group_id;
 	d.vertex_offset = m.vertex_offset;
 	d.triangle_offset = m.triangle_offset;
-	d.center[0] = Math::pack32to16(m.center.x);
-	d.center[1] = Math::pack32to16(m.center.y);
-	d.center[2] = Math::pack32to16(m.center.z);
-	d.extent[0] = Math::pack32to16(m.extent.x);
-	d.extent[1] = Math::pack32to16(m.extent.y);
-	d.extent[2] = Math::pack32to16(m.extent.z);
+	d.quantized_min[0] = (int32_t)(m.bound_min.x / position_scale);
+	d.quantized_min[1] = (int32_t)(m.bound_min.y / position_scale);
+	d.quantized_min[2] = (int32_t)(m.bound_min.z / position_scale);
+	d.max_offset[0] = (uint16_t)(m.bound_extent.x * 2.0f / position_scale);
+	d.max_offset[1] = (uint16_t)(m.bound_extent.y * 2.0f / position_scale);
+	d.max_offset[2] = (uint16_t)(m.bound_extent.z * 2.0f / position_scale);
 	d.vertex_count = m.vertex_count;
 	d.triangle_count = m.triangle_count;
 	return d;
 }
 
-Meshlet decodeMeshlet(const DiskMeshlet &d)
+Meshlet decodeMeshlet(const DiskMeshlet &d, float position_scale)
 {
 	Meshlet m{};
 	m.group_id = d.group_id;
 	m.refined_group_id = d.refined_group_id;
 	m.vertex_offset = d.vertex_offset;
 	m.triangle_offset = d.triangle_offset;
-	m.center.x = Math::unpack16to32(d.center[0]);
-	m.center.y = Math::unpack16to32(d.center[1]);
-	m.center.z = Math::unpack16to32(d.center[2]);
-	m.extent.x = Math::unpack16to32(d.extent[0]);
-	m.extent.y = Math::unpack16to32(d.extent[1]);
-	m.extent.z = Math::unpack16to32(d.extent[2]);
+	m.bound_min.x = d.quantized_min[0] * position_scale;
+	m.bound_min.y = d.quantized_min[1] * position_scale;
+	m.bound_min.z = d.quantized_min[2] * position_scale;
+	m.bound_extent.x = d.max_offset[0] * position_scale * 0.5f;
+	m.bound_extent.y = d.max_offset[1] * position_scale * 0.5f;
+	m.bound_extent.z = d.max_offset[2] * position_scale * 0.5f;
 	m.vertex_count = d.vertex_count;
 	m.triangle_count = d.triangle_count;
+	m.position_bits = packPositionBits(glm::ivec3(d.max_offset[0], d.max_offset[1], d.max_offset[2]));
 	return m;
 }
 

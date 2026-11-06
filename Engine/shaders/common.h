@@ -22,6 +22,11 @@
 #define PI2 (2 * PI)
 #define Epsilon 0.00001
 
+uint divideRoundUp(uint numerator, uint denominator)
+{
+	return (numerator + denominator - 1) / denominator;
+}
+
 struct TraversalItem
 {
 	uint instance_id;
@@ -212,6 +217,7 @@ struct Mesh
 	uint group_residency_offset; // start index in global group_residency buffer
 	uint root_group_offset; // local lod_nodes index of the root node
 	uint lod_nodes_offset; // offset in global lod_nodes buffer
+	float position_scale; // quantized positions scaler
 };
 
 #define MESH_ATTR_TANGENT (1u << 1)
@@ -253,8 +259,8 @@ struct MeshletTriangle
 #define MAX_STREAMING_REQUESTS 1024
 struct Meshlet
 {
-	float3 center;
-	float3 extent;
+	float3 bound_min;
+	float3 bound_extent;
 
 	uint group_id;
 	uint refined_group_id; // group id of more detailed cluster group (with more triangles)
@@ -263,7 +269,7 @@ struct Meshlet
 	uint vertex_offset;
 	uint triangle_offset;
 
-	uint packed_counts; // vertex_count (8) + triangle_count(8)
+	uint packed_counts; // vertex_count (8) + triangle_count(8) + position_bits (4 + 4 + 4)
 
 	uint getVertexCount()
 	{
@@ -273,6 +279,16 @@ struct Meshlet
 	uint getTriangleCount()
 	{
 		return (packed_counts >> 8) & 0xFF;
+	}
+
+	uint3 getPositionBits()
+	{
+		return uint3((packed_counts >> 16) & 0xF, (packed_counts >> 20) & 0xF, (packed_counts >> 24) & 0xF) + 1;
+	}
+
+	bool isMostDetailed()
+	{
+		return refined_group_id == MOST_DETAILED_CLUSTER_GROUP_ID;
 	}
 };
 

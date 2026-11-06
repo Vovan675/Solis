@@ -32,14 +32,15 @@ static MeshFormat::MeshEntry make_mesh_entry(const Engine::Mesh *mesh, uint64_t 
 	e.lod_level_count = mesh->meshlet_data ? mesh->meshlet_data->meshlet_lod_levels.size() : 0;
 	e.meshlet_root_group_local_offset = mesh->meshlet_data ? mesh->meshlet_data->meshlet_root_group_local_offset : 0;
 	e.attribute_flags = mesh->attribute_flags;
+	e.position_scale = mesh->position_scale;
+	e.meshlet_vertex_bytes = build_data ? build_data->vertices.size() : 0;
 	memcpy(e.bbox_min, &mesh->bound_box.min, 12);
 	memcpy(e.bbox_max, &mesh->bound_box.max, 12);
-	uint32_t vertex_stride = MeshFormat::diskVertexStride(e.attribute_flags);
 	e.meshlet_vertices_file_offset = file_offset
 		+ Math::alignedSize(e.vertex_count * sizeof(Engine::Vertex), MeshFormat::ALIGNMENT)
 		+ Math::alignedSize(e.index_count * sizeof(uint32_t), MeshFormat::ALIGNMENT);
 	e.meshlet_triangles_file_offset = e.meshlet_vertices_file_offset
-		+ Math::alignedSize((uint64_t)e.meshlet_vertex_count * vertex_stride, MeshFormat::ALIGNMENT);
+		+ Math::alignedSize(e.meshlet_vertex_bytes, MeshFormat::ALIGNMENT);
 	return e;
 }
 
@@ -55,8 +56,7 @@ static void serialize_mesh_block(BinaryArchive &ar, Engine::Mesh *mesh, const Me
 			ar.array(mesh->indexed->indices, entry.index_count);
 		}
 
-		uint32_t vertex_stride = MeshFormat::diskVertexStride(entry.attribute_flags);
-		const uint8_t *vertices_ptr = ar.map<uint8_t>(entry.meshlet_vertex_count * vertex_stride);
+		const uint8_t *vertices_ptr = ar.map<uint8_t>(entry.meshlet_vertex_bytes);
 		const uint8_t *triangles_ptr = ar.map<uint8_t>(entry.meshlet_triangle_count);
 		if (out_file_view)
 		{
@@ -73,7 +73,7 @@ static void serialize_mesh_block(BinaryArchive &ar, Engine::Mesh *mesh, const Me
 			ar.array(disk_meshlets, entry.meshlet_count);
 			mesh->meshlet_data->meshlets.resize(entry.meshlet_count);
 			for (size_t i = 0; i < entry.meshlet_count; i++)
-				mesh->meshlet_data->meshlets[i] = MeshFormat::decodeMeshlet(disk_meshlets[i]);
+				mesh->meshlet_data->meshlets[i] = MeshFormat::decodeMeshlet(disk_meshlets[i], entry.position_scale);
 			ar.array(mesh->meshlet_data->meshlet_lod_groups, entry.lod_group_count);
 			ar.array(mesh->meshlet_data->lod_nodes, entry.lod_node_count);
 			ar.array(mesh->meshlet_data->meshlet_lod_levels, entry.lod_level_count);
@@ -96,7 +96,7 @@ static void serialize_mesh_block(BinaryArchive &ar, Engine::Mesh *mesh, const Me
 
 		eastl::vector<MeshFormat::DiskMeshlet> disk_meshlets(meshlet_geom.meshlets.size());
 		for (size_t i = 0; i < disk_meshlets.size(); i++)
-			disk_meshlets[i] = MeshFormat::encodeMeshlet(meshlet_geom.meshlets[i]);
+			disk_meshlets[i] = MeshFormat::encodeMeshlet(meshlet_geom.meshlets[i], entry.position_scale);
 		ar.array(disk_meshlets.data(), disk_meshlets.size());
 		ar.array(const_cast<LODGroup *>(meshlet_geom.meshlet_lod_groups.data()), meshlet_geom.meshlet_lod_groups.size());
 		ar.array(const_cast<LodNode *>(meshlet_geom.lod_nodes.data()), meshlet_geom.lod_nodes.size());
@@ -144,7 +144,7 @@ static void log_mesh_entry_stats(const MeshFormat::MeshEntry &e)
 	uint64_t total =
 		e.vertex_count * sizeof(Engine::Vertex) +
 		e.index_count * sizeof(uint32_t) +
-		e.meshlet_vertex_count * MeshFormat::diskVertexStride(e.attribute_flags) +
+		e.meshlet_vertex_bytes +
 		e.meshlet_triangle_count +
 		e.meshlet_count * sizeof(MeshFormat::DiskMeshlet) +
 		e.lod_group_count * sizeof(LODGroup) +
@@ -339,6 +339,7 @@ bool MeshSerializer::load_from_memory(Model *model, const uint8_t *data, uint64_
 		mesh->bound_box.min = glm::vec3(entry.bbox_min[0], entry.bbox_min[1], entry.bbox_min[2]);
 		mesh->bound_box.max = glm::vec3(entry.bbox_max[0], entry.bbox_max[1], entry.bbox_max[2]);
 		mesh->attribute_flags = entry.attribute_flags;
+		mesh->position_scale = entry.position_scale;
 
 		BinaryArchive ar = BinaryArchive::createForLoading(data, file_size, entry.file_offset, MeshFormat::ALIGNMENT);
 		serialize_mesh_block(ar, mesh, entry, &model->file_views[mesh->id]);
@@ -350,24 +351,25 @@ bool MeshSerializer::load_from_memory(Model *model, const uint8_t *data, uint64_
 
 			// Reconstruct group data info from meshlets
 			meshlet_geom.meshlet_lod_group_data_info.resize(entry.lod_group_count);
-			uint32_t current_vert = 0;
+			uint64_t current_vertex_bytes = 0;
 			uint32_t current_tri = 0;
 			for (uint32_t j = 0; j < entry.lod_group_count; j++)
 			{
 				const LODGroup &lod = meshlet_geom.meshlet_lod_groups[j];
 				Engine::MeshletGeometry::LODGroupDataInfo &gdi = meshlet_geom.meshlet_lod_group_data_info[j];
-				gdi.cpu_vertex_offset = current_vert;
+				gdi.cpu_vertex_byte_offset = current_vertex_bytes;
 				gdi.cpu_triangle_offset = current_tri;
-				uint32_t vert_count = 0;
+				uint32_t vertex_bytes = 0;
 				uint32_t tri_count = 0;
 				for (uint32_t k = lod.first_meshlet; k < lod.first_meshlet + lod.meshlet_count; k++)
 				{
-					vert_count += meshlet_geom.meshlets[k].vertex_count;
-					tri_count += meshlet_geom.meshlets[k].triangle_count * 3;
+					auto &meshlet = meshlet_geom.meshlets[k];
+					vertex_bytes += MeshFormat::meshletVertexBytes(meshlet.vertex_count, meshlet.position_bits, entry.attribute_flags);
+					tri_count += meshlet.triangle_count * 3;
 				}
-				gdi.cpu_vertex_count = vert_count;
+				gdi.cpu_vertex_bytes = vertex_bytes;
 				gdi.cpu_triangle_count = tri_count;
-				current_vert += vert_count;
+				current_vertex_bytes += vertex_bytes;
 				current_tri += tri_count;
 			}
 			mesh->initMeshleted();

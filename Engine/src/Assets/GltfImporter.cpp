@@ -17,7 +17,6 @@
 #include "meshoptimizer.h"
 #include <filesystem>
 #include <thread>
-#include <atomic>
 #include <condition_variable>
 #include <mutex>
 #include <unordered_set>
@@ -391,6 +390,7 @@ static void process_node(const cgltf_node *gltf_node, MeshNode *parent,
 }
 
 static constexpr uint64_t AUTO_MESHLET_VERTEX_COUNT = 1'000'000;
+static constexpr int64_t IMPORT_MEMORY_LEFT_FOR_SYSTEM = 1024 * 1024 * 1024;
 
 // Meshopt uses custom simple linear allocator for its operations
 static thread_local LinearAllocator *meshopt_allocator = nullptr;
@@ -464,7 +464,7 @@ void GltfImporter::import(const char *path, Model *model, ModelImportSettings &s
 		const cgltf_mesh *gltf_mesh;
 		GltfMeshKey key;
 		uint64_t vertex_count = 0;
-		uint64_t needed_memory = 0;
+		int64_t needed_memory = 0;
 		eastl::vector<PrimBuildResult> prims;
 	};
 
@@ -541,14 +541,19 @@ void GltfImporter::import(const char *path, Model *model, ModelImportSettings &s
 	std::filesystem::create_directories(runtime_path.parent_path());
 	auto writer = MeshSerializer::beginStream(runtime_path.string().c_str());
 
-	std::atomic<int> done_counter = 0;
+	const int64_t process_memory_at_start = Platform::getProcessMemoryUsage();
+	auto get_memory_budget = [&]()
+	{
+		return Platform::getAvailableMemory() + Platform::getProcessMemoryUsage() - process_memory_at_start - IMPORT_MEMORY_LEFT_FOR_SYSTEM;
+	};
 
-	const uint64_t memory_budget = Platform::getAvailableMemory();
-	uint64_t memory_used = 0;
+	int64_t memory_budget = get_memory_budget();
+	int64_t memory_used = 0;
 	const size_t job_scratch_size = jobs.empty() ? 0 : jobs[0].vertex_count * 3 * sizeof(uint32_t);
 
 	int biggest_job_id = 0;
 	int smallest_job_id = total_jobs - 1;
+	int done_jobs = 0;
 
 	std::mutex jobs_mutex;
 	std::condition_variable job_finished;
@@ -633,16 +638,17 @@ void GltfImporter::import(const char *path, Model *model, ModelImportSettings &s
 				res.success = true;
 			}
 
-			int done = done_counter.fetch_add(1, std::memory_order_relaxed) + 1;
-			if (done % 10 == 0 || done == total_jobs)
-			{
-				double memory_usage = Platform::getProcessMemoryUsage() / (1024.0 * 1024.0);
-				CORE_INFO("GltfImporter: [{}/{}] Memory Usage={:.0f}MB", done, total_jobs, memory_usage);
-			}
-
 			jobs_lock.lock();
 			memory_used -= job.needed_memory;
+			memory_budget = get_memory_budget();
 			job_finished.notify_all();
+
+			done_jobs++;
+			if (done_jobs % 10 == 0 || done_jobs == total_jobs)
+			{
+				double memory_usage = Platform::getProcessMemoryUsage() / (1024.0 * 1024.0);
+				CORE_INFO("GltfImporter: [{}/{}] Memory Usage={:.0f}MB Budget={:.0f}MB", done_jobs, total_jobs, memory_usage, memory_budget / (1024.0 * 1024.0));
+			}
 		}
 
 		meshopt_allocator = nullptr;

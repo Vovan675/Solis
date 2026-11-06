@@ -35,6 +35,15 @@ size_t Platform::getAvailableMemory()
 	return std::min(status.ullAvailPhys, status.ullAvailPageFile);
 }
 
+void Platform::setPowerThrottling(bool enabled)
+{
+	PROCESS_POWER_THROTTLING_STATE state{};
+	state.Version = PROCESS_POWER_THROTTLING_CURRENT_VERSION;
+	state.ControlMask = PROCESS_POWER_THROTTLING_EXECUTION_SPEED;
+	state.StateMask = enabled ? PROCESS_POWER_THROTTLING_EXECUTION_SPEED : 0;
+	SetProcessInformation(GetCurrentProcess(), ProcessPowerThrottling, &state, sizeof(state));
+}
+
 size_t Platform::getPageSize()
 {
 	static SYSTEM_INFO info{};

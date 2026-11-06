@@ -167,9 +167,8 @@ void processSubTask(TraversalItem item, uint sub_id, bool is_valid)
 		// Pick this meshlet when:
 		// 1) The finer (refined) group would be wasteful - going deeper isn't worth it, cut lands here.
 		// 2) The finer group doesn't exist (finest LOD) or isn't resident - force render, no alternative.
-		bool has_refined = (meshlet.refined_group_id != MOST_DETAILED_CLUSTER_GROUP_ID);
 		bool need_this_level = true; // If have no finer group or its not resident then render it
-		if (has_refined && isResident(group_residency, residency_base, meshlet.refined_group_id))
+		if (!meshlet.isMostDetailed() && isResident(group_residency, residency_base, meshlet.refined_group_id))
 			need_this_level = !isCoarserThanNeeded(meshlet.refined_group_id, mesh.meshlet_lod_groups_offset, instance.world_transform, scale);
 
 		bool selected = is_visible && need_this_level;
@@ -219,7 +218,7 @@ void processAllSubTasks(TraversalItem item, uint thread_sub_count)
 	int start_offset = WavePrefixSum(thread_sub_count);
 	int end_offset = start_offset + thread_sub_count;
 	int total_threads = WaveReadLaneAt(end_offset, lane_count - 1);
-	int total_runs = (total_threads + lane_count - 1) / lane_count;
+	int total_runs = divideRoundUp(total_threads, lane_count);
 
 	bool has_task = thread_sub_count > 0;
 	uint task_offset = WavePrefixCountBits(has_task);

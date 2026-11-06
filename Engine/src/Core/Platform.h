@@ -9,6 +9,7 @@ namespace Platform
 	size_t getPageSize();
 	size_t getProcessMemoryUsage();
 	size_t getAvailableMemory();
+	void setPowerThrottling(bool enabled);
 
 	// Apply specific window settings (for example dark mode)
 	void configureNativeWindow(GLFWwindow* window);

@@ -46,8 +46,8 @@ struct MeshletGeometry
 {
 	struct LODGroupDataInfo
 	{
-		uint32_t cpu_vertex_offset;
-		uint32_t cpu_vertex_count;
+		uint64_t cpu_vertex_byte_offset; // offset in bytes because vertices in every meshlet have different size
+		uint32_t cpu_vertex_bytes;
 		uint32_t cpu_triangle_offset;
 		uint32_t cpu_triangle_count;
 	};
@@ -65,6 +65,7 @@ class Mesh: public RefCounted
 public:
 	size_t id = 0;
 	uint32_t attribute_flags = 0;
+	float position_scale = 0.0f;
 
 	glm::mat4 root_transform = glm::mat4(1.0);
 	BoundBox bound_box;

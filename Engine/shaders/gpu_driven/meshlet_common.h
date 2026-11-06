@@ -16,8 +16,8 @@ bool cullMeshletVisibility(
 	HizParams hiz,
 	out FrustumCullData cull)
 {
-	float3 bound_center = meshlet.center.xyz;
-	float3 bound_extent = meshlet.extent.xyz;
+	float3 bound_extent = meshlet.bound_extent;
+	float3 bound_center = meshlet.bound_min + bound_extent;
 	transformBoundBox(bound_center, bound_extent, world_transform);
 	cull = getFrustumCullData(bound_center, bound_extent, view);
 

@@ -131,6 +131,7 @@ void SceneRenderer::refresh_meshes(entt::entity entity_id, MeshRendererComponent
 		}
 		mesh_gpu.root_group_offset = mesh->meshlet_data ? mesh->meshlet_data->meshlet_root_group_local_offset : 0;
 		mesh_gpu.attribute_flags = mesh->attribute_flags;
+		mesh_gpu.position_scale = mesh->position_scale;
 		mesh_gpu.flags = mesh->useMeshlets() ? MESH_FLAG_MESHLET : 0;
 
 		meshes_table.set(it->second.start + i, mesh_gpu); // In future every mesh would hold its own slot and dont hold duplicates

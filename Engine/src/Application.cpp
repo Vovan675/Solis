@@ -30,6 +30,8 @@ static TowerGame tower_game;
 Application::Application(int argc, char *argv[])
 {
 	PROFILE_CPU_FUNCTION();
+	Platform::setPowerThrottling(false);
+
 	// Create Window
 	glfwInit();
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
