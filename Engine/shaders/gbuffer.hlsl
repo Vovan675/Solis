@@ -13,7 +13,7 @@
 struct VertexInput
 {
 	uint instance_id : INSTANCE_ID;
-	uint local_vertex_id : SV_VertexID;
+	uint vertex_id : SV_VertexID;
 };
 
 struct PixelInput
@@ -84,29 +84,20 @@ void MSMainMeshlet(uint group_index : SV_GroupIndex, uint group_id : SV_GroupID,
 		verts[i] = vert;
 	}
 
-	uint triangle_data_offset = draw.geometry_base + draw.meshlet.triangle_offset;
-
 	for (uint j = group_index; j < triangle_count; j += 32)
-	{
-		uint triangle_offset = j * 3;
-		uint3 tri;
-		tri.x = meshlets_geometry_buffer.Load<uint>(triangle_data_offset + sizeof(uint) * (triangle_offset + 0));
-		tri.y = meshlets_geometry_buffer.Load<uint>(triangle_data_offset + sizeof(uint) * (triangle_offset + 1));
-		tri.z = meshlets_geometry_buffer.Load<uint>(triangle_data_offset + sizeof(uint) * (triangle_offset + 2));
-
-		indices[j] = tri;
-	}
+		indices[j] = loadMeshletTriangle(j, draw);
 }
 
 PixelInput VSMainMeshlet(VertexInput IN)
 {
 	MeshletDraw draw = fetchMeshletDraw(IN.instance_id);
+	uint local_vertex_id = loadMeshletIndex(IN.vertex_id, draw);
 
-	RawVertexData raw_vertex = loadMeshletVertex(IN.local_vertex_id, draw);
+	RawVertexData raw_vertex = loadMeshletVertex(local_vertex_id, draw);
 	PixelInput output = transformVertex(raw_vertex, draw.instance, draw.mesh.attribute_flags);
 
 	#if VISUALIZE_TRIANGLES
-		output.meshlet_id = IN.local_vertex_id;
+		output.meshlet_id = local_vertex_id;
 	#elif VISUALIZE_MESHLETS
 		output.meshlet_id = draw.candidate.meshlet_id;
 	#elif VISUALIZE_MESHLETS_GROUPS

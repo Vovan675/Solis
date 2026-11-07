@@ -1,7 +1,6 @@
 #include "pch.h"
 #include "OpaqueGeometryPass.h"
 #include "Rendering/Renderer.h"
-#include "Rendering/GlobalBufferCache.h"
 #include "Rendering/GlobalPipeline.h"
 #include "FrameGraph/FrameGraphData.h"
 #include "Core/Variables.h"
@@ -100,8 +99,8 @@ void OpaqueGeometryPass::render_meshlets(FrameGraph &fg, const RenderView &view,
 			builder.readIndirectArgsBuffer(GFXRID_ID(DispatchMeshIndirectArgs, view.view_id));
 		else
 		{
-			builder.readIndirectArgsBuffer(GFXRID_ID(DrawIndexedArgs, view.view_id));
-			builder.readIndirectArgsBuffer(GFXRID_ID(DrawIndexedCount, view.view_id));
+			builder.readIndirectArgsBuffer(GFXRID_ID(MeshletDrawArgs, view.view_id));
+			builder.readIndirectArgsBuffer(GFXRID_ID(MeshletDrawCount, view.view_id));
 			builder.readVertexBuffer(GFXRID_ID(DrawCallsInstances, view.view_id));
 		}
 	},
@@ -113,10 +112,7 @@ void OpaqueGeometryPass::render_meshlets(FrameGraph &fg, const RenderView &view,
 		RHITexture *depth = resources.getTexture(targets.depth.name);
 
 		if (!render_meshlets_mesh_shaders)
-		{
 			cmd_list->setVertexBuffer(resources.getBuffer(GFXRID_ID(DrawCallsInstances, view.view_id)), 0, sizeof(uint32_t), 0);
-			cmd_list->setIndexBuffer(GlobalBufferCache::getGlobalMeshletGeometryBuffer(), 0);
-		}
 
 		cmd_list->setRenderTargets(color_textures, depth, targets.layer, 0, clear, view.getDepthClear());
 
@@ -149,7 +145,7 @@ void OpaqueGeometryPass::render_meshlets(FrameGraph &fg, const RenderView &view,
 		if (render_meshlets_mesh_shaders)
 			cmd_list->dispatchMeshIndirect(resources.getBuffer(GFXRID_ID(DispatchMeshIndirectArgs, view.view_id)), 1);
 		else
-			cmd_list->drawIndexedIndirect(resources.getBuffer(GFXRID_ID(DrawIndexedArgs, view.view_id)), MAX_MESHLETS_PER_FRAME, resources.getBuffer(GFXRID_ID(DrawIndexedCount, view.view_id)));
+			cmd_list->drawIndirect(resources.getBuffer(GFXRID_ID(MeshletDrawArgs, view.view_id)), MAX_MESHLETS_PER_FRAME, resources.getBuffer(GFXRID_ID(MeshletDrawCount, view.view_id)));
 
 		cmd_list->resetRenderTargets();
 	});

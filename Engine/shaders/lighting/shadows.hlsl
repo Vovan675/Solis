@@ -28,22 +28,14 @@ void MSMainMeshlet(uint group_index : SV_GroupIndex, uint group_id : SV_GroupID,
 		verts[i] = shadowOutput(raw_vertex.position, draw.instance.world_transform);
 	}
 
-	uint triangle_data_offset = draw.geometry_base + draw.meshlet.triangle_offset;
 	for (uint j = group_index; j < triangle_count; j += 32)
-	{
-		uint triangle_offset = j * 3;
-		uint3 tri;
-		tri.x = meshlets_geometry_buffer.Load<uint>(triangle_data_offset + sizeof(uint) * (triangle_offset + 0));
-		tri.y = meshlets_geometry_buffer.Load<uint>(triangle_data_offset + sizeof(uint) * (triangle_offset + 1));
-		tri.z = meshlets_geometry_buffer.Load<uint>(triangle_data_offset + sizeof(uint) * (triangle_offset + 2));
-		indices[j] = tri;
-	}
+		indices[j] = loadMeshletTriangle(j, draw);
 }
 
-VS_OUTPUT VSMainMeshlet(uint instance_id : INSTANCE_ID, uint local_vertex_id : SV_VertexID)
+VS_OUTPUT VSMainMeshlet(uint instance_id : INSTANCE_ID, uint vertex_id : SV_VertexID)
 {
 	MeshletDraw draw = fetchMeshletDraw(instance_id);
-	RawVertexData raw_vertex = loadMeshletVertex(local_vertex_id, draw);
+	RawVertexData raw_vertex = loadMeshletVertex(loadMeshletIndex(vertex_id, draw), draw);
 	return shadowOutput(raw_vertex.position, draw.instance.world_transform);
 }
 

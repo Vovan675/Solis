@@ -7,6 +7,7 @@
 #include "Rendering/GlobalPipeline.h"
 #include "Rendering/UploadManager.h"
 #include "FrameGraph/FrameGraph.h"
+#include "meshoptimizer.h"
 
 namespace
 {
@@ -39,6 +40,7 @@ RHIBufferRef create_storage_buffer(uint32_t size, BufferUsage usage_flags, Buffe
 void fill_group_data(uint8_t *dst, Engine::Mesh *mesh, uint32_t local_group_id, const Engine::MeshletFileView &file_view)
 {
 	Engine::MeshletGeometry::LODGroupDataInfo &info = mesh->meshlet_data->meshlet_lod_group_data_info[local_group_id];
+	const LODGroup &group = mesh->meshlet_data->meshlet_lod_groups[local_group_id];
 	const uint8_t *src = file_view.groups_data + info.file_offset;
 
 	// Copy everything up to triangles indices
@@ -46,12 +48,24 @@ void fill_group_data(uint8_t *dst, Engine::Mesh *mesh, uint32_t local_group_id, 
 	uint32_t triangles_offset = meshlets[0].triangle_offset;
 	memcpy(dst, src, triangles_offset);
 
-	// Expand 8 bit index to 32 bit index
-	uint32_t *dst_tris = (uint32_t *)(dst + triangles_offset);
+	// Decode every meshlet [uint16 size][meshopt_encodeMeshlet bytes] using meshopt_decodeMeshlet
 	const uint8_t *src_tris = src + triangles_offset;
-	uint32_t index_count = (info.gpu_bytes - triangles_offset) / sizeof(uint32_t);
-	for (uint32_t k = 0; k < index_count; k++)
-		dst_tris[k] = src_tris[k];
+	uint8_t *dst_tris = dst + triangles_offset;
+	uint32_t decoded_tris[256 * 3 / 4]; // the decoder writes whole aligned dwords
+	for (uint32_t m = 0; m < group.meshlet_count; m++)
+	{
+		uint16_t encoded_bytes;
+		memcpy(&encoded_bytes, src_tris, sizeof(encoded_bytes));
+		src_tris += sizeof(encoded_bytes);
+
+		int result = meshopt_decodeMeshlet(nullptr, 0, 4, decoded_tris, meshlets[m].triangle_count, 3, src_tris, encoded_bytes);
+		ENGINE_ASSERT(result == 0);
+		src_tris += encoded_bytes;
+
+		uint32_t index_count = meshlets[m].triangle_count * 3;
+		memcpy(dst_tris, decoded_tris, index_count);
+		dst_tris += index_count;
+	}
 }
 
 uint32_t group_data_size(Engine::Mesh *mesh, uint32_t local_group_id)

@@ -80,6 +80,30 @@ uint3 loadMeshletPositionOffset(uint positions_offset, uint bit_offset, uint3 po
 	return offset;
 }
 
+uint3 loadMeshletTriangle(uint triangle_id, MeshletDraw draw)
+{
+	uint address = draw.geometry_base + draw.meshlet.triangle_offset + triangle_id * 3;
+	// every index is 1 byte (8 bits), three indices may happen in one uint or in two
+	uint low = meshlets_geometry_buffer.Load(address & ~3u); // '& ~3u' is fast way of '/ 4 * 4'
+	uint high = meshlets_geometry_buffer.Load((address + 2) & ~3u); // read where the last index is
+	uint byte_shift = (address & 3) * 8;
+	uint indices = shiftRight64(high, low, byte_shift);
+
+	uint3 tri;
+	tri.x = lowBits(indices, 8);
+	tri.y = lowBits(indices >> 8, 8);
+	tri.z = lowBits(indices >> 16, 8);
+	return tri;
+}
+
+uint loadMeshletIndex(uint index_id, MeshletDraw draw)
+{
+	uint address = draw.geometry_base + draw.meshlet.triangle_offset + index_id;
+	uint word = meshlets_geometry_buffer.Load(address & ~3u);
+	uint byte_shift = (address & 3) * 8;
+	return lowBits(word >> byte_shift, 8);
+}
+
 RawVertexData loadMeshletVertex(uint local_vertex_id, MeshletDraw draw)
 {
 	// Vertex layout: positions (bit sequence, up to 48 bits each) padded to 4 bytes, then attributes:

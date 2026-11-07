@@ -46,20 +46,15 @@ uint appendVisibleMeshlet(
 void writeIndirectDraw(
 	uint slot,
 	Meshlet meshlet,
-	uint residency_base,
-	RWByteAddressBuffer group_residency,
-	RWStructuredBuffer<DrawIndexedIndirect> draw_args,
+	RWStructuredBuffer<DrawIndirect> draw_args,
 	RWByteAddressBuffer draw_count,
 	RWByteAddressBuffer indirect_instances)
 {
-	GroupResidency residency = group_residency.Load<GroupResidency>(sizeof(GroupResidency) * (residency_base + meshlet.group_id));
-
-	DrawIndexedIndirect cmd;
-	cmd.index_count_per_instance = meshlet.getTriangleCount() * 3;
+	DrawIndirect cmd;
+	cmd.vertex_count_per_instance = meshlet.getTriangleCount() * 3;
 	cmd.instance_count = 1;
-	cmd.start_index_location = uint(residency.geometry_buffer_offset + meshlet.triangle_offset) / sizeof(uint);
-	cmd.base_vertex_location = 0;
-	cmd.start_instance_location = slot;
+	cmd.first_vertex = 0;
+	cmd.first_instance = slot;
 	draw_args[slot] = cmd;
 	indirect_instances.Store(slot * sizeof(uint), slot);
 	draw_count.InterlockedAdd(0, 1);

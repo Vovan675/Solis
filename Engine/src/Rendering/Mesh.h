@@ -44,7 +44,7 @@ struct MeshletGeometry
 	struct LODGroupDataInfo
 	{
 		uint64_t file_offset; // in bytes, from MeshletFileView::groups_data
-		uint32_t gpu_bytes; // [Meshlets][vertices][4 byte indices] size
+		uint32_t gpu_bytes; // [Meshlets][vertices][1 byte indices] size
 	};
 
 	eastl::vector<LODGroup> meshlet_lod_groups;

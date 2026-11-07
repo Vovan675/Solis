@@ -31,8 +31,8 @@
 #define DispatchMeshIndirectArgs
 #define MeshletFixDispatchArgs
 #define InstanceFixDispatchArgs
-#define DrawIndexedArgs
-#define DrawIndexedCount
+#define MeshletDrawArgs
+#define MeshletDrawCount
 #define DrawCallsInstances
 
 #define TraditionalDrawArgs

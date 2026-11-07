@@ -11,8 +11,8 @@ cbuffer Uniforms : register(b0)
 
 	uint visible_meshlets_buffer_id;
 	uint visible_meshlets_count_buffer_id;
-	uint draw_indexed_args_buffer_id;
-	uint draw_indexed_count_buffer_id;
+	uint draw_args_buffer_id;
+	uint draw_count_buffer_id;
 	uint draw_calls_indirect_instances_buffer_id;
 	uint max_queue_size;
 
@@ -38,8 +38,8 @@ static RWStructuredBuffer<MeshletCandidate> occluded_meshlets = ResourceDescript
 static RWByteAddressBuffer occluded_meshlets_count = ResourceDescriptorHeap[occluded_meshlets_count_buffer_id];
 
 #if !USE_MESH_SHADERS
-	static RWStructuredBuffer<DrawIndexedIndirect> draw_args = ResourceDescriptorHeap[draw_indexed_args_buffer_id];
-	static RWByteAddressBuffer draw_count = ResourceDescriptorHeap[draw_indexed_count_buffer_id];
+	static RWStructuredBuffer<DrawIndirect> draw_args = ResourceDescriptorHeap[draw_args_buffer_id];
+	static RWByteAddressBuffer draw_count = ResourceDescriptorHeap[draw_count_buffer_id];
 	static RWByteAddressBuffer indirect_instances = ResourceDescriptorHeap[draw_calls_indirect_instances_buffer_id];
 #endif
 
@@ -181,7 +181,7 @@ void processSubTask(TraversalItem item, uint sub_id, bool is_valid)
 		{
 			uint slot = appendVisibleMeshlet(candidate, visible_meshlets, visible_meshlets_count);
 			#if !USE_MESH_SHADERS
-				writeIndirectDraw(slot, meshlet, residency_base, group_residency, draw_args, draw_count, indirect_instances);
+				writeIndirectDraw(slot, meshlet, draw_args, draw_count, indirect_instances);
 			#endif
 		}
 		#if !IS_FIX

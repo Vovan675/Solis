@@ -87,6 +87,7 @@ static void encode_groups(Engine::Mesh *mesh, const eastl::vector<Engine::Vertex
 	const uint8_t *triangles = meshlet_triangles.data();
 
 	glm::ivec3 quantized_positions[256];
+	eastl::vector<uint8_t> encoded_triangles(meshopt_encodeMeshletBound(0, 256));
 
 	// Worst case scenario allocation
 	groups_data.reserve(
@@ -152,9 +153,13 @@ static void encode_groups(Engine::Mesh *mesh, const eastl::vector<Engine::Vertex
 			uint32_t index_count = meshlet.triangle_count * 3;
 
 			meshlet.triangle_offset = triangle_offset;
-			triangle_offset += index_count * sizeof(uint32_t); // offset is 32bits because gpu index format is 32bits
+			triangle_offset += index_count;
 
-			groups_data.insert(groups_data.end(), triangles, triangles + index_count);
+			uint16_t encoded_bytes = (uint16_t)meshopt_encodeMeshlet(encoded_triangles.data(), encoded_triangles.size(), nullptr, 0, triangles, meshlet.triangle_count);
+			size_t triangles_start = groups_data.size();
+			groups_data.resize(triangles_start + sizeof(encoded_bytes) + encoded_bytes);
+			memcpy(groups_data.data() + triangles_start, &encoded_bytes, sizeof(encoded_bytes));
+			memcpy(groups_data.data() + triangles_start + sizeof(encoded_bytes), encoded_triangles.data(), encoded_bytes);
 			triangles += index_count;
 		}
 
@@ -166,7 +171,7 @@ static void encode_groups(Engine::Mesh *mesh, const eastl::vector<Engine::Vertex
 
 		Engine::MeshletGeometry::LODGroupDataInfo &info = geometry.meshlet_lod_group_data_info.emplace_back();
 		info.file_offset = group_start;
-		info.gpu_bytes = triangle_offset;
+		info.gpu_bytes = Math::alignedSize(triangle_offset, 4u);
 	}
 }
 
