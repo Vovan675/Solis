@@ -5,9 +5,10 @@ struct ModelImportSettings;
 
 struct MeshletBuildData
 {
-	eastl::vector<uint8_t> vertices;
+	eastl::vector<uint8_t> groups_data; // all LOD groups data in sequence: [meshlets][vertices][8 bit indices], 4-byte align
+	uint32_t meshlet_count = 0;
 	uint32_t vertex_count = 0;
-	eastl::vector<uint8_t> triangles;
+	uint32_t index_count = 0;
 };
 
 namespace MeshletBuilder

@@ -25,15 +25,6 @@ struct RendererDebugInfo
 	size_t drawcalls = 0;
 };
 
-struct TransformComponent;
-struct RenderObject
-{
-	TransformComponent *transform;
-	Engine::Mesh *mesh;
-	Material *material;
-	Engine::MeshletFileView file_view;
-};
-
 class Renderer
 {
 public:

@@ -8,11 +8,8 @@ namespace Engine
 {
 struct MeshletFileView
 {
-	const uint8_t *vertices_ptr = nullptr;
-	const uint8_t *triangles_ptr = nullptr;
-	uint32_t vertex_count = 0;
-	uint32_t triangle_count = 0;
-	bool isValid() const { return vertices_ptr != nullptr; }
+	const uint8_t *groups_data = nullptr; // MeshletFileView::groups_data like data from mapped file 
+	bool isValid() const { return groups_data != nullptr; }
 };
 
 struct Vertex
@@ -46,13 +43,10 @@ struct MeshletGeometry
 {
 	struct LODGroupDataInfo
 	{
-		uint64_t cpu_vertex_byte_offset; // offset in bytes because vertices in every meshlet have different size
-		uint32_t cpu_vertex_bytes;
-		uint32_t cpu_triangle_offset;
-		uint32_t cpu_triangle_count;
+		uint64_t file_offset; // in bytes, from MeshletFileView::groups_data
+		uint32_t gpu_bytes; // [Meshlets][vertices][4 byte indices] size
 	};
 
-	eastl::vector<Meshlet> meshlets;
 	eastl::vector<LODGroup> meshlet_lod_groups;
 	eastl::vector<LodNode> lod_nodes;
 	eastl::vector<LODLevel> meshlet_lod_levels;

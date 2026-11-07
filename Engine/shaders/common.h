@@ -247,14 +247,6 @@ struct LodNode
 	uint meshlet_count; // meshlet count for its LODGroup
 };
 
-struct MeshletTriangle
-{
-	uint v0 : 10;
-	uint v1 : 10;
-	uint v2 : 10;
-	uint : 2;
-};
-
 #define MOST_DETAILED_CLUSTER_GROUP_ID 0xFFFFFFFFu
 #define MAX_STREAMING_REQUESTS 1024
 struct Meshlet
@@ -265,9 +257,8 @@ struct Meshlet
 	uint group_id;
 	uint refined_group_id; // group id of more detailed cluster group (with more triangles)
 
-	// Patched on streaming
-	uint vertex_offset;
-	uint triangle_offset;
+	uint vertex_offset; // bytes from the group start
+	uint triangle_offset; // bytes from the group start
 
 	uint packed_counts; // vertex_count (8) + triangle_count(8) + position_bits (4 + 4 + 4)
 

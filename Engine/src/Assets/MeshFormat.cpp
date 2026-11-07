@@ -53,44 +53,6 @@ void deduplicateVertices(eastl::vector<Engine::Vertex> &vertices, eastl::vector<
 	}
 }
 
-DiskMeshlet encodeMeshlet(const Meshlet &m, float position_scale)
-{
-	ENGINE_ASSERT(m.vertex_count <= 255 && m.triangle_count <= 255);
-	DiskMeshlet d{};
-	d.group_id = m.group_id;
-	d.refined_group_id = m.refined_group_id;
-	d.vertex_offset = m.vertex_offset;
-	d.triangle_offset = m.triangle_offset;
-	d.quantized_min[0] = (int32_t)(m.bound_min.x / position_scale);
-	d.quantized_min[1] = (int32_t)(m.bound_min.y / position_scale);
-	d.quantized_min[2] = (int32_t)(m.bound_min.z / position_scale);
-	d.max_offset[0] = (uint16_t)(m.bound_extent.x * 2.0f / position_scale);
-	d.max_offset[1] = (uint16_t)(m.bound_extent.y * 2.0f / position_scale);
-	d.max_offset[2] = (uint16_t)(m.bound_extent.z * 2.0f / position_scale);
-	d.vertex_count = m.vertex_count;
-	d.triangle_count = m.triangle_count;
-	return d;
-}
-
-Meshlet decodeMeshlet(const DiskMeshlet &d, float position_scale)
-{
-	Meshlet m{};
-	m.group_id = d.group_id;
-	m.refined_group_id = d.refined_group_id;
-	m.vertex_offset = d.vertex_offset;
-	m.triangle_offset = d.triangle_offset;
-	m.bound_min.x = d.quantized_min[0] * position_scale;
-	m.bound_min.y = d.quantized_min[1] * position_scale;
-	m.bound_min.z = d.quantized_min[2] * position_scale;
-	m.bound_extent.x = d.max_offset[0] * position_scale * 0.5f;
-	m.bound_extent.y = d.max_offset[1] * position_scale * 0.5f;
-	m.bound_extent.z = d.max_offset[2] * position_scale * 0.5f;
-	m.vertex_count = d.vertex_count;
-	m.triangle_count = d.triangle_count;
-	m.position_bits = packPositionBits(glm::ivec3(d.max_offset[0], d.max_offset[1], d.max_offset[2]));
-	return m;
-}
-
 MeshFormat::MaterialDescriptor encodeMaterial(const Material *mat)
 {
 	MeshFormat::MaterialDescriptor d{};

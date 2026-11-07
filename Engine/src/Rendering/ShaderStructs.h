@@ -113,14 +113,6 @@ struct LODLevel
 	uint32_t group_count;
 };
 
-struct MeshletTriangle
-{
-	uint32_t v0 : 10;
-	uint32_t v1 : 10;
-	uint32_t v2 : 10;
-	uint32_t : 2;
-};
-
 static constexpr uint32_t MOST_DETAILED_CLUSTER_GROUP_ID = 0xFFFFFFFFu;
 
 struct Meshlet
@@ -131,8 +123,8 @@ struct Meshlet
 	uint32_t group_id; // current group id
 	uint32_t refined_group_id; // group id of more detailed cluster group (with more triangles)
 
-	uint32_t vertex_offset;
-	uint32_t triangle_offset;
+	uint32_t vertex_offset; // bytes from the group start
+	uint32_t triangle_offset; // bytes from the group start
 	uint8_t vertex_count; // typically 64
 	uint8_t triangle_count; // typically 124
 	uint16_t position_bits; // x, y, z bits count minus one, 4 bits each
@@ -142,6 +134,7 @@ struct Meshlet
 		return refined_group_id == MOST_DETAILED_CLUSTER_GROUP_ID;
 	}
 };
+static_assert(sizeof(Meshlet) == 44);
 
 #define GROUP_NON_RESIDENT_ADDRESS_START uint32_t(1) << 31
 static constexpr uint32_t PINNED_GROUP_AGE = 0xFFFFFFFFu;

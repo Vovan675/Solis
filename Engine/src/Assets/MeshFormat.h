@@ -5,7 +5,8 @@
 
 // Binary .mesh format
 // Layout: Header, OffsetTable, MeshBlock[N], MaterialDescriptor[N], NodeDescriptor[N], PrimitiveRef[N], MeshEntry[N].
-// MeshBlock: vertices, indices, meshlet_vertices, meshlet_triangles, meshlets, lod_groups, lod_nodes, lod_levels.
+// MeshBlock: vertices, indices, MeshletGroupsData, lod_groups, lod_nodes, lod_levels, lod_group_data_info.
+// MeshletGroupsData: all LOD groups data in sequence: [meshlets][vertices][8 bit indices], 4-byte align
 
 namespace MeshFormat
 {
@@ -71,19 +72,6 @@ inline uint32_t meshletVertexBytes(uint32_t vertex_count, uint16_t position_bits
 	return meshletPositionBytes(vertex_count, position_bits) + vertex_count * vertexAttributesBytes(attribute_flags);
 }
 
-struct DiskMeshlet
-{
-	uint32_t group_id;
-	uint32_t refined_group_id;
-	uint32_t vertex_offset; // byte offset relative to group
-	uint32_t triangle_offset; // triangle index relative to group
-	int32_t quantized_min[3];
-	uint16_t max_offset[3];
-	uint8_t  vertex_count; // max 255, standard meshlets use <= 128
-	uint8_t  triangle_count; // max 255, standard meshlets use <= 128
-};
-static_assert(sizeof(DiskMeshlet) == 36);
-
 struct alignas(16) Header
 {
 	uint64_t magic = MAGIC;
@@ -105,7 +93,7 @@ struct MeshEntry
 	float bbox_max[3];
 	uint32_t index_count;
 	uint32_t meshlet_vertex_count;
-	uint32_t meshlet_triangle_count;
+	uint32_t meshlet_index_count;
 	uint32_t meshlet_count;
 	uint32_t lod_group_count;
 	uint32_t lod_node_count;
@@ -114,11 +102,9 @@ struct MeshEntry
 	uint32_t attribute_flags;
 	float position_scale;
 	uint32_t padding;
-	uint64_t meshlet_vertices_file_offset;
-	uint64_t meshlet_vertex_bytes;
-	uint64_t meshlet_triangles_file_offset;
+	uint64_t meshlet_groups_data_bytes; // all LOD groups data of the mesh (from MeshletFileView::groups_data)
 };
-static_assert(sizeof(MeshEntry) == 112 && sizeof(MeshEntry) % 16 == 0);
+static_assert(sizeof(MeshEntry) == 96 && sizeof(MeshEntry) % 16 == 0);
 
 struct PrimitiveRef
 {
@@ -166,15 +152,12 @@ static_assert(sizeof(OffsetTable) == 32 && sizeof(OffsetTable) % 16 == 0);
 }
 
 namespace Engine { struct Vertex; }
-struct Meshlet;
 struct Material;
 
 namespace MeshFormat
 {
 void encodeVertexAttributes(uint8_t *dst, const Engine::Vertex &v, uint32_t attr_flags);
 void deduplicateVertices(eastl::vector<Engine::Vertex> &vertices, eastl::vector<uint32_t> &indices, eastl::vector<uint32_t> &remap);
-DiskMeshlet encodeMeshlet(const Meshlet &m, float position_scale);
-Meshlet decodeMeshlet(const DiskMeshlet &d, float position_scale);
 MaterialDescriptor encodeMaterial(const Material *mat);
 Ref<Material> decodeMaterial(const MeshFormat::MaterialDescriptor &d);
 }
