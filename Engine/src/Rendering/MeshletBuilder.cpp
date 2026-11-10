@@ -208,7 +208,7 @@ private:
 	eastl::vector<PendingMeshlets> pending_meshlets;
 };
 
-static void encode_pages(Engine::Mesh *mesh, const eastl::vector<Engine::Vertex> &vertices, eastl::vector<Meshlet> &meshlets, const eastl::vector<uint32_t> &meshlet_vertices, const eastl::vector<uint8_t> &meshlet_triangles, eastl::vector<uint8_t> &pages_data)
+static void encode_pages(Engine::Mesh *mesh, const eastl::vector<Engine::Vertex> &vertices, eastl::vector<Meshlet> &meshlets, const eastl::vector<uint32_t> &meshlet_vertices, const eastl::vector<glm::highp_vec3> &meshlet_positions, const eastl::vector<uint8_t> &meshlet_triangles, eastl::vector<uint8_t> &pages_data)
 {
 	Engine::MeshletGeometry &geometry = *mesh->meshlet_data;
 	const uint32_t attributes_bytes = MeshFormat::vertexAttributesBytes(mesh->attribute_flags);
@@ -260,6 +260,7 @@ static void encode_pages(Engine::Mesh *mesh, const eastl::vector<Engine::Vertex>
 			uint32_t meshlet_id = group_first_meshlets[group_id] + i;
 			Meshlet &meshlet = meshlets[meshlet_id];
 			const uint32_t *vertex_ids = &meshlet_vertices[meshlet_first_vertices[meshlet_id]];
+			const glm::highp_vec3 *positions = &meshlet_positions[meshlet_first_vertices[meshlet_id]];
 			const uint8_t *triangles = &meshlet_triangles[meshlet_first_triangles[meshlet_id]];
 
 			// Quantize
@@ -267,7 +268,7 @@ static void encode_pages(Engine::Mesh *mesh, const eastl::vector<Engine::Vertex>
 			glm::ivec3 quantized_max(INT_MIN);
 			for (int v = 0; v < meshlet.vertex_count; v++)
 			{
-				quantized_positions[v] = glm::ivec3(glm::round(vertices[vertex_ids[v]].pos * inverse_position_scale));
+				quantized_positions[v] = glm::ivec3(glm::round(positions[v] * inverse_position_scale));
 				quantized_min = glm::min(quantized_min, quantized_positions[v]);
 				quantized_max = glm::max(quantized_max, quantized_positions[v]);
 			}
@@ -297,7 +298,7 @@ static void encode_pages(Engine::Mesh *mesh, const eastl::vector<Engine::Vertex>
 	writer.finish();
 }
 
-MeshletBuildData build(Engine::Mesh *mesh, const char *debug_name, const eastl::vector<Engine::Vertex> &vertices, const eastl::vector<uint32_t> &indices, const ModelImportSettings &settings)
+MeshletBuildData build(Engine::Mesh *mesh, const char *debug_name, eastl::vector<Engine::Vertex> &vertices, const eastl::vector<uint32_t> &indices, bool dilate_borders, const ModelImportSettings &settings)
 {
 	if (vertices.empty() || indices.empty())
 		return {};
@@ -307,6 +308,7 @@ MeshletBuildData build(Engine::Mesh *mesh, const char *debug_name, const eastl::
 	config.partition_spatial = true;
 	config.partition_sort = true;
 	config.partition_size = 16;
+	config.simplify_dilate_borders = dilate_borders;
 
 	const uint32_t attribute_flags = mesh->attribute_flags;
 	const bool has_tangent = attribute_flags & MeshFormat::MESH_ATTR_TANGENT;
@@ -337,6 +339,7 @@ MeshletBuildData build(Engine::Mesh *mesh, const char *debug_name, const eastl::
 	MeshletBuildData build_data;
 	eastl::vector<Meshlet> meshlets;
 	eastl::vector<uint32_t> meshlet_vertices;
+	eastl::vector<glm::highp_vec3> meshlet_positions;
 	eastl::vector<uint8_t> meshlet_triangles;
 
 	// Reserve memory conservatively to avoid possible reallocations
@@ -348,6 +351,7 @@ MeshletBuildData build(Engine::Mesh *mesh, const char *debug_name, const eastl::
 		meshlets.reserve(estimated_meshlet_count);
 		geometry.meshlet_lod_groups.reserve(estimated_meshlet_count / 4 + 16);
 		meshlet_vertices.reserve(estimated_vertex_count);
+		meshlet_positions.reserve(estimated_vertex_count);
 		meshlet_triangles.reserve(estimated_triangle_count * 3);
 	}
 
@@ -379,9 +383,10 @@ MeshletBuildData build(Engine::Mesh *mesh, const char *debug_name, const eastl::
 			glm::vec3 bbox_max(-FLT_MAX);
 			for (size_t v = 0; v < unique_vertex_count; v++)
 			{
-				const Engine::Vertex &source = vertices[local_vertex_indices[v]];
-				bbox_min = glm::min(glm::highp_vec3(bbox_min), source.pos);
-				bbox_max = glm::max(glm::highp_vec3(bbox_max), source.pos);
+				glm::highp_vec3 position = vertices[local_vertex_indices[v]].pos;
+				meshlet_positions.push_back(position);
+				bbox_min = glm::min(glm::highp_vec3(bbox_min), position);
+				bbox_max = glm::max(glm::highp_vec3(bbox_max), position);
 			}
 			meshlet_vertices.insert(meshlet_vertices.end(), local_vertex_indices.data(), local_vertex_indices.data() + unique_vertex_count);
 			meshlet_triangles.insert(meshlet_triangles.end(), local_triangle_indices.data(), local_triangle_indices.data() + cluster->index_count);
@@ -390,6 +395,7 @@ MeshletBuildData build(Engine::Mesh *mesh, const char *debug_name, const eastl::
 			meshlet.triangle_count = (uint8_t)(cluster->index_count / 3);
 			meshlet.bound_min = bbox_min;
 			meshlet.bound_extent = (bbox_max - bbox_min) * 0.5f;
+			mesh->bound_box.extend(BoundBox(bbox_min, bbox_max));
 		}
 
 		// Next level started
@@ -413,7 +419,7 @@ MeshletBuildData build(Engine::Mesh *mesh, const char *debug_name, const eastl::
 	build_data.meshlet_count = meshlets.size();
 	build_data.vertex_count = meshlet_vertices.size();
 	build_data.index_count = meshlet_triangles.size();
-	encode_pages(mesh, vertices, meshlets, meshlet_vertices, meshlet_triangles, build_data.pages_data);
+	encode_pages(mesh, vertices, meshlets, meshlet_vertices, meshlet_positions, meshlet_triangles, build_data.pages_data);
 
 	// BVH build
 	static constexpr uint32_t NODE_WIDTH = 8;

@@ -13,5 +13,5 @@ struct MeshletBuildData
 
 namespace MeshletBuilder
 {
-MeshletBuildData build(Engine::Mesh *mesh, const char *debug_name, const eastl::vector<Engine::Vertex> &vertices, const eastl::vector<uint32_t> &indices, const ModelImportSettings &settings);
+MeshletBuildData build(Engine::Mesh *mesh, const char *debug_name, eastl::vector<Engine::Vertex> &vertices, const eastl::vector<uint32_t> &indices, bool dilate_borders, const ModelImportSettings &settings);
 }

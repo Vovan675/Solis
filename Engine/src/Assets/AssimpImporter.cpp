@@ -96,9 +96,17 @@ void AssimpImporter::processNode(MeshNode *mesh_node, aiNode *node, const aiScen
 			engine_mesh->attribute_flags |= MeshFormat::MESH_ATTR_TANGENT;
 		if (mesh->mTextureCoords[0] != nullptr)
 			engine_mesh->attribute_flags |= MeshFormat::MESH_ATTR_UV;
+		engine_mesh->bound_box = BoundBox(
+			glm::vec3(mesh->mAABB.mMin.x, mesh->mAABB.mMin.y, mesh->mAABB.mMin.z),
+			glm::vec3(mesh->mAABB.mMax.x, mesh->mAABB.mMax.y, mesh->mAABB.mMax.z));
+
 		MeshFormat::deduplicateVertices(vertices, indices, remap);
 		if (settings.meshlet_mode == MESHLET_MODE_ENABLED)
-			build_data_map[engine_mesh.getReference()] = MeshletBuilder::build(engine_mesh, mesh->mName.C_Str(), vertices, indices, settings);
+		{
+			int two_sided = 0;
+			scene->mMaterials[mesh->mMaterialIndex]->Get(AI_MATKEY_TWOSIDED, two_sided);
+			build_data_map[engine_mesh.getReference()] = MeshletBuilder::build(engine_mesh, mesh->mName.C_Str(), vertices, indices, two_sided != 0, settings);
+		}
 
 		if (!engine_mesh->useMeshlets())
 		{
@@ -106,10 +114,6 @@ void AssimpImporter::processNode(MeshNode *mesh_node, aiNode *node, const aiScen
 			engine_mesh->indexed->vertices = std::move(vertices);
 			engine_mesh->indexed->indices = std::move(indices);
 		}
-
-		engine_mesh->bound_box = BoundBox(
-			glm::vec3(mesh->mAABB.mMin.x, mesh->mAABB.mMin.y, mesh->mAABB.mMin.z),
-			glm::vec3(mesh->mAABB.mMax.x, mesh->mAABB.mMax.y, mesh->mAABB.mMax.z));
 
 		Model::assign_mesh_id(model->meshes_id, engine_mesh,
 							mesh_node->name, eastl::string(mesh->mName.C_Str()));

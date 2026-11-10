@@ -613,7 +613,7 @@ void GltfImporter::import(const char *path, Model *model, ModelImportSettings &s
 				MeshletBuildData build_data;
 				if (settings.meshlet_mode == MESHLET_MODE_ENABLED)
 				{
-					build_data = MeshletBuilder::build(res.engine_mesh, mesh_name, vertices, indices, settings);
+					build_data = MeshletBuilder::build(res.engine_mesh, mesh_name, vertices, indices, primitive->material && primitive->material->double_sided, settings);
 				} else
 				{
 					res.engine_mesh->indexed.emplace();
