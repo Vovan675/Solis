@@ -13,7 +13,7 @@ struct CullView
 struct MeshletCandidate
 {
 	uint instance_id;
-	uint meshlet_id;
+	uint meshlet_address;
 };
 
 void transformBoundBox(inout float3 bound_center, inout float3 bound_extent, float4x4 world_transform)

@@ -77,7 +77,7 @@ struct MeshGPU
 
 	// Meshleted
 	uint32_t meshlet_lod_groups_offset;
-	uint32_t group_residency_offset; // start index in global group_residency buffer
+	uint32_t page_table_offset; // first page of the mesh in the global page table
 	uint32_t root_group_offset;
 	uint32_t lod_nodes_offset; // offset in global lod_nodes buffer
 	float position_scale; // quantized positions scaler
@@ -89,8 +89,8 @@ struct LODGroup
 	float radius;
 	float error;
 
-	uint32_t depth;
-	uint32_t first_meshlet; // local index into mesh's meshlets array
+	uint32_t meshlets_location;
+	uint32_t page_count; // the group may continue in the next pages
 	uint32_t meshlet_count;
 };
 
@@ -123,8 +123,10 @@ struct Meshlet
 	uint32_t group_id; // current group id
 	uint32_t refined_group_id; // group id of more detailed cluster group (with more triangles)
 
-	uint32_t vertex_offset; // bytes from the group start
-	uint32_t triangle_offset; // bytes from the group start
+	// Location have page_id in it and offset inside page, so it needs to be unpacked
+	uint32_t vertex_location;
+	uint32_t triangle_location;
+
 	uint8_t vertex_count; // typically 64
 	uint8_t triangle_count; // typically 124
 	uint16_t position_bits; // x, y, z bits count minus one, 4 bits each
@@ -136,14 +138,29 @@ struct Meshlet
 };
 static_assert(sizeof(Meshlet) == 44);
 
-#define GROUP_NON_RESIDENT_ADDRESS_START uint32_t(1) << 31
-static constexpr uint32_t PINNED_GROUP_AGE = 0xFFFFFFFFu;
+static constexpr uint32_t MESHLET_PAGE_SIZE_BITS = 17;
+static constexpr uint32_t MESHLET_PAGE_SIZE = 1 << MESHLET_PAGE_SIZE_BITS; // 128 KB
+static constexpr uint32_t MESHLET_PAGE_NOT_RESIDENT = 0xFFFFFFFFu;
 static constexpr uint32_t MAX_STREAMING_REQUESTS = 1024;
-static constexpr uint32_t MAX_UNLOAD_REQUESTS = 1024;
-struct GroupResidency
+
+static constexpr uint32_t ROOT_PAGE_SIZE = 1 << (MESHLET_PAGE_SIZE_BITS - 1); // 64 KB
+
+
+// Location of meshlet data: page << MESHLET_PAGE_SIZE_BITS | byte offset in the page
+inline uint32_t packPageLocation(uint32_t page, uint32_t offset)
 {
-	uint32_t geometry_buffer_offset; // byte offset in global geometry buffer
-};
+	return page << MESHLET_PAGE_SIZE_BITS | offset;
+}
+
+inline uint32_t unpackLocationPage(uint32_t location)
+{
+	return location >> MESHLET_PAGE_SIZE_BITS;
+}
+
+inline uint32_t unpackLocationOffset(uint32_t location)
+{
+	return location & (MESHLET_PAGE_SIZE - 1);
+}
 
 struct CullViewGPU
 {

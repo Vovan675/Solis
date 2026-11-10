@@ -75,9 +75,9 @@ void MSMainMeshlet(uint group_index : SV_GroupIndex, uint group_id : SV_GroupID,
 		RawVertexData raw_vertex = loadMeshletVertex(i, draw);
 		PixelInput vert = transformVertex(raw_vertex, draw.instance, draw.mesh.attribute_flags);
 		#if VISUALIZE_TRIANGLES
-			vert.meshlet_id = draw.meshlet.vertex_offset + i;
+			vert.meshlet_id = draw.meshlet.vertex_location + i;
 		#elif VISUALIZE_MESHLETS
-			vert.meshlet_id = draw.candidate.meshlet_id;
+			vert.meshlet_id = draw.candidate.meshlet_address;
 		#elif VISUALIZE_MESHLETS_GROUPS
 			vert.meshlet_id = draw.meshlet.group_id;
 		#endif
@@ -99,7 +99,7 @@ PixelInput VSMainMeshlet(VertexInput IN)
 	#if VISUALIZE_TRIANGLES
 		output.meshlet_id = local_vertex_id;
 	#elif VISUALIZE_MESHLETS
-		output.meshlet_id = draw.candidate.meshlet_id;
+		output.meshlet_id = draw.candidate.meshlet_address;
 	#elif VISUALIZE_MESHLETS_GROUPS
 		output.meshlet_id = draw.meshlet.group_id;
 	#endif

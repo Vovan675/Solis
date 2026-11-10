@@ -19,15 +19,16 @@ public:
 	static void registerMeshOffsets(size_t mesh_id, uint64_t lod_groups_offset, uint64_t lod_nodes_offset);
 	static MeshGlobalOffsets getMeshOffsets(size_t mesh_id);
 
-	static uint64_t addMeshletGeometryData(RHIBuffer *source, uint64_t source_offset, uint32_t size, RHICommandList *cmd_list);
+	static uint64_t addMeshletGeometryData(const void *data, uint32_t size, RHICommandList *cmd_list);
 	static void removeMeshletGeometryData(uint64_t offset, uint64_t size);
+	static uint64_t allocateMeshletGeometryData(uint64_t size);
+	static void writeMeshletGeometryData(uint64_t offset, RHIBuffer *source, uint64_t source_offset, uint32_t size, RHICommandList *cmd_list);
 
 	static RHIBuffer *getGlobalMeshletGeometryBuffer() { return geometry.get(); }
 	static RHIBuffer *getGlobalMeshletLodGroupsBuffer() { return lod_groups.get(); }
 	static RHIBuffer *getGlobalLodNodesBuffer() { return lod_nodes.get(); }
 
 	static uint64_t getMeshletGeometryBufferMaxSize() { return geometry.getMaxSize(); }
-	static uint64_t getMeshletGeometryBufferUsedSize() { return geometry.getUsedSize(); }
 
 private:
 	// One big buffer with free-list allocator
@@ -35,14 +36,14 @@ private:
 	{
 		void init(uint64_t initial_max_size, BufferUsage usage_flags, const char *name, bool growable = true);
 
+		uint64_t allocate(uint64_t size) { return allocate_range(size, nullptr); }
+		void write(uint64_t offset, RHIBuffer *src_buffer, uint64_t src_offset, uint64_t size, RHICommandList *cmd_list);
 		uint64_t add(const void *cpu_data, uint64_t size, RHICommandList *cmd_list);
-		uint64_t add(RHIBuffer *src_buffer, uint64_t buffer_offset, uint64_t buffer_size, RHICommandList *cmd_list);
 
 		void remove(uint64_t offset, uint64_t size);
 
 		bool isInitialized() const { return buffer; }
 		RHIBuffer *get() const { return buffer; }
-		uint64_t getUsedSize() const;
 		uint64_t getMaxSize() const { return max_size; }
 
 	private:
@@ -60,6 +61,8 @@ private:
 		uint64_t max_size = 0;
 		RHIBufferRef buffer;
 	};
+
+	static void init_geometry();
 
 	static inline eastl::unordered_map<size_t, MeshGlobalOffsets> mesh_offsets;
 

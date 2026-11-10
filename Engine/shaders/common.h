@@ -214,7 +214,7 @@ struct Mesh
 
 	// Meshleted
 	uint meshlet_lod_groups_offset;
-	uint group_residency_offset; // start index in global group_residency buffer
+	uint page_table_offset; // first page of the mesh in the global page table
 	uint root_group_offset; // local lod_nodes index of the root node
 	uint lod_nodes_offset; // offset in global lod_nodes buffer
 	float position_scale; // quantized positions scaler
@@ -230,8 +230,8 @@ struct LODGroup
 	float radius;
 	float error;
 	
-	uint depth;
-	uint first_meshlet; // index in mesh.meshlets
+	uint meshlets_location;
+	uint page_count; // the group may continue in the next pages
 	uint meshlet_count;
 };
 
@@ -257,8 +257,9 @@ struct Meshlet
 	uint group_id;
 	uint refined_group_id; // group id of more detailed cluster group (with more triangles)
 
-	uint vertex_offset; // bytes from the group start
-	uint triangle_offset; // bytes from the group start
+	// Location have page_id in it and offset inside page, so it needs to be unpacked
+	uint vertex_location;
+	uint triangle_location;
 
 	uint packed_counts; // vertex_count (8) + triangle_count(8) + position_bits (4 + 4 + 4)
 
@@ -283,13 +284,26 @@ struct Meshlet
 	}
 };
 
-#define GROUP_NON_RESIDENT_ADDRESS_START uint32_t(1) << 31
-#define MAX_UNLOAD_REQUESTS 1024
-// meshlet_id encoding: flat_group_idx << 8 | local_meshlet_id
-struct GroupResidency
+#define MESHLET_PAGE_SIZE_BITS 17
+#define MESHLET_PAGE_SIZE (1u << MESHLET_PAGE_SIZE_BITS) // 128 KB
+#define MESHLET_PAGE_NOT_RESIDENT 0xFFFFFFFFu
+
+// Location of meshlet data: page << MESHLET_PAGE_SIZE_BITS | byte offset in the page
+uint unpackLocationPage(uint location)
 {
-	uint32_t geometry_buffer_offset;
-};
+	return location >> MESHLET_PAGE_SIZE_BITS;
+}
+
+uint unpackLocationOffset(uint location)
+{
+	return location & (MESHLET_PAGE_SIZE - 1);
+}
+
+uint getPageAddress(ByteAddressBuffer page_table, uint page_table_offset, uint location)
+{
+	uint page_start_address = page_table.Load((page_table_offset + unpackLocationPage(location)) * 4);
+	return page_start_address + unpackLocationOffset(location);
+}
 
 Material getMaterial(uint index)
 {
@@ -309,19 +323,10 @@ Mesh getMesh(uint index)
 	return meshes[index];
 }
 
-uint packMeshletId(uint flat_group_idx, uint local_meshlet)
+Meshlet getMeshlet(uint meshlet_address)
 {
-	return (flat_group_idx << 8) | local_meshlet;
-}
-
-Meshlet getMeshlet(uint meshlet_id, uint residency_buffer_id)
-{
-	uint flat_group_idx = meshlet_id >> 8;
-	uint local_meshlet = meshlet_id & 0xFF;
-	RWByteAddressBuffer residency_buf = ResourceDescriptorHeap[residency_buffer_id];
-	GroupResidency res = residency_buf.Load<GroupResidency>(sizeof(GroupResidency) * flat_group_idx);
 	ByteAddressBuffer geometry = ResourceDescriptorHeap[global_meshlets_geometry_buffer_id];
-	return geometry.Load<Meshlet>(uint(res.geometry_buffer_offset) + local_meshlet * 44);
+	return geometry.Load<Meshlet>(meshlet_address);
 }
 
 template<typename T>

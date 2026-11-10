@@ -5,15 +5,15 @@
 
 // Binary .mesh format
 // Layout: Header, OffsetTable, MeshBlock[N], MaterialDescriptor[N], NodeDescriptor[N], PrimitiveRef[N], MeshEntry[N].
-// MeshBlock: vertices, indices, MeshletGroupsData, lod_groups, lod_nodes, lod_levels, lod_group_data_info.
-// MeshletGroupsData: all LOD groups data in sequence: [meshlets][vertices][8 bit indices], 4-byte align
+// MeshBlock: vertices, indices, meshlet pages data, lod_groups, lod_nodes, lod_levels, pages info.
+// Meshlet page: [meshlets][vertices][triangles], triangles of a meshlet: uint8 triangle count, uint16 size, meshopt_encodeMeshlet bytes
 
 namespace MeshFormat
 {
 
 static constexpr uint64_t MAGIC = 0x4853454D4E474E45ULL; // "ENGNMESH"
 static constexpr uint32_t VERSION = 1;
-static constexpr uint32_t MESHLET_VERSION = 1;
+static constexpr uint32_t MESHLET_VERSION = 2;
 static constexpr uint64_t ALIGNMENT = 16;
 
 inline uint32_t calcRuntimeVersion(const ModelImportSettings &import_settings)
@@ -101,8 +101,8 @@ struct MeshEntry
 	uint32_t meshlet_root_group_local_offset;
 	uint32_t attribute_flags;
 	float position_scale;
-	uint32_t padding;
-	uint64_t meshlet_groups_data_bytes; // all LOD groups data of the mesh (from MeshletFileView::groups_data)
+	uint32_t meshlet_page_count;
+	uint64_t meshlet_pages_data_bytes;
 };
 static_assert(sizeof(MeshEntry) == 96 && sizeof(MeshEntry) % 16 == 0);
 

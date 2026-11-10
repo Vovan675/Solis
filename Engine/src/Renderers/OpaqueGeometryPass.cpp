@@ -92,7 +92,7 @@ void OpaqueGeometryPass::render_meshlets(FrameGraph &fg, const RenderView &view,
 			builder.writeTexture(color.name);
 		builder.writeTexture(targets.depth.name);
 		builder.readBuffer(GFXRID_ID(VisibleMeshlets, view.view_id));
-		builder.writeBuffer(GFXRID(GroupResidencyBuffer));
+		builder.readBuffer(GFXRID(PageTableBuffer));
 		builder.readBuffer(GFXRID(CullViews));
 
 		if (render_meshlets_mesh_shaders)
@@ -134,12 +134,12 @@ void OpaqueGeometryPass::render_meshlets(FrameGraph &fg, const RenderView &view,
 			uint32_t view_id;
 			uint32_t cull_views_buffer_id;
 			uint32_t visible_meshlets_buffer_id;
-			uint32_t group_residency_buffer_id;
+			uint32_t page_table_buffer_id;
 		} constants;
 		constants.view_id = view.view_id;
 		constants.cull_views_buffer_id = resources.getReadBuffer(GFXRID(CullViews));
 		constants.visible_meshlets_buffer_id = resources.getReadBuffer(GFXRID_ID(VisibleMeshlets, view.view_id));
-		constants.group_residency_buffer_id = resources.getReadWriteBuffer(GFXRID(GroupResidencyBuffer));
+		constants.page_table_buffer_id = resources.getReadBuffer(GFXRID(PageTableBuffer));
 		gDynamicRHI->setConstantBufferData(0, &constants, sizeof(constants));
 
 		if (render_meshlets_mesh_shaders)
@@ -237,7 +237,7 @@ void OpaqueGeometryPass::render_traditional(FrameGraph &fg, const RenderView &vi
 			uint32_t view_id;
 			uint32_t cull_views_buffer_id;
 			uint32_t visible_meshlets_buffer_id;
-			uint32_t group_residency_buffer_id;
+			uint32_t page_table_buffer_id;
 		} constants = {};
 		constants.view_id = view.view_id;
 		constants.cull_views_buffer_id = resources.getReadBuffer(GFXRID(CullViews));

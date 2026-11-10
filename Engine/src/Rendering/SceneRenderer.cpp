@@ -126,7 +126,7 @@ void SceneRenderer::refresh_meshes(entt::entity entity_id, MeshRendererComponent
 		{
 			GlobalBufferCache::MeshGlobalOffsets mesh_global = GlobalBufferCache::getMeshOffsets(mesh->id);
 			mesh_gpu.meshlet_lod_groups_offset = mesh_global.lod_groups_offset;
-			mesh_gpu.group_residency_offset = geometry_streaming.getMeshResidencyOffset(mesh);
+			mesh_gpu.page_table_offset = geometry_streaming.getMeshPageTableOffset(mesh);
 			mesh_gpu.lod_nodes_offset = mesh_global.lod_nodes_offset;
 		}
 		mesh_gpu.root_group_offset = mesh->meshlet_data ? mesh->meshlet_data->meshlet_root_group_local_offset : 0;
@@ -380,7 +380,7 @@ void SceneRenderer::render_deferred(Camera *camera, FrameGraph &frame_graph)
 		}
 	}
 
-	geometry_streaming.addAgeFilterAndReadbackPasses(frame_graph);
+	geometry_streaming.addReadbackPass(frame_graph);
 
 	{
 		// Lighting
@@ -527,7 +527,6 @@ void SceneRenderer::update(Camera *camera)
 		old_lights_table.setArray(0, eastl::span<const LightGPU>(old_lights.data(), old_lights.size()));
 		light_index_mapping_table.setArray(0, eastl::span<const uint32_t>(light_index_mapping.data(), light_index_mapping.size()));
 
-		geometry_streaming.update();
 		if (Renderer::isDDGIEnabled())
 			ddgi_renderer.update();
 
@@ -586,6 +585,8 @@ void SceneRenderer::update(Camera *camera)
 
 		indirect_draw_calls_max_count = instances_table.getMaxUsedSlot();
 		scene->clearDirty();
+
+		geometry_streaming.update();
 
 		if (engine_ray_tracing && rt_scene)
 			rt_scene->update(camera);

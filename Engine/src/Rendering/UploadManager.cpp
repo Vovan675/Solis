@@ -4,30 +4,34 @@
 #include "FrameGraph/FrameGraph.h"
 #include "RHI/DynamicRHI.h"
 
-void UploadManager::init(uint32_t per_frame_ring_size)
+UploadManager::Block UploadManager::create_block(uint32_t size)
+{
+	BufferDescription desc;
+	desc.size = size;
+	desc.memory = BufferMemory::UPLOAD;
+	desc.stride = sizeof(uint32_t);
+
+	Block block;
+	block.buffer = gDynamicRHI->createBuffer(desc);
+	block.buffer->setDebugName("UploadManager Staging Block");
+	void *mapped;
+	block.buffer->map(&mapped);
+	block.mapped = (uint8_t *)mapped;
+	return block;
+}
+
+void UploadManager::init(uint32_t per_frame_block_size)
 {
 	PROFILE_CPU_FUNCTION();
-	ring_size = per_frame_ring_size;
-
+	block_size = per_frame_block_size;
 	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-	{
-		BufferDescription desc;
-		desc.size = ring_size;
-		desc.memory = BufferMemory::UPLOAD;
-		desc.stride = sizeof(uint32_t);
-		ring_buffers[i] = gDynamicRHI->createBuffer(desc);
-		ring_buffers[i]->setDebugName("UploadManager Ring Buffer");
-		ring_buffers[i]->map(&ring_mapped[i]);
-	}
+		frame_blocks[i].push_back(create_block(block_size));
 }
 
 void UploadManager::shutdown()
 {
 	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-	{
-		ring_buffers[i] = nullptr;
-		ring_mapped[i] = nullptr;
-	}
+		frame_blocks[i].clear();
 	pending_copies.clear();
 	pending_scatters.clear();
 }
@@ -35,24 +39,26 @@ void UploadManager::shutdown()
 void UploadManager::beginFrame()
 {
 	current_frame = gDynamicRHI->getFrame() % MAX_FRAMES_IN_FLIGHT;
-	ring_offset = 0;
+	frame_blocks[current_frame].resize(1);
+	block_offset = 0;
 	pending_copies.clear();
 	pending_scatters.clear();
 }
 
 UploadManager::StagedRange UploadManager::stage(uint32_t size)
 {
-	if (ring_offset + size > ring_size)
+	eastl::vector<Block> &blocks = frame_blocks[current_frame];
+	if (block_offset + size > blocks.back().buffer->getSize())
 	{
-		CORE_WARN("UploadManager::stage(): not enough frame ring buffer size");
-		return {};
+		blocks.push_back(create_block(eastl::max(size, block_size)));
+		block_offset = 0;
 	}
 
 	StagedRange range;
-	range.data = (uint8_t *)ring_mapped[current_frame] + ring_offset;
-	range.buffer = ring_buffers[current_frame];
-	range.offset = ring_offset;
-	ring_offset += size;
+	range.data = blocks.back().mapped + block_offset;
+	range.buffer = blocks.back().buffer;
+	range.offset = block_offset;
+	block_offset += size;
 	return range;
 }
 
@@ -67,14 +73,11 @@ void UploadManager::push_copy(GraphicsResourceName dst, uint32_t dst_offset, RHI
 	pending_copies.push_back(cmd);
 }
 
-bool UploadManager::queueUpload(GraphicsResourceName dst, uint32_t dst_offset, const void *data, uint32_t size)
+void UploadManager::queueUpload(GraphicsResourceName dst, uint32_t dst_offset, const void *data, uint32_t size)
 {
 	StagedRange range = stage(size);
-	if (!range.data)
-		return false;
 	memcpy(range.data, data, size);
 	push_copy(dst, dst_offset, range.buffer, range.offset, size);
-	return true;
 }
 
 void UploadManager::queueScatterFill(GraphicsResourceName dst, eastl::span<const uint32_t> indices,
@@ -84,8 +87,6 @@ void UploadManager::queueScatterFill(GraphicsResourceName dst, eastl::span<const
 		return;
 
 	StagedRange range = stage(element_stride);
-	if (!range.data)
-		return;
 	if (element_data)
 		memcpy(range.data, element_data, element_stride);
 	else

@@ -16,7 +16,7 @@ public:
 		uint32_t offset = 0;
 	};
 
-	void init(uint32_t per_frame_ring_size = 32 * 1024 * 1024);
+	void init(uint32_t per_frame_block_size = 32 * 1024 * 1024);
 	void shutdown();
 
 	void beginFrame();
@@ -24,17 +24,14 @@ public:
 	// Sub allocate from staging buffer
 	StagedRange stage(uint32_t size);
 
-	bool queueUpload(GraphicsResourceName dst, uint32_t dst_offset, const void *data, uint32_t size);
+	void queueUpload(GraphicsResourceName dst, uint32_t dst_offset, const void *data, uint32_t size);
 
 	template<typename FillFunc>
-	bool queueUpload(GraphicsResourceName dst, uint32_t dst_offset, uint32_t size, FillFunc fill)
+	void queueUpload(GraphicsResourceName dst, uint32_t dst_offset, uint32_t size, FillFunc fill)
 	{
 		StagedRange range = stage(size);
-		if (!range.data)
-			return false;
 		fill(range.data);
 		push_copy(dst, dst_offset, range.buffer, range.offset, size);
-		return true;
 	}
 
 	// Copies a single element value into many indices. element_data = nullptr for zero fill.
@@ -63,12 +60,19 @@ private:
 		eastl::vector<uint32_t> indices;
 	};
 
+	struct Block
+	{
+		RHIBufferRef buffer;
+		uint8_t *mapped = nullptr;
+	};
+
+	Block create_block(uint32_t size);
 	void push_copy(GraphicsResourceName dst, uint32_t dst_offset, RHIBuffer *src, uint32_t src_offset, uint32_t size);
 
-	RHIBufferRef ring_buffers[MAX_FRAMES_IN_FLIGHT];
-	void *ring_mapped[MAX_FRAMES_IN_FLIGHT] = {};
-	uint32_t ring_size = 0;
-	uint32_t ring_offset = 0;
+	// First block is reused, the rest are overflow
+	eastl::vector<Block> frame_blocks[MAX_FRAMES_IN_FLIGHT];
+	uint32_t block_size = 0;
+	uint32_t block_offset = 0;
 	int current_frame = 0;
 
 	eastl::vector<CopyCommand> pending_copies;

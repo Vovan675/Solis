@@ -95,8 +95,6 @@ public:
 		{
 			uint32_t size = count * sizeof(T);
 			UploadManager::StagedRange staged = gUploadManager->stage(size);
-			if (!staged.data)
-				return;
 			memcpy(staged.data, &mirror[start_slot], size);
 			cmd_list->copyBuffer(staged.buffer, gpu_buffer, staged.offset, start_slot * sizeof(T), size);
 		};

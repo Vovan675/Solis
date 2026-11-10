@@ -139,33 +139,24 @@ void DebugPanel::renderImGui(EditorContext &context)
 	{
 		auto toMB = [](uint64_t bytes) { return bytes / (1024.0f * 1024.0f); };
 
-		uint64_t geom_used = GlobalBufferCache::getMeshletGeometryBufferUsedSize();
-		uint64_t geom_max = GlobalBufferCache::getMeshletGeometryBufferMaxSize();
-		UI::text("Meshlet Geometry", "%.1f / %.0f MB", toMB(geom_used), toMB(geom_max));
-
-		UI::property("Usage", [&]
-		{
-			ImGui::ProgressBar(geom_max > 0 ? (float)geom_used / geom_max : 0.0f, ImVec2(-FLT_MIN, 0));
-			return false;
-		});
-
 		if (geometry_streaming)
 		{
 			const auto &s = geometry_streaming->getStats();
+			float pool_slots = eastl::max(s.pool_slots, 1u);
+			uint64_t root_capacity = GlobalBufferCache::getMeshletGeometryBufferMaxSize() - s.pool_slots * MESHLET_PAGE_SIZE;
 			ImGui::SeparatorText("Streaming");
-			float resident_fraction = s.total_groups > 0 ? (float)s.resident_groups / s.total_groups : 0.0f;
-			UI::text("Resident Groups", "%u / %u (%.1f%%)", s.resident_groups, s.total_groups, resident_fraction * 100.0f);
-			UI::text("Meshes Registered", "%u", s.registered_mesh_count);
-			UI::text("Pending Loads", "%u", s.pending_load_queue_size);
-			UI::text("Pending Frees", "%u", s.pending_frees_count);
+			UI::text("Root Pages", "%u meshes, %.1f / %.0f MB", s.registered_mesh_count, toMB(s.root_bytes), toMB(root_capacity));
+			UI::text("Pool", "%u / %u pages", s.used_slots, s.pool_slots);
+			UI::property("Pool Usage", [&]
+			{
+				ImGui::ProgressBar(s.used_slots / pool_slots, ImVec2(-FLT_MIN, 0));
+				return false;
+			});
+			UI::text("Needed Pages", "%u (%.0f%% of pool)", s.needed_pages, 100.0f * s.needed_pages / pool_slots);
 
-			ImGui::SeparatorText("This Frame");
-			UI::text("Loads", "%u (%.2f MB)", s.loads_last_frame, toMB(s.bytes_loaded_last_frame));
-			UI::text("Unloads", "%u (%.2f MB)", s.unloads_last_frame, toMB(s.bytes_unloaded_last_frame));
-
-			ImGui::SeparatorText("Cumulative");
-			UI::text("Loads", "%llu (%.1f MB)", s.total_loads, toMB(s.total_bytes_loaded));
-			UI::text("Unloads", "%llu (%.1f MB)", s.total_unloads, toMB(s.total_bytes_unloaded));
+			ImGui::SeparatorText("Last Readback");
+			UI::text("Missing Pages", "%u", s.missing_pages);
+			UI::text("Loaded Pages", "%u", s.loaded_pages);
 		}
 		UI::endSection();
 	}

@@ -4,107 +4,122 @@
 #include "Scene/Components.h"
 #include "GlobalBufferCache.h"
 #include "Assets/MeshFormat.h"
-#include "Rendering/GlobalPipeline.h"
 #include "Rendering/UploadManager.h"
 #include "FrameGraph/FrameGraph.h"
 #include "meshoptimizer.h"
 
 namespace
 {
-constexpr uint32_t EVICTION_AGE_THRESHOLD = 16;
-constexpr uint32_t MAX_GROUPS_PER_FRAME = 256;
-constexpr uint32_t STALE_REQUEST_FRAMES = 12;
+constexpr uint32_t POOL_PAGE_COUNT = 8192; // 128kb * 8193 = 1 GB
+constexpr uint32_t MAX_PAGES_PER_FRAME = 64;
+constexpr uint32_t INITIAL_PAGE_CAPACITY = 65536;
+constexpr uint32_t EMPTY_SLOT = UINT32_MAX;
 
 struct StreamRequestsBufferLayout
 {
 	uint32_t load_count;
-	uint32_t unload_count;
 	uint32_t load_indices[MAX_STREAMING_REQUESTS];
-	uint32_t unload_indices[MAX_UNLOAD_REQUESTS];
 };
 constexpr uint32_t STREAM_REQUESTS_BUFFER_SIZE = sizeof(StreamRequestsBufferLayout);
 
-RHIBufferRef create_storage_buffer(uint32_t size, BufferUsage usage_flags, BufferMemory memory, const char *debug_name, const void *initial_data = nullptr)
+RHIBufferRef create_storage_buffer(uint32_t size, BufferUsage usage_flags, BufferMemory memory, const char *debug_name)
 {
 	BufferDescription desc;
 	desc.size = size;
 	desc.usage_flags = usage_flags;
 	desc.memory = memory;
 	desc.stride = sizeof(uint32_t);
-	RHIBufferRef buffer = gDynamicRHI->createBuffer(desc, initial_data);
+	RHIBufferRef buffer = gDynamicRHI->createBuffer(desc);
 	buffer->setDebugName(debug_name);
 	return buffer;
 }
 
-// Writes [Meshlet headers | Vertices | Triangles] into dst.
-void fill_group_data(uint8_t *dst, Engine::Mesh *mesh, uint32_t local_group_id, const Engine::MeshletFileView &file_view)
+// Writes page [Meshlets | Vertices | Triangles] into dst
+void fill_page(uint8_t *dst, const Engine::MeshletGeometry::Page &page, const Engine::MeshletFileView &file_view)
 {
-	Engine::MeshletGeometry::LODGroupDataInfo &info = mesh->meshlet_data->meshlet_lod_group_data_info[local_group_id];
-	const LODGroup &group = mesh->meshlet_data->meshlet_lod_groups[local_group_id];
-	const uint8_t *src = file_view.groups_data + info.file_offset;
+	const uint8_t *src = file_view.pages_data + page.file_offset;
 
 	// Copy everything up to triangles indices
-	const Meshlet *meshlets = (const Meshlet *)src;
-	uint32_t triangles_offset = meshlets[0].triangle_offset;
-	memcpy(dst, src, triangles_offset);
+	memcpy(dst, src, page.getIndicesOffset());
 
-	// Decode every meshlet [uint16 size][meshopt_encodeMeshlet bytes] using meshopt_decodeMeshlet
-	const uint8_t *src_tris = src + triangles_offset;
-	uint8_t *dst_tris = dst + triangles_offset;
+	// Decode every meshlet [uint8 triangle count][uint16 size][meshopt_encodeMeshlet bytes] using meshopt_decodeMeshlet
+	const uint8_t *src_tris = src + page.getIndicesOffset();
+	uint8_t *dst_tris = dst + page.getIndicesOffset();
 	uint32_t decoded_tris[256 * 3 / 4]; // the decoder writes whole aligned dwords
-	for (uint32_t m = 0; m < group.meshlet_count; m++)
+	while (src_tris < src + page.getFileBytes())
 	{
+		uint8_t triangle_count = *src_tris;
+		src_tris += sizeof(triangle_count);
+
 		uint16_t encoded_bytes;
 		memcpy(&encoded_bytes, src_tris, sizeof(encoded_bytes));
 		src_tris += sizeof(encoded_bytes);
 
-		int result = meshopt_decodeMeshlet(nullptr, 0, 4, decoded_tris, meshlets[m].triangle_count, 3, src_tris, encoded_bytes);
+		int result = meshopt_decodeMeshlet(nullptr, 0, 4, decoded_tris, triangle_count, 3, src_tris, encoded_bytes);
 		ENGINE_ASSERT(result == 0);
 		src_tris += encoded_bytes;
 
-		uint32_t index_count = meshlets[m].triangle_count * 3;
+		uint32_t index_count = triangle_count * 3;
 		memcpy(dst_tris, decoded_tris, index_count);
 		dst_tris += index_count;
 	}
 }
+}
 
-uint32_t group_data_size(Engine::Mesh *mesh, uint32_t local_group_id)
+void GeometryStreaming::set_slot_page(uint32_t slot, uint32_t page)
 {
-	return mesh->meshlet_data->meshlet_lod_group_data_info[local_group_id].gpu_bytes;
-}
+	uint32_t old_page = slot_to_page[slot];
+	if (old_page != EMPTY_SLOT)
+	{
+		page_table[old_page] = MESHLET_PAGE_NOT_RESIDENT;
+		dirty_pages.push_back(old_page);
+		stats.used_slots--;
+	}
+
+	slot_to_page[slot] = page;
+	if (page != EMPTY_SLOT)
+	{
+		page_table[page] = pool_offset + slot * MESHLET_PAGE_SIZE;
+		dirty_pages.push_back(page);
+		stats.used_slots++;
+	}
 }
 
-uint32_t GeometryStreaming::upload_group_data(Engine::Mesh *mesh, uint32_t local_group_id, const Engine::MeshletFileView &file_view, RHICommandList *cmd_list)
+void GeometryStreaming::upload_page(uint32_t page, uint32_t slot)
 {
 	PROFILE_CPU_FUNCTION();
-	uint32_t data_size = group_data_size(mesh, local_group_id);
+	Engine::Mesh *mesh = flat_to_mesh[page];
+	const RegisteredMesh &reg = registered_meshes.at(mesh);
+	const Engine::MeshletGeometry::Page &page_info = mesh->meshlet_data->pages[page - reg.page_table_offset];
 
-	UploadManager::StagedRange range = gUploadManager->stage(data_size);
-	if (!range.data)
-		return UINT32_MAX;
+	UploadManager::StagedRange range = gUploadManager->stage(page_info.getGpuBytes());
+	fill_page(range.data, page_info, reg.file_view);
+	set_slot_page(slot, page);
+	GlobalBufferCache::writeMeshletGeometryData(page_table[page], range.buffer, range.offset, page_info.getGpuBytes(), gDynamicRHI->getCmdList());
+}
 
-	fill_group_data(range.data, mesh, local_group_id, file_view);
-
-	uint64_t offset = GlobalBufferCache::addMeshletGeometryData(range.buffer, range.offset, data_size, cmd_list);
-	if (offset != UINT64_MAX)
-		stats.addLoad(data_size);
-	return offset;
+void GeometryStreaming::create_page_buffers(uint32_t page_capacity)
+{
+	uint32_t size = page_capacity * sizeof(uint32_t);
+	page_table_gpu = create_storage_buffer(size, BufferUsage::SHADER_RESOURCE, BufferMemory::GPU, "Meshlet Page Table");
+	page_frames_gpu = create_storage_buffer(size, BufferUsage::UNORDERED_ACCESS, BufferMemory::GPU, "Meshlet Page Frames");
+	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+		page_frames_readback[i] = create_storage_buffer(size, BufferUsage::NONE, BufferMemory::READBACK, "Meshlet Page Frames Readback");
 }
 
 void GeometryStreaming::init()
 {
 	stream_requests_gpu = create_storage_buffer(STREAM_REQUESTS_BUFFER_SIZE, BufferUsage::UNORDERED_ACCESS, BufferMemory::GPU, "Streaming Requests GPU");
-	group_residency_gpu = create_storage_buffer(sizeof(GroupResidency), BufferUsage::UNORDERED_ACCESS, BufferMemory::GPU, "Meshlet Group Residency Buffer");
-	group_ages_gpu = create_storage_buffer(sizeof(uint32_t), BufferUsage::UNORDERED_ACCESS, BufferMemory::GPU, "Meshlet Group Ages Buffer");
-
 	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 		stream_requests_readback[i] = create_storage_buffer(STREAM_REQUESTS_BUFFER_SIZE, BufferUsage::NONE, BufferMemory::READBACK, "Streaming Requests Readback");
+
+	create_page_buffers(INITIAL_PAGE_CAPACITY);
 }
 
 // Free list range allocation
-uint32_t GeometryStreaming::allocate_residency_range(uint32_t count)
+uint32_t GeometryStreaming::allocate_page_table_range(uint32_t count)
 {
-	for (size_t i = 0; i < free_ranges.size(); i++)
+	for (int i = 0; i < free_ranges.size(); i++)
 	{
 		if (free_ranges[i].count < count)
 			continue;
@@ -120,8 +135,8 @@ uint32_t GeometryStreaming::allocate_residency_range(uint32_t count)
 		return offset;
 	}
 
-	uint32_t offset = group_residency.size();
-	group_residency.resize(offset + count);
+	uint32_t offset = page_table.size();
+	page_table.resize(offset + count);
 	flat_to_mesh.resize(offset + count, nullptr);
 	return offset;
 }
@@ -133,39 +148,39 @@ void GeometryStreaming::registerMesh(Engine::Mesh *mesh, const Engine::MeshletFi
 	if (registered_meshes.contains(mesh))
 		return;
 
-	const LODLevel &coarsest_lod = mesh->meshlet_data->meshlet_lod_levels.back();
-	uint32_t groups_count = mesh->meshlet_data->meshlet_lod_groups.size();
-	uint32_t base = allocate_residency_range(groups_count);
+	// Allocate full size for pool at first need
+	if (slot_to_page.empty())
+	{
+		pool_offset = GlobalBufferCache::allocateMeshletGeometryData(POOL_PAGE_COUNT * MESHLET_PAGE_SIZE);
+		slot_to_page.resize(POOL_PAGE_COUNT, EMPTY_SLOT);
+		stats.pool_slots = POOL_PAGE_COUNT;
+	}
+
+	const eastl::vector<Engine::MeshletGeometry::Page> &pages = mesh->meshlet_data->pages;
+	uint32_t base = allocate_page_table_range(pages.size());
 
 	RegisteredMesh &reg = registered_meshes[mesh];
 	reg.file_view = file_view;
-	reg.group_residency_offset = base;
+	reg.page_table_offset = base;
 
-	for (uint32_t i = 0; i < groups_count; i++)
+	for (int i = 0; i < pages.size(); i++)
 	{
 		flat_to_mesh[base + i] = mesh;
-
-		GroupResidency &group = group_residency[base + i];
-		if (i >= coarsest_lod.group_offset)
-		{
-			uint32_t data_size = group_data_size(mesh, i);
-			eastl::vector<uint8_t> scratch(data_size);
-			fill_group_data(scratch.data(), mesh, i, reg.file_view);
-
-			RHIBufferRef staging = create_storage_buffer(data_size, BufferUsage::NONE, BufferMemory::UPLOAD, "Group Upload Staging", scratch.data());
-
-			group.geometry_buffer_offset = GlobalBufferCache::addMeshletGeometryData(staging, 0, data_size, gDynamicRHI->getCmdList());
-			if (group.geometry_buffer_offset != UINT64_MAX)
-				stats.resident_groups++;
-		} else
-		{
-			group.geometry_buffer_offset = GROUP_NON_RESIDENT_ADDRESS_START;
-		}
+		page_table[base + i] = MESHLET_PAGE_NOT_RESIDENT;
 	}
 
+	// Root page
+	reg.root_page_bytes = Math::alignedSize(pages[0].getGpuBytes(), 4u);
+
+	eastl::vector<uint8_t> root_page(reg.root_page_bytes);
+	fill_page(root_page.data(), pages[0], file_view);
+	reg.root_page_offset = GlobalBufferCache::addMeshletGeometryData(root_page.data(), reg.root_page_bytes, gDynamicRHI->getCmdList()); // Allocate as separate geometry data (not inside streaming pool)
+
+	page_table[base] = reg.root_page_offset;
+
 	is_residency_dirty = true;
-	stats.registered_mesh_count = (uint32_t)registered_meshes.size();
-	stats.total_groups = (uint32_t)group_residency.size();
+	stats.registered_mesh_count = registered_meshes.size();
+	stats.root_bytes += reg.root_page_bytes;
 }
 
 void GeometryStreaming::unregisterMesh(Engine::Mesh *mesh)
@@ -174,238 +189,135 @@ void GeometryStreaming::unregisterMesh(Engine::Mesh *mesh)
 	if (it == registered_meshes.end())
 		return;
 
-	uint32_t base = it->second.group_residency_offset;
-	uint32_t groups_count = mesh->meshlet_data->meshlet_lod_groups.size();
+	uint32_t base = it->second.page_table_offset;
+	uint32_t pages_count = mesh->meshlet_data->pages.size();
 
-	for (uint32_t i = 0; i < groups_count; i++)
+	for (int i = 1; i < pages_count; i++)
 	{
 		uint32_t flat_index = base + i;
-		uint64_t offset = group_residency[flat_index].geometry_buffer_offset;
-		if (offset < GROUP_NON_RESIDENT_ADDRESS_START)
-		{
-			uint64_t data_size = group_data_size(mesh, i);
-			pending_frees.push_back({offset, data_size, gDynamicRHI->getFrame()});
-			stats.addUnload(data_size);
-		}
-		group_residency[flat_index].geometry_buffer_offset = GROUP_NON_RESIDENT_ADDRESS_START;
-		flat_to_mesh[flat_index] = nullptr;
-		load_queued.erase(flat_index);
+		if (page_table[flat_index] != MESHLET_PAGE_NOT_RESIDENT)
+			set_slot_page((page_table[flat_index] - pool_offset) / MESHLET_PAGE_SIZE, EMPTY_SLOT);
 	}
+	GlobalBufferCache::removeMeshletGeometryData(it->second.root_page_offset, it->second.root_page_bytes);
+	stats.root_bytes -= it->second.root_page_bytes;
+	eastl::fill(flat_to_mesh.begin() + base, flat_to_mesh.begin() + base + pages_count, nullptr);
 
-	free_ranges.push_back({base, groups_count});
+	free_ranges.push_back({base, pages_count});
 	registered_meshes.erase(it);
-	is_residency_dirty = true;
-	stats.registered_mesh_count = (uint32_t)registered_meshes.size();
+	stats.registered_mesh_count = registered_meshes.size();
 }
 
 void GeometryStreaming::update()
 {
 	PROFILE_CPU_FUNCTION();
-	stats.loads_last_frame = 0;
-	stats.unloads_last_frame = 0;
-	stats.bytes_loaded_last_frame = 0;
-	stats.bytes_unloaded_last_frame = 0;
-
-	if (gDynamicRHI->getFrame() >= MAX_FRAMES_IN_FLIGHT)
+	if (gDynamicRHI->getFrame() >= first_readback_frame)
 		process_gpu_requests(gDynamicRHI->getFrameInFlight());
 
-	process_deferred_frees();
-
-	eastl::vector<uint32_t> newly_loaded = upload_pending_groups(gDynamicRHI->getCmdList());
-
-	stats.pending_load_queue_size = load_queued.size();
-	stats.pending_frees_count = pending_frees.size();
-
-	uint32_t ages_size = group_residency.size() * sizeof(uint32_t);
-	bool ages_buffer_grew = false;
-	if (group_ages_gpu->getSize() < ages_size)
+	uint32_t page_capacity = page_table_gpu->getSize() / sizeof(uint32_t);
+	if (page_capacity < page_table.size())
 	{
-		group_ages_gpu = create_storage_buffer(ages_size, BufferUsage::UNORDERED_ACCESS, BufferMemory::GPU, "Meshlet Group Ages Buffer");
-		ages_buffer_grew = true;
+		while (page_capacity < page_table.size())
+			page_capacity *= 2;
+		create_page_buffers(page_capacity);
+		gDynamicRHI->getCmdList()->clearBuffer(page_frames_gpu, 0);
+		first_readback_frame = gDynamicRHI->getFrame() + MAX_FRAMES_IN_FLIGHT;
+		is_residency_dirty = true;
 	}
 
 	if (is_residency_dirty)
 	{
+		gUploadManager->queueUpload(GFXRID(PageTableBuffer), 0, page_table.data(), page_table.size() * sizeof(uint32_t));
 		is_residency_dirty = false;
-		uint32_t residency_size = group_residency.size() * sizeof(GroupResidency);
-		if (group_residency_gpu->getSize() < residency_size)
-			group_residency_gpu = create_storage_buffer(residency_size, BufferUsage::UNORDERED_ACCESS, BufferMemory::GPU, "Meshlet Group Residency Buffer");
-		gUploadManager->queueUpload(GFXRID(GroupResidencyBuffer), 0, group_residency.data(), residency_size);
-	}
-
-	if (ages_buffer_grew)
+	} else
 	{
-		gUploadManager->queueUpload(GFXRID(GroupAgesBuffer), 0, ages_size, [this, ages_size](uint8_t *dst)
-		{
-			uint32_t *ages = (uint32_t *)dst;
-			memset(ages, 0, ages_size);
-			for (auto &[mesh, reg] : registered_meshes)
-			{
-				const LODLevel &coarsest_lod = mesh->meshlet_data->meshlet_lod_levels.back();
-				for (uint32_t i = 0; i < coarsest_lod.group_count; i++)
-					ages[reg.group_residency_offset + coarsest_lod.group_offset + i] = PINNED_GROUP_AGE;
-			}
-		});
+		for (uint32_t page : dirty_pages)
+			gUploadManager->queueUpload(GFXRID(PageTableBuffer), page * sizeof(uint32_t), &page_table[page], sizeof(uint32_t));
 	}
+	dirty_pages.clear();
 
-	if (!newly_loaded.empty())
-		gUploadManager->queueScatterFill(GFXRID(GroupAgesBuffer), eastl::span<const uint32_t>(newly_loaded.data(), newly_loaded.size()), nullptr, sizeof(uint32_t));
-
-	uint32_t zeros[2] = {0, 0};
-	gUploadManager->queueUpload(GFXRID(StreamRequestsBuffer), 0, zeros, sizeof(zeros));
+	uint32_t zero = 0;
+	gUploadManager->queueUpload(GFXRID(StreamRequestsBuffer), 0, &zero, sizeof(zero));
 }
 
 void GeometryStreaming::importBuffers(FrameGraph &frame_graph)
 {
-	frame_graph.importBuffer(GFXRID(GroupResidencyBuffer), group_residency_gpu);
+	frame_graph.importBuffer(GFXRID(PageTableBuffer), page_table_gpu);
 	frame_graph.importBuffer(GFXRID(StreamRequestsBuffer), stream_requests_gpu);
-	frame_graph.importBuffer(GFXRID(GroupAgesBuffer), group_ages_gpu);
+	frame_graph.importBuffer(GFXRID(PageFramesBuffer), page_frames_gpu);
 }
 
-void GeometryStreaming::addAgeFilterAndReadbackPasses(FrameGraph &frame_graph)
+void GeometryStreaming::addReadbackPass(FrameGraph &frame_graph)
 {
-	if (!group_residency.empty())
-	{
-		uint32_t group_count = group_residency.size();
-
-		frame_graph.addCallbackPass("Streaming Age Filter",
-		[&](RenderPassBuilder &builder)
-		{
-			builder.writeBuffer(GFXRID(GroupResidencyBuffer));
-			builder.writeBuffer(GFXRID(GroupAgesBuffer));
-			builder.writeBuffer(GFXRID(StreamRequestsBuffer));
-		},
-		[this, group_count](const RenderPassResources &resources, RHICommandList *cmd_list)
-		{
-			struct
-			{
-				uint32_t group_count;
-				uint32_t age_threshold;
-				uint32_t group_residency_buffer_id;
-				uint32_t stream_requests_buffer_id;
-				uint32_t group_ages_buffer_id;
-			} constants;
-			constants.group_count = group_count;
-			constants.age_threshold = EVICTION_AGE_THRESHOLD;
-			constants.group_residency_buffer_id = resources.getReadWriteBuffer(GFXRID(GroupResidencyBuffer));
-			constants.stream_requests_buffer_id = resources.getReadWriteBuffer(GFXRID(StreamRequestsBuffer));
-			constants.group_ages_buffer_id = resources.getReadWriteBuffer(GFXRID(GroupAgesBuffer));
-
-			gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/gpu_driven/meshlet_stream_aging.hlsl", ShaderType::COMPUTE));
-			gGlobalPipeline->flushAndBind(cmd_list);
-			gDynamicRHI->setConstantBufferData(0, &constants, sizeof(constants));
-			cmd_list->dispatch(Math::divideRoundUp(group_count, 64), 1, 1);
-		});
-	}
+	RHIBufferRef requests = stream_requests_gpu;
+	RHIBufferRef requests_readback = stream_requests_readback[gDynamicRHI->getFrameInFlight()];
+	RHIBufferRef page_frames = page_frames_gpu;
+	RHIBufferRef frames_readback = page_frames_readback[gDynamicRHI->getFrameInFlight()];
 
 	frame_graph.addCallbackPass("Streaming Readback Copy",
 	[](RenderPassBuilder &builder) { builder.setSideEffect(true); },
-	[this](const RenderPassResources &, RHICommandList *cmd_list)
+	[=](const RenderPassResources &, RHICommandList *cmd_list)
 	{
-		cmd_list->copyBuffer(stream_requests_gpu, stream_requests_readback[gDynamicRHI->getFrameInFlight()], 0, 0, STREAM_REQUESTS_BUFFER_SIZE);
+		cmd_list->copyBuffer(requests, requests_readback, 0, 0, STREAM_REQUESTS_BUFFER_SIZE);
+		cmd_list->copyBuffer(page_frames, frames_readback, 0, 0, page_frames->getSize());
 	});
 }
 
 void GeometryStreaming::process_gpu_requests(int frame)
 {
 	PROFILE_CPU_FUNCTION();
-	void *mapped;
-	stream_requests_readback[frame]->map(&mapped);
-	const StreamRequestsBufferLayout *requests = (const StreamRequestsBufferLayout *)mapped;
 
+	void *mapped_requests;
+	stream_requests_readback[frame]->map(&mapped_requests);
+	const StreamRequestsBufferLayout *requests = (const StreamRequestsBufferLayout *)mapped_requests;
+
+	void *mapped_frames;
+	page_frames_readback[frame]->map(&mapped_frames);
+	const uint32_t *page_frames = (const uint32_t *)mapped_frames;
+
+	uint32_t readback_frame = gDynamicRHI->getFrame() - MAX_FRAMES_IN_FLIGHT;
+	auto get_slot_frame = [&](uint32_t slot) { return slot_to_page[slot] == EMPTY_SLOT ? 0u : page_frames[slot_to_page[slot]]; };
+
+	// Page is from coarase to detailed, sort it for loading parents first
+	eastl::vector<uint32_t> pages_to_load;
 	uint32_t load_count = eastl::min(requests->load_count, MAX_STREAMING_REQUESTS);
-	for (uint32_t i = 0; i < load_count; i++)
+	for (int i = 0; i < load_count; i++)
 	{
 		uint32_t flat_index = requests->load_indices[i];
-		if (flat_index >= flat_to_mesh.size())
-			continue;
-		if (group_residency[flat_index].geometry_buffer_offset < GROUP_NON_RESIDENT_ADDRESS_START)
-			continue;
-		load_queued[flat_index] = gDynamicRHI->getFrame();
+		if (flat_to_mesh[flat_index] && page_table[flat_index] == MESHLET_PAGE_NOT_RESIDENT)
+			pages_to_load.push_back(flat_index);
 	}
+	eastl::sort(pages_to_load.begin(), pages_to_load.end());
 
-	uint32_t unload_count = eastl::min(requests->unload_count, MAX_UNLOAD_REQUESTS);
-	for (uint32_t i = 0; i < unload_count; i++)
+	// Get slots that could be reuploaded
+	eastl::vector<uint32_t> slots;
+	for (int slot = 0; slot < slot_to_page.size(); slot++)
 	{
-		uint32_t flat_index = requests->unload_indices[i];
-		if (flat_index >= flat_to_mesh.size())
-			continue;
-		if (group_residency[flat_index].geometry_buffer_offset >= GROUP_NON_RESIDENT_ADDRESS_START)
-			continue;
-
-		Engine::Mesh *mesh = flat_to_mesh[flat_index];
-		if (!mesh)
-			continue;
-		uint32_t local_group_id = flat_index - registered_meshes[mesh].group_residency_offset;
-		const LODLevel &coarsest_lod = mesh->meshlet_data->meshlet_lod_levels.back();
-		if (local_group_id >= coarsest_lod.group_offset)
-			continue;
-
-		is_residency_dirty = true;
-		uint64_t freed_offset = group_residency[flat_index].geometry_buffer_offset;
-		uint64_t freed_size = group_data_size(mesh, local_group_id);
-		group_residency[flat_index].geometry_buffer_offset = GROUP_NON_RESIDENT_ADDRESS_START;
-		pending_frees.push_back({freed_offset, freed_size, gDynamicRHI->getFrame()});
-		stats.addUnload(freed_size);
+		// Use only slats that not touched at readback frame
+		if (get_slot_frame(slot) < readback_frame)
+			slots.push_back(slot);
 	}
+
+	// How much pages we can upload = min(how_much_pages_requested, how_much_slots_unused)
+	uint32_t upload_count = eastl::min(eastl::min((uint32_t)pages_to_load.size(), (uint32_t)slots.size()), MAX_PAGES_PER_FRAME);
+
+	// Sort first `upload_count` slots to most old used or more detailed
+	eastl::partial_sort(slots.begin(), slots.begin() + upload_count, slots.end(), [&](uint32_t slot_a, uint32_t slot_b)
+	{
+		uint32_t frame_a = get_slot_frame(slot_a);
+		uint32_t frame_b = get_slot_frame(slot_b);
+		if (frame_a != frame_b)
+			return frame_a < frame_b; // LRU eviction
+		else
+			return slot_to_page[slot_a] > slot_to_page[slot_b]; // Evict finer detailed
+	});
+
+	for (int i = 0; i < upload_count; i++)
+		upload_page(pages_to_load[i], slots[i]);
+
+	stats.needed_pages = slot_to_page.size() - slots.size() + pages_to_load.size();
+	stats.missing_pages = pages_to_load.size();
+	stats.loaded_pages = upload_count;
 
 	stream_requests_readback[frame]->unmap();
-}
-
-void GeometryStreaming::process_deferred_frees()
-{
-	PROFILE_CPU_FUNCTION();
-	auto expired = eastl::remove_if(pending_frees.begin(), pending_frees.end(), [&](const PendingFree &free)
-	{
-		if (gDynamicRHI->getFrame() - free.frame > MAX_FRAMES_IN_FLIGHT)
-		{
-			GlobalBufferCache::removeMeshletGeometryData(free.offset, free.size);
-			return true;
-		}
-		return false;
-	});
-	pending_frees.erase(expired, pending_frees.end());
-}
-
-eastl::vector<uint32_t> GeometryStreaming::upload_pending_groups(RHICommandList *cmd_list)
-{
-	PROFILE_CPU_FUNCTION();
-	eastl::vector<uint32_t> loaded;
-	uint32_t loaded_groups = 0;
-
-	for (auto it = load_queued.begin(); it != load_queued.end(); )
-	{
-		uint32_t flat_index = it->first;
-		if (gDynamicRHI->getFrame() - it->second > STALE_REQUEST_FRAMES ||
-			group_residency[flat_index].geometry_buffer_offset < GROUP_NON_RESIDENT_ADDRESS_START)
-		{
-			it = load_queued.erase(it);
-			continue;
-		}
-		if (loaded_groups >= MAX_GROUPS_PER_FRAME)
-		{
-			++it;
-			continue;
-		}
-
-		Engine::Mesh *mesh = flat_to_mesh[flat_index];
-		if (!mesh)
-		{
-			it = load_queued.erase(it);
-			continue;
-		}
-		RegisteredMesh &reg = registered_meshes[mesh];
-		uint32_t local_group_id = flat_index - reg.group_residency_offset;
-		uint32_t offset = upload_group_data(mesh, local_group_id, reg.file_view, cmd_list);
-		if (offset == UINT32_MAX)
-			break;
-
-		group_residency[flat_index].geometry_buffer_offset = offset;
-		loaded.push_back(flat_index);
-		is_residency_dirty = true;
-		loaded_groups++;
-		it = load_queued.erase(it);
-	}
-
-	return loaded;
+	page_frames_readback[frame]->unmap();
 }

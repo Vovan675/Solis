@@ -105,15 +105,10 @@ uint64_t GlobalBufferCache::GlobalBuffer::add(const void *cpu_data, uint64_t siz
 	return offset;
 }
 
-uint64_t GlobalBufferCache::GlobalBuffer::add(RHIBuffer *src_buffer, uint64_t buffer_offset, uint64_t buffer_size, RHICommandList *cmd_list)
+void GlobalBufferCache::GlobalBuffer::write(uint64_t offset, RHIBuffer *src_buffer, uint64_t src_offset, uint64_t size, RHICommandList *cmd_list)
 {
-	uint64_t offset = allocate_range(buffer_size, cmd_list);
-	if (offset == UINT64_MAX)
-		return UINT64_MAX;
-
-	cmd_list->copyBuffer(src_buffer, buffer, buffer_offset, offset, buffer_size);
+	cmd_list->copyBuffer(src_buffer, buffer, src_offset, offset, size);
 	buffer->transitState(cmd_list, ResourceState::SHADER_RESOURCE);
-	return offset;
 }
 
 void GlobalBufferCache::GlobalBuffer::remove(uint64_t offset, uint64_t size)
@@ -139,14 +134,6 @@ void GlobalBufferCache::GlobalBuffer::remove(uint64_t offset, uint64_t size)
 			free_ranges.erase(it);
 		}
 	}
-}
-
-uint64_t GlobalBufferCache::GlobalBuffer::getUsedSize() const
-{
-	uint64_t free_bytes = 0;
-	for (const FreeRange &range : free_ranges)
-		free_bytes += range.size;
-	return max_size - free_bytes;
 }
 
 void GlobalBufferCache::shutdown()
@@ -183,14 +170,30 @@ uint64_t GlobalBufferCache::addLodNodeData(LodNode *data, uint32_t count, RHICom
 	return byte_offset == UINT64_MAX ? UINT64_MAX : byte_offset / sizeof(LodNode);
 }
 
-uint64_t GlobalBufferCache::addMeshletGeometryData(RHIBuffer *source, uint64_t source_offset, uint32_t size, RHICommandList *cmd_list)
+void GlobalBufferCache::init_geometry()
 {
 	if (!geometry.isInitialized())
 		geometry.init(1024ull * 1024 * 1024 * 1.5, BufferUsage::VERTEX | BufferUsage::INDEX | BufferUsage::SHADER_RESOURCE, "Global Meshlet Geometry", false);
-	return geometry.add(source, source_offset, size, cmd_list);
+}
+
+uint64_t GlobalBufferCache::addMeshletGeometryData(const void *data, uint32_t size, RHICommandList *cmd_list)
+{
+	init_geometry();
+	return geometry.add(data, size, cmd_list);
 }
 
 void GlobalBufferCache::removeMeshletGeometryData(uint64_t offset, uint64_t size)
 {
 	geometry.remove(offset, size);
+}
+
+uint64_t GlobalBufferCache::allocateMeshletGeometryData(uint64_t size)
+{
+	init_geometry();
+	return geometry.allocate(size);
+}
+
+void GlobalBufferCache::writeMeshletGeometryData(uint64_t offset, RHIBuffer *source, uint64_t source_offset, uint32_t size, RHICommandList *cmd_list)
+{
+	geometry.write(offset, source, source_offset, size, cmd_list);
 }

@@ -8,8 +8,8 @@ namespace Engine
 {
 struct MeshletFileView
 {
-	const uint8_t *groups_data = nullptr; // MeshletFileView::groups_data like data from mapped file 
-	bool isValid() const { return groups_data != nullptr; }
+	const uint8_t *pages_data = nullptr; // MeshletFileView::pages_data like data from mapped file 
+	bool isValid() const { return pages_data != nullptr; }
 };
 
 struct Vertex
@@ -41,16 +41,25 @@ struct IndexedGeometry
 
 struct MeshletGeometry
 {
-	struct LODGroupDataInfo
+	// Sections: [meshlets][vertices][1 byte indices], the indices are meshopt encoded in the file
+	struct Page
 	{
-		uint64_t file_offset; // in bytes, from MeshletFileView::groups_data
-		uint32_t gpu_bytes; // [Meshlets][vertices][1 byte indices] size
+		uint64_t file_offset; // in bytes, from MeshletFileView::pages_data
+		uint32_t meshlets_bytes;
+		uint32_t vertices_bytes;
+		uint32_t encoded_triangles_bytes; // triangles of a meshlet: uint8 triangle count, uint16 size, meshopt_encodeMeshlet bytes
+		uint32_t index_count;
+
+		uint32_t getVerticesOffset() const { return meshlets_bytes; }
+		uint32_t getIndicesOffset() const { return meshlets_bytes + vertices_bytes; }
+		uint32_t getFileBytes() const { return getIndicesOffset() + encoded_triangles_bytes; }
+		uint32_t getGpuBytes() const { return getIndicesOffset() + index_count; }
 	};
 
 	eastl::vector<LODGroup> meshlet_lod_groups;
 	eastl::vector<LodNode> lod_nodes;
 	eastl::vector<LODLevel> meshlet_lod_levels;
-	eastl::vector<LODGroupDataInfo> meshlet_lod_group_data_info;
+	eastl::vector<Page> pages; // from coarsest to detailed. First page is always resident
 	uint32_t meshlet_root_group_local_offset = 0;
 };
 

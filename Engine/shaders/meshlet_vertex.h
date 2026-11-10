@@ -8,13 +8,13 @@ cbuffer GeometryPassConstants : register(b0)
 	uint view_id;
 	uint cull_views_buffer_id;
 	uint visible_meshlets_buffer_id;
-	uint group_residency_buffer_id;
+	uint page_table_buffer_id;
 };
 
 static StructuredBuffer<CullView> cull_views = ResourceDescriptorHeap[cull_views_buffer_id];
 static StructuredBuffer<MeshletCandidate> visible_meshlets_buffer = ResourceDescriptorHeap[visible_meshlets_buffer_id];
 static ByteAddressBuffer meshlets_geometry_buffer = ResourceDescriptorHeap[global_meshlets_geometry_buffer_id];
-static RWByteAddressBuffer group_residency_buffer = ResourceDescriptorHeap[group_residency_buffer_id];
+static ByteAddressBuffer page_table = ResourceDescriptorHeap[page_table_buffer_id];
 
 struct MeshletDraw
 {
@@ -22,7 +22,8 @@ struct MeshletDraw
 	Instance instance;
 	Meshlet meshlet;
 	Mesh mesh;
-	uint geometry_base;
+	uint vertices_address;
+	uint triangles_address;
 };
 
 MeshletDraw fetchMeshletDraw(uint meshlet_candidate_id)
@@ -30,12 +31,10 @@ MeshletDraw fetchMeshletDraw(uint meshlet_candidate_id)
 	MeshletDraw draw;
 	draw.candidate = visible_meshlets_buffer[meshlet_candidate_id];
 	draw.instance = getInstance(draw.candidate.instance_id);
-	draw.meshlet = getMeshlet(draw.candidate.meshlet_id, group_residency_buffer_id);
+	draw.meshlet = getMeshlet(draw.candidate.meshlet_address);
 	draw.mesh = getMesh(draw.instance.mesh_id);
-
-	GroupResidency residency = group_residency_buffer.Load<GroupResidency>(
-		sizeof(GroupResidency) * (draw.mesh.group_residency_offset + draw.meshlet.group_id));
-	draw.geometry_base = uint(residency.geometry_buffer_offset);
+	draw.vertices_address = getPageAddress(page_table, draw.mesh.page_table_offset, draw.meshlet.vertex_location);
+	draw.triangles_address = getPageAddress(page_table, draw.mesh.page_table_offset, draw.meshlet.triangle_location);
 	return draw;
 }
 
@@ -82,7 +81,7 @@ uint3 loadMeshletPositionOffset(uint positions_offset, uint bit_offset, uint3 po
 
 uint3 loadMeshletTriangle(uint triangle_id, MeshletDraw draw)
 {
-	uint address = draw.geometry_base + draw.meshlet.triangle_offset + triangle_id * 3;
+	uint address = draw.triangles_address + triangle_id * 3;
 	// every index is 1 byte (8 bits), three indices may happen in one uint or in two
 	uint low = meshlets_geometry_buffer.Load(address & ~3u); // '& ~3u' is fast way of '/ 4 * 4'
 	uint high = meshlets_geometry_buffer.Load((address + 2) & ~3u); // read where the last index is
@@ -98,7 +97,7 @@ uint3 loadMeshletTriangle(uint triangle_id, MeshletDraw draw)
 
 uint loadMeshletIndex(uint index_id, MeshletDraw draw)
 {
-	uint address = draw.geometry_base + draw.meshlet.triangle_offset + index_id;
+	uint address = draw.triangles_address + index_id;
 	uint word = meshlets_geometry_buffer.Load(address & ~3u);
 	uint byte_shift = (address & 3) * 8;
 	return lowBits(word >> byte_shift, 8);
@@ -118,7 +117,7 @@ RawVertexData loadMeshletVertex(uint local_vertex_id, MeshletDraw draw)
 	uint3 position_bits = draw.meshlet.getPositionBits();
 	uint vertex_bits = position_bits.x + position_bits.y + position_bits.z;
 
-	uint positions_offset = draw.geometry_base + draw.meshlet.vertex_offset;
+	uint positions_offset = draw.vertices_address;
 	uint positions_size = divideRoundUp(draw.meshlet.getVertexCount() * vertex_bits, 32) * 4;
 	uint attributes_offset = positions_offset + positions_size + local_vertex_id * attribute_stride;
 

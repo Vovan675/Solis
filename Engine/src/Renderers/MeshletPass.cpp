@@ -25,7 +25,7 @@ struct TraversalItem
 struct MeshletCandidate
 {
 	uint32_t instance_id;
-	uint32_t meshlet_id;
+	uint32_t meshlet_address;
 };
 }
 
@@ -208,9 +208,9 @@ void MeshletPass::add_traversal_pass(FrameGraph &fg, const MeshletCullDesc &desc
 		builder.writeBuffer(GFXRID_ID(VisibleMeshletsCount, view_id));
 		builder.writeBuffer(GFXRID_ID(OccludedMeshlets, view_id));
 		builder.writeBuffer(GFXRID_ID(OccludedMeshletsCount, view_id));
-		builder.writeBuffer(GFXRID(GroupResidencyBuffer));
+		builder.readBuffer(GFXRID(PageTableBuffer));
 		builder.writeBuffer(GFXRID(StreamRequestsBuffer));
-		builder.writeBuffer(GFXRID(GroupAgesBuffer));
+		builder.writeBuffer(GFXRID(PageFramesBuffer));
 		builder.readBuffer(GFXRID(CullViews));
 
 		if (!render_meshlets_mesh_shaders)
@@ -253,9 +253,9 @@ void MeshletPass::add_traversal_pass(FrameGraph &fg, const MeshletCullDesc &desc
 			uint32_t hiz_width;
 			uint32_t hiz_height;
 			uint32_t hiz_mips;
-			uint32_t group_residency_buffer_id;
+			uint32_t page_table_buffer_id;
 			uint32_t stream_requests_buffer_id;
-			uint32_t group_ages_buffer_id;
+			uint32_t page_frames_buffer_id;
 		} constants = {};
 		constants.view_id = view_id;
 		constants.cull_views_buffer_id = resources.getReadBuffer(GFXRID(CullViews));
@@ -283,9 +283,9 @@ void MeshletPass::add_traversal_pass(FrameGraph &fg, const MeshletCullDesc &desc
 			constants.hiz_mips = hiz->getMipLevels();
 		}
 
-		constants.group_residency_buffer_id = resources.getReadWriteBuffer(GFXRID(GroupResidencyBuffer));
+		constants.page_table_buffer_id = resources.getReadBuffer(GFXRID(PageTableBuffer));
 		constants.stream_requests_buffer_id = resources.getReadWriteBuffer(GFXRID(StreamRequestsBuffer));
-		constants.group_ages_buffer_id = resources.getReadWriteBuffer(GFXRID(GroupAgesBuffer));
+		constants.page_frames_buffer_id = resources.getReadWriteBuffer(GFXRID(PageFramesBuffer));
 		gDynamicRHI->setConstantBufferData(0, &constants, sizeof(constants));
 		cmd_list->dispatch(PERSISTENT_THREAD_GROUPS, 1, 1);
 	});
@@ -301,7 +301,6 @@ void MeshletPass::add_meshlet_fix_pass(FrameGraph &fg, const MeshletCullDesc &de
 		builder.writeBuffer(GFXRID_ID(VisibleMeshletsCount, view_id));
 		builder.writeBuffer(GFXRID_ID(OccludedMeshlets, view_id));
 		builder.writeBuffer(GFXRID_ID(OccludedMeshletsCount, view_id));
-		builder.writeBuffer(GFXRID(GroupResidencyBuffer));
 		if (!render_meshlets_mesh_shaders)
 		{
 			builder.writeBuffer(GFXRID_ID(MeshletDrawArgs, view_id));
@@ -338,7 +337,6 @@ void MeshletPass::add_meshlet_fix_pass(FrameGraph &fg, const MeshletCullDesc &de
 			uint32_t hiz_width;
 			uint32_t hiz_height;
 			uint32_t hiz_mips;
-			uint32_t group_residency_buffer_id;
 		} constants = {};
 		constants.view_id = view_id;
 		constants.cull_views_buffer_id = resources.getReadBuffer(GFXRID(CullViews));
@@ -360,7 +358,6 @@ void MeshletPass::add_meshlet_fix_pass(FrameGraph &fg, const MeshletCullDesc &de
 		constants.hiz_height = hiz->getHeight();
 		constants.hiz_mips = hiz->getMipLevels();
 
-		constants.group_residency_buffer_id = resources.getReadWriteBuffer(GFXRID(GroupResidencyBuffer));
 		gDynamicRHI->setConstantBufferData(0, &constants, sizeof(constants));
 
 		cmd_list->dispatchIndirect(resources.getBuffer(GFXRID_ID(MeshletFixDispatchArgs, view_id)), 1);

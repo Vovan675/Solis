@@ -24,9 +24,9 @@
 #define OccludedInstances
 #define OccludedInstancesCount
 
-#define GroupResidencyBuffer
+#define PageTableBuffer
 #define StreamRequestsBuffer
-#define GroupAgesBuffer
+#define PageFramesBuffer
 
 #define DispatchMeshIndirectArgs
 #define MeshletFixDispatchArgs

@@ -18,8 +18,6 @@ cbuffer Uniforms : register(b0)
 	uint hiz_width;
 	uint hiz_height;
 	uint hiz_mips;
-
-	uint group_residency_buffer_id;
 };
 
 static StructuredBuffer<CullView> cull_views = ResourceDescriptorHeap[cull_views_buffer_id];
@@ -46,7 +44,7 @@ void CSMain(uint3 dispatch_id : SV_DispatchThreadID)
 	MeshletCandidate candidate = occluded_meshlets[id];
 	Instance instance = getInstance(candidate.instance_id);
 
-	Meshlet meshlet = getMeshlet(candidate.meshlet_id, group_residency_buffer_id);
+	Meshlet meshlet = getMeshlet(candidate.meshlet_address);
 
 	HizParams hiz = { hiz_tex_id, hiz_width, hiz_height, hiz_mips };
 	FrustumCullData cull;

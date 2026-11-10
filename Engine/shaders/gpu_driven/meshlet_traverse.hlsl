@@ -24,9 +24,9 @@ cbuffer Uniforms : register(b0)
 	uint hiz_height;
 	uint hiz_mips;
 
-	uint group_residency_buffer_id;
+	uint page_table_buffer_id;
 	uint stream_requests_buffer_id;
-	uint group_ages_buffer_id;
+	uint page_frames_buffer_id;
 };
 
 static StructuredBuffer<CullView> cull_views = ResourceDescriptorHeap[cull_views_buffer_id];
@@ -43,15 +43,33 @@ static RWByteAddressBuffer occluded_meshlets_count = ResourceDescriptorHeap[occl
 	static RWByteAddressBuffer indirect_instances = ResourceDescriptorHeap[draw_calls_indirect_instances_buffer_id];
 #endif
 
-static RWByteAddressBuffer group_residency = ResourceDescriptorHeap[group_residency_buffer_id];
+static ByteAddressBuffer page_table = ResourceDescriptorHeap[page_table_buffer_id];
 static RWByteAddressBuffer stream_requests = ResourceDescriptorHeap[stream_requests_buffer_id];
-DECLARE_COHERENT_RW_BYTE_ADDRESS_BUFFER(group_ages, group_ages_buffer_id)
+static RWByteAddressBuffer page_frames = ResourceDescriptorHeap[page_frames_buffer_id];
 
-void resetAge(uint group_id, uint group_residency_offset)
+bool requestGroupPages(uint page_table_offset, LODGroup group)
 {
-	uint slot = (group_residency_offset + group_id) * 4;
-	if (group_ages.Load(slot) != PINNED_GROUP_AGE)
-		group_ages.Store(slot, 0);
+	bool is_resident = true;
+	uint first_page = page_table_offset + unpackLocationPage(group.meshlets_location);
+	for (uint page = first_page; page < first_page + group.page_count; page++)
+	{
+		uint last_frame = page_frames.Load(page * 4);
+		if (last_frame != frame)
+			page_frames.InterlockedMax(page * 4, frame, last_frame); // mark page as used this frame (for LRU eviction)
+		if (page_table.Load(page * 4) != MESHLET_PAGE_NOT_RESIDENT)
+			continue;
+
+		// Add stream request for non resident page (deduplicate by frame)
+		is_resident = false;
+		if (last_frame != frame)
+		{
+			uint slot;
+			stream_requests.InterlockedAdd(0, 1, slot);
+			if (slot < MAX_STREAMING_REQUESTS)
+				stream_requests.Store(4 + slot * 4, page);
+		}
+	}
+	return is_resident;
 }
 
 // Processes one child.
@@ -66,7 +84,6 @@ void processSubTask(TraversalItem item, uint sub_id, bool is_valid)
 	Instance instance = getInstance(item.instance_id);
 	Mesh mesh = getMesh(instance.mesh_id);
 
-	uint residency_base = mesh.group_residency_offset;
 	float scale = getScaleFromTransform(instance.world_transform);
 
 	// NODE PATH - per child BVH node: descend further, enqueue as LOD group, or fire a streaming request.
@@ -87,28 +104,7 @@ void processSubTask(TraversalItem item, uint sub_id, bool is_valid)
 
 		// Check if meshlet group is resident, if not dont render it and make streaming request
 		if (enqueue_group)
-		{
-			uint residency_slot = residency_base + child_node.group_index;
-			if (!isResident(group_residency, residency_base, child_node.group_index))
-			{
-				// Per frame deduplicate, non resident groups dont use this slot anyway
-				uint previous_frame;
-				group_ages.InterlockedMax(residency_slot * 4, frame, previous_frame);
-				bool first_request_this_frame = (previous_frame != frame);
-
-				// Append stream_request
-				uint request_count = WaveActiveCountBits(first_request_this_frame);
-				uint request_slot = 0;
-				if (WaveIsFirstLane())
-					stream_requests.InterlockedAdd(0, request_count, request_slot);
-				request_slot = WaveReadLaneFirst(request_slot) + WavePrefixCountBits(first_request_this_frame);
-
-				if (first_request_this_frame && request_slot < MAX_STREAMING_REQUESTS)
-					stream_requests.Store(8 + request_slot * 4, residency_slot);
-
-				enqueue_group = false;
-			}
-		}
+			enqueue_group = requestGroupPages(mesh.page_table_offset, getLODGroup(mesh.meshlet_lod_groups_offset, child_node.group_index));
 
 		uint node_count = WaveActiveCountBits(descend_node);
 		uint group_count = WaveActiveCountBits(enqueue_group);
@@ -152,12 +148,9 @@ void processSubTask(TraversalItem item, uint sub_id, bool is_valid)
 	// GROUP PATH - children are meshlets
 	else
 	{
-		uint group_id = item.getGroupIndex();
-		uint meshlet_id = packMeshletId(residency_base + group_id, sub_id);
-
-		Meshlet meshlet = getMeshlet(meshlet_id, group_residency_buffer_id);
-
-		resetAge(group_id, residency_base);
+		LODGroup group = getLODGroup(mesh.meshlet_lod_groups_offset, item.getGroupIndex());
+		uint meshlet_address = getPageAddress(page_table, mesh.page_table_offset, group.meshlets_location) + sub_id * sizeof(Meshlet);
+		Meshlet meshlet = getMeshlet(meshlet_address);
 
 		HizParams hiz = { hiz_tex_id, hiz_width, hiz_height, hiz_mips };
 		FrustumCullData cull;
@@ -168,14 +161,18 @@ void processSubTask(TraversalItem item, uint sub_id, bool is_valid)
 		// 1) The finer (refined) group would be wasteful - going deeper isn't worth it, cut lands here.
 		// 2) The finer group doesn't exist (finest LOD) or isn't resident - force render, no alternative.
 		bool need_this_level = true; // If have no finer group or its not resident then render it
-		if (!meshlet.isMostDetailed() && isResident(group_residency, residency_base, meshlet.refined_group_id))
-			need_this_level = !isCoarserThanNeeded(meshlet.refined_group_id, mesh.meshlet_lod_groups_offset, instance.world_transform, scale);
+		if (!meshlet.isMostDetailed())
+		{
+			LODGroup refined_group = getLODGroup(mesh.meshlet_lod_groups_offset, meshlet.refined_group_id);
+			if (isResident(page_table, mesh.page_table_offset, refined_group))
+				need_this_level = !isCoarserThanNeeded(refined_group.center, refined_group.radius, refined_group.error, instance.world_transform, scale);
+		}
 
 		bool selected = is_visible && need_this_level;
 
 		MeshletCandidate candidate;
 		candidate.instance_id = item.instance_id;
-		candidate.meshlet_id = meshlet_id;
+		candidate.meshlet_address = meshlet_address;
 
 		if (selected && !is_occluded)
 		{

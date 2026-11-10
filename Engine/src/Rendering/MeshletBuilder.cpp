@@ -78,38 +78,189 @@ static void write_positions(uint8_t *dst, const glm::ivec3 *quantized_positions,
 		*dst = (uint8_t)pending;
 }
 
-static void encode_groups(Engine::Mesh *mesh, const eastl::vector<Engine::Vertex> &vertices, eastl::vector<Meshlet> &meshlets, const eastl::vector<uint32_t> &meshlet_vertices, const eastl::vector<uint8_t> &meshlet_triangles, eastl::vector<uint8_t> &groups_data)
+// Writes meshlet groups into pages with sections [meshlets][vertices][triangles], triangles are meshopt encoded
+class MeshletPageWriter
+{
+public:
+	MeshletPageWriter(Engine::MeshletGeometry &geometry, eastl::vector<Meshlet> &meshlets, eastl::vector<uint8_t> &pages_data)
+		: geometry(geometry), meshlets(meshlets), pages_data(pages_data)
+	{
+	}
+
+	void beginMeshletGroup(LODGroup &group, uint32_t first_meshlet)
+	{
+		uint32_t meshlets_bytes = group.meshlet_count * sizeof(Meshlet);
+		group_meshlets_page = ensure_page_space(meshlets_bytes);
+
+		// Meshlets section
+		group.meshlets_location = packPageLocation(group_meshlets_page, page.meshlets_bytes);
+		page.meshlets_bytes += meshlets_bytes;
+		pending_meshlets.push_back({group.meshlets_location, first_meshlet, group.meshlet_count});
+	}
+
+	// Places the meshlet into the current page, starts a new page when it does not fit
+	void addMeshlet(uint32_t meshlet_id, eastl::span<const uint8_t> vertices, eastl::span<const uint8_t> encoded_triangles)
+	{
+		Meshlet &meshlet = meshlets[meshlet_id];
+		uint32_t index_count = meshlet.triangle_count * 3;
+		uint32_t page_id = ensure_page_space(vertices.size() + index_count); // used just index_count because we care about end GPU format
+		page_meshlet_ids.push_back(meshlet_id);
+
+		// Locations are from section start there. On page flush offset of section added, so it would be full offset in page
+		// Vertices section
+		meshlet.vertex_location = packPageLocation(page_id, page.vertices_bytes);
+		page_vertices.insert(page_vertices.end(), vertices.begin(), vertices.end());
+		page.vertices_bytes = page_vertices.size();
+
+		// Triangles section
+		meshlet.triangle_location = packPageLocation(page_id, page.index_count);
+		page.index_count += index_count;
+
+		uint16_t encoded_bytes = (uint16_t)encoded_triangles.size();
+		page_triangles.push_back(meshlet.triangle_count);
+		size_t triangles_start = page_triangles.size();
+		page_triangles.resize(triangles_start + sizeof(encoded_bytes) + encoded_bytes);
+		memcpy(page_triangles.data() + triangles_start, &encoded_bytes, sizeof(encoded_bytes));
+		memcpy(page_triangles.data() + triangles_start + sizeof(encoded_bytes), encoded_triangles.data(), encoded_bytes);
+		page.encoded_triangles_bytes = page_triangles.size();
+	}
+
+	void endMeshletGroup(LODGroup &group)
+	{
+		group.page_count = geometry.pages.size() - group_meshlets_page + 1;
+	}
+
+	void finish()
+	{
+		flush_page();
+
+		// Meshlets sections
+		for (const PendingMeshlets &pending : pending_meshlets)
+		{
+			const Engine::MeshletGeometry::Page &meshlets_page = geometry.pages[unpackLocationPage(pending.meshlets_location)];
+			memcpy(pages_data.data() + meshlets_page.file_offset + unpackLocationOffset(pending.meshlets_location), &meshlets[pending.first_meshlet], pending.meshlet_count * sizeof(Meshlet));
+		}
+	}
+
+private:
+
+	// Meshlets of a group, written in finish when all their locations are known
+	struct PendingMeshlets
+	{
+		uint32_t meshlets_location;
+		uint32_t first_meshlet;
+		uint32_t meshlet_count;
+	};
+
+	// Returns the page for the next GPU bytes
+	uint32_t ensure_page_space(uint32_t gpu_bytes)
+	{
+		uint32_t capacity = geometry.pages.empty() ? ROOT_PAGE_SIZE : MESHLET_PAGE_SIZE;
+		if (page.getGpuBytes() + gpu_bytes > capacity)
+			flush_page();
+		return (uint32_t)geometry.pages.size();
+	}
+
+	// End current page
+	void flush_page()
+	{
+		page.file_offset = pages_data.size();
+		ENGINE_ASSERT(page.getGpuBytes() <= MESHLET_PAGE_SIZE);
+
+		for (uint32_t meshlet_id : page_meshlet_ids)
+		{
+			meshlets[meshlet_id].vertex_location += page.getVerticesOffset();
+			meshlets[meshlet_id].triangle_location += page.getIndicesOffset();
+		}
+
+		// Meshlets section, written in finish
+		pages_data.resize(pages_data.size() + page.meshlets_bytes);
+
+		// Vertices section
+		pages_data.insert(pages_data.end(), page_vertices.begin(), page_vertices.end());
+
+		// Triangles section
+		pages_data.insert(pages_data.end(), page_triangles.begin(), page_triangles.end());
+
+		geometry.pages.push_back(page);
+
+		page = {};
+		page_meshlet_ids.clear();
+		page_vertices.clear();
+		page_triangles.clear();
+	}
+
+	Engine::MeshletGeometry &geometry;
+	eastl::vector<Meshlet> &meshlets;
+	eastl::vector<uint8_t> &pages_data;
+
+	// Current page
+	Engine::MeshletGeometry::Page page{};
+	eastl::vector<uint32_t> page_meshlet_ids;
+
+	// Current page sections
+	eastl::vector<uint8_t> page_vertices;
+	eastl::vector<uint8_t> page_triangles; // triangles of a meshlet: uint8 triangle count, uint16 size, meshopt_encodeMeshlet bytes
+
+	// Current group
+	uint32_t group_meshlets_page = 0;
+
+	eastl::vector<PendingMeshlets> pending_meshlets;
+};
+
+static void encode_pages(Engine::Mesh *mesh, const eastl::vector<Engine::Vertex> &vertices, eastl::vector<Meshlet> &meshlets, const eastl::vector<uint32_t> &meshlet_vertices, const eastl::vector<uint8_t> &meshlet_triangles, eastl::vector<uint8_t> &pages_data)
 {
 	Engine::MeshletGeometry &geometry = *mesh->meshlet_data;
 	const uint32_t attributes_bytes = MeshFormat::vertexAttributesBytes(mesh->attribute_flags);
 	const float inverse_position_scale = 1.0f / mesh->position_scale;
-	const uint32_t *vertex_ids = meshlet_vertices.data();
-	const uint8_t *triangles = meshlet_triangles.data();
 
 	glm::ivec3 quantized_positions[256];
+	eastl::vector<uint8_t> packed_vertices;
 	eastl::vector<uint8_t> encoded_triangles(meshopt_encodeMeshletBound(0, 256));
 
 	// Worst case scenario allocation
-	groups_data.reserve(
+	pages_data.reserve(
 		meshlets.size() * sizeof(Meshlet) + // All meshlets size
-		meshlet_vertices.size() * (3 * sizeof(uint16_t) + attributes_bytes) + // All meshlet vertices size
+		meshlet_vertices.size() * (3 * sizeof(uint16_t) + attributes_bytes) + // All meshlets vertices size
 		meshlet_triangles.size() * sizeof(uint8_t)); // All triangles (1 byte per index)
 
-	geometry.meshlet_lod_group_data_info.reserve(geometry.meshlet_lod_groups.size());
+	eastl::vector<LODGroup> &groups = geometry.meshlet_lod_groups;
 
-	// LOD group layout: [meshlets][vertices][triangles]
-	for (const LODGroup &group : geometry.meshlet_lod_groups)
+	// Meshlets, vertices, triangles first indices in build order
+	eastl::vector<uint32_t> group_first_meshlets(groups.size());
+	for (int i = 1; i < groups.size(); i++)
+		group_first_meshlets[i] = group_first_meshlets[i - 1] + groups[i - 1].meshlet_count;
+
+	eastl::vector<uint32_t> meshlet_first_vertices(meshlets.size());
+	eastl::vector<uint32_t> meshlet_first_triangles(meshlets.size());
+	for (int i = 1; i < meshlets.size(); i++)
 	{
-		size_t group_start = groups_data.size();
-		uint32_t meshlets_bytes = group.meshlet_count * sizeof(Meshlet);
-		uint32_t vertices_bytes = 0;
+		meshlet_first_vertices[i] = meshlet_first_vertices[i - 1] + meshlets[i - 1].vertex_count;
+		meshlet_first_triangles[i] = meshlet_first_triangles[i - 1] + meshlets[i - 1].triangle_count * 3;
+	}
 
-		groups_data.resize(group_start + meshlets_bytes); // Allocate meshlets data at start, fill later
+	// Coarse -> Detailed order
+	eastl::vector<uint32_t> groups_order;
+	for (int level = geometry.meshlet_lod_levels.size() - 1; level >= 0; level--)
+	{
+		LODLevel &lod_level = geometry.meshlet_lod_levels[level];
+		// clodConfig::partition_sort sorted it already
+		for (int i = 0; i < lod_level.group_count; i++)
+			groups_order.push_back(lod_level.group_offset + i);
+	}
 
-		// Vertices
+	MeshletPageWriter writer(geometry, meshlets, pages_data);
+	for (uint32_t group_id : groups_order)
+	{
+		LODGroup &group = groups[group_id];
+		writer.beginMeshletGroup(group, group_first_meshlets[group_id]);
+
 		for (uint32_t i = 0; i < group.meshlet_count; i++)
 		{
-			Meshlet &meshlet = meshlets[group.first_meshlet + i];
+			uint32_t meshlet_id = group_first_meshlets[group_id] + i;
+			Meshlet &meshlet = meshlets[meshlet_id];
+			const uint32_t *vertex_ids = &meshlet_vertices[meshlet_first_vertices[meshlet_id]];
+			const uint8_t *triangles = &meshlet_triangles[meshlet_first_triangles[meshlet_id]];
 
 			// Quantize
 			glm::ivec3 quantized_min(INT_MAX);
@@ -128,51 +279,22 @@ static void encode_groups(Engine::Mesh *mesh, const eastl::vector<Engine::Vertex
 			meshlet.position_bits = MeshFormat::packPositionBits(max_offset);
 
 			const uint32_t meshlet_vertex_bytes = MeshFormat::meshletVertexBytes(meshlet.vertex_count, meshlet.position_bits, mesh->attribute_flags);
-			meshlet.vertex_offset = meshlets_bytes + vertices_bytes;
-			vertices_bytes += meshlet_vertex_bytes;
 
 			// Write
-			const size_t vertices_start = groups_data.size();
-			groups_data.resize(vertices_start + meshlet_vertex_bytes);
+			packed_vertices.assign(meshlet_vertex_bytes, 0);
+			write_positions(packed_vertices.data(), quantized_positions, quantized_min, meshlet.vertex_count, MeshFormat::unpackPositionBits(meshlet.position_bits));
 
-			uint8_t *packed_positions = groups_data.data() + vertices_start;
-			write_positions(packed_positions, quantized_positions, quantized_min, meshlet.vertex_count, MeshFormat::unpackPositionBits(meshlet.position_bits));
-
-			uint8_t *packed_attributes = packed_positions + MeshFormat::meshletPositionBytes(meshlet.vertex_count, meshlet.position_bits);
+			uint8_t *packed_attributes = packed_vertices.data() + MeshFormat::meshletPositionBytes(meshlet.vertex_count, meshlet.position_bits);
 			for (int v = 0; v < meshlet.vertex_count; v++)
 				MeshFormat::encodeVertexAttributes(packed_attributes + v * attributes_bytes, vertices[vertex_ids[v]], mesh->attribute_flags);
 
-			vertex_ids += meshlet.vertex_count;
+			size_t encoded_bytes = meshopt_encodeMeshlet(encoded_triangles.data(), encoded_triangles.size(), nullptr, 0, triangles, meshlet.triangle_count);
+			writer.addMeshlet(meshlet_id, packed_vertices, {encoded_triangles.data(), encoded_bytes});
 		}
 
-		// Triangles
-		uint32_t triangle_offset = meshlets_bytes + vertices_bytes;
-		for (uint32_t i = 0; i < group.meshlet_count; i++)
-		{
-			Meshlet &meshlet = meshlets[group.first_meshlet + i];
-			uint32_t index_count = meshlet.triangle_count * 3;
-
-			meshlet.triangle_offset = triangle_offset;
-			triangle_offset += index_count;
-
-			uint16_t encoded_bytes = (uint16_t)meshopt_encodeMeshlet(encoded_triangles.data(), encoded_triangles.size(), nullptr, 0, triangles, meshlet.triangle_count);
-			size_t triangles_start = groups_data.size();
-			groups_data.resize(triangles_start + sizeof(encoded_bytes) + encoded_bytes);
-			memcpy(groups_data.data() + triangles_start, &encoded_bytes, sizeof(encoded_bytes));
-			memcpy(groups_data.data() + triangles_start + sizeof(encoded_bytes), encoded_triangles.data(), encoded_bytes);
-			triangles += index_count;
-		}
-
-		// Meshlets
-		memcpy(groups_data.data() + group_start, &meshlets[group.first_meshlet], meshlets_bytes);
-
-		// 4 byte padding
-		groups_data.resize(Math::alignedSize(groups_data.size(), 4ull));
-
-		Engine::MeshletGeometry::LODGroupDataInfo &info = geometry.meshlet_lod_group_data_info.emplace_back();
-		info.file_offset = group_start;
-		info.gpu_bytes = Math::alignedSize(triangle_offset, 4u);
+		writer.endMeshletGroup(group);
 	}
+	writer.finish();
 }
 
 MeshletBuildData build(Engine::Mesh *mesh, const char *debug_name, const eastl::vector<Engine::Vertex> &vertices, const eastl::vector<uint32_t> &indices, const ModelImportSettings &settings)
@@ -236,14 +358,11 @@ MeshletBuildData build(Engine::Mesh *mesh, const char *debug_name, const eastl::
 		[&](const clodGroup &group, const clodCluster *clusters, size_t cluster_count)
 	{
 		uint32_t group_id = geometry.meshlet_lod_groups.size();
-		uint32_t first_meshlet_in_group = meshlets.size();
 
 		LODGroup &lod_group = geometry.meshlet_lod_groups.emplace_back();
 		lod_group.center = glm::vec3(group.simplified.center[0], group.simplified.center[1], group.simplified.center[2]);
 		lod_group.radius = group.simplified.radius;
 		lod_group.error = group.simplified.error;
-		lod_group.depth = group.depth;
-		lod_group.first_meshlet = first_meshlet_in_group;
 		lod_group.meshlet_count = cluster_count;
 
 		for (size_t i = 0; i < cluster_count; i++)
@@ -294,7 +413,7 @@ MeshletBuildData build(Engine::Mesh *mesh, const char *debug_name, const eastl::
 	build_data.meshlet_count = meshlets.size();
 	build_data.vertex_count = meshlet_vertices.size();
 	build_data.index_count = meshlet_triangles.size();
-	encode_groups(mesh, vertices, meshlets, meshlet_vertices, meshlet_triangles, build_data.groups_data);
+	encode_pages(mesh, vertices, meshlets, meshlet_vertices, meshlet_triangles, build_data.pages_data);
 
 	// BVH build
 	static constexpr uint32_t NODE_WIDTH = 8;

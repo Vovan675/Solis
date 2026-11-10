@@ -219,8 +219,6 @@ void DDGIRenderer::addPreparePass(FrameGraph &fg)
 
 		uint32_t size = probes_to_update.size() * sizeof(uint32_t);
 		UploadManager::StagedRange staged = gUploadManager->stage(size);
-		if (!staged.data)
-			return;
 		memcpy(staged.data, probes_to_update.data(), size);
 		cmd_list->copyBuffer(staged.buffer, resources.getBuffer(GFXRID(DDGIProbesToUpdate)), staged.offset, 0, size);
 	});
