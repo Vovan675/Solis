@@ -387,7 +387,7 @@ REFLECT_END()
 
 struct AmbientOcclusionSettings
 {
-	AmbientOcclusionMode mode = AMBIENT_OCCLUSION_SSAO;
+	AmbientOcclusionMode mode = AMBIENT_OCCLUSION_GTAO;
 	float radius = 0.5f;
 	float falloff = 0.615f;
 	float intensity = 1.0f;

@@ -11,7 +11,7 @@ void DefferedCompositeRenderer::addPasses(FrameGraph &fg)
 	fg.addCallbackPass("Composite Indirect Pass",
 	[&](RenderPassBuilder &builder)
 	{
-		builder.createTexture(GFXRID(CompositeIndirectAmbient), Renderer::getRenderWidth(), Renderer::getRenderHeight(), Format::R32G32B32A32_SFLOAT);
+		builder.createTexture(GFXRID(CompositeIndirectAmbient), Renderer::getRenderWidth(), Renderer::getRenderHeight(), Format::R16G16B16A16_SFLOAT);
 		builder.writeTexture(GFXRID(CompositeIndirectAmbient));
 
 		builder.createTexture(GFXRID(CompositeIndirectSpecular), Renderer::getRenderWidth(), Renderer::getRenderHeight(), Format::R32G32B32A32_SFLOAT);

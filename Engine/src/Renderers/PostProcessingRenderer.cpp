@@ -170,7 +170,7 @@ void PostProcessingRenderer::addFilmPass(FrameGraph &fg)
 		if (!builder.isTextureCreated(output))
 		{
 			TextureDescription output_desc = builder.getTextureDescription(last_output);
-			builder.createTexture(GFXRID(FilmPassOutput), output_desc.width, output_desc.height, output_desc.format);
+			builder.createTexture(GFXRID(FilmPassOutput), output_desc.width, output_desc.height, Format::R8G8B8A8_UNORM);
 		}
 		builder.writeTexture(output);
 		builder.readTexture(last_output);

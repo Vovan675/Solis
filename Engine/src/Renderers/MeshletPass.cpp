@@ -11,7 +11,7 @@ namespace
 {
 constexpr uint32_t MAX_MESHLETS_PER_FRAME = 1 << 23;
 constexpr uint32_t MAX_TRAVERSAL_TASKS = 1 << 22;
-constexpr uint32_t PERSISTENT_THREAD_GROUPS = 64;
+constexpr uint32_t PERSISTENT_THREAD_GROUPS = 512;
 constexpr uint32_t INSTANCE_CULLING_THREADGROUP_SIZE = 32;
 constexpr uint32_t MESHLET_CULLING_THREADGROUP_SIZE = 32;
 constexpr uint32_t MESHLET_FIX_THREADGROUP_SIZE = 64;
