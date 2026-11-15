@@ -50,8 +50,8 @@ SSAORenderer::SSAORenderer()
 	ssao_noise = gDynamicRHI->createTexture(desc, ssao_noise_data.data());
 	ssao_noise->setDebugName("SSAO Noise Texture");
 
-	fragment_shader_raw = gDynamicRHI->createShader(L"shaders/ssao.hlsl", ShaderType::FRAGMENT);
-	fragment_shader_blur = gDynamicRHI->createShader(L"shaders/ssao_blur.hlsl", ShaderType::FRAGMENT);
+	fragment_shader_raw = gDynamicRHI->createShader(L"shaders/ao/ssao.hlsl", ShaderType::FRAGMENT);
+	fragment_shader_blur = gDynamicRHI->createShader(L"shaders/ao/ssao_blur.hlsl", ShaderType::FRAGMENT);
 }
 
 void SSAORenderer::addPasses(FrameGraph &fg)
@@ -77,8 +77,8 @@ void SSAORenderer::addPasses(FrameGraph &fg)
 		ubo_raw_pass.normal_tex_id = resources.getReadTexture(GFXRID(GBufferNormal));
 		ubo_raw_pass.depth_tex_id = resources.getReadTexture(GFXRID(GBufferDepth));
 		ubo_raw_pass.noise_tex_id = resources.getReadTexture(GFXRID(SSAONoiseTexture));
-		ubo_raw_pass.samples = GFXOPTIONS(ssao).samples;
-		ubo_raw_pass.sample_radius = GFXOPTIONS(ssao).radius;
+		ubo_raw_pass.samples = GFXOPTIONS(ambient_occlusion).ssao.samples;
+		ubo_raw_pass.sample_radius = GFXOPTIONS(ambient_occlusion).radius;
 
 		cmd_list->setRenderTargets({ssao_raw}, nullptr, -1, 0, true);
 
@@ -98,14 +98,14 @@ void SSAORenderer::addPasses(FrameGraph &fg)
 	fg.addCallbackPass("SSAO Blur Pass",
 	[&](RenderPassBuilder &builder)
 	{
-		builder.createTexture(GFXRID(SSAOBlurred), Renderer::getRenderWidth(), Renderer::getRenderHeight(), Format::R8_UNORM);
-		builder.writeTexture(GFXRID(SSAOBlurred));
+		builder.createTexture(GFXRID(AmbientOcclusion), Renderer::getRenderWidth(), Renderer::getRenderHeight(), Format::R8_UNORM);
+		builder.writeTexture(GFXRID(AmbientOcclusion));
 
 		builder.readTexture(GFXRID(SSAORaw));
 	},
 	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		auto ssao_blurred = resources.getTexture(GFXRID(SSAOBlurred));
+		auto ssao_blurred = resources.getTexture(GFXRID(AmbientOcclusion));
 
 		cmd_list->setRenderTargets({ssao_blurred}, nullptr, -1, 0, true);
 

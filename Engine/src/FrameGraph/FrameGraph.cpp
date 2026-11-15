@@ -140,6 +140,7 @@ void FrameGraph::execute(RHICommandList *cmd_list)
 
 		PROFILE_CPU_SCOPE_VAR(pass.getName().c_str());
 		PROFILE_GPU_SCOPE_VAR(cmd_list, pass.getName().c_str());
+		uint32_t timer = cmd_list->beginTimer(pass.getName().c_str());
 
 		for (const auto &id : pass.texture_creates)
 		{
@@ -164,6 +165,7 @@ void FrameGraph::execute(RHICommandList *cmd_list)
 			RenderPassResources resources(*this, pass);
 			std::invoke(*pass.pass, resources, cmd_list);
 		}
+		cmd_list->endTimer(timer);
 
 		for (auto &entry: all_textures)
 		{

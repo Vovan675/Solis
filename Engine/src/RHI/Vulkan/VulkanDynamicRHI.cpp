@@ -38,6 +38,7 @@ void VulkanDynamicRHI::init()
 
 	init_instance();
 	device = new Device(instance);
+	timestamp_period_milliseconds = device->physicalProperties.properties.limits.timestampPeriod * 1e-6;
 	init_vma();
 
 	//Create Command Pool

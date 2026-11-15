@@ -8,6 +8,8 @@ class RHIPipeline;
 class RHICommandList
 {
 public:
+	static constexpr int MAX_TIMERS = 256;
+
 	virtual ~RHICommandList();
 
 	virtual void open() = 0;
@@ -46,8 +48,17 @@ public:
 	virtual void beginDebugLabel(const char *label, glm::vec3 color, uint32_t line, const char* source, size_t source_size, const char* function, size_t function_size) = 0;
 	virtual void endDebugLabel() = 0;
 
+	uint32_t beginTimer(const char *name);
+	void endTimer(uint32_t timer);
+
 protected:
+	friend class DynamicRHI;
+
+	virtual void write_timestamp(uint32_t index) = 0;
+	virtual void read_timestamps(uint64_t *timestamps, uint32_t count) = 0;
+
 	bool is_open = false;
 	RHIPipeline *current_pipeline = nullptr;
 	eastl::vector<RHITexture *> current_render_targets;
+	eastl::vector<eastl::string> timer_names;
 };

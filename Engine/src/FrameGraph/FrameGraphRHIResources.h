@@ -27,6 +27,11 @@ struct GraphicsResourceName
 		return hashed_name == other.hashed_name;
 	}
 
+	bool isValid() const
+	{
+		return name != nullptr;
+	}
+
 	char *name;
 	uint32_t hashed_name = 0;
 };
@@ -45,6 +50,7 @@ namespace eastl
 
 #define GFXRID(name) GraphicsResourceName(#name, crc::crc32(#name))
 #define GFXRID_ID(name, id) GraphicsResourceName(#name, crc::crc32(#name) + (id))
+#define GFXRID_NONE GraphicsResourceName()
 
 class RenderPassNode;
 

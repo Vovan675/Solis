@@ -26,8 +26,8 @@ void DefferedCompositeRenderer::addPasses(FrameGraph &fg)
 		builder.readTexture(GFXRID(LutBRDF));
 		builder.readTexture(GFXRID(IBLIrradiance));
 		builder.readTexture(GFXRID(IBLPrefilter));
-		if (builder.isTextureCreated(GFXRID(SSAOBlurred)))
-			builder.readTexture(GFXRID(SSAOBlurred));
+		if (builder.isTextureCreated(GFXRID(AmbientOcclusion)))
+			builder.readTexture(GFXRID(AmbientOcclusion));
 
 		if (builder.isTextureCreated(GFXRID(SSR)))
 			builder.readTexture(GFXRID(SSR));
@@ -53,8 +53,9 @@ void DefferedCompositeRenderer::addPasses(FrameGraph &fg)
 			uint32_t depth_tex_id = 0;
 			uint32_t shading_tex_id = 0;
 			uint32_t brdf_lut_tex_id = 0;
-			uint32_t ssao_tex_id = 0;
+			uint32_t ambient_occlusion_tex_id = 0;
 			uint32_t ssr_tex_id = 0;
+			float ambient_occlusion_intensity = 0.0f;
 		} ubo;
 
 		ubo.irradiance_tex_id = GFXOPTIONS(sky).enabled ? resources.getReadTexture(GFXRID(IBLIrradiance)) : 0;
@@ -67,8 +68,9 @@ void DefferedCompositeRenderer::addPasses(FrameGraph &fg)
 		ubo.shading_tex_id = resources.getReadTexture(GFXRID(GBufferShading));
 		ubo.brdf_lut_tex_id = resources.getReadTexture(GFXRID(LutBRDF));
 
-		if (resources.has(GFXRID(SSAOBlurred)))
-			ubo.ssao_tex_id = resources.getReadTexture(GFXRID(SSAOBlurred));
+		if (resources.has(GFXRID(AmbientOcclusion)))
+			ubo.ambient_occlusion_tex_id = resources.getReadTexture(GFXRID(AmbientOcclusion));
+		ubo.ambient_occlusion_intensity = GFXOPTIONS(ambient_occlusion).intensity;
 
 		if (resources.has(GFXRID(SSR)))
 			ubo.ssr_tex_id = resources.getReadTexture(GFXRID(SSR));
@@ -76,7 +78,7 @@ void DefferedCompositeRenderer::addPasses(FrameGraph &fg)
 		bool ddgi = resources.has(GFXRID(DDGIIrradiance));
 		auto shader = gDynamicRHI->createShader(L"shaders/composite_indirect.hlsl", ShaderType::FRAGMENT, "PSMain", {
 			{"SSR", ubo.ssr_tex_id ? "1" : "0"},
-			{"SSAO", ubo.ssao_tex_id ? "1" : "0"},
+			{"AMBIENT_OCCLUSION", ubo.ambient_occlusion_tex_id ? "1" : "0"},
 			{"DDGI", ddgi ? "1" : "0"},
 		});
 

@@ -139,7 +139,7 @@ void RenderSettingsPanel::renderImGui(EditorContext &context)
 			UI::convar(render_meshlets_mesh_shaders.getDescription());
 
 			ImGui::BeginDisabled(GFXOPTIONS(path_tracing));
-			UI::drawStruct(GFXOPTIONS(ssao));
+			UI::drawStruct(GFXOPTIONS(ambient_occlusion));
 			UI::drawStruct(GFXOPTIONS(ssr));
 			ImGui::EndDisabled();
 

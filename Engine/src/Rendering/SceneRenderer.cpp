@@ -364,8 +364,7 @@ void SceneRenderer::render_deferred(Camera *camera, FrameGraph &frame_graph)
 
 	gbuffer_pass.addPass(frame_graph, main_view_id, indirect_draw_calls_max_count);
 
-	if (GFXOPTIONS(ssao).enabled)
-		ssao_renderer.addPasses(frame_graph);
+	ambient_occlusion_renderer.addPasses(frame_graph, *camera);
 
 	if (Renderer::isDDGIEnabled())
 		ddgi_renderer.addPasses(frame_graph, rt_scene);

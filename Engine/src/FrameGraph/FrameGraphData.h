@@ -49,9 +49,15 @@
 #define HiZTexture
 #define CascadeHiZ
 
+#define AmbientOcclusion
 #define SSAONoiseTexture
 #define SSAORaw
-#define SSAOBlurred
+#define AmbientOcclusionViewDepth
+#define AmbientOcclusionNormal
+#define AmbientOcclusionNoisy
+#define AmbientOcclusionHistory
+#define AmbientOcclusionFiltered
+#define RTAOAccumulation
 
 #define DiffuseLight
 #define SpecularLight

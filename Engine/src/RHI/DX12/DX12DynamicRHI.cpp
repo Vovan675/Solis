@@ -193,6 +193,10 @@ void DX12DynamicRHI::init()
 			IID_PPV_ARGS(&pipeline_statistics_queries[i].readback_buffer)
 		);
 	}
+
+	uint64_t timestamp_frequency = 0;
+	cmd_queue->cmd_queue->GetTimestampFrequency(&timestamp_frequency);
+	timestamp_period_milliseconds = 1000.0 / timestamp_frequency;
 }
 
 void DX12DynamicRHI::shutdown()

@@ -22,8 +22,9 @@ cbuffer UBO : register(b0)
 	uint depth_tex_id;
 	uint shading_tex_id;
 	uint brdf_lut_tex_id;
-	uint ssao_tex_id;
+	uint ambient_occlusion_tex_id;
 	uint ssr_tex_id;
+	float ambient_occlusion_intensity;
 };
 
 static TextureCube irradiance_tex = ResourceDescriptorHeap[irradiance_tex_id];
@@ -74,17 +75,17 @@ PSOutput PSMain(VSInput input)
 		prefilter = prefilter_tex.SampleLevel(linear_wrap_sampler, reflection, lod).rgb * sky_intensity;
 	}
 
-	#if SSAO
-		float ssao = SampleTexture(ssao_tex_id, input.uv).r;
+	#if AMBIENT_OCCLUSION
+		float ambient_occlusion = lerp(1.0f, SampleTexture(ambient_occlusion_tex_id, input.uv).r, ambient_occlusion_intensity);
 	#else
-		float ssao = 1.0f;
+		float ambient_occlusion = 1.0f;
 	#endif
 
-	float specular_ao = computeSpecularAO(NdotV, ssao, roughness * roughness);
+	float specular_ao = computeSpecularAO(NdotV, ambient_occlusion, roughness * roughness);
 
 	float ibl_ambient_fallback_scale = 0.5;
 	float ibl_specular_fallback_scale = 0.0;
-	output.ambient = float4(ibl_diffuse * ssao * ibl_ambient_fallback_scale, 1.0);
+	output.ambient = float4(ibl_diffuse * ambient_occlusion * ibl_ambient_fallback_scale, 1.0);
 	output.specular = float4(prefilter * (f0 * brdf_lut.x + brdf_lut.y) * specular_ao * ibl_specular_fallback_scale, 1.0);
 
 	#if DDGI
@@ -94,7 +95,7 @@ PSOutput PSMain(VSInput input)
 		if (volume_weight > 0.0f)
 		{
 			float3 irradiance = SampleCascadesIrradiance(world_pos, normal, camera_position.xyz, volume);
-			output.ambient = float4((diffuse_color / PI) * irradiance * volume_weight * ssao, 1.0);
+			output.ambient = float4((diffuse_color / PI) * irradiance * volume_weight * ambient_occlusion, 1.0);
 			#if 1
 				// Use cascade irradiance as specular approximation. Ideally only for rough reflections
 				output.specular = float4((irradiance / PI) * (f0 * brdf_lut.x + brdf_lut.y) * volume_weight * specular_ao, 1.0);

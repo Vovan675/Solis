@@ -20,6 +20,24 @@ VulkanCommandList::VulkanCommandList()
 	alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
 	alloc_info.commandBufferCount = 1;
 	vkAllocateCommandBuffers(device, &alloc_info, &cmd_buffer);
+
+	VkQueryPoolCreateInfo query_pool_info{};
+	query_pool_info.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
+	query_pool_info.queryType = VK_QUERY_TYPE_TIMESTAMP;
+	query_pool_info.queryCount = MAX_TIMERS * 2;
+	vkCreateQueryPool(device, &query_pool_info, nullptr, &timestamp_query_pool);
+	vkResetQueryPool(device, timestamp_query_pool, 0, MAX_TIMERS * 2);
+}
+
+void VulkanCommandList::write_timestamp(uint32_t index)
+{
+	vkCmdWriteTimestamp2(cmd_buffer, VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, timestamp_query_pool, index);
+}
+
+void VulkanCommandList::read_timestamps(uint64_t *timestamps, uint32_t count)
+{
+	vkGetQueryPoolResults(device, timestamp_query_pool, 0, count, count * sizeof(uint64_t), timestamps, sizeof(uint64_t), VK_QUERY_RESULT_64_BIT);
+	vkResetQueryPool(device, timestamp_query_pool, 0, count);
 }
 
 void VulkanCommandList::setRenderTargets(const eastl::vector<RHITexture *> &color_attachments, RHITexture *depth_attachment, int layer, int mip, bool clear, float depth_clear_value)

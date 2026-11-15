@@ -102,13 +102,55 @@ void DebugPanel::renderImGui(EditorContext &context)
 
 	UI::text("RHI", "%s", gDynamicRHI->getName());
 
+	const eastl::vector<DynamicRHI::GPUTiming> &gpu_timings = gDynamicRHI->getGPUTimings();
+	float total_gpu_ms = 0;
+	average_gpu_timings.resize(gpu_timings.size());
+	for (int i = 0; i < gpu_timings.size(); i++)
+	{
+		DynamicRHI::GPUTiming &average = average_gpu_timings[i];
+		if (average.name != gpu_timings[i].name)
+			average = gpu_timings[i];
+		else
+			average.milliseconds = glm::mix(average.milliseconds, gpu_timings[i].milliseconds, 0.05f);
+		total_gpu_ms += average.milliseconds;
+	}
+
+	if (UI::beginSection("GPU Passes"))
+	{
+		UI::sliderFloat("Threshold", &gpu_timing_threshold, 0.0f, 1.0f, "%.2f ms");
+		UI::text("Total", "%.2f ms", total_gpu_ms);
+		if (ImGui::BeginTable("##gpu_passes", 2, ImGuiTableFlags_RowBg))
+		{
+			ImGui::TableSetupColumn("Pass", ImGuiTableColumnFlags_WidthStretch);
+			ImGui::TableSetupColumn("Time", ImGuiTableColumnFlags_WidthFixed, ImGui::CalcTextSize("000.00 ms").x);
+			for (const auto &timing : average_gpu_timings)
+			{
+				if (timing.milliseconds < gpu_timing_threshold)
+					continue;
+
+				ImGui::TableNextRow();
+				ImGui::TableNextColumn();
+				ImGui::TextUnformatted(timing.name.c_str());
+				ImGui::SetItemTooltip("%s", timing.name.c_str());
+
+				ImGui::TableNextColumn();
+				char time[16];
+				snprintf(time, sizeof(time), "%.2f ms", timing.milliseconds);
+				ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x - ImGui::CalcTextSize(time).x);
+				ImGui::TextUnformatted(time);
+			}
+			ImGui::EndTable();
+		}
+		UI::endSection();
+	}
+
 	if (UI::beginSection("Visualization", true))
 	{
 		UI::convar(render_debug_rendering.getDescription());
 
 		if (render_debug_rendering)
 		{
-			const char *items[] = {"All", "Final Composite", "Albedo", "Metalness", "Roughness", "Specular", "Emissive", "Normal", "Depth", "Position", "Light Diffuse", "Light Specular", "BRDF LUT", "SSAO", "DDGI", "HiZ", "Debug Texture", "Overdraw", "Motion Vectors"};
+			const char *items[] = {"All", "Final Composite", "Albedo", "Metalness", "Roughness", "Specular", "Emissive", "Normal", "Depth", "Position", "Light Diffuse", "Light Specular", "BRDF LUT", "Ambient Occlusion", "DDGI", "HiZ", "Debug Texture", "Overdraw", "Motion Vectors"};
 			int mode = render_debug_rendering_mode;
 			if (UI::combo("Preview", &mode, items, IM_ARRAYSIZE(items)))
 				render_debug_rendering_mode = mode;

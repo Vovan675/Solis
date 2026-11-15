@@ -1,4 +1,4 @@
-#include "bindless.h"
+#include "../bindless.h"
 
 struct VSInput {
     float2 uv : TEXCOORD0;

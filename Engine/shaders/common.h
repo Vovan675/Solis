@@ -533,6 +533,12 @@ float3 GetVSPosition(float2 uv, float hardware_depth)
 	return viewPos.xyz;
 }
 
+float3 GetVSPositionFromViewZ(float2 uv, float view_z)
+{
+	float3 ray = GetVSPosition(uv, 1.0);
+	return ray / -ray.z * view_z;
+}
+
 float3 GetWSPosition(float2 uv, float hardware_depth, float4x4 view_projection_inverse)
 {
 	uv.y = 1.0f - uv.y;

@@ -327,18 +327,84 @@ REFLECT_BEGIN(LightingSettings)
 	REFLECT_FIELD(confidence).label("History Confidence").EDIT_IF(owner.direct == DIRECT_LIGHTING_RTXDI && owner.denoiser == DENOISER_RELAX),
 REFLECT_END()
 
+enum AmbientOcclusionMode
+{
+	AMBIENT_OCCLUSION_OFF = 0,
+	AMBIENT_OCCLUSION_SSAO,
+	AMBIENT_OCCLUSION_GTAO,
+	AMBIENT_OCCLUSION_RTAO,
+};
+inline const char *const ambient_occlusion_mode_items[] = {"Off", "SSAO", "GTAO", "RTAO"};
+
 struct SSAOSettings
 {
-	bool enabled = true;
 	int samples = 64;
-	float radius = 0.5f;
 };
 
 REFLECT_BEGIN(SSAOSettings)
-	REFLECT_CATEGORY("SSAO"),
-	REFLECT_FIELD(enabled).label("Enable SSAO"),
-	REFLECT_FIELD(samples).range(2.0f, 64.0f).EDIT_IF(owner.enabled),
-	REFLECT_FIELD(radius).range(0.01f, 1.0f).format("%.2f m").EDIT_IF(owner.enabled),
+	REFLECT_FIELD(samples).range(2.0f, 64.0f),
+REFLECT_END()
+
+struct GTAOSettings
+{
+	int slices = 2;
+	int steps = 4;
+	float final_power = 1.5f;
+	bool half_resolution = false;
+	bool spatial_filter = true;
+	bool temporal = true;
+	int max_history_length = 8;
+};
+
+REFLECT_BEGIN(GTAOSettings)
+	REFLECT_FIELD(slices).range(1.0f, 9.0f),
+	REFLECT_FIELD(steps).range(1.0f, 16.0f),
+	REFLECT_FIELD(final_power).range(1.0f, 3.0f),
+	REFLECT_FIELD(half_resolution),
+	REFLECT_FIELD(spatial_filter).notSerialized(),
+	REFLECT_FIELD(temporal),
+	REFLECT_FIELD(max_history_length).range(2.0f, 16.0f).EDIT_IF(owner.temporal)
+REFLECT_END()
+
+struct RTAOSettings
+{
+	int rays_per_pixel = 2;
+	bool accumulate = false;
+	bool half_resolution = false;
+	bool spatial_filter = true;
+	bool temporal = true;
+	int max_history_length = 16;
+};
+
+REFLECT_BEGIN(RTAOSettings)
+	REFLECT_FIELD(rays_per_pixel).range(1.0f, 8.0f),
+	REFLECT_FIELD(accumulate).tooltip("Reference mode").notSerialized(),
+	REFLECT_FIELD(half_resolution).EDIT_IF(!owner.accumulate),
+	REFLECT_FIELD(spatial_filter).notSerialized().EDIT_IF(!owner.accumulate),
+	REFLECT_FIELD(temporal).EDIT_IF(!owner.accumulate),
+	REFLECT_FIELD(max_history_length).range(2.0f, 32.0f).EDIT_IF(owner.temporal && !owner.accumulate)
+REFLECT_END()
+
+struct AmbientOcclusionSettings
+{
+	AmbientOcclusionMode mode = AMBIENT_OCCLUSION_SSAO;
+	float radius = 0.5f;
+	float falloff = 0.615f;
+	float intensity = 1.0f;
+	SSAOSettings ssao;
+	GTAOSettings gtao;
+	RTAOSettings rtao;
+};
+
+REFLECT_BEGIN(AmbientOcclusionSettings)
+	REFLECT_CATEGORY("Ambient Occlusion"),
+	REFLECT_FIELD(mode).items(ambient_occlusion_mode_items),
+	REFLECT_FIELD(radius).range(0.1f, 2.0f).format("%.2f m").EDIT_IF(owner.mode != AMBIENT_OCCLUSION_OFF),
+	REFLECT_FIELD(falloff).range(0.0f, 1.0f).EDIT_IF(owner.mode == AMBIENT_OCCLUSION_GTAO || owner.mode == AMBIENT_OCCLUSION_RTAO),
+	REFLECT_FIELD(intensity).range(0.0f, 1.0f).EDIT_IF(owner.mode != AMBIENT_OCCLUSION_OFF),
+	REFLECT_FIELD(ssao).label("SSAO").EDIT_IF(owner.mode == AMBIENT_OCCLUSION_SSAO),
+	REFLECT_FIELD(gtao).label("GTAO").EDIT_IF(owner.mode == AMBIENT_OCCLUSION_GTAO),
+	REFLECT_FIELD(rtao).label("RTAO").EDIT_IF(owner.mode == AMBIENT_OCCLUSION_RTAO),
 REFLECT_END()
 
 struct ShadowSettings
@@ -413,7 +479,7 @@ struct RenderSettings
 	ColorGradingSettings color_grading;
 	BloomSettings bloom;
 	LightingSettings lighting;
-	SSAOSettings ssao;
+	AmbientOcclusionSettings ambient_occlusion;
 	ShadowSettings shadows;
 	SSRSettings ssr;
 	AntiAliasingSettings anti_aliasing;
@@ -427,7 +493,7 @@ REFLECT_BEGIN(RenderSettings)
 	REFLECT_FIELD(color_grading),
 	REFLECT_FIELD(bloom),
 	REFLECT_FIELD(lighting),
-	REFLECT_FIELD(ssao),
+	REFLECT_FIELD(ambient_occlusion),
 	REFLECT_FIELD(shadows),
 	REFLECT_FIELD(ssr),
 	REFLECT_FIELD(anti_aliasing),

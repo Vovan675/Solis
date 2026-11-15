@@ -310,7 +310,7 @@ void NRDDenoiser::addRelaxPasses(FrameGraph &fg, const NRDRelaxInputs &inputs)
 
 	add_guide_passes(fg);
 
-	set_common_settings(reset_history, validation, inputs.diffuse_confidence.name != nullptr);
+	set_common_settings(reset_history, validation, inputs.diffuse_confidence.isValid());
 
 	nrd::RelaxSettings relax_settings = to_nrd_relax_settings(GFXOPTIONS(lighting).relax);
 	nrd::SetDenoiserSettings(*instance, RELAX_IDENTIFIER, &relax_settings);

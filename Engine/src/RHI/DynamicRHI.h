@@ -47,6 +47,14 @@ public:
 
 	virtual const GPUStatistics& getGPUStatistics() const { return gpu_statistics; }
 
+	struct GPUTiming
+	{
+		eastl::string name;
+		float milliseconds = 0;
+	};
+
+	const eastl::vector<GPUTiming> &getGPUTimings() const { return gpu_timings; }
+
 	virtual RHISwapchainRef createSwapchain(GLFWwindow *window) = 0;
 	virtual void resizeSwapchain(int width, int height) {};
 	RHIShaderRef createShader(eastl::wstring path, ShaderType type, eastl::string entry_point = "", eastl::vector<eastl::pair<const char *, const char *>> defines = {});
@@ -115,6 +123,9 @@ protected:
 	eastl::array<uint64_t, MAX_FRAMES_IN_FLIGHT> frame_fence_values{};
 
 	GPUStatistics gpu_statistics;
+
+	double timestamp_period_milliseconds = 0;
+	eastl::vector<GPUTiming> gpu_timings;
 
 	ShaderCompiler shader_compiler;
 	static eastl::unordered_map<size_t, RHIShaderRef> cached_shaders;

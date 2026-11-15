@@ -14,4 +14,8 @@ public:
 	DebugRenderer *debug_renderer;
 	GeometryStreaming *geometry_streaming;
 	MitsubaBridge *mitsuba_bridge;
+
+private:
+	eastl::vector<DynamicRHI::GPUTiming> average_gpu_timings;
+	float gpu_timing_threshold = 0.1f;
 };

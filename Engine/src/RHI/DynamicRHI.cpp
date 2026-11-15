@@ -143,6 +143,22 @@ void DynamicRHI::advance_frame_in_flight(uint64_t frame_fence_value)
 	PROFILE_CPU_SCOPE("Wait in flight fence");
 	// Wait when queue for next frame is completed (device -> host sync)
 	getCmdQueue()->waitForFence(frame_fence_values[frame_in_flight]);
+	
+	// GPU timers
+	RHICommandList *cmd_list = getCmdList();
+	eastl::vector<eastl::string> &timer_names = cmd_list->timer_names;
+	if (!timer_names.empty())
+	{
+		eastl::array<uint64_t, RHICommandList::MAX_TIMERS * 2> timestamps;
+		cmd_list->read_timestamps(timestamps.data(), timer_names.size() * 2);
+		gpu_timings.resize(timer_names.size());
+		for (int i = 0; i < timer_names.size(); i++)
+		{
+			gpu_timings[i].name = timer_names[i];
+			gpu_timings[i].milliseconds = (timestamps[i * 2 + 1] - timestamps[i * 2]) * timestamp_period_milliseconds;
+		}
+		timer_names.clear();
+	}
 }
 
 void DynamicRHI::release_gpu_resources(uint64_t frame)

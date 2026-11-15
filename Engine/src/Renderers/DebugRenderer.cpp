@@ -233,8 +233,8 @@ void DebugRenderer::addTextureDebugPass(FrameGraph &fg)
 		builder.readTexture(GFXRID(DiffuseLight));
 		builder.readTexture(GFXRID(SpecularLight));
 		builder.readTexture(GFXRID(LutBRDF));
-		if (builder.isTextureCreated(GFXRID(SSAOBlurred)))
-			builder.readTexture(GFXRID(SSAOBlurred));
+		if (builder.isTextureCreated(GFXRID(AmbientOcclusion)))
+			builder.readTexture(GFXRID(AmbientOcclusion));
 		if (builder.isTextureCreated(GFXRID(DDGIDistance)))
 			builder.readTexture(GFXRID(DDGIDistance));
 		if (builder.isTextureCreated(GFXRID(DDGIIrradiance)))
@@ -262,8 +262,8 @@ void DebugRenderer::addTextureDebugPass(FrameGraph &fg)
 		ubo.light_diffuse_id = resources.getReadTexture(GFXRID(DiffuseLight));
 		ubo.light_specular_id = resources.getReadTexture(GFXRID(SpecularLight));
 		ubo.brdf_lut_id = resources.getReadTexture(GFXRID(LutBRDF));
-		if (resources.has(GFXRID(SSAOBlurred)))
-			ubo.ssao_id = resources.getReadTexture(GFXRID(SSAOBlurred));
+		if (resources.has(GFXRID(AmbientOcclusion)))
+			ubo.ssao_id = resources.getReadTexture(GFXRID(AmbientOcclusion));
 		else
 			ubo.ssao_id = 0;
 		ubo.ddgi_distance_tex_id = resources.has(GFXRID(DDGIDistance)) ? resources.getReadTexture(GFXRID(DDGIDistance)) : 0;

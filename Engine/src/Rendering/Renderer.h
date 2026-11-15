@@ -63,6 +63,7 @@ public:
 	static bool isRayTracedShadowsEnabled();
 	static bool isRTXDIEnabled();
 	static bool isDDGIEnabled();
+	static bool isRTAOEnabled();
 	static bool isScreenshotFrame();
 
 private:

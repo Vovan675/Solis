@@ -18,8 +18,6 @@ public:
 
 	VkQueue graphicsQueue;
 	VkQueue presentQueue;
-	eastl::vector<VkQueryPool> query_pools;
-	eastl::vector<eastl::array<uint64_t, 256>> time_stamps;
 	eastl::vector<VkQueryPool> pipeline_statistics_query_pools;
 public:
 	Device(const VkInstance &instance);

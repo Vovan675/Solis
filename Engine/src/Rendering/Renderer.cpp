@@ -82,6 +82,11 @@ bool Renderer::isDDGIEnabled()
 	return engine_ray_tracing && GFXOPTIONS(ddgi).enabled;
 }
 
+bool Renderer::isRTAOEnabled()
+{
+	return engine_ray_tracing && GFXOPTIONS(ambient_occlusion).mode == AMBIENT_OCCLUSION_RTAO;
+}
+
 bool Renderer::isScreenshotFrame()
 {
 	return render_screenshot && screenshot_frames_waited >= render_screenshot_frames;

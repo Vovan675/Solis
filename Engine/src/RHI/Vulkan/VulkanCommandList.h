@@ -11,6 +11,7 @@ public:
 	{
 		gDynamicRHI->waitGPU();
 		vkFreeCommandBuffers(device, cmd_pool, 1, &cmd_buffer);
+		vkDestroyQueryPool(device, timestamp_query_pool, nullptr);
 	}
 
 	void open() override
@@ -88,6 +89,11 @@ public:
 	VkDevice device;
 	VkCommandPool cmd_pool;
 	VkCommandBuffer cmd_buffer;
+	VkQueryPool timestamp_query_pool;
 
 	eastl::vector<std::unique_ptr<tracy::VkCtxScope>> tracy_debug_label_stack;
+
+private:
+	void write_timestamp(uint32_t index) override;
+	void read_timestamps(uint64_t *timestamps, uint32_t count) override;
 };

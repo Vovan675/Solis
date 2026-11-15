@@ -15,7 +15,7 @@
 #include "renderers/PostProcessingRenderer.h"
 #include "renderers/DebugRenderer.h"
 #include "renderers/ShadowRenderer.h"
-#include "renderers/SSAORenderer.h"
+#include "renderers/AmbientOcclusionRenderer.h"
 #include "renderers/SSRRenderer.h"
 #include "renderers/DDGIRenderer.h"
 #include "renderers/UpscaleRenderer.h"
@@ -103,7 +103,7 @@ public:
 	PostProcessingRenderer post_renderer;
 	DebugRenderer debug_renderer;
 
-	SSAORenderer ssao_renderer;
+	AmbientOcclusionRenderer ambient_occlusion_renderer;
 	SSRRenderer ssr_renderer;
 	DDGIRenderer ddgi_renderer;
 	UpscaleRenderer upscale_renderer;
