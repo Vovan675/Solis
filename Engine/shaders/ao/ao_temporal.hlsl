@@ -4,8 +4,6 @@
 #define ANTILAG_LOCAL_MEAN 1
 #define ANTILAG_FAST_HISTORY 2
 
-#define ANTILAG_MODE ANTILAG_LOCAL_MEAN
-
 cbuffer Constants : register(b0)
 {
 	uint noisy_tex_id;
@@ -17,6 +15,7 @@ cbuffer Constants : register(b0)
 	float max_history_length;
 	int resolution_scale;
 	uint output_tex_id;
+	float antilag_window_scale;
 };
 
 static Texture2D<float> noisy_texture = ResourceDescriptorHeap[noisy_tex_id];
@@ -184,7 +183,6 @@ void CSMain(uint2 pixel : SV_DispatchThreadID, uint2 group_id : SV_GroupID, uint
 			// Reference is just a mean
 			float reference = moments.mean;
 			float reference_std_dev = max(moments.std_dev / 5.0, 0.02); // std dev of a 25 samples mean
-			float window_scale = 3.0;
 		#elif ANTILAG_MODE == ANTILAG_FAST_HISTORY
 			// Reference is accumulated ao with short history
 			float fast_length = min(history_length, MAX_FAST_HISTORY_LENGTH);
@@ -192,11 +190,10 @@ void CSMain(uint2 pixel : SV_DispatchThreadID, uint2 group_id : SV_GroupID, uint
 
 			float reference = fast_ao;
 			float reference_std_dev = max(moments.std_dev / sqrt(fast_length), 0.02);
-			float window_scale = 2.0;
 		#endif
 
 		// Clamp history to be around reference. The more deviation (noisy), the more allowed window
-		float window = window_scale * reference_std_dev;
+		float window = antilag_window_scale * reference_std_dev;
 		float clamped_ao = clamp(history_ao, reference - window, reference + window);
 
 		// If clamped_ao is far from history_ao, shorten the history

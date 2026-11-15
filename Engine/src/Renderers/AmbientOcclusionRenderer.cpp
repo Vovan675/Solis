@@ -17,21 +17,21 @@ void AmbientOcclusionRenderer::addPasses(FrameGraph &fg, const Camera &camera)
 		return guides;
 	};
 
-	auto add_denoise_passes = [&](const AmbientOcclusionGuides &guides, GraphicsResourceName input, bool temporal, int max_history_length, bool spatial_filter)
+	auto add_denoise_passes = [&](const AmbientOcclusionGuides &guides, GraphicsResourceName input, const auto &mode_settings)
 	{
 		bool upsample = guides.resolution_scale != 1;
 
-		if (temporal)
+		if (mode_settings.temporal)
 		{
 			uint64_t frame = gDynamicRHI->getFrame();
 			GraphicsResourceName history = GFXRID_ID(AmbientOcclusionHistory, (frame + 1) % 2);
 			GraphicsResourceName accumulated = GFXRID_ID(AmbientOcclusionHistory, frame % 2);
-			GraphicsResourceName output = spatial_filter || upsample ? GFXRID_NONE : GFXRID(AmbientOcclusion);
-			add_temporal_pass(fg, guides, input, history, accumulated, output, max_history_length);
+			GraphicsResourceName output = mode_settings.spatial_filter || upsample ? GFXRID_NONE : GFXRID(AmbientOcclusion);
+			add_temporal_pass(fg, guides, input, history, accumulated, output, mode_settings.max_history_length, mode_settings.antilag, mode_settings.antilag_window);
 			input = accumulated;
 		}
 
-		if (spatial_filter)
+		if (mode_settings.spatial_filter)
 		{
 			GraphicsResourceName output = upsample ? GFXRID(AmbientOcclusionFiltered) : GFXRID(AmbientOcclusion);
 			add_spatial_filter_pass(fg, guides, input, output);
@@ -58,7 +58,7 @@ void AmbientOcclusionRenderer::addPasses(FrameGraph &fg, const Camera &camera)
 		add_guides_pass(fg, guides, true);
 		gtao_renderer.addPasses(fg, guides, noisy);
 		if (denoise)
-			add_denoise_passes(guides, noisy, settings.gtao.temporal, settings.gtao.max_history_length, settings.gtao.spatial_filter);
+			add_denoise_passes(guides, noisy, settings.gtao);
 		break;
 	}
 	case AMBIENT_OCCLUSION_RTAO:
@@ -71,7 +71,7 @@ void AmbientOcclusionRenderer::addPasses(FrameGraph &fg, const Camera &camera)
 			add_guides_pass(fg, guides, false);
 			rtao_renderer.addPasses(fg, camera, guides, noisy);
 			if (denoise)
-				add_denoise_passes(guides, noisy, settings.rtao.temporal, settings.rtao.max_history_length, settings.rtao.spatial_filter);
+				add_denoise_passes(guides, noisy, settings.rtao);
 		}
 		break;
 	}
@@ -137,7 +137,7 @@ void AmbientOcclusionRenderer::add_guides_pass(FrameGraph &fg, const AmbientOccl
 	});
 }
 
-void AmbientOcclusionRenderer::add_temporal_pass(FrameGraph &fg, const AmbientOcclusionGuides &guides, GraphicsResourceName input, GraphicsResourceName history, GraphicsResourceName accumulated, GraphicsResourceName output, int max_history_length)
+void AmbientOcclusionRenderer::add_temporal_pass(FrameGraph &fg, const AmbientOcclusionGuides &guides, GraphicsResourceName input, GraphicsResourceName history, GraphicsResourceName accumulated, GraphicsResourceName output, int max_history_length, AmbientOcclusionAntilag antilag, float antilag_window)
 {
 	uint64_t frame = gDynamicRHI->getFrame();
 	bool reset_history = frame != last_temporal_frame + 1 || guides.resolution != last_temporal_resolution;
@@ -170,7 +170,10 @@ void AmbientOcclusionRenderer::add_temporal_pass(FrameGraph &fg, const AmbientOc
 	},
 	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/ao/ao_temporal.hlsl", ShaderType::COMPUTE, "CSMain", {{"WRITE_OUTPUT", write_output ? "1" : "0"}}));
+		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/ao/ao_temporal.hlsl", ShaderType::COMPUTE, "CSMain", {
+			{"WRITE_OUTPUT", write_output ? "1" : "0"},
+			{"ANTILAG_MODE", std::to_string(antilag).c_str()}
+		}));
 		gGlobalPipeline->flushAndBind(cmd_list);
 
 		struct
@@ -184,6 +187,7 @@ void AmbientOcclusionRenderer::add_temporal_pass(FrameGraph &fg, const AmbientOc
 			float max_history_length;
 			int resolution_scale;
 			uint32_t output_tex_id;
+			float antilag_window_scale;
 		} constants;
 		constants.noisy_tex_id = resources.getReadTexture(input);
 		constants.history_tex_id = resources.getReadTexture(history);
@@ -194,6 +198,7 @@ void AmbientOcclusionRenderer::add_temporal_pass(FrameGraph &fg, const AmbientOc
 		constants.max_history_length = max_history_length;
 		constants.resolution_scale = guides.resolution_scale;
 		constants.output_tex_id = write_output ? resources.getReadWriteTexture(output) : 0;
+		constants.antilag_window_scale = antilag_window;
 		gDynamicRHI->setConstantBufferData(0, &constants, sizeof(constants));
 
 		cmd_list->dispatch(Math::divideRoundUp(guides.resolution.x, 8), Math::divideRoundUp(guides.resolution.y, 8), 1);

@@ -247,8 +247,10 @@ void PostProcessingRenderer::addFxaaPass(FrameGraph &fg)
 		struct UBO
 		{
 			uint32_t composite_final_tex_id = 0;
+			float subpixel = 0.0f;
 		} fxaa_ubo;
 		fxaa_ubo.composite_final_tex_id = resources.getReadTexture(last_output);
+		fxaa_ubo.subpixel = GFXOPTIONS(anti_aliasing).fxaa_subpixel;
 
 		gDynamicRHI->setConstantBufferData(0, &fxaa_ubo, sizeof(UBO));
 

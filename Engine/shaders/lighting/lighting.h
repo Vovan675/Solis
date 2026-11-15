@@ -123,17 +123,29 @@ float getPointShadow(Light light, float3 position, float3 N)
 
 #define ROTATE_POISSON
 #define SOFT_SHADOWS
-float getDirectionalShadow(Light light, float3 frag_pos, float bias, float noise)
+float getDirectionalShadow(Light light, float3 position, float3 N, float noise)
 {
 	Texture2DArray shadow_map = ResourceDescriptorHeap[light.shadow_map_tex_id];
-	
+
 	// Select layer based on depth
-	float depth = -mul(view, float4(frag_pos, 1.0)).z;
+	float depth = -mul(view, float4(position, 1.0)).z;
 	if (depth > light.cascade_splits[SHADOW_MAP_CASCADE_COUNT - 1])
 		return 1.0;
 	int layer = getCascadeIndex(light, depth);
 
-	float4 frag_pos_light_space = mul(light.cascade_view_projection[layer], float4(frag_pos, 1.0));
+	uint tex_levels, tex_width, tex_height;
+	shadow_map.GetDimensions(tex_width, tex_height, tex_levels);
+
+	float3 L = normalize(light.direction.xyz);
+	float constant_bias = 0.0005;
+	float slope_bias = 0.001;
+	float bias = constant_bias + slope_bias * (1.0 - dot(N, L));
+
+	float4x4 cascade_view_projection = light.cascade_view_projection[layer];
+	float world_texel_size = 2.0 / (length(cascade_view_projection[0].xyz) * tex_width);
+	float normal_offset = 2.0 * world_texel_size * (1.0 - saturate(dot(N, L)));
+
+	float4 frag_pos_light_space = mul(cascade_view_projection, float4(position + N * normal_offset, 1.0));
 	float3 proj_coords = frag_pos_light_space.xyz / frag_pos_light_space.w;
 
 	float current_depth = proj_coords.z;
@@ -148,8 +160,6 @@ float getDirectionalShadow(Light light, float3 frag_pos, float bias, float noise
 		bias *= 1.0 / (light.cascade_splits[layer] * biasModifier);
 	}
 
-	uint tex_levels, tex_width, tex_height;
-	shadow_map.GetDimensions(tex_width, tex_height, tex_levels);
 	float scale = 1.0f / (1.0f + layer);
 	float texel_size = 1.0f / tex_width;
 	float filter_size = texel_size * scale * 4;
@@ -192,14 +202,7 @@ float getLightShadow(Light light, float3 position, float3 N, float noise)
 		return 1.0;
 
 	if (light.type == LIGHT_TYPE_DIRECTIONAL)
-	{
-		float3 L = normalize(light.direction.xyz);
-		float constant_bias = 0.0005;
-		float slope_bias = 0.001;
-		float bias = constant_bias + slope_bias * (1.0 - dot(N, L));
-		float offset_scale = 0.05;
-		return getDirectionalShadow(light, position + N * offset_scale, bias, noise);
-	}
+		return getDirectionalShadow(light, position, N, noise);
 
 	return getPointShadow(light, position, N);
 }

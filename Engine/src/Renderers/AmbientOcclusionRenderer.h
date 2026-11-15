@@ -18,7 +18,7 @@ public:
 
 private:
 	void add_guides_pass(FrameGraph &fg, const AmbientOcclusionGuides &guides, bool view_depth_mips);
-	void add_temporal_pass(FrameGraph &fg, const AmbientOcclusionGuides &guides, GraphicsResourceName input, GraphicsResourceName history, GraphicsResourceName accumulated, GraphicsResourceName output, int max_history_length);
+	void add_temporal_pass(FrameGraph &fg, const AmbientOcclusionGuides &guides, GraphicsResourceName input, GraphicsResourceName history, GraphicsResourceName accumulated, GraphicsResourceName output, int max_history_length, AmbientOcclusionAntilag antilag, float antilag_window);
 	void add_spatial_filter_pass(FrameGraph &fg, const AmbientOcclusionGuides &guides, GraphicsResourceName input, GraphicsResourceName output);
 	void add_upsample_pass(FrameGraph &fg, const AmbientOcclusionGuides &guides, GraphicsResourceName input, GraphicsResourceName output);
 

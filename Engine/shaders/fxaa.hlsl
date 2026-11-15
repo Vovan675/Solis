@@ -6,6 +6,7 @@
 cbuffer UBO : register(b0)
 {
     uint composite_final_tex_id;
+    float subpixel;
 };
 
 // Pixel Shader
@@ -17,6 +18,6 @@ float4 PSMain(float2 uv : TEXCOORD0) : SV_TARGET {
     tex.smpl = linear_wrap_sampler;
     tex.tex = ResourceDescriptorHeap[composite_final_tex_id];
 
-    float4 value = FxaaPixelShader(uv, zero, tex, tex, tex, output_resolution.zw, zero, zero, zero, 1.0f, 0.166f, 0.0833f, 0, 0, 0, zero);
+    float4 value = FxaaPixelShader(uv, zero, tex, tex, tex, output_resolution.zw, zero, zero, zero, subpixel, 0.166f, 0.0833f, 0, 0, 0, zero);
     return float4(value.rgb, 1.0);
 }

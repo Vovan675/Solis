@@ -114,7 +114,7 @@ void ShadowRenderer::addShadowMapPasses(FrameGraph &fg, uint32_t max_draw_calls_
 				view.render_size = glm::ivec2(shadow_size);
 				view.layer = face;
 				view.use_two_pass_occlusion = false;
-				view.cull_mode = CullMode::FRONT;
+				view.cull_mode = CullMode::NONE;
 				view.shaders = shaders;
 
 				opaque.renderDepth(fg, view, output);
@@ -136,7 +136,7 @@ void ShadowRenderer::addShadowMapPasses(FrameGraph &fg, uint32_t max_draw_calls_
 				view.use_two_pass_occlusion = true;
 				view.use_reverse_z = false;
 				view.depth_clip = false;
-				view.cull_mode = CullMode::FRONT;
+				view.cull_mode = CullMode::NONE;
 				view.shaders = shaders;
 
 				opaque.renderDepth(fg, view, output);

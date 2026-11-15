@@ -113,7 +113,7 @@ struct FilmSettings
 	float aperture = 2.8f;
 	float shutter_speed = 1.0f / 8192.0f;
 	float iso = 100.0f;
-	TonemapperMode tonemapper = TONEMAPPER_DISABLED;
+	TonemapperMode tonemapper = TONEMAPPER_ACES;
 	UchimuraSettings uchimura;
 	bool vignette = false;
 	float vignette_radius = 0.7f;
@@ -336,6 +336,14 @@ enum AmbientOcclusionMode
 };
 inline const char *const ambient_occlusion_mode_items[] = {"Off", "SSAO", "GTAO", "RTAO"};
 
+enum AmbientOcclusionAntilag
+{
+	AMBIENT_OCCLUSION_ANTILAG_OFF = 0,
+	AMBIENT_OCCLUSION_ANTILAG_LOCAL_MEAN,
+	AMBIENT_OCCLUSION_ANTILAG_FAST_HISTORY,
+};
+inline const char *const ambient_occlusion_antilag_items[] = {"Off", "Local Mean", "Fast History"};
+
 struct SSAOSettings
 {
 	int samples = 64;
@@ -354,6 +362,8 @@ struct GTAOSettings
 	bool spatial_filter = true;
 	bool temporal = true;
 	int max_history_length = 8;
+	AmbientOcclusionAntilag antilag = AMBIENT_OCCLUSION_ANTILAG_LOCAL_MEAN;
+	float antilag_window = 3.0f;
 };
 
 REFLECT_BEGIN(GTAOSettings)
@@ -363,7 +373,9 @@ REFLECT_BEGIN(GTAOSettings)
 	REFLECT_FIELD(half_resolution),
 	REFLECT_FIELD(spatial_filter).notSerialized(),
 	REFLECT_FIELD(temporal),
-	REFLECT_FIELD(max_history_length).range(2.0f, 16.0f).EDIT_IF(owner.temporal)
+	REFLECT_FIELD(max_history_length).range(2.0f, 16.0f).EDIT_IF(owner.temporal),
+	REFLECT_FIELD(antilag).items(ambient_occlusion_antilag_items).EDIT_IF(owner.temporal),
+	REFLECT_FIELD(antilag_window).range(0.5f, 8.0f).EDIT_IF(owner.temporal && owner.antilag != AMBIENT_OCCLUSION_ANTILAG_OFF)
 REFLECT_END()
 
 struct RTAOSettings
@@ -374,6 +386,8 @@ struct RTAOSettings
 	bool spatial_filter = true;
 	bool temporal = true;
 	int max_history_length = 16;
+	AmbientOcclusionAntilag antilag = AMBIENT_OCCLUSION_ANTILAG_LOCAL_MEAN;
+	float antilag_window = 3.0f;
 };
 
 REFLECT_BEGIN(RTAOSettings)
@@ -382,7 +396,9 @@ REFLECT_BEGIN(RTAOSettings)
 	REFLECT_FIELD(half_resolution).EDIT_IF(!owner.accumulate),
 	REFLECT_FIELD(spatial_filter).notSerialized().EDIT_IF(!owner.accumulate),
 	REFLECT_FIELD(temporal).EDIT_IF(!owner.accumulate),
-	REFLECT_FIELD(max_history_length).range(2.0f, 32.0f).EDIT_IF(owner.temporal && !owner.accumulate)
+	REFLECT_FIELD(max_history_length).range(2.0f, 32.0f).EDIT_IF(owner.temporal && !owner.accumulate),
+	REFLECT_FIELD(antilag).items(ambient_occlusion_antilag_items).EDIT_IF(owner.temporal && !owner.accumulate),
+	REFLECT_FIELD(antilag_window).range(0.5f, 8.0f).EDIT_IF(owner.temporal && !owner.accumulate && owner.antilag != AMBIENT_OCCLUSION_ANTILAG_OFF)
 REFLECT_END()
 
 struct AmbientOcclusionSettings
@@ -436,6 +452,7 @@ struct AntiAliasingSettings
 	UpscaleMode upscale = UPSCALE_MODE_OFF;
 	DLSSQualityMode dlss_quality = DLSS_MODE_MAX_QUALITY;
 	bool fxaa = true;
+	float fxaa_subpixel = 0.75f;
 };
 
 REFLECT_BEGIN(AntiAliasingSettings)
@@ -443,6 +460,7 @@ REFLECT_BEGIN(AntiAliasingSettings)
 	REFLECT_FIELD(upscale).items(upscale_mode_items),
 	REFLECT_FIELD(dlss_quality).label("DLSS Quality").items(dlss_quality_items).EDIT_IF(owner.upscale == UPSCALE_MODE_DLSS),
 	REFLECT_FIELD(fxaa).label("FXAA").EDIT_IF(owner.upscale == UPSCALE_MODE_OFF),
+	REFLECT_FIELD(fxaa_subpixel).label("FXAA Subpixel").range(0.0f, 1.0f).EDIT_IF(owner.upscale == UPSCALE_MODE_OFF && owner.fxaa),
 REFLECT_END()
 
 struct DDGISettings
