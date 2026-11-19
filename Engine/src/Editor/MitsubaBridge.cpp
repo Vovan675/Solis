@@ -15,6 +15,8 @@ void MitsubaBridge::renderImGui(EditorContext &context)
 
 	UI::sliderFloat("Render Scale", &render_scale, 0.1f, 1.0f);
 	UI::sliderInt("Max Depth", &max_depth, 2, 16);
+	const char *integrator_items[] = {"Path", "Volumetric Path"};
+	UI::radio("Integrator", &integrator, integrator_items, IM_ARRAYSIZE(integrator_items));
 	UI::checkbox("Emission", &emission);
 
 	if (ImGui::Button("Render (M)", ImVec2(-FLT_MIN, 0)))
@@ -100,24 +102,6 @@ static bool export_ply(const Engine::Mesh *mesh, const std::filesystem::path &pa
 
 static nlohmann::json material_to_json_bsdf(Material *material)
 {
-	if (render_lighting_only)
-	{
-		return {
-			{"type", "principled"},
-			{"base_color", { {"type", "rgb"}, {"value", {LightingOnlyMaterial::albedo, LightingOnlyMaterial::albedo, LightingOnlyMaterial::albedo}} }},
-			{"metallic", LightingOnlyMaterial::metalness},
-			{"roughness", LightingOnlyMaterial::roughness},
-			{"specular", LightingOnlyMaterial::specular},
-		};
-	}
-
-	if (!material)
-		return {{"type", "diffuse"}};
-
-	nlohmann::json bsdf_json;
-	bsdf_json["type"] = "principled";
-	bsdf_json["specular"] = material->specular;
-
 	auto get_texture_path = [](MaterialTexture &material_texture) -> std::string
 	{
 		std::filesystem::path path = AssetManager::getPath(material_texture.asset);
@@ -126,27 +110,50 @@ static nlohmann::json material_to_json_bsdf(Material *material)
 		return std::filesystem::absolute(path).generic_string();
 	};
 
-	std::string albedo = get_texture_path(material->albedo_tex);
-	if (!albedo.empty())
-		bsdf_json["base_color"] = {{"type", "bitmap"}, {"filename", albedo}};
-	else
-		bsdf_json["base_color"] = {{"type", "rgb"}, {"value", {material->albedo.x, material->albedo.y, material->albedo.z}}};
+	nlohmann::json bsdf_json;
+	if (render_lighting_only)
+	{
+		bsdf_json = {
+			{"type", "principled"},
+			{"base_color", { {"type", "rgb"}, {"value", {LightingOnlyMaterial::albedo, LightingOnlyMaterial::albedo, LightingOnlyMaterial::albedo}} }},
+			{"metallic", LightingOnlyMaterial::metalness},
+			{"roughness", LightingOnlyMaterial::roughness},
+			{"specular", LightingOnlyMaterial::specular},
+		};
+	} else if (!material)
+	{
+		return {{"type", "diffuse"}};
+	} else
+	{
+		bsdf_json["type"] = "principled";
+		bsdf_json["specular"] = material->specular;
 
-	std::string metallic = get_texture_path(material->metalness_tex);
-	if (!metallic.empty())
-		bsdf_json["metallic"] = {{"type", "bitmap"}, {"filename", metallic}, {"channel", "b"}, {"raw", true}};
-	else
-		bsdf_json["metallic"] = material->metalness;
+		std::string albedo = get_texture_path(material->albedo_tex);
+		if (!albedo.empty())
+			bsdf_json["base_color"] = {{"type", "bitmap"}, {"filename", albedo}};
+		else
+			bsdf_json["base_color"] = {{"type", "rgb"}, {"value", {material->albedo.x, material->albedo.y, material->albedo.z}}};
 
-	std::string roughness = get_texture_path(material->roughness_tex);
-	if (!roughness.empty())
-		bsdf_json["roughness"] = {{"type", "bitmap"}, {"filename", roughness}, {"channel", "g"}, {"raw", true}};
-	else
-		bsdf_json["roughness"] = material->roughness;
+		std::string metallic = get_texture_path(material->metalness_tex);
+		if (!metallic.empty())
+			bsdf_json["metallic"] = {{"type", "bitmap"}, {"filename", metallic}, {"channel", "b"}, {"raw", true}};
+		else
+			bsdf_json["metallic"] = material->metalness;
 
-	std::string normal = get_texture_path(material->normal_tex);
-	if (!normal.empty())
-		return {{"type", "normalmap"}, {"normalmap", { {"type", "bitmap"}, {"filename", normal}, {"raw", true} }}, {"bsdf_json", bsdf_json}};
+		std::string roughness = get_texture_path(material->roughness_tex);
+		if (!roughness.empty())
+			bsdf_json["roughness"] = {{"type", "bitmap"}, {"filename", roughness}, {"channel", "g"}, {"raw", true}};
+		else
+			bsdf_json["roughness"] = material->roughness;
+
+		std::string normal = get_texture_path(material->normal_tex);
+		if (!normal.empty())
+			bsdf_json = {{"type", "normalmap"}, {"normalmap", { {"type", "bitmap"}, {"filename", normal}, {"raw", true} }}, {"bsdf_json", bsdf_json}};
+	}
+
+	std::string alpha = material && material->alpha_test ? get_texture_path(material->albedo_tex) : "";
+	if (!alpha.empty())
+		bsdf_json = {{"type", "mask"}, {"opacity", {{"type", "bitmap"}, {"filename", alpha}, {"cutoff", material->alpha_cutoff}, {"raw", true}}}, {"bsdf_json", bsdf_json}};
 
 	return bsdf_json;
 }
@@ -216,7 +223,7 @@ bool MitsubaBridge::export_scene(EditorContext &context, const std::filesystem::
 	nlohmann::json scene;
 	// Integrator and Film
 	scene["type"] = "scene";
-	scene["integrator"] = {{"type", "path"}, {"max_depth", max_depth}};
+	scene["integrator"] = {{"type", integrator == 0 ? "path" : "volpath"}, {"max_depth", max_depth}};
 	scene["sensor"] = {
 		{"type", "perspective"},
 		{"fov", cam.getFov()},

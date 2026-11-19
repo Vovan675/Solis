@@ -15,6 +15,14 @@ struct RayTracingGeometry
 	IndexFormat index_format;
 };
 
+enum class RayTracingInstanceFlags : uint8_t
+{
+	NONE = 0,
+	TRIANGLE_CULL_DISABLE = 1 << 0,
+	FORCE_OPAQUE = 1 << 1,
+};
+ALLOW_ENUM_BITS(RayTracingInstanceFlags)
+
 struct RayTracingInstance
 {
 	RHIBottomLevelAccelerationStructureRef blas;
@@ -22,6 +30,7 @@ struct RayTracingInstance
 	uint32_t instance_id;
 	uint8_t instance_mask;
 	uint32_t instance_contribution_to_hit_group_index = 0;
+	RayTracingInstanceFlags instance_flags = RayTracingInstanceFlags::NONE;
 };
 
 

@@ -38,7 +38,11 @@ Image::Image(uint32_t width, uint32_t height, Format format, eastl::vector<uint8
 
 bool Image::hasAlpha() const
 {
-	ENGINE_ASSERT(format == Format::R8G8B8A8_UNORM || format == Format::R8G8B8A8_SRGB);
+	if (format == Format::BC3_UNORM || format == Format::BC3_SRGB || format == Format::BC7_UNORM || format == Format::BC7_SRGB)
+		return true;
+	if (format != Format::R8G8B8A8_UNORM && format != Format::R8G8B8A8_SRGB)
+		return false;
+
 	const uint8_t *pixels = getRawData();
 	for (uint64_t i = 3; i < getImageSize(0); i += 4)
 	{
@@ -248,6 +252,7 @@ void Image::load(eastl::string path)
 		if (!pixels)
 		{
 			CORE_ERROR("Loading image {} failed: {}", path.c_str(), stbi_failure_reason());
+			format = Format::UNDEFINED;
 			return;
 		}
 

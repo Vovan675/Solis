@@ -15,14 +15,7 @@ RayDesc setupVisibilityRay(RAB_Surface surface, RAB_LightSample light_sample, fl
 
 bool RAB_GetConservativeVisibility(RAB_Surface surface, RAB_LightSample light_sample)
 {
-	RayDesc ray = setupVisibilityRay(surface, light_sample);
-
-	RaytracingAccelerationStructure tlas = ResourceDescriptorHeap[tlas_id];
-	RayQuery<RAY_FLAG_CULL_NON_OPAQUE | RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH> ray_query;
-	ray_query.TraceRayInline(tlas, RAY_FLAG_NONE, 0xff, ray);
-	ray_query.Proceed();
-
-	return ray_query.CommittedStatus() == COMMITTED_NOTHING;
+	return traceVisibility(setupVisibilityRay(surface, light_sample));
 }
 
 bool RAB_GetTemporalConservativeVisibility(RAB_Surface current_surface, RAB_Surface previous_surface, RAB_LightSample light_sample)

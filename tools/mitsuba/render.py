@@ -56,6 +56,15 @@ def extract_channel(source, channel):
     Image.fromarray(pixels[:, :, index]).save(out, compress_level=1)
     return out
 
+def extract_alpha_mask(source, cutoff):
+    out = cache_path(source, f'_mask_{cutoff:g}')
+    if os.path.exists(out):
+        return out
+
+    alpha = np.array(Image.open(source).convert('RGBA'))[:, :, 3]
+    Image.fromarray(np.where(alpha >= cutoff * 255.0, 255, 0).astype(np.uint8)).save(out, compress_level=1)
+    return out
+
 def scale_bitmap(source, scale):
     scale_suffix = '_scale_' + '_'.join(f'{value:g}' for value in scale)
     out = cache_path(source, scale_suffix, '.exr')
@@ -95,6 +104,8 @@ def resolve_textures(scene_dict):
             node['filename'] = cache_path(node['filename'], '')
         if 'channel' in node:
             node['filename'] = extract_channel(node['filename'], node.pop('channel'))
+        if 'cutoff' in node:
+            node['filename'] = extract_alpha_mask(node['filename'], node.pop('cutoff'))
         if 'scale' in node:
             node['filename'] = scale_bitmap(node['filename'], node.pop('scale'))
             node['raw'] = True

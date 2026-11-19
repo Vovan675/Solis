@@ -14,8 +14,9 @@ public:
 
 	void setInstance(uint32_t slot, Engine::Mesh *mesh, const glm::mat4 &transform);
 	void removeInstance(uint32_t slot);
+	void setInstanceFlags(uint32_t slot, RayTracingInstanceFlags instance_flags);
 	void invalidateMesh(Engine::Mesh *mesh);
-	void update(Camera *camera);
+	void update();
 
 	RHITopLevelAccelerationStructureRef getTopLevelAS() { return topLevelAS; }
 
@@ -24,8 +25,9 @@ private:
 
 	struct InstanceEntry
 	{
-		Engine::Mesh *mesh;
+		Engine::Mesh *mesh = nullptr;
 		glm::mat4 transform;
+		RayTracingInstanceFlags instance_flags = RayTracingInstanceFlags::NONE;
 	};
 
 	eastl::hash_map<uint32_t, InstanceEntry> instances;

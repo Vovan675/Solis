@@ -40,7 +40,7 @@ void DX12BottomLevelAccelerationStructure::build(const eastl::vector<RayTracingG
 		desc.Triangles.VertexBuffer.StartAddress = geometry.vertex_buffer->getGPUAddress() + geometry.vertex_buffer_offset;
 		desc.Triangles.VertexBuffer.StrideInBytes = geometry.vertex_buffer_stride;
 
-		desc.Flags = D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE;
+		desc.Flags = D3D12_RAYTRACING_GEOMETRY_FLAG_NONE;
 	}
 
 
@@ -103,7 +103,11 @@ void DX12TopLevelAccelerationStructure::build(const eastl::vector<RayTracingInst
 		desc.InstanceID = instance.instance_id;
 		desc.InstanceMask = instance.instance_mask;
 		desc.InstanceContributionToHitGroupIndex = instance.instance_contribution_to_hit_group_index;
-		desc.Flags = 0;
+		desc.Flags = D3D12_RAYTRACING_INSTANCE_FLAG_NONE;
+		if (hasAnyFlags(instance.instance_flags, RayTracingInstanceFlags::TRIANGLE_CULL_DISABLE))
+			desc.Flags |= D3D12_RAYTRACING_INSTANCE_FLAG_TRIANGLE_CULL_DISABLE;
+		if (hasAnyFlags(instance.instance_flags, RayTracingInstanceFlags::FORCE_OPAQUE))
+			desc.Flags |= D3D12_RAYTRACING_INSTANCE_FLAG_FORCE_OPAQUE;
 
 		DX12BottomLevelAccelerationStructure *native_blas = (DX12BottomLevelAccelerationStructure *)instance.blas.getReference();
 		desc.AccelerationStructure = native_blas->buffer->getGPUAddress();

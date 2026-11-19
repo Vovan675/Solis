@@ -170,7 +170,12 @@ void SceneRenderer::refresh_materials(entt::entity entity_id, MeshRendererCompon
 			material_gpu.emissive_tex_id = material->emissive_tex.bindless_id;
 		}
 
+		material_gpu.alpha_tex_id = material->alpha_test ? material->albedo_tex.bindless_id : 0;
+		material_gpu.alpha_cutoff = material->alpha_cutoff;
 		materials_table.set(it->second.start + i, material_gpu); // In future materials would be globally unique, so every material would hold its own slot
+
+		if (rt_scene)
+			rt_scene->setInstanceFlags(it->second.start + i, material_gpu.alpha_tex_id != 0 ? RayTracingInstanceFlags::NONE : RayTracingInstanceFlags::FORCE_OPAQUE);
 	}
 }
 
@@ -588,7 +593,7 @@ void SceneRenderer::update(Camera *camera)
 		geometry_streaming.update();
 
 		if (engine_ray_tracing && rt_scene)
-			rt_scene->update(camera);
+			rt_scene->update();
 
 		if (render_meshlets_bvh_visualize)
 		{

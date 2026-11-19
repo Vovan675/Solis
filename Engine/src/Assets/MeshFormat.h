@@ -12,7 +12,7 @@ namespace MeshFormat
 {
 
 static constexpr uint64_t MAGIC = 0x4853454D4E474E45ULL; // "ENGNMESH"
-static constexpr uint32_t VERSION = 1;
+static constexpr uint32_t VERSION = 2;
 static constexpr uint32_t MESHLET_VERSION = 2;
 static constexpr uint64_t ALIGNMENT = 16;
 
@@ -121,6 +121,8 @@ struct alignas(16) MaterialDescriptor
 	float specular;
 	float emissive[3];
 	float emissive_intensity;
+	uint32_t alpha_test;
+	float alpha_cutoff;
 	uint64_t albedo_tex_guid;
 	uint64_t metalness_tex_guid;
 	uint64_t roughness_tex_guid;
@@ -128,7 +130,7 @@ struct alignas(16) MaterialDescriptor
 	uint64_t normal_tex_guid;
 	uint64_t emissive_tex_guid;
 };
-static_assert(sizeof(MaterialDescriptor) == 96 && sizeof(MaterialDescriptor) % 16 == 0);
+static_assert(sizeof(MaterialDescriptor) == 112 && sizeof(MaterialDescriptor) % 16 == 0);
 
 struct alignas(16) NodeDescriptor
 {

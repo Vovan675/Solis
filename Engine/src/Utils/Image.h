@@ -51,5 +51,5 @@ private:
 	uint32_t height;
 	uint32_t mip_levels;
 
-	Format format;
+	Format format = Format::UNDEFINED;
 };

@@ -27,7 +27,7 @@ void PathTracingRenderer::addPass(FrameGraph &fg, Ref<RayTracingScene> rt_scene,
 	},
 	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		gGlobalPipeline->setupRayTracing(L"shaders/rt/path_tracing.hlsl");
+		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/rt/path_tracing.hlsl", ShaderType::COMPUTE, "CSMain"));
 		gGlobalPipeline->flushAndBind(cmd_list);
 
 		struct Constants
@@ -45,7 +45,7 @@ void PathTracingRenderer::addPass(FrameGraph &fg, Ref<RayTracingScene> rt_scene,
 		constants.accumulation_tex_id = resources.getReadWriteTexture(GFXRID(PathTraceAccumulation));
 		gDynamicRHI->setConstantBufferData(3, &constants, sizeof(constants));
 
-		cmd_list->dispatchRays(Renderer::getRenderResolution().x, Renderer::getRenderResolution().y, 1);
+		cmd_list->dispatch(Math::divideRoundUp(Renderer::getRenderResolution().x, 8), Math::divideRoundUp(Renderer::getRenderResolution().y, 8), 1);
 
 	});
 }

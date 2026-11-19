@@ -1,5 +1,5 @@
 // Reference NVIDIA rtxpt
-#include "../common.h"
+#include "../ray_tracing.h"
 #include "../bindless.h"
 #include "../sampling.h"
 #include "../shading.h"
@@ -14,15 +14,6 @@ cbuffer Constants : register(b3)
 	uint environment_tex_id;
 	uint output_tex_id;
 	uint accumulation_tex_id;
-};
-
-struct RayPayload {
-	bool hit;
-	bool front_face;
-	float depth;
-	float2 bary;
-	uint instance_id;
-	uint primitive_id;
 };
 
 struct SurfaceProperties
@@ -51,21 +42,24 @@ struct SurfaceHit
 
 SurfaceHit TraceSurface(RaytracingAccelerationStructure tlas, RayDesc ray)
 {
-	RayPayload payload;
-	payload.hit = false;
-	
-	TraceRay(tlas, RAY_FLAG_NONE, 0xff, 0, 0, 0, ray, payload);
+	RayQuery<RAY_FLAG_SKIP_PROCEDURAL_PRIMITIVES> ray_query;
+	ray_query.TraceRayInline(tlas, RAY_FLAG_NONE, 0xff, ray);
+	while (ray_query.Proceed())
+	{
+		if (!isAlphaClipped(ray_query.CandidateInstanceID(), ray_query.CandidatePrimitiveIndex(), ray_query.CandidateTriangleBarycentrics()))
+			ray_query.CommitNonOpaqueTriangleHit();
+	}
 	
 	SurfaceHit hit;
-	hit.hit = payload.hit;
+	hit.hit = ray_query.CommittedStatus() == COMMITTED_TRIANGLE_HIT;
 	
-	if (payload.hit)
+	if (hit.hit)
 	{
-		Instance instance = getInstance(payload.instance_id);
+		Instance instance = getInstance(ray_query.CommittedInstanceID());
 		Mesh mesh = getMesh(instance.mesh_id);
-		VertexData vertex = GetVertexData(mesh, payload.primitive_id, payload.bary);
+		VertexData vertex = GetVertexData(mesh, ray_query.CommittedPrimitiveIndex(), ray_query.CommittedTriangleBarycentrics());
 		
-		float facing_sign = payload.front_face ? 1.0 : -1.0;
+		float facing_sign = ray_query.CommittedTriangleFrontFace() ? 1.0 : -1.0;
 		float3 geometry_normal = facing_sign * transformNormalToWorld(vertex.geometry_normal, instance.iworld_transform);
 		float3 shading_normal = facing_sign * transformNormalToWorld(vertex.normal, instance.iworld_transform);
 
@@ -73,14 +67,14 @@ SurfaceHit TraceSurface(RaytracingAccelerationStructure tlas, RayDesc ray)
 		hit.normal = adjustShadingNormal(shading_normal, geometry_normal, ray.Direction);
 		hit.geometry_normal = geometry_normal;
 		hit.uv = vertex.uv;
-		hit.instance_id = payload.instance_id;
-		hit.primitive_id = payload.primitive_id;
+		hit.instance_id = ray_query.CommittedInstanceID();
+		hit.primitive_id = ray_query.CommittedPrimitiveIndex();
 	}
 	
 	return hit;
 }
 
-bool TraceShadowRay(RaytracingAccelerationStructure tlas, float3 origin, float3 direction, float max_distance)
+bool TraceShadowRay(float3 origin, float3 direction, float max_distance)
 {
 	RayDesc shadow_ray;
 	shadow_ray.Origin = origin;
@@ -88,12 +82,7 @@ bool TraceShadowRay(RaytracingAccelerationStructure tlas, float3 origin, float3 
 	shadow_ray.TMin = 0.0001;
 	shadow_ray.TMax = max_distance;
 	
-	RayPayload shadow_payload;
-	shadow_payload.hit = false;
-	
-	TraceRay(tlas, RAY_FLAG_NONE, 0xff, 0, 0, 0, shadow_ray, shadow_payload);
-	
-	return shadow_payload.hit;
+	return !traceVisibility(shadow_ray);
 }
 
 // ============================================================================
@@ -230,7 +219,7 @@ MaterialSample SampleBRDF(SurfaceProperties surface, float3 V, float3 N, inout R
 // Lighting
 // ============================================================================
 
-float3 SampleDirectLighting(RaytracingAccelerationStructure tlas, SurfaceHit hit, SurfaceProperties surface, float3 V)
+float3 SampleDirectLighting(SurfaceHit hit, SurfaceProperties surface, float3 V)
 {
 	float3 N = hit.normal;
 	float3 shadow_origin = hit.position + hit.geometry_normal * 0.001;
@@ -246,7 +235,7 @@ float3 SampleDirectLighting(RaytracingAccelerationStructure tlas, SurfaceHit hit
 			continue;
 
 		float max_distance = light.type == LIGHT_TYPE_DIRECTIONAL ? 10000.0 : distance(light.position.xyz, hit.position);
-		if (TraceShadowRay(tlas, shadow_origin, L, max_distance))
+		if (TraceShadowRay(shadow_origin, L, max_distance))
 			continue;
 
 		float3 brdf = EvaluateBRDF(surface, L, V, N);
@@ -310,13 +299,14 @@ void AccumulateAndOutput(uint2 pixel, float3 radiance)
 // Path Tracing
 // ============================================================================
 
-[shader("raygeneration")]
-void RayGen()
+[numthreads(8, 8, 1)]
+void CSMain(uint2 pixel : SV_DispatchThreadID)
 {
-	RaytracingAccelerationStructure tlas = ResourceDescriptorHeap[tlas_id];
+	uint2 screen_size = uint2(render_resolution.xy);
+	if (any(pixel >= screen_size))
+		return;
 
-	uint2 pixel = DispatchRaysIndex().xy;
-	uint2 screen_size = DispatchRaysDimensions().xy;
+	RaytracingAccelerationStructure tlas = ResourceDescriptorHeap[tlas_id];
 	
 	RandomState rng = InitRandomState(pixel.x + pixel.y * screen_size.x, frame);
 	RayDesc ray = GenerateCameraRay(pixel, screen_size);
@@ -356,7 +346,7 @@ void RayGen()
 		SurfaceProperties surface = EvaluateMaterial(material, hit.uv);
 		
 		// Direct lighting with relaxed firefly threshold
-		float3 direct = throughput * SampleDirectLighting(tlas, hit, surface, -ray.Direction);
+		float3 direct = throughput * SampleDirectLighting(hit, surface, -ray.Direction);
 		direct += throughput * surface.emissive;
 		radiance += bounce > 0 ? FireflyFilter(direct, BASE_FIREFLY_THRESHOLD * 6.0, fireflyFilterK) : direct;
 		
@@ -386,20 +376,6 @@ void RayGen()
 	
 
 	radiance = min(radiance, 100.0 * WHITE_LUMINANCE);
+
 	AccumulateAndOutput(pixel, radiance);
-}
-
-[shader("miss")]
-void Miss(inout RayPayload payload) {
-	payload.hit = false;
-}
-
-[shader("closesthit")]
-void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttributes attribs) {
-	payload.hit = true;
-	payload.front_face = HitKind() == HIT_KIND_TRIANGLE_FRONT_FACE;
-	payload.depth = RayTCurrent();
-	payload.bary = attribs.barycentrics;
-	payload.instance_id = InstanceID();
-	payload.primitive_id = PrimitiveIndex();
 }

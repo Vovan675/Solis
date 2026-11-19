@@ -144,8 +144,7 @@ PixelOutput PSMain(PixelInput IN)
 		? SampleTexture(material.albedo_tex_id, IN.uv)
 		: material.albedo;
 
-	// Alpha discard
-	if (output.color.a < 0.5)
+	if (material.alpha_tex_id != 0 && SampleTexture(material.alpha_tex_id, IN.uv).a < material.alpha_cutoff)
 		discard;
 
 	float3 world_normal = normalize(IN.world_normal);

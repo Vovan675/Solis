@@ -491,6 +491,7 @@ REFLECT_END()
 struct RenderSettings
 {
 	bool path_tracing = false;
+	bool ray_traced_alpha_test = true;
 
 	SkySettings sky;
 	FilmSettings film;
@@ -506,6 +507,7 @@ struct RenderSettings
 
 REFLECT_BEGIN(RenderSettings)
 	REFLECT_FIELD(path_tracing),
+	REFLECT_FIELD(ray_traced_alpha_test),
 	REFLECT_FIELD(sky),
 	REFLECT_FIELD(film),
 	REFLECT_FIELD(color_grading),

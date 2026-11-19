@@ -174,7 +174,8 @@ struct Material
 	float4 emissive;
 	uint normal_tex_id;
 	uint emissive_tex_id;
-	uint pad[2];
+	uint alpha_tex_id;
+	float alpha_cutoff;
 };
 
 #define INSTANCE_FLAG_INVALID 0x1

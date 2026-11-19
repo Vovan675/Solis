@@ -14,17 +14,6 @@
 #include "Core/Variables.h"
 #include "Rendering/GlobalBufferCache.h"
 
-ShadowRenderer::ShadowRenderer()
-{
-	if (engine_ray_tracing)
-	{
-		raygen_shader = gDynamicRHI->createShader(L"shaders/rt/rt_shader.hlsl", ShaderType::RAY_GENERATION);
-		miss_shader = gDynamicRHI->createShader(L"shaders/rt/rt_shader.hlsl", ShaderType::MISS);
-
-		closest_hit_shader = gDynamicRHI->createShader(L"shaders/rt/rt_shader.hlsl", ShaderType::CLOSEST_HIT);
-	}
-}
-
 void ShadowRenderer::addCullViews(GpuTable<CullViewGPU> &cull_views, Camera *camera)
 {
 	shadow_views.clear();
@@ -162,7 +151,7 @@ void ShadowRenderer::addRayTracedShadowPasses(FrameGraph & fg, Ref<RayTracingSce
 	{
 		auto visiblity = resources.getTexture(GFXRID(RayTracedVisibility));
 
-		gGlobalPipeline->setupRayTracing(raygen_shader, miss_shader, closest_hit_shader);
+		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/rt/rt_shader.hlsl", ShaderType::COMPUTE, "CSMain"));
 		gGlobalPipeline->flushAndBind(cmd_list);
 
 		struct Constants
@@ -176,7 +165,7 @@ void ShadowRenderer::addRayTracedShadowPasses(FrameGraph & fg, Ref<RayTracingSce
 		constants.output_texture_id = visiblity->getUnorderedAccessView()->getBindlessIndex();
 		gDynamicRHI->setConstantBufferData(1, &constants, sizeof(constants));
 
-		cmd_list->dispatchRays(Renderer::getRenderResolution().x, Renderer::getRenderResolution().y, 1);
+		cmd_list->dispatch(Math::divideRoundUp(Renderer::getRenderResolution().x, 8), Math::divideRoundUp(Renderer::getRenderResolution().y, 8), 1);
 
 	});
 }

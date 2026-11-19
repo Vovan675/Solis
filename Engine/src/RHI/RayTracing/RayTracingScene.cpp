@@ -5,7 +5,14 @@ void RayTracingScene::setInstance(uint32_t slot, Engine::Mesh *mesh, const glm::
 {
 	if (!mesh->indexed)
 		return;
-	instances[slot] = {mesh, transform};
+	InstanceEntry &entry = instances[slot];
+	entry.mesh = mesh;
+	entry.transform = transform;
+}
+
+void RayTracingScene::setInstanceFlags(uint32_t slot, RayTracingInstanceFlags instance_flags)
+{
+	instances[slot].instance_flags = instance_flags;
 }
 
 void RayTracingScene::removeInstance(uint32_t slot)
@@ -43,18 +50,24 @@ RHIBottomLevelAccelerationStructureRef RayTracingScene::ensure_blas(Engine::Mesh
 	return blas;
 }
 
-void RayTracingScene::update(Camera *camera)
+void RayTracingScene::update()
 {
 	eastl::vector<RayTracingInstance> rt_instances;
 	rt_instances.reserve(instances.size());
 	for (auto &[slot, entry] : instances)
 	{
+		if (!entry.mesh)
+			continue;
+
 		RayTracingInstance &instance = rt_instances.emplace_back();
 		instance.blas = ensure_blas(entry.mesh);
 		instance.transform = entry.transform;
 		instance.instance_id = slot;
 		instance.instance_mask = 0xFF;
 		instance.instance_contribution_to_hit_group_index = 0;
+		instance.instance_flags = entry.instance_flags;
+		if (!GFXOPTIONS(ray_traced_alpha_test))
+			instance.instance_flags |= RayTracingInstanceFlags::FORCE_OPAQUE;
 	}
 
 	topLevelAS->build(rt_instances);

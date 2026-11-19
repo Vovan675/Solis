@@ -45,7 +45,7 @@ void VulkanBottomLevelAccelerationStructure::build(const eastl::vector<RayTracin
 
 		VkAccelerationStructureGeometryKHR &desc = geometries_desc[i];
 		desc.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
-		desc.flags = VK_GEOMETRY_OPAQUE_BIT_KHR;
+		desc.flags = 0;
 		desc.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR;
 
 		VkAccelerationStructureGeometryTrianglesDataKHR triangles{};
@@ -165,6 +165,10 @@ void VulkanTopLevelAccelerationStructure::build(const eastl::vector<RayTracingIn
 		desc.mask = instance.instance_mask;
 		desc.instanceShaderBindingTableRecordOffset = instance.instance_contribution_to_hit_group_index;
 		desc.flags = 0;
+		if (hasAnyFlags(instance.instance_flags, RayTracingInstanceFlags::TRIANGLE_CULL_DISABLE))
+			desc.flags |= VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
+		if (hasAnyFlags(instance.instance_flags, RayTracingInstanceFlags::FORCE_OPAQUE))
+			desc.flags |= VK_GEOMETRY_INSTANCE_FORCE_OPAQUE_BIT_KHR;
 
 		VulkanBottomLevelAccelerationStructure *native_blas = (VulkanBottomLevelAccelerationStructure *)instance.blas.getReference();
 		desc.accelerationStructureReference = native_blas->deviceAddress;
@@ -190,7 +194,6 @@ void VulkanTopLevelAccelerationStructure::build(const eastl::vector<RayTracingIn
 	VkAccelerationStructureGeometryKHR accelerationStructureGeometry{};
 	accelerationStructureGeometry.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
 	accelerationStructureGeometry.geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR;
-	accelerationStructureGeometry.flags = VK_GEOMETRY_OPAQUE_BIT_KHR;
 	accelerationStructureGeometry.geometry.instances.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR;
 	accelerationStructureGeometry.geometry.instances.arrayOfPointers = VK_FALSE;
 	accelerationStructureGeometry.geometry.instances.data = instanceDataDeviceAddress;

@@ -62,9 +62,13 @@ bool RAB_TraceRayForLocalLight(float3 origin, float3 direction, float t_min, flo
 	ray.TMax = t_max;
 
 	RaytracingAccelerationStructure tlas = ResourceDescriptorHeap[tlas_id];
-	RayQuery<RAY_FLAG_CULL_NON_OPAQUE | RAY_FLAG_SKIP_PROCEDURAL_PRIMITIVES> ray_query;
+	RayQuery<RAY_FLAG_SKIP_PROCEDURAL_PRIMITIVES> ray_query;
 	ray_query.TraceRayInline(tlas, RAY_FLAG_NONE, 0xff, ray);
-	ray_query.Proceed();
+	while (ray_query.Proceed())
+	{
+		if (!isAlphaClipped(ray_query.CandidateInstanceID(), ray_query.CandidatePrimitiveIndex(), ray_query.CandidateTriangleBarycentrics()))
+			ray_query.CommitNonOpaqueTriangleHit();
+	}
 
 	bool hit = ray_query.CommittedStatus() == COMMITTED_TRIANGLE_HIT;
 	// TODO: handle emissive triangle hit and set light_index, random_xy

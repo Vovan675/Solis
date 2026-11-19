@@ -5,6 +5,7 @@
 #include "MeshSerializer.h"
 #include "Assets/AssetManager.h"
 #include "Rendering/MeshletBuilder.h"
+#include "Utils/Image.h"
 #include "assimp/Importer.hpp"
 #include "assimp/scene.h"
 #include "assimp/postprocess.h"
@@ -214,6 +215,22 @@ void AssimpImporter::import(const char *path, Model *model, ModelImportSettings 
 	eastl::unordered_map<Engine::Mesh *, MeshletBuildData> build_data_map;
 	processNode(model->root_node, scene->mRootNode, scene, settings, path, model, meshes_seen, build_data_map);
 	model->root_node->updateTransform();
+
+	// Detect alpha test from albedo texture
+	eastl::hash_map<Engine::GUID, bool> albedo_has_alpha;
+	for (MeshNode *node : model->linear_nodes)
+	{
+		for (MeshNode::Primitive &primitive : node->primitives)
+		{
+			const AssetReference &albedo = primitive.material->albedo_tex.asset;
+			if (!albedo.isValid())
+				continue;
+
+			if (albedo_has_alpha.find(albedo.guid) == albedo_has_alpha.end())
+				albedo_has_alpha[albedo.guid] = Image(AssetManager::getPath(albedo).string().c_str()).hasAlpha();
+			primitive.material->alpha_test = albedo_has_alpha[albedo.guid];
+		}
+	}
 
 	std::filesystem::create_directories(runtime_path.parent_path());
 	MeshSerializer::save(model, runtime_path.string().c_str(), &build_data_map);

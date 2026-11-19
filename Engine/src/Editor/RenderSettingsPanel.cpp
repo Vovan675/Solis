@@ -137,6 +137,7 @@ void RenderSettingsPanel::renderImGui(EditorContext &context)
 
 			ImGui::SeparatorText("Geometry");
 			UI::convar(render_meshlets_mesh_shaders.getDescription());
+			UI::checkbox("Alpha Test In Rays", &GFXOPTIONS(ray_traced_alpha_test));
 
 			ImGui::BeginDisabled(GFXOPTIONS(path_tracing));
 			UI::drawStruct(GFXOPTIONS(ambient_occlusion));

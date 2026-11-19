@@ -67,6 +67,8 @@ MeshFormat::MaterialDescriptor encodeMaterial(const Material *mat)
 	d.emissive[1] = mat->emissive.g;
 	d.emissive[2] = mat->emissive.b;
 	d.emissive_intensity = mat->emissive_intensity;
+	d.alpha_test = mat->alpha_test;
+	d.alpha_cutoff = mat->alpha_cutoff;
 	d.albedo_tex_guid = mat->albedo_tex.asset.guid;
 	d.metalness_tex_guid = mat->metalness_tex.asset.guid;
 	d.roughness_tex_guid = mat->roughness_tex.asset.guid;
@@ -85,6 +87,8 @@ Ref<Material> decodeMaterial(const MeshFormat::MaterialDescriptor &d)
 	mat->specular = d.specular;
 	mat->emissive = glm::vec4(d.emissive[0], d.emissive[1], d.emissive[2], 1.0f);
 	mat->emissive_intensity = d.emissive_intensity;
+	mat->alpha_test = d.alpha_test != 0;
+	mat->alpha_cutoff = d.alpha_cutoff;
 	mat->albedo_tex.asset.guid = d.albedo_tex_guid;
 	mat->metalness_tex.asset.guid = d.metalness_tex_guid;
 	mat->roughness_tex.asset.guid = d.roughness_tex_guid;

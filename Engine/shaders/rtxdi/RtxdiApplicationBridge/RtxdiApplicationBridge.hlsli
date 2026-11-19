@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "../../ray_tracing.h"
 #include "RAB_Buffers.hlsli"
 #include "RAB_LightInfo.hlsli"
 #include "RAB_LightSample.hlsli"

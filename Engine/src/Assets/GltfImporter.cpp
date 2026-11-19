@@ -302,6 +302,8 @@ static Ref<Material> extract_material(const cgltf_material *mat, const char *glt
 	m->metalness = pbr.metallic_factor;
 	m->roughness = pbr.roughness_factor;
 	m->albedo_tex.asset = resolve_texture(pbr.base_color_texture, gltf_path);
+	m->alpha_test = mat->alpha_mode != cgltf_alpha_mode_opaque;
+	m->alpha_cutoff = mat->alpha_cutoff;
 	m->metalness_tex.asset = resolve_texture(pbr.metallic_roughness_texture, gltf_path);
 	m->roughness_tex.asset = resolve_texture(pbr.metallic_roughness_texture, gltf_path);
 	m->normal_tex.asset = resolve_texture(mat->normal_texture, gltf_path);

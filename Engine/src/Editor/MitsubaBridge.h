@@ -19,5 +19,6 @@ private:
 
 	float render_scale = 0.5f;
 	int max_depth = 8;
+	int integrator = 1;
 	bool emission = true;
 };

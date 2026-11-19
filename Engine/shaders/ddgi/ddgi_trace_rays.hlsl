@@ -1,4 +1,4 @@
-#include "../common.h"
+#include "../ray_tracing.h"
 #include "../bindless.h"
 #include "../lighting/lighting.h"
 #include "ddgi_common.hlsl"
@@ -13,7 +13,7 @@ cbuffer Constants : register(b1)
 	uint probes_to_update_buffer_id;
 };
 
-bool TraceShadowRay(RaytracingAccelerationStructure tlas, float3 origin, float3 direction, float max_distance)
+bool TraceShadowRay(float3 origin, float3 direction, float max_distance)
 {
 	RayDesc shadow_ray;
 	shadow_ray.Origin = origin;
@@ -21,11 +21,7 @@ bool TraceShadowRay(RaytracingAccelerationStructure tlas, float3 origin, float3 
 	shadow_ray.TMin = 0.0001;
 	shadow_ray.TMax = max_distance;
 
-	RayQuery<RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_SKIP_PROCEDURAL_PRIMITIVES> ray_query;
-	ray_query.TraceRayInline(tlas, RAY_FLAG_NONE, 0xff, shadow_ray);
-	ray_query.Proceed();
-
-	return ray_query.CommittedStatus() == COMMITTED_TRIANGLE_HIT;
+	return !traceVisibility(shadow_ray, RAY_FLAG_FORCE_OPAQUE);
 }
 
 // 400 rays traced, and info saved as ray_data
@@ -69,7 +65,7 @@ void CS_TraceRays(uint3 dispatch_thread_id : SV_DispatchThreadID)
 	ray.TMin = 0.0;
 	ray.TMax = ray_distance;
 
-	RayQuery<RAY_FLAG_SKIP_PROCEDURAL_PRIMITIVES> ray_query;
+	RayQuery<RAY_FLAG_FORCE_OPAQUE | RAY_FLAG_SKIP_PROCEDURAL_PRIMITIVES> ray_query;
 	ray_query.TraceRayInline(tlas, RAY_FLAG_NONE, 0xff, ray);
 	ray_query.Proceed();
 
@@ -136,7 +132,7 @@ void CS_TraceRays(uint3 dispatch_thread_id : SV_DispatchThreadID)
 			continue;
 
 		float max_distance = light.type == LIGHT_TYPE_DIRECTIONAL ? 10000.0 : distance(light.position.xyz, position);
-		if (TraceShadowRay(tlas, shadow_origin, L, max_distance))
+		if (TraceShadowRay(shadow_origin, L, max_distance))
 			continue;
 
 		radiance += diffuse * NdotL * attenuation * light.radiance.rgb;

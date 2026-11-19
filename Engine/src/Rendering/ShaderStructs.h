@@ -16,6 +16,8 @@ struct MaterialGPU
 	glm::vec4 emissive = glm::vec4(0, 0, 0, 1);
 	uint32_t normal_tex_id = 0;
 	uint32_t emissive_tex_id = 0;
+	uint32_t alpha_tex_id = 0;
+	float alpha_cutoff = 0.0f;
 };
 
 #define INVALID_LIGHT_INDEX 0xFFFFFFFFu

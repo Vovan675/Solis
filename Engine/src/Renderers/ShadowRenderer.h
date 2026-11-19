@@ -10,8 +10,6 @@
 class ShadowRenderer
 {
 public:
-	ShadowRenderer();
-
 	void addCullViews(GpuTable<CullViewGPU> &cull_views, Camera *camera);
 	void addShadowMapPasses(FrameGraph &fg, uint32_t max_draw_calls_count);
 	void addRayTracedShadowPasses(FrameGraph &fg, Ref<RayTracingScene> rt_scene, uint32_t sun_light_index);
@@ -31,10 +29,6 @@ private:
 		LIGHT_TYPE type;
 		uint32_t first_view_id;
 	};
-
-	RHIShaderRef raygen_shader;
-	RHIShaderRef miss_shader;
-	RHIShaderRef closest_hit_shader;
 
 	eastl::vector<ShadowViews> shadow_views;
 };
