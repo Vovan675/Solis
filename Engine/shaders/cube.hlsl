@@ -39,7 +39,7 @@ float4 PSMain(VertexOutput IN) : SV_TARGET {
     if (sun_light_index != INVALID_LIGHT_INDEX)
     {
         Light sun = getLight(sun_light_index);
-        color += getSunDisk(view_direction, normalize(sun.direction.xyz), sun.radiance.rgb);
+        color += getSunDisk(view_direction, normalize(sun.direction.xyz), sun.radiance.rgb, sun.angular_radius);
     }
     return float4(color, 1.0);
 }

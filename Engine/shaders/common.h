@@ -114,6 +114,7 @@ cbuffer FrameConstants : register(b32) {
 	uint meshes_buffer_id;
 	uint tlas_id;
 	uint lines_gpu_buffer_id;
+	uint soft_shadows;
 	DDGIVolume ddgi_volume;
 };
 
@@ -609,9 +610,8 @@ float Average(float3 color)
 	return (color.r + color.g + color.b) / 3.0;
 }
 
-float3 getSunDisk(float3 view_direction, float3 sun_direction, float3 sun_illuminance)
+float3 getSunDisk(float3 view_direction, float3 sun_direction, float3 sun_illuminance, float sun_angular_radius)
 {
-	const float sun_angular_radius = 0.004654;
 	float cos_radius = cos(sun_angular_radius);
 	float disk = smoothstep(cos_radius, cos_radius + 0.00002, dot(view_direction, sun_direction));
 	float solid_angle = PI * sun_angular_radius * sun_angular_radius;

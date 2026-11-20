@@ -32,6 +32,7 @@ struct LightGPU
 	uint32_t type;
 	float attenuation_radius;
 	uint32_t shadow_map_tex_id;
+	float angular_radius;
 };
 
 // [Directional Lights ... Local Lights ...]
@@ -234,6 +235,7 @@ struct FrameConstants
 	uint32_t meshes_buffer_id = 0;
 	uint32_t tlas_id = 0;
 	uint32_t lines_gpu_buffer_id = 0;
+	uint32_t soft_shadows = 0;
 	DDGIVolumeGPU ddgi_volume{};
 };
 

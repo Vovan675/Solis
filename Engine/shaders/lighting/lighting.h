@@ -1,6 +1,7 @@
 #pragma once
 #include "../common.h"
 #include "../shading.h"
+#include "../sampling.h"
 
 #define POINT_SHADOW_Z_NEAR 0.01
 #define SHADOW_MAP_CASCADE_COUNT 4
@@ -19,7 +20,7 @@ struct Light
 	uint type;
 	float attenuation_radius;
 	uint shadow_map_tex_id;
-	uint pad;
+	float angular_radius;
 };
 
 Light getLight(uint index)
@@ -57,6 +58,19 @@ float getLightAttenuation(Light light, float3 pos, out float3 L)
 	L = delta * rsqrt(sqr_distance);
 	float attenuation = 1.0 / max(sqr_distance, 0.0001);
 	return attenuation * getSmoothDistanceAttenuation(sqr_distance, light.attenuation_radius * light.attenuation_radius);
+}
+
+float3 sampleSunDirection(Light light, float2 uv)
+{
+	float3 direction = normalize(light.direction.xyz);
+	if (!soft_shadows)
+		return direction;
+
+	float3 tangent;
+	float3 bitangent;
+	BuildOrthonormalBasis(direction, tangent, bitangent);
+	float2 disk = SampleUniformDiskConcentric(uv) * tan(light.angular_radius);
+	return normalize(direction + tangent * disk.x + bitangent * disk.y);
 }
 
 static const float3 SAMPLING_OFFSETS[20] = {

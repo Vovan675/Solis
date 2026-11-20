@@ -219,7 +219,7 @@ MaterialSample SampleBRDF(SurfaceProperties surface, float3 V, float3 N, inout R
 // Lighting
 // ============================================================================
 
-float3 SampleDirectLighting(SurfaceHit hit, SurfaceProperties surface, float3 V)
+float3 SampleDirectLighting(SurfaceHit hit, SurfaceProperties surface, float3 V, inout RandomState rng)
 {
 	float3 N = hit.normal;
 	float3 shadow_origin = hit.position + hit.geometry_normal * 0.001;
@@ -230,6 +230,9 @@ float3 SampleDirectLighting(SurfaceHit hit, SurfaceProperties surface, float3 V)
 		Light light = getLight(light_index);
 		float3 L;
 		float attenuation = getLightAttenuation(light, hit.position, L);
+		if (light.type == LIGHT_TYPE_DIRECTIONAL)
+			L = sampleSunDirection(light, Random2(rng));
+
 		float NdotL = saturate(dot(N, L));
 		if (attenuation * NdotL <= 0.0)
 			continue;
@@ -333,7 +336,7 @@ void CSMain(uint2 pixel : SV_DispatchThreadID)
 			if (bounce == 0 && sun_light_index != INVALID_LIGHT_INDEX)
 			{
 				Light sun = getLight(sun_light_index);
-				env += getSunDisk(ray.Direction, normalize(sun.direction.xyz), sun.radiance.rgb);
+				env += getSunDisk(ray.Direction, normalize(sun.direction.xyz), sun.radiance.rgb, sun.angular_radius);
 			}
 
 			env *= throughput;
@@ -346,7 +349,7 @@ void CSMain(uint2 pixel : SV_DispatchThreadID)
 		SurfaceProperties surface = EvaluateMaterial(material, hit.uv);
 		
 		// Direct lighting with relaxed firefly threshold
-		float3 direct = throughput * SampleDirectLighting(hit, surface, -ray.Direction);
+		float3 direct = throughput * SampleDirectLighting(hit, surface, -ray.Direction, rng);
 		direct += throughput * surface.emissive;
 		radiance += bounce > 0 ? FireflyFilter(direct, BASE_FIREFLY_THRESHOLD * 6.0, fireflyFilterK) : direct;
 		

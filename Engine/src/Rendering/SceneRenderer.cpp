@@ -488,6 +488,7 @@ void SceneRenderer::update(Camera *camera)
 			light_gpu.radiance = glm::vec4(light.getPhotometricIntensity(), 1.0f);
 			light_gpu.type = light.getType();
 			light_gpu.attenuation_radius = light.attenuation_radius;
+			light_gpu.angular_radius = light.getAngularRadius();
 			light_gpu.shadow_map_tex_id = Renderer::isShadowMapsEnabled() ? light.getShadowMap()->getShaderResourceView()->getBindlessIndex() : 0;
 			for (int i = 0; i < SHADOW_MAP_CASCADE_COUNT; i++)
 			{
@@ -663,6 +664,7 @@ void SceneRenderer::update(Camera *camera)
 	frame_constants.old_lights_buffer_id = old_lights_table.getBindlessIndex();
 	frame_constants.light_index_mapping_buffer_id = light_index_mapping_table.getBindlessIndex();
 	frame_constants.lights_count = lights.size();
+	frame_constants.soft_shadows = GFXOPTIONS(shadows).soft;
 	if (GlobalBufferCache::getGlobalMeshletGeometryBuffer())
 		frame_constants.global_meshlets_geometry_buffer_id = GlobalBufferCache::getGlobalMeshletGeometryBuffer()->getShaderResourceView()->getBindlessIndex();
 	if (GlobalBufferCache::getGlobalMeshletLodGroupsBuffer())

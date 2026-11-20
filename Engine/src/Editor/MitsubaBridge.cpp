@@ -185,7 +185,18 @@ static int write_lights(nlohmann::json &scene)
 		glm::vec3 intensity = light.getPhotometricIntensity();
 
 		nlohmann::json light_json;
-		if (light.getType() == LIGHT_TYPE_DIRECTIONAL)
+		if (light.getType() == LIGHT_TYPE_DIRECTIONAL && GFXOPTIONS(shadows).soft)
+		{
+			const float SUN_DISTANCE = 100000.0f;
+			float angular_radius = light.getAngularRadius();
+			glm::mat4 to_sun = glm::translate(glm::mat4(1), glm::vec3(0, 0, -SUN_DISTANCE)) * glm::scale(glm::mat4(1), glm::vec3(SUN_DISTANCE * glm::tan(angular_radius)));
+			glm::vec3 radiance = intensity / (glm::pi<float>() * glm::sin(angular_radius) * glm::sin(angular_radius));
+			light_json = {
+				{"type", "disk"},
+				{"to_world", mat4_to_json_transform(entity.getWorldTransformMatrix() * to_sun)},
+				{"emitter", { {"type", "area"}, {"radiance", { {"type", "rgb"}, {"value", {radiance.x, radiance.y, radiance.z}} }} }},
+			};
+		} else if (light.getType() == LIGHT_TYPE_DIRECTIONAL)
 		{
 			glm::vec3 direction = entity.getLocalDirection(glm::vec3(0, 0, 1));
 			light_json = {
@@ -228,6 +239,7 @@ bool MitsubaBridge::export_scene(EditorContext &context, const std::filesystem::
 		{"type", "perspective"},
 		{"fov", cam.getFov()},
 		{"fov_axis", "y"},
+		{"far_clip", 1000000.0f},
 		{"to_world", {
 			{"type", "lookat"},
 			{"origin", {cam_pos.x, cam_pos.y, cam_pos.z}},

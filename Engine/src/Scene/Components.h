@@ -186,6 +186,7 @@ struct LightComponent
 	}
 
 	glm::vec3 getPhotometricIntensity() const;
+	float getAngularRadius() const { return glm::radians(angular_diameter * 0.5f); }
 
 	void recreateTexture()
 	{
@@ -224,6 +225,7 @@ struct LightComponent
 	// Lux for directional, lumens for point
 	float intensity = 1.0f;
 	float attenuation_radius = 1.0f;
+	float angular_diameter = 0.533f;
 
 	int shadow_map_size = 2048;
 
@@ -253,6 +255,8 @@ REFLECT_BEGIN(LightComponent)
 	REFLECT_FIELD(intensity).range(0.01f, 200000.0f).logarithmic(),
 	REFLECT_FIELD(attenuation_radius).range(0.001f, 40.0f).format("%.2f m")
 		.EDIT_IF(owner.getType() == LIGHT_TYPE_POINT),
+	REFLECT_FIELD(angular_diameter).range(0.1f, 10.0f).format("%.2f deg")
+		.EDIT_IF(owner.getType() == LIGHT_TYPE_DIRECTIONAL),
 	REFLECT_FIELD(shadow_map_size),
 REFLECT_END()
 

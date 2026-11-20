@@ -82,9 +82,13 @@ RAB_LightSample RAB_SamplePolymorphicLight(RAB_LightInfo light_info, RAB_Surface
 	float3 L;
 	float attenuation = getLightAttenuation(light_info, surface.world_position, L);
 	if (light_info.type == LIGHT_TYPE_DIRECTIONAL)
+	{
+		L = sampleSunDirection(light_info, uv);
 		result.position = surface.world_position + L * 10000.0;
-	else
+	} else
+	{
 		result.position = light_info.position.xyz;
+	}
 	result.normal = -L;
 	result.radiance = light_info.radiance.rgb * attenuation;
 	result.solid_angle_pdf = 1.0;
