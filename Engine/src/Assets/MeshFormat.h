@@ -129,6 +129,7 @@ struct alignas(16) MaterialDescriptor
 	uint64_t specular_tex_guid;
 	uint64_t normal_tex_guid;
 	uint64_t emissive_tex_guid;
+	uint32_t two_sided;
 };
 static_assert(sizeof(MaterialDescriptor) == 112 && sizeof(MaterialDescriptor) % 16 == 0);
 

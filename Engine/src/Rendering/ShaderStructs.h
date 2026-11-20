@@ -4,6 +4,8 @@
 #define PASS_MASK_DIRECTIONAL_SHADOW 1 << 2
 #define PASS_MASK_POINT_SHADOW 1 << 3
 
+#define MATERIAL_FLAG_TWO_SIDED 0x1
+
 struct MaterialGPU
 {
 	glm::vec4 albedo = glm::vec4(0, 0, 0, 1);
@@ -18,6 +20,8 @@ struct MaterialGPU
 	uint32_t emissive_tex_id = 0;
 	uint32_t alpha_tex_id = 0;
 	float alpha_cutoff = 0.0f;
+	uint32_t flags = 0;
+	uint32_t pad[3];
 };
 
 #define INVALID_LIGHT_INDEX 0xFFFFFFFFu

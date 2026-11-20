@@ -135,7 +135,7 @@ struct PixelOutput
 	float2 motion_vectors : SV_Target4;
 };
 
-PixelOutput PSMain(PixelInput IN)
+PixelOutput PSMain(PixelInput IN, bool is_front_face : SV_IsFrontFace)
 {
 	PixelOutput output;
 	Material material = getMaterial(IN.material_id);
@@ -160,6 +160,8 @@ PixelOutput PSMain(PixelInput IN)
 		tbn = computeTBN(IN.world_position, world_normal, IN.uv);
 	if (material.normal_tex_id > 0)
 		world_normal = applyNormalMap(SampleTexture(material.normal_tex_id, IN.uv).rg, tbn);
+	if ((material.flags & MATERIAL_FLAG_TWO_SIDED) && !is_front_face)
+		world_normal = -world_normal;
 	output.normal = float4(packGBufferNormal(world_normal), 1.0);
 
 	output.shading.r = (material.metalness_tex_id > 0) ? SampleTexture(material.metalness_tex_id, IN.uv).b : material.shading.r;

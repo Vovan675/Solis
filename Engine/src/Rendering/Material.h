@@ -30,6 +30,7 @@ public:
 	glm::vec4 albedo = glm::vec4(1, 1, 1, 1);
 	bool alpha_test = false;
 	float alpha_cutoff = 0.5f;
+	bool two_sided = false;
 
 	MaterialTexture metalness_tex;
 	float metalness = 0.0f;
@@ -99,6 +100,7 @@ REFLECT_BEGIN(Material)
 	REFLECT_FIELD(albedo_tex).label("Base Color Texture"),
 	REFLECT_FIELD(alpha_test),
 	REFLECT_FIELD(alpha_cutoff).range(0.0f, 1.0f).EDIT_IF(owner.alpha_test),
+	REFLECT_FIELD(two_sided),
 	REFLECT_FIELD(metalness).range(0.0f, 1.0f).format("%.2f"),
 	REFLECT_FIELD(metalness_tex).label("Metalness Texture"),
 	REFLECT_FIELD(roughness).range(0.0f, 1.0f).format("%.2f"),

@@ -177,7 +177,11 @@ struct Material
 	uint emissive_tex_id;
 	uint alpha_tex_id;
 	float alpha_cutoff;
+	uint flags;
+	uint3 pad;
 };
+
+#define MATERIAL_FLAG_TWO_SIDED 0x1
 
 #define INSTANCE_FLAG_INVALID 0x1
 

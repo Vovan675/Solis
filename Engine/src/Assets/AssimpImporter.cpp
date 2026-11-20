@@ -24,6 +24,14 @@ static glm::mat4 convertAssimpMat4(const aiMatrix4x4 &m)
 	return o;
 }
 
+// .DoubleSided in name came from Falcor scenes
+static bool is_two_sided(const aiMaterial *material)
+{
+	int two_sided = 0;
+	material->Get(AI_MATKEY_TWOSIDED, two_sided);
+	return two_sided != 0 || strstr(material->GetName().C_Str(), ".DoubleSided");
+}
+
 void AssimpImporter::processNode(MeshNode *mesh_node, aiNode *node, const aiScene *scene,
 	const ModelImportSettings &settings, const eastl::string &source_path,
 	Model *model, eastl::map<int, int> &meshes_seen,
@@ -104,9 +112,7 @@ void AssimpImporter::processNode(MeshNode *mesh_node, aiNode *node, const aiScen
 		MeshFormat::deduplicateVertices(vertices, indices, remap);
 		if (settings.meshlet_mode == MESHLET_MODE_ENABLED)
 		{
-			int two_sided = 0;
-			scene->mMaterials[mesh->mMaterialIndex]->Get(AI_MATKEY_TWOSIDED, two_sided);
-			build_data_map[engine_mesh.getReference()] = MeshletBuilder::build(engine_mesh, mesh->mName.C_Str(), vertices, indices, two_sided != 0, settings);
+			build_data_map[engine_mesh.getReference()] = MeshletBuilder::build(engine_mesh, mesh->mName.C_Str(), vertices, indices, is_two_sided(scene->mMaterials[mesh->mMaterialIndex]), settings);
 		}
 
 		if (!engine_mesh->useMeshlets())
@@ -160,6 +166,7 @@ void AssimpImporter::processNode(MeshNode *mesh_node, aiNode *node, const aiScen
 		mat->Get(AI_MATKEY_METALLIC_FACTOR, engine_material->metalness);
 		mat->Get(AI_MATKEY_ROUGHNESS_FACTOR, engine_material->roughness);
 		mat->Get(AI_MATKEY_SPECULAR_FACTOR, engine_material->specular);
+		engine_material->two_sided = is_two_sided(mat);
 
 		mat->Get(AI_MATKEY_EMISSIVE_INTENSITY, engine_material->emissive_intensity);
 		engine_material->emissive_intensity *= settings.emissive_scale;

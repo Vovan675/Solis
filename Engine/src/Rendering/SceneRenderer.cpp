@@ -172,6 +172,7 @@ void SceneRenderer::refresh_materials(entt::entity entity_id, MeshRendererCompon
 
 		material_gpu.alpha_tex_id = material->alpha_test ? material->albedo_tex.bindless_id : 0;
 		material_gpu.alpha_cutoff = material->alpha_cutoff;
+		material_gpu.flags = material->two_sided ? MATERIAL_FLAG_TWO_SIDED : 0;
 		materials_table.set(it->second.start + i, material_gpu); // In future materials would be globally unique, so every material would hold its own slot
 
 		if (rt_scene)
