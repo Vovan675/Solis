@@ -444,6 +444,7 @@ struct VertexData
 	float3 position;
 	float3 normal; // Smoothed barycentric normal from model. Used for lighting
 	float3 geometry_normal; // Real calculated geometry normal. Used for biasing
+	float4 tangent; // xyz = direction, w = bitangent sign
 	float2 uv;
 };
 
@@ -470,6 +471,12 @@ VertexData GetVertexData(Mesh mesh, uint primitive_id, float2 bary)
 	vertex.normal = Interpolate(normal_1, normal_2, normal_3, bary);
 	vertex.geometry_normal = normalize(cross(pos_2 - pos_1, pos_3 - pos_1));
 	vertex.uv = Interpolate(uv_1, uv_2, uv_3, bary);
+
+	float3 tangent_1 = GetMeshVertexData<float3>(mesh.vertex_buffer_id, mesh.tangents_offset, index_0, mesh.vertex_stride);
+	float3 tangent_2 = GetMeshVertexData<float3>(mesh.vertex_buffer_id, mesh.tangents_offset, index_1, mesh.vertex_stride);
+	float3 tangent_3 = GetMeshVertexData<float3>(mesh.vertex_buffer_id, mesh.tangents_offset, index_2, mesh.vertex_stride);
+	float tangent_sign = GetMeshVertexData<float>(mesh.vertex_buffer_id, mesh.tangents_offset + 12, index_0, mesh.vertex_stride);
+	vertex.tangent = float4(Interpolate(tangent_1, tangent_2, tangent_3, bary), tangent_sign);
 	return vertex;
 }
 
@@ -559,6 +566,13 @@ float NativeDepthToLinear(float2 uv, float hardware_depth) {
 	return length(GetVSPosition(uv, hardware_depth));
 }
 
+float3x3 computeTBN(float3 normal, float4 tangent)
+{
+	float3 T = normalize(tangent.xyz);
+	float3 B = cross(normal, T) * tangent.w;
+	return float3x3(T, B, normal);
+}
+
 float3x3 computeTBN(float3 world_position, float3 normal, float2 uv)
 {
 	float3 dp1 = ddx(world_position);
@@ -577,16 +591,15 @@ float3x3 computeTBN(float3 world_position, float3 normal, float2 uv)
 	return float3x3(-tangent, -bitangent, normal);
 }
 
-// Compute tangent and bitangent from normal
-void ComputeBasis(float3 N, out float3 T, out float3 B) {
-	T = cross(N, float3(0, 1, 0));
-	if (dot(T, T) < Epsilon) {
-		T = cross(N, float3(1, 0, 0));
-	}
-	T = normalize(T);
-	B = normalize(cross(N, T));
+float3 applyNormalMap(float2 normal_map_rg, float3x3 tbn)
+{
+	// BC5(ATI2) and other formats may even dont have blue channel, reconstruct it.
+	float2 normal_xy = normal_map_rg * 2.0 - 1.0;
+	float3 normal = float3(normal_xy, sqrt(saturate(1.0 - dot(normal_xy, normal_xy))));
+	return normalize(mul(normal, tbn));
 }
 
+// Compute tangent and bitangent from normal
 void BuildOrthonormalBasis(float3 normal, out float3 tangent, out float3 bitangent)
 {
 	float3 up = abs(normal.z) < 0.999 ? float3(0, 0, 1) : float3(1, 0, 0);

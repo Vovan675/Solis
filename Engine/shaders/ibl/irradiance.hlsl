@@ -36,7 +36,7 @@ void CSMain(uint3 dispatchID : SV_DispatchThreadID) {
     
     float3 N = GetCubemapNormal(size.xy, dispatchID);
     float3 up, right;
-    ComputeBasis(N, up, right);
+    BuildOrthonormalBasis(N, up, right);
 
     float3 irradiance = float3(0.0, 0.0, 0.0);
 

@@ -155,21 +155,11 @@ PixelOutput PSMain(PixelInput IN)
 		bool use_explicit = (IN.attribute_flags & MESH_ATTR_TANGENT) != 0;
 	#endif
 	if (use_explicit)
-	{
-		float3 T = normalize(IN.world_tangent.xyz);
-		float3 B = cross(world_normal, T) * IN.world_tangent.w;
-		tbn = float3x3(T, B, world_normal);
-	} else
-	{
+		tbn = computeTBN(world_normal, IN.world_tangent);
+	else
 		tbn = computeTBN(IN.world_position, world_normal, IN.uv);
-	}
 	if (material.normal_tex_id > 0)
-	{
-		// BC5(ATI2) and other formats may even dont have blue channel, reconstruct it.
-		float2 normal_xy = SampleTexture(material.normal_tex_id, IN.uv).rg * 2.0 - 1.0;
-		float3 normal = float3(normal_xy, sqrt(saturate(1.0 - dot(normal_xy, normal_xy))));
-		world_normal = normalize(mul(normal, tbn));
-	}
+		world_normal = applyNormalMap(SampleTexture(material.normal_tex_id, IN.uv).rg, tbn);
 	output.normal = float4(packGBufferNormal(world_normal), 1.0);
 
 	output.shading.r = (material.metalness_tex_id > 0) ? SampleTexture(material.metalness_tex_id, IN.uv).b : material.shading.r;

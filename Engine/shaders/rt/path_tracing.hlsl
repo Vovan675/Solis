@@ -33,8 +33,10 @@ struct SurfaceHit
 {
 	float3 position;
 	float3 normal;
+	float3 specular_normal;
 	float3 geometry_normal;
 	float2 uv;
+	Material material;
 	uint instance_id;
 	uint primitive_id;
 	bool hit;
@@ -61,10 +63,20 @@ SurfaceHit TraceSurface(RaytracingAccelerationStructure tlas, RayDesc ray)
 		
 		float facing_sign = ray_query.CommittedTriangleFrontFace() ? 1.0 : -1.0;
 		float3 geometry_normal = facing_sign * transformNormalToWorld(vertex.geometry_normal, instance.iworld_transform);
-		float3 shading_normal = facing_sign * transformNormalToWorld(vertex.normal, instance.iworld_transform);
+		float3 shading_normal = transformNormalToWorld(vertex.normal, instance.iworld_transform);
+
+		hit.material = getMaterial(instance.material_id);
+		if (hit.material.normal_tex_id > 0 && (mesh.attribute_flags & MESH_ATTR_TANGENT))
+		{
+			float4 tangent = float4(mul((float3x3)instance.world_transform, vertex.tangent.xyz), vertex.tangent.w);
+			float3x3 tbn = computeTBN(shading_normal, tangent);
+			shading_normal = applyNormalMap(SampleTextureLevel(hit.material.normal_tex_id, vertex.uv, 0).rg, tbn);
+		}
+		shading_normal *= facing_sign;
 
 		hit.position = mul(instance.world_transform, float4(vertex.position, 1.0)).xyz;
-		hit.normal = adjustShadingNormal(shading_normal, geometry_normal, ray.Direction);
+		hit.normal = shading_normal;
+		hit.specular_normal = adjustShadingNormal(shading_normal, geometry_normal, ray.Direction);
 		hit.geometry_normal = geometry_normal;
 		hit.uv = vertex.uv;
 		hit.instance_id = ray_query.CommittedInstanceID();
@@ -107,32 +119,31 @@ SurfaceProperties EvaluateMaterial(Material material, float2 uv)
 // BRDF
 // ============================================================================
 
-float3 EvaluateBRDF(SurfaceProperties surface, float3 L, float3 V, float3 N)
+float3 EvaluateBRDFCosine(SurfaceProperties surface, float3 L, float3 V, float3 N, float3 specular_normal)
 {
 	float3 H = normalize(L + V);
 	
 	float NdotL = max(dot(N, L), 0.0);
 	float NdotV = max(dot(N, V), 0.0);
-	float NdotH = max(dot(N, H), 0.0);
+	float specular_NdotL = max(dot(specular_normal, L), 0.0);
+	float specular_NdotV = max(dot(specular_normal, V), 0.0);
+	float specular_NdotH = max(dot(specular_normal, H), 0.0);
 	float VdotH = max(dot(V, H), 0.0);
-	
-	if (NdotL <= 0.0 || NdotV <= 0.0)
-		return float3(0, 0, 0);
 	
 	float3 F0 = computeF0(surface.albedo, surface.metalness, surface.specular);
 	float3 F = FresnelSchlick(F0, 1.0f, VdotH);
 	
 	// Specular (Cook-Torrance)
 	float alpha = surface.roughness * surface.roughness;
-	float D = D_GGX(NdotH, alpha * alpha);
-	float G = V_SmithGGXCorrelated(NdotV, NdotL, alpha);
-	float3 specular = F * D * G;
+	float D = D_GGX(specular_NdotH, alpha * alpha);
+	float G = V_SmithGGXCorrelated(specular_NdotV, specular_NdotL, alpha);
+	float3 specular = specular_NdotL > 0.0 && specular_NdotV > 0.0 ? F * D * G * specular_NdotL : 0.0;
 
 	// Diffuse (Disney)
 	float3 diffuse_color = surface.albedo * (1.0 - surface.metalness);
 	float3 diffuse = diffuse_color * Fr_DisneyDiffuse(NdotV, NdotL, VdotH, surface.roughness) / PI;
 	
-	return diffuse + specular;
+	return diffuse * NdotL + specular;
 }
 
 struct MaterialSample
@@ -143,7 +154,7 @@ struct MaterialSample
 	float lobe_probability;
 };
 
-MaterialSample SampleBRDF(SurfaceProperties surface, float3 V, float3 N, inout RandomState rng)
+MaterialSample SampleBRDF(SurfaceProperties surface, float3 V, float3 N, float3 specular_normal, inout RandomState rng)
 {
 	MaterialSample result;
 	
@@ -164,30 +175,31 @@ MaterialSample SampleBRDF(SurfaceProperties surface, float3 V, float3 N, inout R
 	{
 		// Sample GGX specular lobe
 		float3 H_tangent = SampleGGXTangent(Random2(rng), surface.roughness);
-		float3 H = TangentToWorld(H_tangent, T, B, N);
+		float3 specular_T;
+		float3 specular_B;
+		BuildOrthonormalBasis(specular_normal, specular_T, specular_B);
+		float3 H = TangentToWorld(H_tangent, specular_T, specular_B, specular_normal);
 		float3 L = reflect(-V, H);
 		
-		float NdotL = dot(N, L);
-		if (NdotL <= 0.0)
+		if (dot(specular_normal, L) <= 0.0)
 		{
 			// Fallback to diffuse
 			float3 L_tangent = SampleCosineHemisphere(Random2(rng));
 			L = TangentToWorld(L_tangent, T, B, N);
-			NdotL = dot(N, L);
 		}
 		
 		result.direction = L;
 		result.lobe_probability = specular_prob;
 		
-		float3 brdf = EvaluateBRDF(surface, L, V, N);
-		float NdotH = max(dot(N, H), 0.0);
+		float3 brdf_cosine = EvaluateBRDFCosine(surface, L, V, N, specular_normal);
+		float NdotH = max(dot(specular_normal, H), 0.0);
 		float VdotH = max(dot(V, H), 0.0);
 		float spec_pdf = GGX_PDF(NdotH, VdotH, surface.roughness);
-		float diff_pdf = NdotL / PI;
+		float diff_pdf = max(dot(N, L), 0.0) / PI;
 		float pdf = specular_prob * spec_pdf + (1.0 - specular_prob) * diff_pdf;
 		
 		result.pdf = max(pdf, Epsilon);
-		result.throughput = brdf * NdotL / result.pdf;
+		result.throughput = brdf_cosine / result.pdf;
 	}
 	else
 	{
@@ -199,17 +211,17 @@ MaterialSample SampleBRDF(SurfaceProperties surface, float3 V, float3 N, inout R
 		result.lobe_probability = 1.0 - specular_prob;
 		
 		float NdotL = max(dot(N, L), 0.0);
-		float3 brdf = EvaluateBRDF(surface, L, V, N);
+		float3 brdf_cosine = EvaluateBRDFCosine(surface, L, V, N, specular_normal);
 		
 		float3 H = normalize(L + V);
-		float NdotH = max(dot(N, H), 0.0);
+		float NdotH = max(dot(specular_normal, H), 0.0);
 		float VdotH = max(dot(V, H), 0.0);
 		float spec_pdf = GGX_PDF(NdotH, VdotH, surface.roughness);
 		float diff_pdf = NdotL / PI;
 		float pdf = specular_prob * spec_pdf + (1.0 - specular_prob) * diff_pdf;
 		
 		result.pdf = max(pdf, Epsilon);
-		result.throughput = brdf * NdotL / result.pdf;
+		result.throughput = brdf_cosine / result.pdf;
 	}
 	
 	return result;
@@ -233,16 +245,15 @@ float3 SampleDirectLighting(SurfaceHit hit, SurfaceProperties surface, float3 V,
 		if (light.type == LIGHT_TYPE_DIRECTIONAL)
 			L = sampleSunDirection(light, Random2(rng));
 
-		float NdotL = saturate(dot(N, L));
-		if (attenuation * NdotL <= 0.0)
+		float3 brdf_cosine = EvaluateBRDFCosine(surface, L, V, N, hit.specular_normal);
+		if (attenuation <= 0.0 || all(brdf_cosine <= 0.0))
 			continue;
 
 		float max_distance = light.type == LIGHT_TYPE_DIRECTIONAL ? 10000.0 : distance(light.position.xyz, hit.position);
 		if (TraceShadowRay(shadow_origin, L, max_distance))
 			continue;
 
-		float3 brdf = EvaluateBRDF(surface, L, V, N);
-		radiance += brdf * NdotL * attenuation * light.radiance.rgb;
+		radiance += brdf_cosine * attenuation * light.radiance.rgb;
 	}
 	
 	return radiance;
@@ -344,9 +355,7 @@ void CSMain(uint2 pixel : SV_DispatchThreadID)
 			break;
 		}
 		
-		Instance instance = getInstance(hit.instance_id);
-		Material material = getMaterial(instance.material_id);
-		SurfaceProperties surface = EvaluateMaterial(material, hit.uv);
+		SurfaceProperties surface = EvaluateMaterial(hit.material, hit.uv);
 		
 		// Direct lighting with relaxed firefly threshold
 		float3 direct = throughput * SampleDirectLighting(hit, surface, -ray.Direction, rng);
@@ -354,7 +363,7 @@ void CSMain(uint2 pixel : SV_DispatchThreadID)
 		radiance += bounce > 0 ? FireflyFilter(direct, BASE_FIREFLY_THRESHOLD * 6.0, fireflyFilterK) : direct;
 		
 		// Sample BRDF and update path
-		MaterialSample brdf_sample = SampleBRDF(surface, -ray.Direction, hit.normal, rng);
+		MaterialSample brdf_sample = SampleBRDF(surface, -ray.Direction, hit.normal, hit.specular_normal, rng);
 		throughput *= brdf_sample.throughput;
 		
 		// Update firefly filter based on PDF and lobe probability
