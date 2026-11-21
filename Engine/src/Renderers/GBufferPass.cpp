@@ -18,7 +18,6 @@ void GBufferPass::addPass(FrameGraph &fg, uint32_t view_id, uint32_t max_draw_ca
 	view.layer = 0;
 	view.use_two_pass_occlusion = true;
 	view.cull_mode = CullMode::NONE;
-	view.use_reverse_z = true;
 	view.shaders = OpaqueGeometryPass::ShaderSet::fromFile(L"shaders/gbuffer.hlsl");
 
 	OpaqueGeometryPass::GBufferOutput output;
@@ -30,4 +29,28 @@ void GBufferPass::addPass(FrameGraph &fg, uint32_t view_id, uint32_t max_draw_ca
 	output.depth = GFXRID(GBufferDepth);
 
 	opaque.renderGBuffer(fg, view, output);
+}
+
+void GBufferPass::addDecalPass(FrameGraph &fg, uint32_t view_id, uint32_t max_draw_calls)
+{
+	OpaqueGeometryPass opaque;
+
+	OpaqueGeometryPass::RenderView view;
+	view.view_id = view_id;
+	view.pass_mask = PASS_MASK_DECAL;
+	view.instance_count = max_draw_calls;
+	view.layer = 0;
+	view.depth_write = false;
+	view.depth_func = CompareFunc::GREATER_EQUAL;
+	view.blend.enabled = true;
+	view.cull_mode = CullMode::NONE;
+	view.shaders.traditional_vertex_shader = gDynamicRHI->createShader(L"shaders/gbuffer.hlsl", ShaderType::VERTEX, "VSMainTraditional");
+	view.shaders.pixel_shader = gDynamicRHI->createShader(L"shaders/gbuffer.hlsl", ShaderType::FRAGMENT, "PSMainDecal");
+
+	OpaqueGeometryPass::DecalOutput output;
+	output.albedo = GFXRID(GBufferAlbedo);
+	output.shading = GFXRID(GBufferShading);
+	output.depth = GFXRID(GBufferDepth);
+
+	opaque.renderDecals(fg, view, output);
 }

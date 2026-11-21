@@ -319,13 +319,13 @@ VulkanPipeline::VulkanPipeline(const PipelineDescription &description): RHIPipel
 		for (int i = 0; i < description.color_formats.size(); i++)
 		{
 			VkPipelineColorBlendAttachmentState attachment{};
-			attachment.blendEnable = description.use_blending;
-			attachment.srcColorBlendFactor = get_blend(description.src_color_blend);
-			attachment.dstColorBlendFactor = get_blend(description.dst_color_blend);
-			attachment.colorBlendOp = get_blend_op(description.color_blend_op);
-			attachment.srcAlphaBlendFactor = get_blend(description.src_alpha_blend);
-			attachment.dstAlphaBlendFactor = get_blend(description.dst_alpha_blend);
-			attachment.alphaBlendOp = get_blend_op(description.alpha_blend_op);
+			attachment.blendEnable = description.blend.enabled;
+			attachment.srcColorBlendFactor = get_blend(description.blend.src_color);
+			attachment.dstColorBlendFactor = get_blend(description.blend.dst_color);
+			attachment.colorBlendOp = get_blend_op(description.blend.color_op);
+			attachment.srcAlphaBlendFactor = get_blend(description.blend.src_alpha);
+			attachment.dstAlphaBlendFactor = get_blend(description.blend.dst_alpha);
+			attachment.alphaBlendOp = get_blend_op(description.blend.alpha_op);
 			attachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
 			color_blend_attachments[i] = attachment;
 		}

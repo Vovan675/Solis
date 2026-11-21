@@ -130,6 +130,9 @@ struct alignas(16) MaterialDescriptor
 	uint64_t normal_tex_guid;
 	uint64_t emissive_tex_guid;
 	uint32_t two_sided;
+	uint8_t decal;
+	uint8_t write_albedo;
+	uint8_t write_shading;
 };
 static_assert(sizeof(MaterialDescriptor) == 112 && sizeof(MaterialDescriptor) % 16 == 0);
 

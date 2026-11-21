@@ -45,7 +45,7 @@ struct SurfaceHit
 SurfaceHit TraceSurface(RaytracingAccelerationStructure tlas, RayDesc ray)
 {
 	RayQuery<RAY_FLAG_SKIP_PROCEDURAL_PRIMITIVES> ray_query;
-	ray_query.TraceRayInline(tlas, RAY_FLAG_NONE, 0xff, ray);
+	ray_query.TraceRayInline(tlas, RAY_FLAG_NONE, RAY_TRACING_MASK_OPAQUE, ray);
 	while (ray_query.Proceed())
 	{
 		if (!isAlphaClipped(ray_query.CandidateInstanceID(), ray_query.CandidatePrimitiveIndex(), ray_query.CandidateTriangleBarycentrics()))
@@ -104,15 +104,57 @@ bool TraceShadowRay(float3 origin, float3 direction, float max_distance)
 SurfaceProperties EvaluateMaterial(Material material, float2 uv)
 {
 	SurfaceProperties props;
-	props.albedo = (material.albedo_tex_id > 0) ? SampleTextureLevel(material.albedo_tex_id, uv, 0).rgb : material.albedo.rgb;
+	props.albedo = material.albedo.rgb;
+	if (material.albedo_tex_id > 0)
+		props.albedo *= SampleTextureLevel(material.albedo_tex_id, uv, 0).rgb;
 	props.emissive = material.emissive.rgb;
 	if (material.emissive_tex_id > 0)
 		props.emissive *= SampleTextureLevel(material.emissive_tex_id, uv, 0).rgb;
-	props.metalness = (material.metalness_tex_id > 0) ? SampleTextureLevel(material.metalness_tex_id, uv, 0).b : material.shading.r;
-	props.roughness = (material.roughness_tex_id > 0) ? SampleTextureLevel(material.roughness_tex_id, uv, 0).g : material.shading.g;
+	props.metalness = material.shading.r;
+	if (material.metalness_tex_id > 0)
+		props.metalness *= SampleTextureLevel(material.metalness_tex_id, uv, 0).b;
+	props.roughness = material.shading.g;
+	if (material.roughness_tex_id > 0)
+		props.roughness *= SampleTextureLevel(material.roughness_tex_id, uv, 0).g;
 	props.roughness = max(props.roughness, MIN_PERCEPTUAL_ROUGHNESS);
-	props.specular = (material.specular_tex_id > 0) ? SampleTextureLevel(material.specular_tex_id, uv, 0).r : material.shading.b;
+	props.specular = material.shading.b;
+	if (material.specular_tex_id > 0)
+		props.specular *= SampleTextureLevel(material.specular_tex_id, uv, 0).r;
 	return props;
+}
+
+static const float DECAL_RAY_BIAS = 0.05;
+
+void ApplyDecals(RaytracingAccelerationStructure tlas, inout SurfaceProperties surface, float3 position, float3 direction)
+{
+	RayDesc ray;
+	ray.Origin = position - direction * DECAL_RAY_BIAS;
+	ray.Direction = direction;
+	ray.TMin = 0.0;
+	ray.TMax = 2.0 * DECAL_RAY_BIAS;
+
+	RayQuery<RAY_FLAG_FORCE_NON_OPAQUE | RAY_FLAG_SKIP_PROCEDURAL_PRIMITIVES> ray_query;
+	ray_query.TraceRayInline(tlas, RAY_FLAG_NONE, RAY_TRACING_MASK_DECAL, ray);
+	while (ray_query.Proceed())
+	{
+		Instance instance = getInstance(ray_query.CandidateInstanceID());
+		Material material = getMaterial(instance.material_id);
+		float2 uv = getTriangleUV(getMesh(instance.mesh_id), ray_query.CandidatePrimitiveIndex(), ray_query.CandidateTriangleBarycentrics());
+
+		float4 albedo = material.albedo;
+		if (material.albedo_tex_id > 0)
+			albedo *= SampleTextureLevel(material.albedo_tex_id, uv, 0);
+
+		if (material.flags & MATERIAL_FLAG_DECAL_WRITE_ALBEDO)
+			surface.albedo = lerp(surface.albedo, albedo.rgb, albedo.a);
+		if (material.flags & MATERIAL_FLAG_DECAL_WRITE_SHADING)
+		{
+			SurfaceProperties decal = EvaluateMaterial(material, uv);
+			surface.metalness = lerp(surface.metalness, decal.metalness, albedo.a);
+			surface.roughness = lerp(surface.roughness, decal.roughness, albedo.a);
+			surface.specular = lerp(surface.specular, decal.specular, albedo.a);
+		}
+	}
 }
 
 // ============================================================================
@@ -356,6 +398,7 @@ void CSMain(uint2 pixel : SV_DispatchThreadID)
 		}
 		
 		SurfaceProperties surface = EvaluateMaterial(hit.material, hit.uv);
+		ApplyDecals(tlas, surface, hit.position, ray.Direction);
 		
 		// Direct lighting with relaxed firefly threshold
 		float3 direct = throughput * SampleDirectLighting(hit, surface, -ray.Direction, rng);

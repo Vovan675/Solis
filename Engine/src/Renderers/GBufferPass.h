@@ -5,4 +5,5 @@ class GBufferPass
 {
 public:
 	void addPass(FrameGraph &fg, uint32_t view_id, uint32_t max_draw_calls);
+	void addDecalPass(FrameGraph &fg, uint32_t view_id, uint32_t max_draw_calls);
 };

@@ -21,8 +21,6 @@ void UtilityPasses::addBlitPass(FrameGraph &fg, GraphicsResourceName src, Graphi
 		cmd_list->setRenderTargets({resources.getTexture(dst)}, nullptr, 0, 0, false);
 
 		gGlobalPipeline->setupGraphicsPipeline(cmd_list, gDynamicRHI->createShader(L"shaders/quad.hlsl", ShaderType::VERTEX), gDynamicRHI->createShader(shader, ShaderType::FRAGMENT), VertexInputsDescription{}, blend != BLIT_BLEND_OPAQUE, false, CullMode::BACK);
-		if (blend == BLIT_BLEND_ALPHA)
-			gGlobalPipeline->setBlendMode(BlendFactor::SRC_ALPHA, BlendFactor::ONE_MINUS_SRC_ALPHA, BlendOp::ADD, BlendFactor::ZERO, BlendFactor::ONE, BlendOp::ADD);
 		gGlobalPipeline->flushAndBind(cmd_list);
 
 		uint32_t src_tex_id = resources.getReadTexture(src);

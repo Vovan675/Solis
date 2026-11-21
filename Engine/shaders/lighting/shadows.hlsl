@@ -56,6 +56,6 @@ VS_OUTPUT VSMainTraditional(uint instance_id : INSTANCE_ID, uint vertex_id : SV_
 void PSMain(VS_OUTPUT input)
 {
 	Material material = getMaterial(input.material_id);
-	if (material.alpha_tex_id != 0 && SampleTexture(material.alpha_tex_id, input.uv).a < material.alpha_cutoff)
+	if (material.alpha_tex_id != 0 && material.albedo.a * SampleTexture(material.alpha_tex_id, input.uv).a < material.alpha_cutoff)
 		discard;
 }

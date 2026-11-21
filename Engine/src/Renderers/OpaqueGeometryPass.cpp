@@ -44,6 +44,17 @@ void OpaqueGeometryPass::renderDepth(FrameGraph &fg, const RenderView &view, con
 	render(fg, view, targets);
 }
 
+void OpaqueGeometryPass::renderDecals(FrameGraph &fg, const RenderView &view, const DecalOutput &output)
+{
+	RenderTargets targets;
+	targets.color.push_back({output.albedo, Format::R8G8B8A8_SRGB});
+	targets.color.push_back({output.shading, Format::R8G8B8A8_UNORM});
+	targets.depth = {output.depth, Format::D32_SFLOAT_S8_UINT};
+	targets.layer = view.layer;
+	cull_traditional(fg, view);
+	render_traditional(fg, view, targets);
+}
+
 void OpaqueGeometryPass::render(FrameGraph &fg, const RenderView &view, const RenderTargets &targets)
 {
 	MeshletCullDesc cull;
@@ -53,7 +64,7 @@ void OpaqueGeometryPass::render(FrameGraph &fg, const RenderView &view, const Re
 	cull.hiz = view.hiz;
 	cull.hiz_description = view.hiz_description;
 	cull.hiz_layer = view.layer;
-	cull.reverse_z = view.use_reverse_z;
+	cull.reverse_z = view.isReverseZ();
 	cull.use_occlusion = view.use_two_pass_occlusion;
 
 	meshlet_pass.addMainCullingPasses(fg, cull);
@@ -64,12 +75,12 @@ void OpaqueGeometryPass::render(FrameGraph &fg, const RenderView &view, const Re
 
 	if (view.use_two_pass_occlusion)
 	{
-		HiZ::build(fg, view.hiz, targets.depth.name, view.layer, view.use_reverse_z);
+		HiZ::build(fg, view.hiz, targets.depth.name, view.layer, view.isReverseZ());
 		if (!render_culling_freeze)
 		{
 			meshlet_pass.addFixCullingPasses(fg, cull);
 			render_meshlets(fg, view, targets, false);
-			HiZ::build(fg, view.hiz, targets.depth.name, view.layer, view.use_reverse_z);
+			HiZ::build(fg, view.hiz, targets.depth.name, view.layer, view.isReverseZ());
 		}
 	}
 }
@@ -125,7 +136,9 @@ void OpaqueGeometryPass::render_meshlets(FrameGraph &fg, const RenderView &view,
 			inputs.inputs.push_back({"INSTANCE_ID", 0, Format::R32_UINT, true});
 			gGlobalPipeline->setupGraphicsPipeline(cmd_list, view.shaders.meshlet_vertex_shader, view.shaders.pixel_shader, inputs, false, true, view.cull_mode);
 		}
-		gGlobalPipeline->setDepthFunc(view.getDepthFunc());
+		gGlobalPipeline->setBlendState(view.blend);
+		gGlobalPipeline->setDepthWrite(view.depth_write);
+		gGlobalPipeline->setDepthFunc(view.depth_func);
 		gGlobalPipeline->setDepthClip(view.depth_clip);
 		gGlobalPipeline->flushAndBind(cmd_list);
 
@@ -156,19 +169,19 @@ void OpaqueGeometryPass::cull_traditional(FrameGraph &fg, const RenderView &view
 	fg.addCallbackPass("Cull Traditional",
 	[view](RenderPassBuilder &builder)
 	{
-		builder.createBuffer(GFXRID_ID(TraditionalDrawArgs, view.view_id), sizeof(DrawIndirect), view.instance_count, BufferUsage::INDIRECT_ARGS | BufferUsage::UNORDERED_ACCESS);
-		builder.createBuffer(GFXRID_ID(TraditionalDrawCount, view.view_id), sizeof(uint32_t), 1, BufferUsage::INDIRECT_ARGS | BufferUsage::UNORDERED_ACCESS);
-		builder.createBuffer(GFXRID_ID(TraditionalDrawInstances, view.view_id), sizeof(uint32_t), view.instance_count, BufferUsage::VERTEX | BufferUsage::UNORDERED_ACCESS);
+		builder.createBuffer(GFXRID_ID(TraditionalDrawArgs, view.getViewPassId()), sizeof(DrawIndirect), view.instance_count, BufferUsage::INDIRECT_ARGS | BufferUsage::UNORDERED_ACCESS);
+		builder.createBuffer(GFXRID_ID(TraditionalDrawCount, view.getViewPassId()), sizeof(uint32_t), 1, BufferUsage::INDIRECT_ARGS | BufferUsage::UNORDERED_ACCESS);
+		builder.createBuffer(GFXRID_ID(TraditionalDrawInstances, view.getViewPassId()), sizeof(uint32_t), view.instance_count, BufferUsage::VERTEX | BufferUsage::UNORDERED_ACCESS);
 
-		builder.writeBuffer(GFXRID_ID(TraditionalDrawArgs, view.view_id));
-		builder.writeBuffer(GFXRID_ID(TraditionalDrawCount, view.view_id));
-		builder.writeBuffer(GFXRID_ID(TraditionalDrawInstances, view.view_id));
+		builder.writeBuffer(GFXRID_ID(TraditionalDrawArgs, view.getViewPassId()));
+		builder.writeBuffer(GFXRID_ID(TraditionalDrawCount, view.getViewPassId()));
+		builder.writeBuffer(GFXRID_ID(TraditionalDrawInstances, view.getViewPassId()));
 		builder.readBuffer(GFXRID(InstancesPassMask));
 		builder.readBuffer(GFXRID(CullViews));
 	},
 	[view](const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		cmd_list->clearBuffer(resources.getBuffer(GFXRID_ID(TraditionalDrawCount, view.view_id)), 0);
+		cmd_list->clearBuffer(resources.getBuffer(GFXRID_ID(TraditionalDrawCount, view.getViewPassId())), 0);
 
 		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/gpu_driven/traditional_cull_instances.hlsl", ShaderType::COMPUTE, "CSMain",
 											  {
@@ -189,9 +202,9 @@ void OpaqueGeometryPass::cull_traditional(FrameGraph &fg, const RenderView &view
 		} constants = {};
 		constants.view_id = view.view_id;
 		constants.cull_views_buffer_id = resources.getReadBuffer(GFXRID(CullViews));
-		constants.draw_args_buffer_id = resources.getReadWriteBuffer(GFXRID_ID(TraditionalDrawArgs, view.view_id));
-		constants.draw_count_buffer_id = resources.getReadWriteBuffer(GFXRID_ID(TraditionalDrawCount, view.view_id));
-		constants.draw_instances_buffer_id = resources.getReadWriteBuffer(GFXRID_ID(TraditionalDrawInstances, view.view_id));
+		constants.draw_args_buffer_id = resources.getReadWriteBuffer(GFXRID_ID(TraditionalDrawArgs, view.getViewPassId()));
+		constants.draw_count_buffer_id = resources.getReadWriteBuffer(GFXRID_ID(TraditionalDrawCount, view.getViewPassId()));
+		constants.draw_instances_buffer_id = resources.getReadWriteBuffer(GFXRID_ID(TraditionalDrawInstances, view.getViewPassId()));
 		constants.instances_pass_mask_buffer_id = resources.getReadBuffer(GFXRID(InstancesPassMask));
 		constants.instances_count = view.instance_count;
 		constants.current_pass_mask = view.pass_mask;
@@ -210,9 +223,9 @@ void OpaqueGeometryPass::render_traditional(FrameGraph &fg, const RenderView &vi
 		for (const Target &color : targets.color)
 			builder.writeTexture(color.name);
 		builder.writeTexture(targets.depth.name);
-		builder.readIndirectArgsBuffer(GFXRID_ID(TraditionalDrawArgs, view.view_id));
-		builder.readIndirectArgsBuffer(GFXRID_ID(TraditionalDrawCount, view.view_id));
-		builder.readVertexBuffer(GFXRID_ID(TraditionalDrawInstances, view.view_id));
+		builder.readIndirectArgsBuffer(GFXRID_ID(TraditionalDrawArgs, view.getViewPassId()));
+		builder.readIndirectArgsBuffer(GFXRID_ID(TraditionalDrawCount, view.getViewPassId()));
+		builder.readVertexBuffer(GFXRID_ID(TraditionalDrawInstances, view.getViewPassId()));
 		builder.readBuffer(GFXRID(CullViews));
 	},
 	[view, targets](const RenderPassResources &resources, RHICommandList *cmd_list)
@@ -222,13 +235,15 @@ void OpaqueGeometryPass::render_traditional(FrameGraph &fg, const RenderView &vi
 			color_textures.push_back(resources.getTexture(color.name));
 		RHITexture *depth = resources.getTexture(targets.depth.name);
 
-		cmd_list->setVertexBuffer(resources.getBuffer(GFXRID_ID(TraditionalDrawInstances, view.view_id)), 0, sizeof(uint32_t), 0);
+		cmd_list->setVertexBuffer(resources.getBuffer(GFXRID_ID(TraditionalDrawInstances, view.getViewPassId())), 0, sizeof(uint32_t), 0);
 		cmd_list->setRenderTargets(color_textures, depth, targets.layer, 0, false);
 
 		VertexInputsDescription inputs;
 		inputs.inputs.push_back({"INSTANCE_ID", 0, Format::R32_UINT, true});
 		gGlobalPipeline->setupGraphicsPipeline(cmd_list, view.shaders.traditional_vertex_shader, view.shaders.pixel_shader, inputs, false, true, view.cull_mode);
-		gGlobalPipeline->setDepthFunc(view.getDepthFunc());
+		gGlobalPipeline->setBlendState(view.blend);
+		gGlobalPipeline->setDepthWrite(view.depth_write);
+		gGlobalPipeline->setDepthFunc(view.depth_func);
 		gGlobalPipeline->setDepthClip(view.depth_clip);
 		gGlobalPipeline->flushAndBind(cmd_list);
 
@@ -243,7 +258,7 @@ void OpaqueGeometryPass::render_traditional(FrameGraph &fg, const RenderView &vi
 		constants.cull_views_buffer_id = resources.getReadBuffer(GFXRID(CullViews));
 		gDynamicRHI->setConstantBufferData(0, &constants, sizeof(constants));
 
-		cmd_list->drawIndirect(resources.getBuffer(GFXRID_ID(TraditionalDrawArgs, view.view_id)), view.instance_count, resources.getBuffer(GFXRID_ID(TraditionalDrawCount, view.view_id)));
+		cmd_list->drawIndirect(resources.getBuffer(GFXRID_ID(TraditionalDrawArgs, view.getViewPassId())), view.instance_count, resources.getBuffer(GFXRID_ID(TraditionalDrawCount, view.getViewPassId())));
 
 		cmd_list->resetRenderTargets();
 	});

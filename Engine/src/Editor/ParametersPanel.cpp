@@ -130,6 +130,9 @@ bool ParametersPanel::renderImGui(EditorContext &context, DebugRenderer &debug_r
 				entity.markDirty(DIRTY_RENDER_STATE);
 			}
 
+			if (UI::checkbox("Cast Shadows", &mesh_renderer.cast_shadows))
+				entity.markDirty(DIRTY_MATERIAL);
+
 			ImGui::SeparatorText("Materials");
 			for (int i = 0; i < mesh_renderer.meshes.size(); i++)
 			{
@@ -140,7 +143,18 @@ bool ParametersPanel::renderImGui(EditorContext &context, DebugRenderer &debug_r
 				if (i < mesh_renderer.materials.size())
 					slot_asset = mesh_renderer.materials[i].material_asset;
 
-				if (UI::assetField(slot_name.c_str(), &slot_asset, AssetManager::getTypeInfo<Material>()))
+				auto duplicate_menu = [&]
+				{
+					Material *material = mesh_renderer.getMaterial(i);
+					if (!ImGui::MenuItem(ICON_FA_COPY " Duplicate Material", nullptr, false, material != nullptr))
+						return;
+
+					AssetReference copy(asset_browser.createAsset(*AssetManager::getTypeInfo<Material>(), material));
+					mesh_renderer.setMaterial(i, copy.load<Material>());
+					entity.markDirty(DIRTY_MATERIAL);
+				};
+
+				if (UI::assetField(slot_name.c_str(), &slot_asset, AssetManager::getTypeInfo<Material>(), nullptr, duplicate_menu))
 				{
 					mesh_renderer.setMaterial(i, slot_asset.load<Material>());
 					entity.markDirty(DIRTY_MATERIAL);

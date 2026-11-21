@@ -181,7 +181,9 @@ struct Material
 	uint3 pad;
 };
 
-#define MATERIAL_FLAG_TWO_SIDED 0x1
+#define MATERIAL_FLAG_TWO_SIDED 1u << 0
+#define MATERIAL_FLAG_DECAL_WRITE_ALBEDO 1u << 1
+#define MATERIAL_FLAG_DECAL_WRITE_SHADING 1u << 2
 
 #define INSTANCE_FLAG_INVALID 0x1
 
@@ -198,7 +200,7 @@ struct Instance
 	uint mesh_id;
 	uint material_id;
 	uint flags;
-	uint pad;
+	uint pass_mask; // pass mask in which this instance may be needed (calculated from material & component properties)
 };
 
 struct Mesh

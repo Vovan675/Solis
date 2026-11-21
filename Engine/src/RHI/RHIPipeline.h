@@ -60,6 +60,28 @@ enum class BlendOp
 	MAX
 };
 
+struct BlendState
+{
+	bool enabled = false;
+	BlendFactor src_color = BlendFactor::SRC_ALPHA;
+	BlendFactor dst_color = BlendFactor::ONE_MINUS_SRC_ALPHA;
+	BlendOp color_op = BlendOp::ADD;
+	BlendFactor src_alpha = BlendFactor::ZERO;
+	BlendFactor dst_alpha = BlendFactor::ONE;
+	BlendOp alpha_op = BlendOp::ADD;
+
+	static BlendState additive()
+	{
+		BlendState state;
+		state.enabled = true;
+		state.src_color = BlendFactor::ONE;
+		state.dst_color = BlendFactor::ONE;
+		state.src_alpha = BlendFactor::ONE;
+		state.dst_alpha = BlendFactor::ONE;
+		return state;
+	}
+};
+
 enum class PipelineType
 {
 	GRAPHICS,
@@ -104,13 +126,7 @@ struct PipelineDescription
 	bool use_depth_test = true;
 	bool use_depth_write = true;
 	CompareFunc depth_compare_func = CompareFunc::GREATER;
-	bool use_blending = false;
-	BlendFactor src_color_blend = BlendFactor::SRC_ALPHA;
-	BlendFactor dst_color_blend = BlendFactor::ONE_MINUS_SRC_ALPHA;
-	BlendOp color_blend_op = BlendOp::ADD;
-	BlendFactor src_alpha_blend = BlendFactor::ONE_MINUS_SRC_ALPHA;
-	BlendFactor dst_alpha_blend = BlendFactor::ONE_MINUS_SRC_ALPHA;
-	BlendOp alpha_blend_op = BlendOp::ADD;
+	BlendState blend;
 	CullMode cull_mode = CullMode::BACK;
 	bool depth_clip = true;
 	Topology primitive_topology = Topology::TRIANGLE_LIST;
@@ -179,13 +195,13 @@ struct PipelineDescription
 		hashCombine(hash, use_depth_test);
 		hashCombine(hash, use_depth_write);
 		hashCombine(hash, depth_compare_func);
-		hashCombine(hash, use_blending);
-		hashCombine(hash, src_color_blend);
-		hashCombine(hash, dst_color_blend);
-		hashCombine(hash, color_blend_op);
-		hashCombine(hash, src_alpha_blend);
-		hashCombine(hash, dst_alpha_blend);
-		hashCombine(hash, alpha_blend_op);
+		hashCombine(hash, blend.enabled);
+		hashCombine(hash, blend.src_color);
+		hashCombine(hash, blend.dst_color);
+		hashCombine(hash, blend.color_op);
+		hashCombine(hash, blend.src_alpha);
+		hashCombine(hash, blend.dst_alpha);
+		hashCombine(hash, blend.alpha_op);
 		hashCombine(hash, cull_mode);
 		hashCombine(hash, depth_clip);
 		hashCombine(hash, primitive_topology);

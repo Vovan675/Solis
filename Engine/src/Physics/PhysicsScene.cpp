@@ -53,6 +53,9 @@ void PhysicsScene::reinit()
 	{
 		Entity entity(e);
 		auto &t = entity.getComponent<TransformComponent>();
+		if (!t.isEnabled())
+			continue;
+
 		glm::vec3 position = t.getLocalPosition();
 		glm::quat rotation = t.getLocalRotation();
 		auto transform = PxTransform(position.x, position.y, position.z, PxQuat(rotation.x, rotation.y, rotation.z, rotation.w));
@@ -80,6 +83,9 @@ void PhysicsScene::reinit()
 	auto box_colliders = scene->getEntitiesWith<RigidBodyComponent, BoxColliderComponent>();
 	for (auto [e, _,collider] : box_colliders.each())
 	{
+		if (!Entity(e).getTransform().isEnabled())
+			continue;
+
 		PxShape *shape = PhysXWrapper::getPhysics()->createShape(PxBoxGeometry(collider.half_extent.x, collider.half_extent.y, collider.half_extent.z), *material);
 		PxRigidActor *body = entity_body[e];
 		body->attachShape(*shape);

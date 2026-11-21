@@ -51,8 +51,7 @@ void DefferedLightingRenderer::renderLights(FrameGraph &fg, uint32_t lights_coun
 								  gDynamicRHI->createShader(L"shaders/lighting/deferred_lighting.hlsl", ShaderType::FRAGMENT, "PSMain"),
 								  Engine::Vertex::GetVertexInputsDescription(),
 								  true, false, CullMode::FRONT);
-		gGlobalPipeline->setBlendMode(BlendFactor::ONE, BlendFactor::ONE, BlendOp::ADD,
-						BlendFactor::ONE, BlendFactor::ONE, BlendOp::ADD);
+		gGlobalPipeline->setBlendState(BlendState::additive());
 		gGlobalPipeline->flushAndBind(cmd_list);
 
 		bool has_ray_traced_visibility = Renderer::isRayTracedShadowsEnabled() && resources.has(GFXRID(RayTracedVisibility));

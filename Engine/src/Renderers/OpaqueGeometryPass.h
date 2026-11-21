@@ -27,13 +27,16 @@ public:
 		TextureDescription hiz_description{};
 		uint32_t layer = 0;
 		bool use_two_pass_occlusion = true;
-		bool use_reverse_z = true;
 		bool depth_clip = true;
+		bool depth_write = true;
+		CompareFunc depth_func = CompareFunc::GREATER;
+		BlendState blend{};
 		CullMode cull_mode = CullMode::BACK;
 		ShaderSet shaders;
 
-		CompareFunc getDepthFunc() const { return use_reverse_z ? CompareFunc::GREATER : CompareFunc::LESS_EQUAL; }
-		float getDepthClear() const { return use_reverse_z ? 0.0f : 1.0f; }
+		bool isReverseZ() const { return depth_func == CompareFunc::GREATER || depth_func == CompareFunc::GREATER_EQUAL; }
+		float getDepthClear() const { return isReverseZ() ? 0.0f : 1.0f; }
+		uint32_t getViewPassId() const { return view_id << 8 | pass_mask; }
 	};
 
 	struct GBufferOutput
@@ -51,8 +54,16 @@ public:
 		GraphicsResourceName depth;
 	};
 
+	struct DecalOutput
+	{
+		GraphicsResourceName albedo;
+		GraphicsResourceName shading;
+		GraphicsResourceName depth;
+	};
+
 	void renderGBuffer(FrameGraph &fg, const RenderView &view, const GBufferOutput &output);
 	void renderDepth(FrameGraph &fg, const RenderView &view, const DepthOutput &output);
+	void renderDecals(FrameGraph &fg, const RenderView &view, const DecalOutput &output);
 
 private:
 	struct Target

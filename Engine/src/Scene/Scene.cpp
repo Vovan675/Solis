@@ -332,3 +332,12 @@ void Scene::propagate_local_transforms_update(entt::entity entity_id)
 		propagate_local_transforms_update(child_id);
 	}
 }
+
+void Scene::propagate_render_state_update(entt::entity entity_id)
+{
+	if (current_scene)
+		current_scene->markDirty(entity_id, DIRTY_RENDER_STATE);
+
+	for (entt::entity child_id : Entity(entity_id).getChildren())
+		propagate_render_state_update(child_id);
+}

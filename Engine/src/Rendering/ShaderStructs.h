@@ -3,8 +3,15 @@
 #define PASS_MASK_GBUFFER 1 << 1
 #define PASS_MASK_DIRECTIONAL_SHADOW 1 << 2
 #define PASS_MASK_POINT_SHADOW 1 << 3
+#define PASS_MASK_DECAL 1 << 4
 
-#define MATERIAL_FLAG_TWO_SIDED 0x1
+#define RAY_TRACING_MASK_OPAQUE 1 << 0
+#define RAY_TRACING_MASK_SHADOW 1 << 1
+#define RAY_TRACING_MASK_DECAL 1 << 2
+
+#define MATERIAL_FLAG_TWO_SIDED 1 << 0
+#define MATERIAL_FLAG_DECAL_WRITE_ALBEDO 1 << 1
+#define MATERIAL_FLAG_DECAL_WRITE_SHADING 1 << 2
 
 struct MaterialGPU
 {
@@ -61,6 +68,7 @@ struct InstanceGPU
 	uint32_t mesh_id;
 	uint32_t material_id = 0;
 	uint32_t flags = 0;
+	uint32_t pass_mask = 0;
 };
 
 #define MESH_FLAG_MESHLET 0x1

@@ -322,7 +322,7 @@ static void draw_asset_search_picker(std::filesystem::path *path, const AssetTyp
 		}
 	}
 
-static bool draw_asset_reference(AssetReference *reference, const AssetTypeInfo *accepted_type)
+static bool draw_asset_reference(AssetReference *reference, const AssetTypeInfo *accepted_type, const eastl::function<void()> &menu_items)
 {
 	std::filesystem::path current_path = AssetManager::getPath(*reference);
 	std::filesystem::path picked_path = current_path;
@@ -356,6 +356,8 @@ static bool draw_asset_reference(AssetReference *reference, const AssetTypeInfo 
 			EditorContext::current->selected_path = current_path;
 			EditorContext::current->selection_type = EditorSelectionType::Asset;
 		}
+		if (menu_items)
+			menu_items();
 		ImGui::EndPopup();
 	}
 
@@ -374,12 +376,12 @@ static bool draw_asset_reference(AssetReference *reference, const AssetTypeInfo 
 	return true;
 }
 
-bool UI::assetField(const char *label, AssetReference *reference, const AssetTypeInfo *accepted_type, const char *tooltip)
+bool UI::assetField(const char *label, AssetReference *reference, const AssetTypeInfo *accepted_type, const char *tooltip, const eastl::function<void()> &menu_items)
 {
 	bool can_expand = accepted_type && accepted_type->isAuthored() && reference->isValid();
 
 	bool is_open = beginProperty(label, tooltip, can_expand);
-	bool changed = draw_asset_reference(reference, accepted_type);
+	bool changed = draw_asset_reference(reference, accepted_type, menu_items);
 	if (is_open)
 		changed |= drawAsset(*accepted_type, AssetManager::getPath(*reference));
 	endProperty(is_open);
@@ -579,7 +581,7 @@ bool UI::drawStruct(const StructInfo &info, void *object)
 			continue;
 		}
 
-		if (hidden_by_category || field.isHidden)
+		if (hidden_by_category || !field.isVisible(object))
 			continue;
 
 		eastl::string label = field.displayLabel ? field.displayLabel : prettifyName(field.name);

@@ -130,21 +130,36 @@ static nlohmann::json material_to_json_bsdf(Material *material)
 
 		std::string albedo = get_texture_path(material->albedo_tex);
 		if (!albedo.empty())
+		{
 			bsdf_json["base_color"] = {{"type", "bitmap"}, {"filename", albedo}};
-		else
+			if (glm::vec3(material->albedo) != glm::vec3(1.0f))
+				bsdf_json["base_color"]["scale"] = {material->albedo.x, material->albedo.y, material->albedo.z};
+		} else
+		{
 			bsdf_json["base_color"] = {{"type", "rgb"}, {"value", {material->albedo.x, material->albedo.y, material->albedo.z}}};
+		}
 
 		std::string metallic = get_texture_path(material->metalness_tex);
 		if (!metallic.empty())
+		{
 			bsdf_json["metallic"] = {{"type", "bitmap"}, {"filename", metallic}, {"channel", "b"}, {"raw", true}};
-		else
+			if (material->metalness != 1.0f)
+				bsdf_json["metallic"]["scale"] = {material->metalness, material->metalness, material->metalness};
+		} else
+		{
 			bsdf_json["metallic"] = material->metalness;
+		}
 
 		std::string roughness = get_texture_path(material->roughness_tex);
 		if (!roughness.empty())
+		{
 			bsdf_json["roughness"] = {{"type", "bitmap"}, {"filename", roughness}, {"channel", "g"}, {"raw", true}};
-		else
+			if (material->roughness != 1.0f)
+				bsdf_json["roughness"]["scale"] = {material->roughness, material->roughness, material->roughness};
+		} else
+		{
 			bsdf_json["roughness"] = material->roughness;
+		}
 
 		std::string normal = get_texture_path(material->normal_tex);
 		if (!normal.empty())
@@ -181,6 +196,9 @@ static int write_lights(nlohmann::json &scene)
 	for (entt::entity entity_id : view)
 	{
 		Entity entity(entity_id);
+		if (!entity.getTransform().isEnabled())
+			continue;
+
 		LightComponent &light = entity.getComponent<LightComponent>();
 		glm::vec3 intensity = light.getPhotometricIntensity();
 
@@ -293,11 +311,15 @@ bool MitsubaBridge::export_scene(EditorContext &context, const std::filesystem::
 	for (entt::entity entity_id : view)
 	{
 		TransformComponent &transform = view.get<TransformComponent>(entity_id);
+		if (!transform.isEnabled())
+			continue;
+
 		MeshRendererComponent &mesh_renderer = view.get<MeshRendererComponent>(entity_id);
 		for (int i = 0; i < mesh_renderer.meshes.size(); i++)
 		{
 			Engine::Mesh *mesh = mesh_renderer.meshes[i].getMesh();
-			if (!mesh || !mesh->indexed || mesh->indexed->vertices.empty())
+			Material *material = mesh_renderer.getMaterial(i);
+			if (!mesh || !mesh->indexed || mesh->indexed->vertices.empty() || (material && material->decal))
 			{
 				skipped++;
 				continue;
@@ -310,7 +332,6 @@ bool MitsubaBridge::export_scene(EditorContext &context, const std::filesystem::
 				continue;
 			}
 
-			Material *material = mesh_renderer.getMaterial(i);
 			glm::mat4 world = transform.getWorldTransform() * mesh->root_transform;
 			nlohmann::json &mesh_json = scene["mesh_" + std::to_string(exported)];
 			mesh_json = {

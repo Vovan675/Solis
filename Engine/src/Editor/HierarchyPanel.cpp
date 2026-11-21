@@ -153,9 +153,8 @@ void HierarchyPanel::renderImGui(EditorContext &context)
 	eastl::vector<entt::entity> entities_to_delete;
 	eastl::function<void(TransformComponent &transform)> add_entity_tree = [&](TransformComponent &transform)
 	{
-
 		ImGui::PushID((int)transform.owner);
-		ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_SpanFullWidth | ImGuiTreeNodeFlags_SpanAvailWidth;
+		ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_SpanFullWidth | ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_AllowOverlap;
 
 		// Collapsable or not
 		flags |= transform.children.empty() || filter.IsActive() ? ImGuiTreeNodeFlags_Leaf : ImGuiTreeNodeFlags_OpenOnArrow;
@@ -167,13 +166,17 @@ void HierarchyPanel::renderImGui(EditorContext &context)
 		if (name.empty())
 			name = "(Empty)";
 
-		bool renaming = renaming_entity == transform.owner;
-		flags |= renaming ? ImGuiTreeNodeFlags_AllowOverlap : 0;
 		float label_x = ImGui::GetCursorPosX() + ImGui::GetTreeNodeToLabelSpacing();
+		ImVec2 row_min = ImGui::GetCursorScreenPos();
+		ImVec2 label_min(row_min.x + ImGui::GetTreeNodeToLabelSpacing(), row_min.y);
+		ImVec2 eye_size(ImGui::GetFrameHeight(), ImGui::GetTextLineHeight());
+		ImVec2 eye_min(row_min.x + ImGui::GetContentRegionAvail().x - eye_size.x, row_min.y);
+		bool eye_hovered = ImGui::GetMousePos().x >= eye_min.x;
 
 		ImGui::PushStyleColor(ImGuiCol_HeaderHovered, selected ? UI::selection_color : ImGui::GetStyleColorVec4(ImGuiCol_HeaderHovered));
-		bool opened = ImGui::TreeNodeEx("Entity", flags, "%s", renaming ? "" : name.c_str());
+		bool opened = ImGui::TreeNodeEx("Entity", flags, "%s", "");
 		ImGui::PopStyleColor();
+		bool row_hovered = ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenOverlappedByItem);
 
 		if (ImGui::BeginDragDropSource())
 		{
@@ -183,7 +186,7 @@ void HierarchyPanel::renderImGui(EditorContext &context)
 		}
 		accept_entity_drop(transform.owner);
 
-		if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen())
+		if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen() && !eye_hovered)
 		{
 			ImGuiIO &io = ImGui::GetIO();
 			if (io.KeyShift)
@@ -221,7 +224,24 @@ void HierarchyPanel::renderImGui(EditorContext &context)
 			ImGui::EndPopup();
 		}
 
-		if (renaming)
+		if (renaming_entity != transform.owner)
+		{
+			ImDrawList *draw_list = ImGui::GetWindowDrawList();
+			ImVec4 label_clip(label_min.x, label_min.y, eye_min.x, label_min.y + eye_size.y);
+			ImU32 label_color = ImGui::GetColorU32(transform.isEnabled() ? ImGuiCol_Text : ImGuiCol_TextDisabled);
+			draw_list->AddText(nullptr, 0.0f, label_min, label_color, name.c_str(), nullptr, 0.0f, &label_clip);
+
+			ImGui::SetCursorScreenPos(eye_min);
+			if (ImGui::InvisibleButton("##enabled", eye_size))
+				transform.setEnabled(!transform.isEnabledSelf());
+
+			if (row_hovered || !transform.isEnabledSelf())
+			{
+				const char *icon = transform.isEnabledSelf() ? ICON_FA_EYE : ICON_FA_EYE_SLASH;
+				ImVec2 icon_min(eye_min.x + (eye_size.x - ImGui::CalcTextSize(icon).x) * 0.5f, eye_min.y);
+				draw_list->AddText(icon_min, ImGui::GetColorU32(ImGui::IsItemHovered() ? ImGuiCol_Text : ImGuiCol_TextDisabled), icon);
+			}
+		} else
 		{
 			float padding_x = ImGui::GetStyle().FramePadding.x;
 			ImGui::SameLine(label_x - padding_x);

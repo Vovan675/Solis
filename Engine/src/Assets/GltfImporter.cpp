@@ -305,8 +305,10 @@ static Ref<Material> extract_material(const cgltf_material *mat, const char *glt
 	m->alpha_test = mat->alpha_mode != cgltf_alpha_mode_opaque;
 	m->alpha_cutoff = mat->alpha_cutoff;
 	m->two_sided = mat->double_sided;
+	m->decal = mat->alpha_mode == cgltf_alpha_mode_blend && mat->name && (strstr(mat->name, "decal") || strstr(mat->name, "Decal"));
 	m->metalness_tex.asset = resolve_texture(pbr.metallic_roughness_texture, gltf_path);
 	m->roughness_tex.asset = resolve_texture(pbr.metallic_roughness_texture, gltf_path);
+	m->write_shading = m->metalness_tex.asset.isValid() || m->roughness_tex.asset.isValid();
 	m->normal_tex.asset = resolve_texture(mat->normal_texture, gltf_path);
 	if (mat->has_specular)
 		m->specular = 0.5f * mat->specular.specular_factor;

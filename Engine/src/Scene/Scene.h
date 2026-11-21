@@ -53,6 +53,7 @@ private:
 
 	static void propagate_world_transforms_update(entt::entity entity_id);
 	static void propagate_local_transforms_update(entt::entity entity_id);
+	static void propagate_render_state_update(entt::entity entity_id);
 
 	friend class Entity;
 	friend class TransformComponent;

@@ -6,6 +6,7 @@
 
 void TransformComponent::setParent(entt::entity new_parent)
 {
+	bool was_enabled = isEnabled();
 	if (parent != entt::null)
 		Entity(parent).removeChild(owner);
 
@@ -13,6 +14,19 @@ void TransformComponent::setParent(entt::entity new_parent)
 	if (parent != entt::null)
 		Entity(parent).getTransform().children.push_back(owner);
 	Scene::propagate_local_transforms_update(owner);
+	if (was_enabled != isEnabled())
+		Scene::propagate_render_state_update(owner);
+}
+
+bool TransformComponent::isEnabled() const
+{
+	return is_enabled && (parent == entt::null || Entity(parent).getTransform().isEnabled());
+}
+
+void TransformComponent::setEnabled(bool enabled)
+{
+	is_enabled = enabled;
+	Scene::propagate_render_state_update(owner);
 }
 
 Model *MeshRendererComponent::MeshId::getModel()

@@ -55,6 +55,8 @@ void SceneRenderer::setScene(Ref<Scene> scene)
 	}
 
 	entity_instances.clear();
+	instance_pass_masks.clear();
+	pass_instance_counts.fill(0);
 	materials_table.reset();
 	instances_table.reset();
 	meshes_table.reset();
@@ -79,6 +81,22 @@ void SceneRenderer::on_mesh_renderer_destroyed(entt::registry &registry, entt::e
 	free_instances(entity);
 }
 
+void SceneRenderer::set_instance_pass_mask(uint32_t slot, uint32_t pass_mask)
+{
+	if (slot >= instance_pass_masks.size())
+		instance_pass_masks.resize(slot + 1, 0);
+
+	uint32_t old_pass_mask = instance_pass_masks[slot];
+	for (int bit = 0; bit < 32; bit++)
+	{
+		if (old_pass_mask & (1u << bit))
+			pass_instance_counts[bit]--;
+		if (pass_mask & (1u << bit))
+			pass_instance_counts[bit]++;
+	}
+	instance_pass_masks[slot] = pass_mask;
+}
+
 void SceneRenderer::free_instances(entt::entity entity_id)
 {
 	auto it = entity_instances.find(entity_id);
@@ -90,6 +108,7 @@ void SceneRenderer::free_instances(entt::entity entity_id)
 	for (uint32_t i = 0; i < it->second.count; i++)
 	{
 		instances_table.set(it->second.start + i, empty_instance);
+		set_instance_pass_mask(it->second.start + i, 0);
 		if (rt_scene)
 			rt_scene->removeInstance(it->second.start + i);
 	}
@@ -172,7 +191,9 @@ void SceneRenderer::refresh_materials(entt::entity entity_id, MeshRendererCompon
 
 		material_gpu.alpha_tex_id = material->alpha_test ? material->albedo_tex.bindless_id : 0;
 		material_gpu.alpha_cutoff = material->alpha_cutoff;
-		material_gpu.flags = material->two_sided ? MATERIAL_FLAG_TWO_SIDED : 0;
+		material_gpu.flags |= material->two_sided ? MATERIAL_FLAG_TWO_SIDED : 0;
+		material_gpu.flags |= material->write_albedo ? MATERIAL_FLAG_DECAL_WRITE_ALBEDO : 0;
+		material_gpu.flags |= material->write_shading ? MATERIAL_FLAG_DECAL_WRITE_SHADING : 0;
 		materials_table.set(it->second.start + i, material_gpu); // In future materials would be globally unique, so every material would hold its own slot
 
 		if (rt_scene)
@@ -201,7 +222,22 @@ void SceneRenderer::refresh_transforms(entt::entity entity_id)
 			InstanceGPU empty_instance{};
 			empty_instance.flags = INSTANCE_FLAG_INVALID;
 			instances_table.set(slot, empty_instance);
+			set_instance_pass_mask(slot, 0);
 			continue;
+		}
+
+		Material *material = mesh_renderer.getMaterial(i);
+		uint32_t pass_mask = PASS_MASK_GBUFFER;
+		uint8_t ray_tracing_mask = RAY_TRACING_MASK_OPAQUE;
+		if (mesh_renderer.cast_shadows)
+		{
+			pass_mask |= PASS_MASK_DIRECTIONAL_SHADOW | PASS_MASK_POINT_SHADOW;
+			ray_tracing_mask |= RAY_TRACING_MASK_SHADOW;
+		}
+		if (material && material->decal)
+		{
+			pass_mask = PASS_MASK_DECAL;
+			ray_tracing_mask = RAY_TRACING_MASK_DECAL;
 		}
 
 		InstanceGPU instance{};
@@ -210,13 +246,18 @@ void SceneRenderer::refresh_transforms(entt::entity entity_id)
 		instance.old_world_transform = transform.getOldWorldTransform();
 		instance.mesh_id = slot;
 		instance.material_id = slot;
+		instance.pass_mask = pass_mask;
 		BoundBox bound_box(mesh->bound_box);
 		instance.bound_center = glm::vec4(bound_box.getCenter(), 1.0f);
 		instance.bound_extent = glm::vec4(bound_box.getSize() / 2.0f, 1.0);
 
 		instances_table.set(slot, instance);
+		set_instance_pass_mask(slot, pass_mask);
 		if (rt_scene)
+		{
 			rt_scene->setInstance(slot, mesh, transform.getWorldTransform());
+			rt_scene->setInstanceMask(slot, ray_tracing_mask);
+		}
 	}
 }
 
@@ -369,6 +410,8 @@ void SceneRenderer::render_deferred(Camera *camera, FrameGraph &frame_graph)
 	gpu_frame_cull(frame_graph);
 
 	gbuffer_pass.addPass(frame_graph, main_view_id, indirect_draw_calls_max_count);
+	if (has_pass_instances(PASS_MASK_DECAL))
+		gbuffer_pass.addDecalPass(frame_graph, main_view_id, indirect_draw_calls_max_count);
 
 	ambient_occlusion_renderer.addPasses(frame_graph, *camera);
 
@@ -465,7 +508,7 @@ void SceneRenderer::update(Camera *camera)
 
 		CullViewGPU main_view{};
 		main_view.view_projection = camera->getViewProj();
-		main_view.pass_mask = PASS_MASK_GBUFFER;
+		main_view.pass_mask = PASS_MASK_GBUFFER | PASS_MASK_DECAL;
 		main_view_id = cull_views_table.add(main_view);
 
 		if (Renderer::isShadowMapsEnabled())
@@ -481,6 +524,9 @@ void SceneRenderer::update(Camera *camera)
 		for (entt::entity light_entity_id : light_entities_id)
 		{
 			Entity light_entity(light_entity_id);
+			if (!light_entity.getTransform().isEnabled())
+				continue;
+
 			auto &light = light_entity.getComponent<LightComponent>();
 
 			LightGPU light_gpu{};
@@ -561,7 +607,7 @@ void SceneRenderer::update(Camera *camera)
 			if (flags & DIRTY_RENDER_STATE)
 			{
 				free_instances(entity_id);
-				if (mesh_renderer.meshes.empty())
+				if (mesh_renderer.meshes.empty() || !entity.getTransform().isEnabled())
 					continue;
 
 				uint32_t count = mesh_renderer.meshes.size();
@@ -573,6 +619,7 @@ void SceneRenderer::update(Camera *camera)
 			} else if (flags & DIRTY_MATERIAL)
 			{
 				refresh_materials(entity_id, mesh_renderer);
+				refresh_transforms(entity_id);
 			} else if (flags & DIRTY_TRANSFORM)
 			{
 				refresh_transforms(entity_id);

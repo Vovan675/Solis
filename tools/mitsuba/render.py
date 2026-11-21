@@ -65,13 +65,16 @@ def extract_alpha_mask(source, cutoff):
     Image.fromarray(np.where(alpha >= cutoff * 255.0, 255, 0).astype(np.uint8)).save(out, compress_level=1)
     return out
 
-def scale_bitmap(source, scale):
+def scale_bitmap(source, scale, raw):
     scale_suffix = '_scale_' + '_'.join(f'{value:g}' for value in scale)
     out = cache_path(source, scale_suffix, '.exr')
     if os.path.exists(out):
         return out
 
-    linear = mi.Bitmap(source).convert(mi.Bitmap.PixelFormat.RGB, mi.Struct.Type.Float32, srgb_gamma=False)
+    bitmap = mi.Bitmap(source)
+    if raw:
+        bitmap.set_srgb_gamma(False)
+    linear = bitmap.convert(mi.Bitmap.PixelFormat.RGB, mi.Struct.Type.Float32, srgb_gamma=False)
     pixels = np.array(linear) * np.array(scale, dtype=np.float32)
     mi.Bitmap(pixels).write(out)
     return out
@@ -107,7 +110,7 @@ def resolve_textures(scene_dict):
         if 'cutoff' in node:
             node['filename'] = extract_alpha_mask(node['filename'], node.pop('cutoff'))
         if 'scale' in node:
-            node['filename'] = scale_bitmap(node['filename'], node.pop('scale'))
+            node['filename'] = scale_bitmap(node['filename'], node.pop('scale'), node.get('raw', False))
             node['raw'] = True
 
 # Convert my custom lookat and matrix to mitsuba's format

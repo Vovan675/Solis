@@ -15,9 +15,8 @@ public:
 	void setVertexShader(RHIShaderRef shader) { current_description.vertex_shader = shader; }
 	void setFragmentShader(RHIShaderRef shader) { current_description.fragment_shader = shader; }
 	void setVertexInputsDescription(VertexInputsDescription desc) { current_description.vertex_inputs_descriptions = desc; }
-	void setUseBlending(bool use_blending) { current_description.use_blending = use_blending; }
-	void setBlendMode(BlendFactor src_color_blend, BlendFactor dst_color_blend, BlendOp color_blend_op,
-					  BlendFactor src_alpha_blend, BlendFactor dst_alpha_blend, BlendOp alpha_blend_op);
+	void setUseBlending(bool use_blending) { current_description.blend.enabled = use_blending; }
+	void setBlendState(const BlendState &blend) { current_description.blend = blend; }
 	void setDepthTest(bool depth_test) { current_description.use_depth_test = depth_test; }
 	void setDepthWrite(bool depth_write) { current_description.use_depth_write = depth_write; }
 	void setDepthFunc(CompareFunc func) { current_description.depth_compare_func = func; }

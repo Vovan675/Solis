@@ -163,11 +163,21 @@ void AssimpImporter::processNode(MeshNode *mesh_node, aiNode *node, const aiScen
 		aiColor3D aiColor;
 		if (mat->Get(AI_MATKEY_COLOR_DIFFUSE, aiColor) == aiReturn_SUCCESS)
 			engine_material->albedo = {aiColor.r, aiColor.g, aiColor.b, 1.0};
+		mat->Get(AI_MATKEY_OPACITY, engine_material->albedo.a);
 		mat->Get(AI_MATKEY_METALLIC_FACTOR, engine_material->metalness);
 		mat->Get(AI_MATKEY_ROUGHNESS_FACTOR, engine_material->roughness);
 		mat->Get(AI_MATKEY_SPECULAR_FACTOR, engine_material->specular);
+		if (engine_material->albedo_tex.asset.isValid())
+			engine_material->albedo = glm::vec4(glm::vec3(1.0f), engine_material->albedo.a);
+		if (engine_material->metalness_tex.asset.isValid())
+			engine_material->metalness = 1.0f;
+		if (engine_material->roughness_tex.asset.isValid())
+			engine_material->roughness = 1.0f;
+		if (engine_material->specular_tex.asset.isValid())
+			engine_material->specular = 1.0f;
 		engine_material->two_sided = is_two_sided(mat);
-
+		engine_material->decal = engine_material->albedo.a < 1.0f && (strstr(mat->GetName().C_Str(), "decal") || strstr(mat->GetName().C_Str(), "Decal"));
+		engine_material->write_shading = engine_material->metalness_tex.asset.isValid() || engine_material->roughness_tex.asset.isValid();
 		mat->Get(AI_MATKEY_EMISSIVE_INTENSITY, engine_material->emissive_intensity);
 		engine_material->emissive_intensity *= settings.emissive_scale;
 

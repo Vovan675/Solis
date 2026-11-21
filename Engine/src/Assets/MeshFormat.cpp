@@ -70,6 +70,9 @@ MeshFormat::MaterialDescriptor encodeMaterial(const Material *mat)
 	d.alpha_test = mat->alpha_test;
 	d.alpha_cutoff = mat->alpha_cutoff;
 	d.two_sided = mat->two_sided;
+	d.decal = mat->decal;
+	d.write_albedo = mat->write_albedo;
+	d.write_shading = mat->write_shading;
 	d.albedo_tex_guid = mat->albedo_tex.asset.guid;
 	d.metalness_tex_guid = mat->metalness_tex.asset.guid;
 	d.roughness_tex_guid = mat->roughness_tex.asset.guid;
@@ -91,6 +94,9 @@ Ref<Material> decodeMaterial(const MeshFormat::MaterialDescriptor &d)
 	mat->alpha_test = d.alpha_test != 0;
 	mat->alpha_cutoff = d.alpha_cutoff;
 	mat->two_sided = d.two_sided != 0;
+	mat->decal = d.decal != 0;
+	mat->write_albedo = d.write_albedo != 0;
+	mat->write_shading = d.write_shading != 0;
 	mat->albedo_tex.asset.guid = d.albedo_tex_guid;
 	mat->metalness_tex.asset.guid = d.metalness_tex_guid;
 	mat->roughness_tex.asset.guid = d.roughness_tex_guid;

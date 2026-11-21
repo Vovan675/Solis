@@ -24,6 +24,8 @@ private:
 	glm::mat4 inverse_world_transform = glm::mat4(1);
 	glm::mat4 old_world_transform = glm::mat4(1);
 	bool old_world_transform_set = false;
+
+	bool is_enabled = true;
 public:
 	eastl::string name = "";
 	entt::entity owner;
@@ -32,6 +34,10 @@ public:
 	eastl::vector<entt::entity> children;
 
 	void setParent(entt::entity new_parent);
+
+	bool isEnabledSelf() const { return is_enabled; }
+	bool isEnabled() const;
+	void setEnabled(bool enabled);
 
 	void setLocalTransform(glm::mat4 transform)
 	{
@@ -110,6 +116,7 @@ protected:
 
 REFLECT_BEGIN(TransformComponent)
 	REFLECT_FIELD(name),
+	REFLECT_FIELD(is_enabled),
 	REFLECT_FIELD(local_position),
 	REFLECT_FIELD(local_rotation),
 	REFLECT_FIELD(local_rotation_euler),
@@ -142,6 +149,7 @@ struct MeshRendererComponent
 
 	eastl::vector<MeshId> meshes;
 	eastl::vector<MaterialSlot> materials;
+	bool cast_shadows = true;
 
 	Material *getMaterial(int index);
 	void setMaterial(int index, Ref<Material> material);
@@ -160,6 +168,7 @@ REFLECT_END()
 REFLECT_BEGIN(MeshRendererComponent)
 	REFLECT_FIELD(meshes),
 	REFLECT_FIELD(materials),
+	REFLECT_FIELD(cast_shadows),
 REFLECT_END()
 
 enum LIGHT_TYPE

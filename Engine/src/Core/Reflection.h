@@ -41,6 +41,7 @@ struct FieldInfo
 	bool isReadOnly = false;
 	bool isHidden = false;
 	bool (*editCondition)(const void *owner) = nullptr;
+	bool (*visibleCondition)(const void *owner) = nullptr;
 
 	constexpr FieldInfo label(const char *text) const { FieldInfo field = *this; field.displayLabel = text; return field; }
 	constexpr FieldInfo tooltip(const char *text) const { FieldInfo field = *this; field.tooltipText = text; return field; }
@@ -65,6 +66,7 @@ struct FieldInfo
 	constexpr FieldInfo notSerialized() const { FieldInfo field = *this; field.isSerialized = false; return field; }
 	constexpr FieldInfo hidden() const { FieldInfo field = *this; field.isHidden = true; return field; }
 	constexpr FieldInfo editIf(bool (*condition)(const void *owner)) const { FieldInfo field = *this; field.editCondition = condition; return field; }
+	constexpr FieldInfo visibleIf(bool (*condition)(const void *owner)) const { FieldInfo field = *this; field.visibleCondition = condition; return field; }
 
 	template<typename T>
 	static FieldInfo make(const char *name, size_t offset)
@@ -91,6 +93,7 @@ struct FieldInfo
 	const AssetTypeInfo *getAssetType() const { return registeredAssetType ? *registeredAssetType : nullptr; }
 	bool hasRange() const { return minValue != maxValue; }
 	bool isActive(const void *owner) const { return !editCondition || editCondition(owner); }
+	bool isVisible(const void *owner) const { return !isHidden && (!visibleCondition || visibleCondition(owner)); }
 	bool isCategory() const { return !valueInfo && !structInfo && !arrayInfo; }
 	bool isDefault(const void *value, const void *default_value) const;
 };
@@ -251,6 +254,7 @@ inline bool StructInfo::isDefault(const void *object, const void *default_object
 #define REFLECT_FIELD(member) FieldInfo::make<decltype(Type::member)>(#member, offsetof(Type, member))
 #define REFLECT_CATEGORY(title) FieldInfo{title}
 #define EDIT_IF(expression) editIf([](const void *pointer) { const Type &owner = *(const Type *)pointer; return expression; })
+#define VISIBLE_IF(expression) visibleIf([](const void *pointer) { const Type &owner = *(const Type *)pointer; return expression; })
 
 #define REFLECT_END() \
 			}; \

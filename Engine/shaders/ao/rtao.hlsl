@@ -38,7 +38,7 @@ float traceOcclusionRay(RaytracingAccelerationStructure tlas, float3 origin, flo
 	ray.TMax = radius;
 
 	RayQuery<RAY_FLAG_SKIP_PROCEDURAL_PRIMITIVES> ray_query;
-	ray_query.TraceRayInline(tlas, RAY_FLAG_NONE, 0xff, ray);
+	ray_query.TraceRayInline(tlas, RAY_FLAG_NONE, RAY_TRACING_MASK_SHADOW, ray);
 	while (ray_query.Proceed())
 	{
 		if (!isAlphaClipped(ray_query.CandidateInstanceID(), ray_query.CandidatePrimitiveIndex(), ray_query.CandidateTriangleBarycentrics()))

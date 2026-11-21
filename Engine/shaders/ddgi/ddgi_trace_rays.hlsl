@@ -66,7 +66,7 @@ void CS_TraceRays(uint3 dispatch_thread_id : SV_DispatchThreadID)
 	ray.TMax = ray_distance;
 
 	RayQuery<RAY_FLAG_FORCE_OPAQUE | RAY_FLAG_SKIP_PROCEDURAL_PRIMITIVES> ray_query;
-	ray_query.TraceRayInline(tlas, RAY_FLAG_NONE, 0xff, ray);
+	ray_query.TraceRayInline(tlas, RAY_FLAG_NONE, RAY_TRACING_MASK_OPAQUE, ray);
 	ray_query.Proceed();
 
 	uint ray_data_index = GetRayDataIndex(dispatch_thread_id.y, ray_index, volume);
@@ -109,8 +109,12 @@ void CS_TraceRays(uint3 dispatch_thread_id : SV_DispatchThreadID)
 
 	Mesh mesh = getMesh(instance.mesh_id);
 	VertexData vertex = GetVertexData(mesh, ray_query.CommittedPrimitiveIndex(), ray_query.CommittedTriangleBarycentrics());
-	float3 albedo = (material.albedo_tex_id > 0) ? SampleTextureLevel(material.albedo_tex_id, vertex.uv, 0).rgb : material.albedo.rgb;
-	float metalness = (material.metalness_tex_id > 0) ? SampleTextureLevel(material.metalness_tex_id, vertex.uv, 0).b : material.shading.r;
+	float3 albedo = material.albedo.rgb;
+	if (material.albedo_tex_id > 0)
+		albedo *= SampleTextureLevel(material.albedo_tex_id, vertex.uv, 0).rgb;
+	float metalness = material.shading.r;
+	if (material.metalness_tex_id > 0)
+		metalness *= SampleTextureLevel(material.metalness_tex_id, vertex.uv, 0).b;
 	float3 diffuse_color = albedo * (1.0f - metalness);
 
 	float3 position = mul(instance.world_transform, float4(vertex.position, 1.0)).xyz;

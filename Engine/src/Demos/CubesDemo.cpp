@@ -83,7 +83,6 @@ void CubesDemo::initResources()
 		pso_desc.color_formats = {Format::R8G8B8A8_UNORM}; //VK_FORMAT_B8G8R8A8_UNORM?
 		pso_desc.depth_format = Format::D32_SFLOAT_S8_UINT;
 		pso_desc.use_depth_test = true;
-		pso_desc.use_blending = false;
 
 		pso_desc.vertex_inputs_descriptions.inputs.push_back({"POSITION", 0, Format::R32G32B32_SFLOAT});
 		pso_desc.vertex_inputs_descriptions.inputs.push_back({"UV", 0, Format::R32G32_SFLOAT});

@@ -225,14 +225,14 @@ DX12Pipeline::DX12Pipeline(ID3D12Device *device, const PipelineDescription &desc
 		for (UINT i = 0; i < D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT; ++i)
 		{
 			D3D12_RENDER_TARGET_BLEND_DESC &rt = blend_state.RenderTarget[i];
-			rt.BlendEnable = description.use_blending;
+			rt.BlendEnable = description.blend.enabled;
 			rt.LogicOpEnable = false;
-			rt.SrcBlend = getBlend(description.src_color_blend);
-			rt.DestBlend = getBlend(description.dst_color_blend);
-			rt.BlendOp = getBlendOp(description.color_blend_op);
-			rt.SrcBlendAlpha = getBlend(description.src_alpha_blend);
-			rt.DestBlendAlpha = getBlend(description.dst_alpha_blend);
-			rt.BlendOpAlpha = getBlendOp(description.alpha_blend_op);
+			rt.SrcBlend = getBlend(description.blend.src_color);
+			rt.DestBlend = getBlend(description.blend.dst_color);
+			rt.BlendOp = getBlendOp(description.blend.color_op);
+			rt.SrcBlendAlpha = getBlend(description.blend.src_alpha);
+			rt.DestBlendAlpha = getBlend(description.blend.dst_alpha);
+			rt.BlendOpAlpha = getBlendOp(description.blend.alpha_op);
 			rt.RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
 		}
 

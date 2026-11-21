@@ -49,6 +49,8 @@ public:
 
 	void on_mesh_renderer_constructed(entt::registry &registry, entt::entity entity);
 	void on_mesh_renderer_destroyed(entt::registry &registry, entt::entity entity);
+	void set_instance_pass_mask(uint32_t slot, uint32_t pass_mask);
+	bool has_pass_instances(uint32_t pass_mask) const { return pass_instance_counts[glm::findLSB(pass_mask)] > 0; }
 	void free_instances(entt::entity entity);
 	void refresh_meshes(entt::entity entity_id, MeshRendererComponent &mesh_renderer);
 	void refresh_materials(entt::entity entity_id, MeshRendererComponent &mesh_renderer);
@@ -79,6 +81,8 @@ public:
 	struct InstanceRange { uint32_t start; uint32_t count; };
 	eastl::hash_map<entt::entity, InstanceRange> entity_instances;
 	eastl::hash_set<entt::entity> moved_last_frame_entities;
+	eastl::vector<uint32_t> instance_pass_masks;
+	eastl::array<int, 32> pass_instance_counts{};
 
 	GpuTable<CullViewGPU> cull_views_table;
 	GpuTable<LightGPU> lights_table;

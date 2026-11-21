@@ -52,7 +52,7 @@ namespace UI
 
 	bool convar(ConVarDescription *description);
 
-	bool assetField(const char *label, AssetReference *reference, const AssetTypeInfo *accepted_type, const char *tooltip = nullptr);
+	bool assetField(const char *label, AssetReference *reference, const AssetTypeInfo *accepted_type, const char *tooltip = nullptr, const eastl::function<void()> &menu_items = nullptr);
 
 	using PropertyDrawer = bool (*)(const FieldInfo &field, const char *label, void *value, void *owner);
 

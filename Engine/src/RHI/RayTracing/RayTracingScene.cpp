@@ -15,6 +15,11 @@ void RayTracingScene::setInstanceFlags(uint32_t slot, RayTracingInstanceFlags in
 	instances[slot].instance_flags = instance_flags;
 }
 
+void RayTracingScene::setInstanceMask(uint32_t slot, uint8_t instance_mask)
+{
+	instances[slot].instance_mask = instance_mask;
+}
+
 void RayTracingScene::removeInstance(uint32_t slot)
 {
 	instances.erase(slot);
@@ -56,14 +61,14 @@ void RayTracingScene::update()
 	rt_instances.reserve(instances.size());
 	for (auto &[slot, entry] : instances)
 	{
-		if (!entry.mesh)
+		if (!entry.mesh || entry.instance_mask == 0)
 			continue;
 
 		RayTracingInstance &instance = rt_instances.emplace_back();
 		instance.blas = ensure_blas(entry.mesh);
 		instance.transform = entry.transform;
 		instance.instance_id = slot;
-		instance.instance_mask = 0xFF;
+		instance.instance_mask = entry.instance_mask;
 		instance.instance_contribution_to_hit_group_index = 0;
 		instance.instance_flags = entry.instance_flags;
 		if (!GFXOPTIONS(ray_traced_alpha_test))

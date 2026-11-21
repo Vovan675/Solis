@@ -48,5 +48,6 @@ void CS_CullInstances(uint3 dispatchID : SV_DispatchThreadID)
 	transformBoundBox(bound_center, bound_extent, instance.world_transform);
 
 	uint pass_mask = Cull(bound_center, bound_extent);
+	pass_mask &= instance.pass_mask;
 	pass_mask_buffer.Store(id * sizeof(uint), pass_mask);
 }

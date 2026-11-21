@@ -22,6 +22,9 @@ void ShadowRenderer::addCullViews(GpuTable<CullViewGPU> &cull_views, Camera *cam
 
 	for (auto &&[entity, transform, light] : components.each())
 	{
+		if (!transform.isEnabled())
+			continue;
+
 		glm::vec3 position = glm::vec3(transform.getWorldTransform()[3]);
 
 		ShadowViews shadow{};
@@ -123,7 +126,7 @@ void ShadowRenderer::addShadowMapPasses(FrameGraph &fg, uint32_t max_draw_calls_
 				view.hiz_description = hiz_description;
 				view.layer = cascade;
 				view.use_two_pass_occlusion = true;
-				view.use_reverse_z = false;
+				view.depth_func = CompareFunc::LESS_EQUAL;
 				view.depth_clip = false;
 				view.cull_mode = CullMode::NONE;
 				view.shaders = shaders;

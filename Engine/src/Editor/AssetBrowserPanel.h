@@ -18,6 +18,7 @@ public:
 
 	void setCurrentAsset(const std::filesystem::path &path) { current_path = path.parent_path(); }
 	void refreshCache() { directories_cache.clear(); }
+	std::filesystem::path createAsset(const AssetTypeInfo &type, const void *object);
 
 private:
 	void process_create_menu(EditorContext &context);

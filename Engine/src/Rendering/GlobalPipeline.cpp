@@ -41,17 +41,6 @@ void GlobalPipeline::flush()
 	current_pipeline = new_pipeline;
 }
 
-void GlobalPipeline::setBlendMode(BlendFactor src_color_blend, BlendFactor dst_color_blend, BlendOp color_blend_op,
-								  BlendFactor src_alpha_blend, BlendFactor dst_alpha_blend, BlendOp alpha_blend_op)
-{
-	current_description.src_color_blend = src_color_blend;
-	current_description.dst_color_blend = dst_color_blend;
-	current_description.color_blend_op = color_blend_op;
-	current_description.src_alpha_blend = src_alpha_blend;
-	current_description.dst_alpha_blend = dst_alpha_blend;
-	current_description.alpha_blend_op = alpha_blend_op;
-}
-
 void GlobalPipeline::bindScreenQuadPipeline(RHICommandList *cmd_list, RHIShaderRef fragment_shader)
 {
 	setupGraphicsPipeline(cmd_list,

@@ -153,21 +153,26 @@ void AssetBrowserPanel::process_create_menu(EditorContext &context)
 			if (!ImGui::MenuItem(type->name))
 				continue;
 
-			std::filesystem::path path;
-			// Find not occupied by other file path
-			for (int index = 0; path.empty() || std::filesystem::exists(path); index++)
-				path = current_path / fmt::format("New{}{}{}", type->name, index > 0 ? std::to_string(index) : "", type->extensions.front().c_str());
-
-			ReflectionYaml::saveToFile(*type->structInfo, type->structInfo->defaults, path);
-			AssetManager::getOrCreateMetadata(path);
-
-			refreshCache();
-			context.selected_path = path;
+			context.selected_path = createAsset(*type, type->structInfo->defaults);
 			context.selection_type = EditorSelectionType::Asset;
 		}
 		ImGui::EndMenu();
 	}
 	ImGui::EndPopup();
+}
+
+std::filesystem::path AssetBrowserPanel::createAsset(const AssetTypeInfo &type, const void *object)
+{
+	std::filesystem::path path;
+	// Find not occupied by other file path
+	for (int index = 0; path.empty() || std::filesystem::exists(path); index++)
+		path = current_path / fmt::format("New{}{}{}", type.name, index > 0 ? std::to_string(index) : "", type.extensions.front().c_str());
+
+	ReflectionYaml::saveToFile(*type.structInfo, object, path);
+	AssetManager::getOrCreateMetadata(path);
+
+	refreshCache();
+	return path;
 }
 
 void AssetBrowserPanel::process_asset_context_menu(const std::filesystem::path &file, EditorContext &context)

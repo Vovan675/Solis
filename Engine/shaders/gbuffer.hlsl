@@ -140,11 +140,11 @@ PixelOutput PSMain(PixelInput IN, bool is_front_face : SV_IsFrontFace)
 	PixelOutput output;
 	Material material = getMaterial(IN.material_id);
 
-	output.color = (material.albedo_tex_id > 0)
-		? SampleTexture(material.albedo_tex_id, IN.uv)
-		: material.albedo;
+	output.color = material.albedo;
+	if (material.albedo_tex_id > 0)
+		output.color *= SampleTexture(material.albedo_tex_id, IN.uv);
 
-	if (material.alpha_tex_id != 0 && SampleTexture(material.alpha_tex_id, IN.uv).a < material.alpha_cutoff)
+	if (material.alpha_tex_id != 0 && material.albedo.a * SampleTexture(material.alpha_tex_id, IN.uv).a < material.alpha_cutoff)
 		discard;
 
 	float3 world_normal = normalize(IN.world_normal);
@@ -164,10 +164,13 @@ PixelOutput PSMain(PixelInput IN, bool is_front_face : SV_IsFrontFace)
 		world_normal = -world_normal;
 	output.normal = float4(packGBufferNormal(world_normal), 1.0);
 
-	output.shading.r = (material.metalness_tex_id > 0) ? SampleTexture(material.metalness_tex_id, IN.uv).b : material.shading.r;
-	output.shading.g = (material.roughness_tex_id > 0) ? SampleTexture(material.roughness_tex_id, IN.uv).g : material.shading.g;
-	output.shading.b = (material.specular_tex_id > 0) ? SampleTexture(material.specular_tex_id, IN.uv).r : material.shading.b;
-	output.shading.a = 1.0;
+	output.shading = float4(material.shading.rgb, 1.0);
+	if (material.metalness_tex_id > 0)
+		output.shading.r *= SampleTexture(material.metalness_tex_id, IN.uv).b;
+	if (material.roughness_tex_id > 0)
+		output.shading.g *= SampleTexture(material.roughness_tex_id, IN.uv).g;
+	if (material.specular_tex_id > 0)
+		output.shading.b *= SampleTexture(material.specular_tex_id, IN.uv).r;
 
 	float3 emissive = material.emissive.rgb;
 	if (material.emissive_tex_id > 0)
@@ -188,5 +191,38 @@ PixelOutput PSMain(PixelInput IN, bool is_front_face : SV_IsFrontFace)
 	#elif VISUALIZE_TBN == 3
 		output.color = float4(tbn[2] * 0.5 + 0.5, 1.0);
 	#endif
+	return output;
+}
+
+struct DecalOutput
+{
+	float4 color : SV_Target0;
+	float4 shading : SV_Target1;
+};
+
+DecalOutput PSMainDecal(PixelInput IN)
+{
+	Material material = getMaterial(IN.material_id);
+	bool write_albedo = (material.flags & MATERIAL_FLAG_DECAL_WRITE_ALBEDO) != 0;
+	bool write_shading = (material.flags & MATERIAL_FLAG_DECAL_WRITE_SHADING) != 0;
+
+	DecalOutput output;
+
+	float4 albedo = material.albedo;
+	if (material.albedo_tex_id > 0)
+		albedo *= SampleTexture(material.albedo_tex_id, IN.uv);
+	output.color = float4(albedo.rgb, write_albedo ? albedo.a : 0.0);
+	
+	output.shading = 0.0;
+	if (write_shading)
+	{
+		output.shading = float4(material.shading.rgb, albedo.a);
+		if (material.metalness_tex_id > 0)
+			output.shading.r *= SampleTexture(material.metalness_tex_id, IN.uv).b;
+		if (material.roughness_tex_id > 0)
+			output.shading.g *= SampleTexture(material.roughness_tex_id, IN.uv).g;
+		if (material.specular_tex_id > 0)
+			output.shading.b *= SampleTexture(material.specular_tex_id, IN.uv).r;
+	}
 	return output;
 }
