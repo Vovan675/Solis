@@ -314,10 +314,9 @@ float3 SampleEnvironment(float3 direction)
 // Camera
 // ============================================================================
 
-RayDesc GenerateCameraRay(uint2 pixel, uint2 screen_size)
+RayDesc GenerateCameraRay(uint2 pixel, uint2 screen_size, float2 subpixel)
 {
-	float2 pixel_center = pixel + 0.5f;
-	float2 uv = pixel_center / screen_size;
+	float2 uv = (pixel + subpixel) / screen_size;
 	float2 ndc = uv * 2.0f - 1.0f;
 	ndc.y *= -1.0f;
 	
@@ -365,7 +364,7 @@ void CSMain(uint2 pixel : SV_DispatchThreadID)
 	RaytracingAccelerationStructure tlas = ResourceDescriptorHeap[tlas_id];
 	
 	RandomState rng = InitRandomState(pixel.x + pixel.y * screen_size.x, frame);
-	RayDesc ray = GenerateCameraRay(pixel, screen_size);
+	RayDesc ray = GenerateCameraRay(pixel, screen_size, Random2(rng));
 	
 	const int MAX_BOUNCES = 12;
 	const float WHITE_LUMINANCE = camera_exposure > 0.0 ? 1.0 / camera_exposure : 1.0;
