@@ -192,6 +192,7 @@ void SceneRenderer::refresh_materials(entt::entity entity_id, MeshRendererCompon
 		material_gpu.alpha_tex_id = material->alpha_test ? material->albedo_tex.bindless_id : 0;
 		material_gpu.alpha_cutoff = material->alpha_cutoff;
 		material_gpu.flags |= material->two_sided ? MATERIAL_FLAG_TWO_SIDED : 0;
+		material_gpu.flags |= material->decal ? MATERIAL_FLAG_DECAL : 0;
 		material_gpu.flags |= material->write_albedo ? MATERIAL_FLAG_DECAL_WRITE_ALBEDO : 0;
 		material_gpu.flags |= material->write_shading ? MATERIAL_FLAG_DECAL_WRITE_SHADING : 0;
 		materials_table.set(it->second.start + i, material_gpu); // In future materials would be globally unique, so every material would hold its own slot
@@ -210,6 +211,8 @@ void SceneRenderer::refresh_transforms(entt::entity entity_id)
 	Entity entity(entity_id);
 	const TransformComponent &transform = entity.getComponent<TransformComponent>();
 	MeshRendererComponent &mesh_renderer = entity.getComponent<MeshRendererComponent>();
+
+	bool outlined = is_outlined(entity_id);
 
 	for (int i = 0; i < it->second.count && i < mesh_renderer.meshes.size(); i++)
 	{
@@ -239,6 +242,8 @@ void SceneRenderer::refresh_transforms(entt::entity entity_id)
 			pass_mask = PASS_MASK_DECAL;
 			ray_tracing_mask = RAY_TRACING_MASK_DECAL;
 		}
+		if (outlined)
+			pass_mask |= PASS_MASK_OUTLINE;
 
 		InstanceGPU instance{};
 		instance.world_transform = transform.getWorldTransform();
@@ -331,7 +336,7 @@ void SceneRenderer::on_asset_post_reimport(Asset *asset)
 	}
 }
 
-void SceneRenderer::render(Camera *camera, RHITextureRef result_texture)
+void SceneRenderer::render(Camera *camera, RHITextureRef result_texture, const ViewSettings &view_settings)
 {
 	PROFILE_CPU_FUNCTION();
 	PROFILE_GPU_FUNCTION(gDynamicRHI->getCmdList());
@@ -342,6 +347,7 @@ void SceneRenderer::render(Camera *camera, RHITextureRef result_texture)
 	Renderer::setOutputResolution(output_resolution);
 	Renderer::setRenderResolution(render_resolution);
 	Renderer::setCamera(camera);
+	Renderer::setViewSettings(view_settings);
 
 	gUploadManager->beginFrame();
 
@@ -458,9 +464,12 @@ void SceneRenderer::render_deferred(Camera *camera, FrameGraph &frame_graph)
 		post_renderer.addPasses(frame_graph);
 	}
 
+	if (Renderer::isSelectionOutlineEnabled() && has_pass_instances(PASS_MASK_OUTLINE))
+		outline_renderer.addPasses(frame_graph, outline_view_id, indirect_draw_calls_max_count);
+
 	debug_renderer.addPasses(frame_graph);
 
-	if (debug_renderer.isEnabled() && Renderer::isDDGIEnabled() && render_ddgi_visualize)
+	if (Renderer::isDebugRenderingEnabled() && Renderer::isDDGIEnabled() && render_ddgi_visualize)
 		ddgi_renderer.addVisualizePass(frame_graph);
 }
 
@@ -512,6 +521,26 @@ void SceneRenderer::pick(glm::vec2 uv, eastl::function<void(entt::entity)> callb
 		}
 		callback(picked);
 	});
+}
+
+void SceneRenderer::setOutlinedEntities(const eastl::vector<entt::entity> &entities)
+{
+	outlined_entities = entities;
+	if (scene.getReference() != Scene::getCurrentScene())
+		return;
+
+	for (const auto &[entity_id, range] : entity_instances)
+	{
+		bool was_outlined = (instance_pass_masks[range.start] & PASS_MASK_OUTLINE) != 0;
+		if (was_outlined != is_outlined(entity_id))
+			refresh_transforms(entity_id);
+	}
+}
+
+bool SceneRenderer::is_outlined(entt::entity entity_id) const
+{
+	const TransformComponent &transform = Entity(entity_id).getTransform();
+	return eastl::any_of(outlined_entities.begin(), outlined_entities.end(), [&](entt::entity outlined) { return entity_id == outlined || transform.isChildOf(outlined); });
 }
 
 void SceneRenderer::update(Camera *camera)
@@ -655,6 +684,13 @@ void SceneRenderer::update(Camera *camera)
 
 		indirect_draw_calls_max_count = instances_table.getMaxUsedSlot();
 		scene->clearDirty();
+
+		if (Renderer::isSelectionOutlineEnabled() && has_pass_instances(PASS_MASK_OUTLINE))
+		{
+			CullViewGPU outline_view = main_view;
+			outline_view.pass_mask = PASS_MASK_OUTLINE;
+			outline_view_id = cull_views_table.add(outline_view);
+		}
 
 		geometry_streaming.update();
 

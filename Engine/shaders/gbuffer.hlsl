@@ -39,7 +39,11 @@ PixelInput transformVertex(RawVertexData raw_vertex, Instance instance, uint att
 	PixelInput output;
 
 	float4 world_pos = mul(instance.world_transform, float4(raw_vertex.position, 1.0));
-	output.position = mul(view_projection, world_pos);
+	#if OUTLINE
+		output.position = mul(view_projection_unjittered, world_pos);
+	#else
+		output.position = mul(view_projection, world_pos);
+	#endif
 
 	float4 old_world_pos = mul(instance.old_world_transform, float4(raw_vertex.position, 1.0));
 	output.old_clip_position = mul(old_view_projection_unjittered, old_world_pos);
@@ -229,7 +233,7 @@ DecalOutput PSMainDecal(PixelInput IN)
 		albedo *= SampleTexture(material.albedo_tex_id, IN.uv);
 	output.color = float4(albedo.rgb, write_albedo ? albedo.a : 0.0);
 	#if PICKING
-		if (albedo.a >= 0.5)
+		if (albedo.a >= 0.3)
 			writePickId(uint2(IN.position.xy), asfloat(asuint(IN.position.z) + 1), IN.instance_id);
 	#endif
 
@@ -245,4 +249,24 @@ DecalOutput PSMainDecal(PixelInput IN)
 			output.shading.b *= SampleTexture(material.specular_tex_id, IN.uv).r;
 	}
 	return output;
+}
+
+void PSMainOutline(PixelInput IN)
+{
+	Material material = getMaterial(IN.material_id);
+
+	float alpha = material.albedo.a;
+	if (material.albedo_tex_id > 0)
+		alpha *= SampleTexture(material.albedo_tex_id, IN.uv).a;
+
+	bool is_decal = (material.flags & MATERIAL_FLAG_DECAL);
+	if (is_decal)
+	{
+		if (alpha < 0.3)
+			discard;
+	} else
+	{
+		if (alpha < material.alpha_cutoff)
+			discard;
+	}
 }

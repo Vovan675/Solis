@@ -11,6 +11,8 @@
 #include "Assets/Asset.h"
 #include <unordered_set>
 
+struct ViewSettings;
+
 struct DebugTime
 {
 	uint32_t index = 0;
@@ -54,6 +56,7 @@ public:
 	static Camera *getCamera() { return camera; }
 	static void setPassConstants(const PassConstants &constants) { pass_constants = &constants; }
 	static const PassConstants &getPassConstants() { return *pass_constants; }
+	static void setViewSettings(const ViewSettings &settings);
 
 	static void addDrawCalls(size_t count) { debug_info.drawcalls += count; }
 
@@ -64,6 +67,8 @@ public:
 	static bool isRTXDIEnabled();
 	static bool isDDGIEnabled();
 	static bool isRTAOEnabled();
+	static bool isSelectionOutlineEnabled();
+	static bool isDebugRenderingEnabled();
 	static bool isScreenshotFrame();
 
 private:
@@ -74,6 +79,7 @@ private:
 	static RendererDebugInfo debug_info;
 	static Camera *camera;
 	static const PassConstants *pass_constants;
+	static ViewSettings view_settings;
 	static glm::ivec2 render_resolution;
 	static glm::ivec2 output_resolution;
 	static int screenshot_frames_waited;

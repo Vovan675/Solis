@@ -11,7 +11,7 @@ constexpr uint32_t MAX_MESHLETS_PER_FRAME = 1 << 23;
 constexpr uint32_t TRADITIONAL_CULLING_THREADGROUP_SIZE = 32;
 }
 
-OpaqueGeometryPass::ShaderSet OpaqueGeometryPass::ShaderSet::fromFile(const wchar_t *file, eastl::vector<eastl::pair<const char *, const char *>> defines)
+OpaqueGeometryPass::ShaderSet OpaqueGeometryPass::ShaderSet::fromFile(const wchar_t *file, eastl::vector<eastl::pair<const char *, const char *>> defines, const char *pixel_entry)
 {
 	ShaderSet shaders;
 	if (render_meshlets_mesh_shaders)
@@ -19,7 +19,7 @@ OpaqueGeometryPass::ShaderSet OpaqueGeometryPass::ShaderSet::fromFile(const wcha
 	else
 		shaders.meshlet_vertex_shader = gDynamicRHI->createShader(file, ShaderType::VERTEX, "VSMainMeshlet", defines);
 	shaders.traditional_vertex_shader = gDynamicRHI->createShader(file, ShaderType::VERTEX, "VSMainTraditional", defines);
-	shaders.pixel_shader = gDynamicRHI->createShader(file, ShaderType::FRAGMENT, "", defines);
+	shaders.pixel_shader = gDynamicRHI->createShader(file, ShaderType::FRAGMENT, pixel_entry, defines);
 	return shaders;
 }
 

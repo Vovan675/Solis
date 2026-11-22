@@ -14,7 +14,7 @@ public:
 		RHIShaderRef meshlet_vertex_shader;
 		RHIShaderRef traditional_vertex_shader;
 		RHIShaderRef pixel_shader;
-		static ShaderSet fromFile(const wchar_t *file, eastl::vector<eastl::pair<const char *, const char *>> defines = {});
+		static ShaderSet fromFile(const wchar_t *file, eastl::vector<eastl::pair<const char *, const char *>> defines = {}, const char *pixel_entry = "");
 	};
 
 	struct RenderView

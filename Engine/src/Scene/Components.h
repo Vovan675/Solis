@@ -34,6 +34,7 @@ public:
 	eastl::vector<entt::entity> children;
 
 	void setParent(entt::entity new_parent);
+	bool isChildOf(entt::entity entity) const;
 
 	bool isEnabledSelf() const { return is_enabled; }
 	bool isEnabled() const;

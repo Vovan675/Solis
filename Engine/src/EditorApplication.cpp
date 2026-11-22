@@ -11,6 +11,7 @@
 #include "Editor/EditorDefaultScene.h"
 
 #include "Core/Variables.h"
+#include "Core/ReflectionSerialization.h"
 
 #include "Editor/UI.h"
 
@@ -24,6 +25,7 @@
 using namespace physx;
 
 static bool is_play = false;
+static const std::filesystem::path EDITOR_SETTINGS_PATH = "configs/user.editor_settings";
 
 EditorApplication::EditorApplication(int argc, char *argv[]) : Application(argc, argv)
 {
@@ -216,7 +218,9 @@ void EditorApplication::toggle_play()
 		// Revert scene
 		Scene::setCurrentScene(saved_scene);
 		saved_scene = nullptr;
-		eastl::erase_if(context.selected_entities, [&](entt::entity id) { return !Scene::getCurrentScene()->isValid(id); });
+		eastl::vector<entt::entity> selected_entities = context.getSelectedEntities();
+		eastl::erase_if(selected_entities, [&](entt::entity id) { return !Scene::getCurrentScene()->isValid(id); });
+		context.setSelectedEntities(selected_entities);
 	}
 }
 
@@ -258,8 +262,10 @@ void EditorApplication::init()
 	context.editor_camera = Camera(glm::vec3(0, 2, 0));
 	Renderer::setCamera(&context.editor_camera);
 	EditorContext::current = &context;
+	ReflectionYaml::loadFromFile(Reflected<EditorSettings>::getInfo(), &context.settings, EDITOR_SETTINGS_PATH);
 
 	scene_renderer = new SceneRenderer();
+	context.onSelectionChanged().connect<&SceneRenderer::setOutlinedEntities>(scene_renderer);
 
 	debug_panel.debug_renderer = &scene_renderer->debug_renderer;
 	debug_panel.geometry_streaming = &scene_renderer->geometry_streaming;
@@ -272,7 +278,7 @@ void EditorApplication::init()
 
 void EditorApplication::openScene(const eastl::string &path)
 {
-	context.selected_entities.clear();
+	context.clearSelection();
 	context.selected_path.clear();
 
 	if (std::filesystem::exists(path.c_str()))
@@ -309,7 +315,6 @@ void EditorApplication::update(float delta_time)
 	if (toggle_fullscreen)
 	{
 		viewport_fullscreen = !viewport_fullscreen;
-		scene_renderer->debug_renderer.setEnabled(!viewport_fullscreen);
 		Platform::setTitleBarDragRect(0, 0, 0);
 		Platform::setMaximizeButtonRect(0, 0, 0, 0);
 	}
@@ -375,7 +380,7 @@ void EditorApplication::update(float delta_time)
 		scene_renderer->pick(viewport_panel.clicked_uv, [this, toggle](entt::entity entity)
 		{
 			if (!toggle)
-				context.selected_entities.clear();
+				context.clearSelection();
 
 			Ref<Scene> scene = Scene::getCurrentScene();
 			if (!scene->isValid(entity))
@@ -384,8 +389,7 @@ void EditorApplication::update(float delta_time)
 			if (toggle)
 				context.toggleSelected(entity);
 			else
-				context.selected_entities.push_back(entity);
-			context.selection_type = EditorSelectionType::Entity;
+				context.select(entity);
 		});
 	}
 
@@ -405,18 +409,23 @@ void EditorApplication::update(float delta_time)
 
 	if (gInput.isKeyPressed(GLFW_KEY_ESCAPE) && !toggle_fullscreen && !ImGui::GetIO().WantTextInput)
 	{
-		context.selected_entities.clear();
+		context.clearSelection();
 		context.selected_path.clear();
 	}
 
 	if (gInput.isKeyDown(GLFW_KEY_LEFT_CONTROL) && gInput.isKeyPressed(GLFW_KEY_D) && !ImGui::GetIO().WantTextInput)
 	{
-		for (entt::entity &id : context.selected_entities)
-			id = Scene::getCurrentScene()->duplicateEntity(id);
+		eastl::vector<entt::entity> duplicates;
+		for (entt::entity id : context.getSelectedEntities())
+			duplicates.push_back(Scene::getCurrentScene()->duplicateEntity(id));
+		context.setSelectedEntities(duplicates);
 	}
 
 	if (ImGui::IsKeyPressed(ImGuiKey_M, false) && !ImGui::GetIO().WantTextInput)
 		mitsuba_bridge.runRender(context);
+
+	if (ImGui::IsKeyPressed(ImGuiKey_Z, false) && !ImGui::GetIO().WantTextInput)
+		context.settings.view_settings.overlays.enabled = !context.settings.view_settings.overlays.enabled;
 
 	if (gInput.isKeyPressed(GLFW_KEY_F11))
 		render_screenshot = true;
@@ -446,7 +455,10 @@ void EditorApplication::update(float delta_time)
 void EditorApplication::recordCommands(RHICommandList *cmd_list)
 {
 	scene_renderer->setScene(Scene::getCurrentScene());
-	scene_renderer->render(&context.editor_camera, viewport_panel.viewport_texture);
+	ViewSettings view_settings = context.settings.view_settings;
+	if (viewport_fullscreen)
+		view_settings.overlays.enabled = false;
+	scene_renderer->render(&context.editor_camera, viewport_panel.viewport_texture, view_settings);
 
 	FrameGraph frameGraph(scene_renderer->persistent_resources, scene_renderer->transient_resources);
 
@@ -483,7 +495,9 @@ void EditorApplication::cleanupResources()
 	ray_tracing_scene = nullptr;
 	*/
 
+	context.onSelectionChanged().disconnect(scene_renderer);
 	scene_renderer = nullptr;
+	ReflectionYaml::saveToFile(Reflected<EditorSettings>::getInfo(), &context.settings, EDITOR_SETTINGS_PATH);
 	viewport_panel.viewport_texture = nullptr;
 	asset_browser_panel = {};
 	mitsuba_bridge = {};

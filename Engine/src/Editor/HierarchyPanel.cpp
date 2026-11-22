@@ -64,13 +64,14 @@ void HierarchyPanel::renderImGui(EditorContext &context)
 		if (begin_id > end_id)
 			std::swap(begin_id, end_id);
 
-		context.selected_entities.clear();
+		eastl::vector<entt::entity> selected_entities;
 		for (int i = begin_id; i <= end_id; i++)
 		{
 			if (flat_list[i] != clicked)
-			context.selected_entities.push_back(flat_list[i]);
+			selected_entities.push_back(flat_list[i]);
 		}
-		context.selected_entities.push_back(clicked);
+		selected_entities.push_back(clicked);
+		context.setSelectedEntities(selected_entities);
 	};
 
 	auto draw_create_menu = [&](entt::entity parent_id)
@@ -101,8 +102,7 @@ void HierarchyPanel::renderImGui(EditorContext &context)
 		if (entity)
 		{
 			entity.getTransform().setParent(parent_id);
-			context.selected_entities = {entity};
-			context.selection_type = EditorSelectionType::Entity;
+			context.select(entity);
 			start_entity = entity;
 		}
 
@@ -185,11 +185,9 @@ void HierarchyPanel::renderImGui(EditorContext &context)
 				start_entity = transform.owner;
 			} else
 			{
-				context.selected_entities.clear();
-				context.selected_entities.push_back(transform.owner);
+				context.select(transform.owner);
 				start_entity = transform.owner;
 			}
-			context.selection_type = EditorSelectionType::Entity;
 		}
 
 		if (ImGui::BeginPopupContextItem())
@@ -201,7 +199,7 @@ void HierarchyPanel::renderImGui(EditorContext &context)
 			{
 				if (context.isSelected(transform.owner))
 				{
-					for (entt::entity id : context.selected_entities)
+					for (entt::entity id : context.getSelectedEntities())
 						entities_to_delete.push_back(id);
 				} else
 				{
@@ -280,7 +278,7 @@ void HierarchyPanel::renderImGui(EditorContext &context)
 
 		if (ImGui::IsKeyPressed(ImGuiKey_Delete))
 		{
-			for (entt::entity id : context.selected_entities)
+			for (entt::entity id : context.getSelectedEntities())
 				entities_to_delete.push_back(id);
 		}
 	}
@@ -290,7 +288,7 @@ void HierarchyPanel::renderImGui(EditorContext &context)
 
 	if (!entities_to_delete.empty())
 	{
-		context.selected_entities.clear();
+		context.clearSelection();
 		start_entity = entt::null;
 	}
 

@@ -42,16 +42,11 @@ DebugRenderer::DebugRenderer()
 	lines_draw_args_buffer->setDebugName("Lines GPU Draw Args Buffer");
 }
 
-bool DebugRenderer::isEnabled() const
-{
-	return enabled && !GFXOPTIONS(path_tracing);
-}
-
 eastl::vector<DebugRenderer::DebugOverlay> DebugRenderer::overlays;
 
 void DebugRenderer::addPasses(FrameGraph &fg)
 {
-	if (!isEnabled())
+	if (!Renderer::isDebugRenderingEnabled())
 	{
 		overlays.clear();
 		return;
@@ -68,7 +63,7 @@ void DebugRenderer::addPasses(FrameGraph &fg)
 
 void DebugRenderer::addBox(glm::vec3 half_extents, glm::mat4 transform, glm::vec3 color)
 {
-	if (!isEnabled()) return;
+	if (!Renderer::isDebugRenderingEnabled()) return;
 	glm::vec3 corners[8] =
 	{
 		glm::vec3(-half_extents.x, -half_extents.y, -half_extents.z),
@@ -103,7 +98,7 @@ void DebugRenderer::addBox(glm::vec3 half_extents, glm::mat4 transform, glm::vec
 
 void DebugRenderer::addBoundBox(BoundBox bbox)
 {
-	if (!isEnabled()) return;
+	if (!Renderer::isDebugRenderingEnabled()) return;
 	addLine(bbox.min, glm::vec3(bbox.max.x, bbox.min.y, bbox.min.z));
 	addLine(bbox.min, glm::vec3(bbox.min.x, bbox.max.y, bbox.min.z));
 	addLine(bbox.min, glm::vec3(bbox.min.x, bbox.min.y, bbox.max.z));
@@ -124,7 +119,7 @@ void DebugRenderer::addBoundBox(BoundBox bbox)
 
 void DebugRenderer::addFrustum(glm::mat4 frustum, glm::vec3 color)
 {
-	if (!isEnabled()) return;
+	if (!Renderer::isDebugRenderingEnabled()) return;
 	eastl::array<glm::vec3, 8> corners
 	{
 		{
@@ -157,7 +152,7 @@ void DebugRenderer::addFrustum(glm::mat4 frustum, glm::vec3 color)
 
 void DebugRenderer::addSphere(glm::vec3 center, float radius, int segments, glm::vec3 color)
 {
-	if (!isEnabled()) return;
+	if (!Renderer::isDebugRenderingEnabled()) return;
 	if (segments < 3) segments = 3;
 	
 	addCirlce(center, glm::vec3(0, 0, 1), radius, segments, color);
@@ -167,7 +162,7 @@ void DebugRenderer::addSphere(glm::vec3 center, float radius, int segments, glm:
 
 eastl::vector<glm::vec3> DebugRenderer::addCirlce(glm::vec3 center, glm::vec3 normal, float radius, int segments, glm::vec3 color, bool use_depth)
 {
-	if (!isEnabled()) return {};
+	if (!Renderer::isDebugRenderingEnabled()) return {};
 	eastl::vector<glm::vec3> circle_points;
 	glm::vec3 tangent1, tangent2;
 
@@ -199,7 +194,7 @@ eastl::vector<glm::vec3> DebugRenderer::addCirlce(glm::vec3 center, glm::vec3 no
 
 void DebugRenderer::addArrow(glm::vec3 p0, glm::vec3 p1, float arrow_size, glm::vec3 color, bool use_depth)
 {
-	if (!isEnabled()) return;
+	if (!Renderer::isDebugRenderingEnabled()) return;
 	// Add the main line from p0 to p1
 	addLine(p0, p1, color, use_depth);
 

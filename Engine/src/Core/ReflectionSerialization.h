@@ -68,6 +68,8 @@ public:
 
 	static bool saveToFile(const StructInfo &info, const void *object, const std::filesystem::path &path)
 	{
+		std::filesystem::create_directories(path.parent_path());
+
 		YAML::Emitter out;
 		out << YAML::BeginMap;
 		out << YAML::Key << "Type" << YAML::Value << info.name;

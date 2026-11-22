@@ -9,6 +9,7 @@ RendererDebugInfo Renderer::debug_info = {};
 
 Camera *Renderer::camera;
 const PassConstants *Renderer::pass_constants = nullptr;
+ViewSettings Renderer::view_settings;
 
 glm::ivec2 Renderer::render_resolution;
 glm::ivec2 Renderer::output_resolution;
@@ -36,6 +37,11 @@ void Renderer::setOutputResolution(glm::ivec2 size)
 	if (output_resolution == size)
 		return;
 	output_resolution = size;
+}
+
+void Renderer::setViewSettings(const ViewSettings &settings)
+{
+	view_settings = settings;
 }
 
 void Renderer::beginFrame()
@@ -85,6 +91,16 @@ bool Renderer::isDDGIEnabled()
 bool Renderer::isRTAOEnabled()
 {
 	return engine_ray_tracing && GFXOPTIONS(ambient_occlusion).mode == AMBIENT_OCCLUSION_RTAO;
+}
+
+bool Renderer::isSelectionOutlineEnabled()
+{
+	return view_settings.overlays.enabled && view_settings.overlays.selection_outline && !GFXOPTIONS(path_tracing);
+}
+
+bool Renderer::isDebugRenderingEnabled()
+{
+	return view_settings.overlays.enabled && view_settings.overlays.debug_rendering && !GFXOPTIONS(path_tracing);
 }
 
 bool Renderer::isScreenshotFrame()

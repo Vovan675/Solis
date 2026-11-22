@@ -149,6 +149,49 @@ bool UI::checkbox(const char *label, bool *value, const char *tooltip)
 	return property(label, [&] { return ImGui::Checkbox("##value", value); }, tooltip);
 }
 
+bool UI::toggleButtonPopup(const char *label, bool *value, const eastl::function<void()> &popup_content, const char *tooltip)
+{
+	float height = ImGui::GetFrameHeight();
+	auto button = [height](const char *id, const char *text, bool highlighted, ImDrawFlags corners)
+	{
+		ImVec2 text_size = ImGui::CalcTextSize(text);
+		bool clicked = ImGui::InvisibleButton(id, ImVec2(text_size.x + ImGui::GetStyle().FramePadding.x * 2.0f, height));
+
+		ImU32 color = ImGui::GetColorU32(highlighted ? active_color : ImGui::GetStyleColorVec4(ImGuiCol_Button));
+		if (ImGui::IsItemHovered())
+			color = ImGui::GetColorU32(ImGui::IsItemActive() ? ImGuiCol_ButtonActive : ImGuiCol_ButtonHovered);
+
+		ImVec2 min = ImGui::GetItemRectMin();
+		ImVec2 max = ImGui::GetItemRectMax();
+		ImDrawList *draw_list = ImGui::GetWindowDrawList();
+		draw_list->AddRectFilled(min, max, color, ImGui::GetStyle().FrameRounding, corners);
+		draw_list->AddText(ImVec2((min.x + max.x - text_size.x) * 0.5f, (min.y + max.y - text_size.y) * 0.5f), ImGui::GetColorU32(ImGuiCol_Text), text);
+		return clicked;
+	};
+
+	ImGui::PushID(label);
+	bool clicked = button("##toggle", label, *value, ImDrawFlags_RoundCornersLeft);
+	if (clicked)
+		*value = !*value;
+	if (tooltip)
+		ImGui::SetItemTooltip("%s", tooltip);
+
+	ImGui::SameLine(0, 0);
+	ImGui::PushFont(font_small);
+	if (button("##arrow", ICON_FA_ANGLE_DOWN, false, ImDrawFlags_RoundCornersRight))
+		ImGui::OpenPopup("##popup");
+	ImGui::PopFont();
+
+	ImGui::SetNextWindowPos(ImVec2((ImGui::GetItemRectMin().x + ImGui::GetItemRectMax().x) * 0.5f, ImGui::GetItemRectMax().y), ImGuiCond_Always, ImVec2(0.5f, 0.0f));
+	if (ImGui::BeginPopup("##popup"))
+	{
+		popup_content();
+		ImGui::EndPopup();
+	}
+	ImGui::PopID();
+	return clicked;
+}
+
 bool UI::sliderFloat(const char *label, float *value, float min_value, float max_value, const char *format, bool logarithmic, const char *tooltip)
 {
 	ImGuiSliderFlags flags = logarithmic ? ImGuiSliderFlags_Logarithmic : 0;
@@ -600,6 +643,26 @@ bool UI::drawStruct(const StructInfo &info, void *object)
 	{
 		endSection();
 		open_categories.pop_back();
+	}
+	return changed;
+}
+
+bool UI::drawStructCompact(const StructInfo &info, void *object)
+{
+	bool changed = false;
+	for (int i = 0; i < info.fieldsCount; i++)
+	{
+		const FieldInfo &field = info.fields[i];
+		if (field.isCategory() || !field.isVisible(object))
+			continue;
+
+		eastl::string label = field.displayLabel ? field.displayLabel : prettifyName(field.name);
+		ImGui::BeginDisabled(!field.isActive(object));
+		if (field.valueInfo && field.valueInfo->type == VALUE_TYPE_BOOL)
+			changed |= ImGui::Checkbox(label.c_str(), (bool *)field.getAddress(object));
+		else
+			changed |= drawField(field, label.c_str(), field.getAddress(object), object);
+		ImGui::EndDisabled();
 	}
 	return changed;
 }

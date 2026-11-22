@@ -1,5 +1,6 @@
 #pragma once
 #include "Rendering/GlobalPipeline.h"
+#include "Rendering/Renderer.h"
 #include "RHI/RHIPipeline.h"
 #include "Rendering/Mesh.h"
 #include "RHI/RHITexture.h"
@@ -34,9 +35,6 @@ public:
 
 	DebugRenderer();
 
-	bool isEnabled() const;
-	void setEnabled(bool new_enabled) { enabled = new_enabled; }
-
 	RHIBufferRef getLinesGpuBuffer() { return lines_gpu_buffer; }
 
 	void addPasses(FrameGraph &fg);
@@ -44,7 +42,7 @@ public:
 
 	void addLine(glm::vec3 p0, glm::vec3 p1, glm::vec3 color = glm::vec3(0, 0, 0), bool use_depth = true)
 	{
-		if (!isEnabled()) return;
+		if (!Renderer::isDebugRenderingEnabled()) return;
 
 		LineVertex &vertex_0 = vertices[lines_index_count];
 		LineVertex &vertex_1 = vertices[lines_index_count + 1];
@@ -90,7 +88,6 @@ private:
 	RHIBufferRef lines_draw_args_buffer;
 
 	int lines_index_count = 0;
-	bool enabled = true;
 
 	static eastl::vector<DebugOverlay> overlays;
 };

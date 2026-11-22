@@ -28,6 +28,7 @@ namespace UI
 	void text(const char *label, const char *format, ...);
 
 	bool checkbox(const char *label, bool *value, const char *tooltip = nullptr);
+	bool toggleButtonPopup(const char *label, bool *value, const eastl::function<void()> &popup_content, const char *tooltip = nullptr);
 
 	bool sliderFloat(const char *label, float *value, float min_value, float max_value, const char *format = "%.3f", bool logarithmic = false, const char *tooltip = nullptr);
 	bool sliderInt(const char *label, int *value, int min_value, int max_value, const char *format = "%d", bool logarithmic = false, const char *tooltip = nullptr);
@@ -81,6 +82,14 @@ namespace UI
 		return drawStruct(Reflected<T>::getInfo(), &object);
 	}
 
+	bool drawStructCompact(const StructInfo &info, void *object);
+
+	template <typename T>
+	bool drawStructCompact(T &object)
+	{
+		return drawStructCompact(Reflected<T>::getInfo(), &object);
+	}
+
 	bool drawAsset(const AssetTypeInfo &type, const std::filesystem::path &path);
 
 	extern ImFont *font_regular;
@@ -92,6 +101,7 @@ namespace UI
 	constexpr ImVec4 border_color = ImVec4(0.27f, 0.27f, 0.27f, 1.00f);
 	constexpr ImVec4 accent_color = ImVec4(0.96f, 0.35f, 0.22f, 1.00f);
 	constexpr ImVec4 selection_color = ImVec4(0.22f, 0.31f, 0.53f, 1.00f);
+	constexpr ImVec4 active_color = ImVec4(0.28f, 0.45f, 0.70f, 1.00f);
 	constexpr ImVec4 success_color = ImVec4(0.35f, 0.57f, 0.35f, 1.00f);
 	constexpr ImVec4 warning_color = ImVec4(0.80f, 0.40f, 0.00f, 1.00f);
 	constexpr ImVec4 error_color = ImVec4(0.90f, 0.35f, 0.30f, 1.00f);

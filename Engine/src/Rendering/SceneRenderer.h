@@ -23,6 +23,7 @@
 
 #include "renderers/PathTracingRenderer.h"
 #include "renderers/PickingRenderer.h"
+#include "renderers/OutlineRenderer.h"
 #include "ShaderStructs.h"
 #include "GpuTable.h"
 #include "FrameGraph/PersistentResources.h"
@@ -37,8 +38,9 @@ public:
 	~SceneRenderer();
 
 	void setScene(Ref<Scene> scene);
-	void render(Camera *camera, RHITextureRef result_texture);
+	void render(Camera *camera, RHITextureRef result_texture, const ViewSettings &view_settings = {});
 	void pick(glm::vec2 uv, eastl::function<void(entt::entity)> callback);
+	void setOutlinedEntities(const eastl::vector<entt::entity> &entities);
 
 	Ref<RayTracingScene> getCurrentRayTracingScene() const { return rt_scene; }
 public:
@@ -52,6 +54,7 @@ public:
 	void on_mesh_renderer_constructed(entt::registry &registry, entt::entity entity);
 	void on_mesh_renderer_destroyed(entt::registry &registry, entt::entity entity);
 	void set_instance_pass_mask(uint32_t slot, uint32_t pass_mask);
+	bool is_outlined(entt::entity entity_id) const;
 	bool has_pass_instances(uint32_t pass_mask) const { return pass_instance_counts[glm::findLSB(pass_mask)] > 0; }
 	void free_instances(entt::entity entity);
 	void refresh_meshes(entt::entity entity_id, MeshRendererComponent &mesh_renderer);
@@ -74,6 +77,8 @@ public:
 	uint64_t last_update_frame = UINT64_MAX;
 
 	uint32_t main_view_id = 0;
+	uint32_t outline_view_id = 0;
+	eastl::vector<entt::entity> outlined_entities;
 	eastl::vector<LightGPU> lights;
 	eastl::vector<LightGPU> old_lights;
 	eastl::hash_map<entt::entity, uint32_t> old_light_indices;
@@ -116,4 +121,5 @@ public:
 
 	PathTracingRenderer path_tracing_renderer;
 	PickingRenderer picking_renderer;
+	OutlineRenderer outline_renderer;
 };

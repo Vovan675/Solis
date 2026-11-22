@@ -121,6 +121,8 @@
 
 #define PickBuffer
 
+#define OutlineDepth
+
 struct ShadowPasses
 {
 	eastl::vector<GraphicsResourceName> shadow_maps;

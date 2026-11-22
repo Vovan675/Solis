@@ -14,7 +14,7 @@ static void drawStatsBar(float delta_time, ImVec2 pos)
 {
 	ImVec4 background(22.0f / 255.0f, 22.0f / 255.0f, 22.0f / 255.0f, 0.5f);
 	ImGui::SetNextWindowPos(pos);
-	ImGui::Begin("Stats Bar", NULL, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoMove);
+	ImGui::Begin("Stats Bar", NULL, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoFocusOnAppearing);
 
 	ImGui::PushFont(UI::font_small);
 	ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 4);
@@ -50,6 +50,15 @@ static void drawStatsBar(float delta_time, ImVec2 pos)
 	ImGui::PopStyleVar(3);
 	ImGui::PopFont();
 
+	ImGui::End();
+}
+
+static void draw_overlays_bar(OverlaySettings &overlays, ImVec2 top_right)
+{
+	ImGui::SetNextWindowPos(top_right, ImGuiCond_Always, ImVec2(1.0f, 0.0f));
+	ImGui::Begin("Overlays Bar", NULL, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings);
+
+	UI::toggleButtonPopup(ICON_FA_LAYER_GROUP, &overlays.enabled, [&] { UI::drawStructCompact(overlays); }, "Overlays (Z)");
 	ImGui::End();
 }
 
@@ -127,7 +136,7 @@ bool ViewportPanel::renderImGui(EditorContext &context, float delta_time, bool f
 
 		eastl::vector<entt::entity> roots;
 		// If parent selected, move only parent
-		for (entt::entity id : context.selected_entities)
+		for (entt::entity id : context.getSelectedEntities())
 		{
 			Entity parent = Entity(id).getParent();
 			while (parent && !context.isSelected(parent))
@@ -162,7 +171,7 @@ bool ViewportPanel::renderImGui(EditorContext &context, float delta_time, bool f
 		{
 			for (entt::entity &id : roots)
 				id = Scene::getCurrentScene()->duplicateEntity(id);
-			context.selected_entities = roots;
+			context.setSelectedEntities(roots);
 		}
 
 		if (changed)
@@ -204,7 +213,12 @@ bool ViewportPanel::renderImGui(EditorContext &context, float delta_time, bool f
 	}
 
 	if (!fullscreen)
-		drawStatsBar(delta_time, viewport_pos);
+	{
+		OverlaySettings &overlays = context.settings.view_settings.overlays;
+		if (overlays.enabled && overlays.stats)
+			drawStatsBar(delta_time, viewport_pos);
+		draw_overlays_bar(overlays, ImVec2(viewport_pos.x + viewport_size.x, viewport_pos.y));
+	}
 	ImGui::End();
 	return is_hovered;
 }

@@ -18,6 +18,11 @@ void TransformComponent::setParent(entt::entity new_parent)
 		Scene::propagate_render_state_update(owner);
 }
 
+bool TransformComponent::isChildOf(entt::entity entity) const
+{
+	return parent != entt::null && (parent == entity || Entity(parent).getTransform().isChildOf(entity));
+}
+
 bool TransformComponent::isEnabled() const
 {
 	return is_enabled && (parent == entt::null || Entity(parent).getTransform().isEnabled());

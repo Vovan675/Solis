@@ -527,6 +527,30 @@ extern RenderSettings gRenderSettings;
 // Access is global and by system name. In future the storage can easily move (per view)
 #define GFXOPTIONS(T) gRenderSettings.T
 
+struct OverlaySettings
+{
+	bool enabled = true;
+	bool selection_outline = true;
+	bool debug_rendering = true;
+	bool stats = true;
+};
+
+REFLECT_BEGIN(OverlaySettings)
+	REFLECT_FIELD(enabled).hidden(),
+	REFLECT_FIELD(selection_outline).EDIT_IF(owner.enabled),
+	REFLECT_FIELD(debug_rendering).EDIT_IF(owner.enabled),
+	REFLECT_FIELD(stats).EDIT_IF(owner.enabled),
+REFLECT_END()
+
+struct ViewSettings
+{
+	OverlaySettings overlays;
+};
+
+REFLECT_BEGIN(ViewSettings)
+	REFLECT_FIELD(overlays),
+REFLECT_END()
+
 // ConVars mostly used for debug features and non preset settings or runtime switches
 
 // Startup variables
