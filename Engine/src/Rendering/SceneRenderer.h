@@ -22,6 +22,7 @@
 #include "renderers/RTXDIRenderer.h"
 
 #include "renderers/PathTracingRenderer.h"
+#include "renderers/PickingRenderer.h"
 #include "ShaderStructs.h"
 #include "GpuTable.h"
 #include "FrameGraph/PersistentResources.h"
@@ -37,6 +38,7 @@ public:
 
 	void setScene(Ref<Scene> scene);
 	void render(Camera *camera, RHITextureRef result_texture);
+	void pick(glm::vec2 uv, eastl::function<void(entt::entity)> callback);
 
 	Ref<RayTracingScene> getCurrentRayTracingScene() const { return rt_scene; }
 public:
@@ -113,4 +115,5 @@ public:
 	UpscaleRenderer upscale_renderer;
 
 	PathTracingRenderer path_tracing_renderer;
+	PickingRenderer picking_renderer;
 };

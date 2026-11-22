@@ -2,6 +2,7 @@
 #include "ViewportPanel.h"
 #include "imgui/IconsFontAwesome6.h"
 #include "imgui/ImGuiWrapper.h"
+#include "imgui_internal.h"
 #include "Rendering/Renderer.h"
 #include "UI.h"
 #include <glm/gtc/type_ptr.hpp>
@@ -99,11 +100,13 @@ bool ViewportPanel::renderImGui(EditorContext &context, float delta_time, bool f
 
 	ImGui::Image(ImGuiWrapper::getTextureId(viewport_texture), viewport_size);
 	ImVec2 viewport_pos = ImGui::GetItemRectMin();
+	bool is_image_hovered = ImGui::IsItemHovered();
 
 	Renderer::setOutputResolution({output_resolution.x, output_resolution.y});
 	context.editor_camera.setAspect(output_resolution.x / output_resolution.y);
 
 	// ImGuizmo
+	bool is_gizmo_hovered = false;
 	Entity selected_entity = context.getSelectedEntity();
 	if (selected_entity && !fullscreen)
 	{
@@ -153,6 +156,7 @@ bool ViewportPanel::renderImGui(EditorContext &context, float delta_time, bool f
 		ImGuizmo::SetOrthographic(false);
 		ImGuizmo::MODE mode = guizmo_tool_type == ImGuizmo::SCALE ? ImGuizmo::LOCAL : ImGuizmo::WORLD;
 		bool changed = ImGuizmo::Manipulate(glm::value_ptr(camera.getView()), glm::value_ptr(projection), guizmo_tool_type, mode, glm::value_ptr(guizmo_pivot), nullptr, snap ? glm::value_ptr(snap_values) : nullptr);
+		is_gizmo_hovered = ImGuizmo::IsOver() || ImGuizmo::IsUsing();
 
 		if (!was_using && ImGuizmo::IsUsing() && gInput.isKeyDown(GLFW_KEY_LEFT_SHIFT))
 		{
@@ -170,6 +174,15 @@ bool ViewportPanel::renderImGui(EditorContext &context, float delta_time, bool f
 				transform_component.setWorldTransform(delta * transform_component.getWorldTransform());
 			}
 		}
+	}
+
+	// Picking
+	clicked_uv = glm::vec2(-1.0f);
+	bool is_click = ImGui::IsMouseReleased(ImGuiMouseButton_Left) && !ImGui::IsMouseDragPastThreshold(ImGuiMouseButton_Left);
+	if (is_click && is_image_hovered && !is_gizmo_hovered)
+	{
+		ImVec2 mouse = ImGui::GetMousePos();
+		clicked_uv = glm::vec2((mouse.x - viewport_pos.x) / viewport_size.x, (mouse.y - viewport_pos.y) / viewport_size.y);
 	}
 
 	if (ImGui::BeginDragDropTarget())

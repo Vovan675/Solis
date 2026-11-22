@@ -159,6 +159,7 @@ void Device::CreateLogicalDevice()
 	features12.hostQueryReset = true;
 	features12.scalarBlockLayout = true; // alignment for storage buffers like DX12
 	features12.timelineSemaphore = true;
+	features12.shaderBufferInt64Atomics = true;
 	features12.pNext = &mesh_shader_features;
 
 	// Enable dynamic rendering
@@ -176,6 +177,7 @@ void Device::CreateLogicalDevice()
 	enabledFeatures.features.pipelineStatisticsQuery = true;
 	enabledFeatures.features.vertexPipelineStoresAndAtomics = true;
 	enabledFeatures.features.depthClamp = true;
+	enabledFeatures.features.shaderInt64 = true;
 	enabledFeatures.pNext = &features13;
 	info.pNext = &enabledFeatures;
 

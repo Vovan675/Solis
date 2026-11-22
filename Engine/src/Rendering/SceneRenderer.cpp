@@ -355,6 +355,7 @@ void SceneRenderer::render(Camera *camera, RHITextureRef result_texture)
 	frame_graph.importTexture(GFXRID(FinalTexture), result_texture);
 	frame_graph.importTexture(GFXRID(LutBRDF), lut_renderer.brdf_lut_texture);
 	geometry_streaming.importBuffers(frame_graph);
+	picking_renderer.addClearPass(frame_graph);
 
 	cull_views_table.upload(frame_graph);
 	lights_table.upload(frame_graph);
@@ -393,6 +394,7 @@ void SceneRenderer::render(Camera *camera, RHITextureRef result_texture)
 	}
 
 	add_screenshot_passes(frame_graph);
+	picking_renderer.addReadbackPass(frame_graph);
 
 	frame_graph.compile();
 	frame_graph.execute(gDynamicRHI->getCmdList());
@@ -409,9 +411,9 @@ void SceneRenderer::render_deferred(Camera *camera, FrameGraph &frame_graph)
 {
 	gpu_frame_cull(frame_graph);
 
-	gbuffer_pass.addPass(frame_graph, main_view_id, indirect_draw_calls_max_count);
+	gbuffer_pass.addPass(frame_graph, main_view_id, indirect_draw_calls_max_count, picking_renderer.isActive());
 	if (has_pass_instances(PASS_MASK_DECAL))
-		gbuffer_pass.addDecalPass(frame_graph, main_view_id, indirect_draw_calls_max_count);
+		gbuffer_pass.addDecalPass(frame_graph, main_view_id, indirect_draw_calls_max_count, picking_renderer.isActive());
 
 	ambient_occlusion_renderer.addPasses(frame_graph, *camera);
 
@@ -464,7 +466,7 @@ void SceneRenderer::render_deferred(Camera *camera, FrameGraph &frame_graph)
 
 void SceneRenderer::render_path_traced(Camera *camera, FrameGraph &frame_graph)
 {
-	path_tracing_renderer.addPass(frame_graph, rt_scene, sun_light_index);
+	path_tracing_renderer.addPass(frame_graph, rt_scene, sun_light_index, picking_renderer.isActive());
 	post_renderer.addPasses(frame_graph);
 }
 
@@ -495,6 +497,21 @@ void SceneRenderer::add_screenshot_passes(FrameGraph &frame_graph)
 	render_screenshot = false;
 	if (engine_quit_after_screenshot)
 		gDynamicRHI->runAfterGPUFrame([]() { engine_quit = true; });
+}
+
+void SceneRenderer::pick(glm::vec2 uv, eastl::function<void(entt::entity)> callback)
+{
+	eastl::hash_map<entt::entity, InstanceRange> instances = entity_instances;
+	picking_renderer.request(uv, [=](uint32_t instance_id)
+	{
+		entt::entity picked = entt::null;
+		for (const auto &[entity, range] : instances)
+		{
+			if (instance_id >= range.start && instance_id < range.start + range.count)
+				picked = entity;
+		}
+		callback(picked);
+	});
 }
 
 void SceneRenderer::update(Camera *camera)
@@ -724,6 +741,8 @@ void SceneRenderer::update(Camera *camera)
 	frame_constants.meshes_buffer_id = meshes_table.getBindlessIndex();
 	frame_constants.tlas_id = engine_ray_tracing ? rt_scene->getTopLevelAS()->getBindlessIndex() : 0;
 	frame_constants.lines_gpu_buffer_id = debug_renderer.getLinesGpuBuffer()->getUnorderedAccessView()->getBindlessIndex();
+	frame_constants.pick_buffer_id = picking_renderer.getBufferId();
+	frame_constants.pick_pixel = picking_renderer.getPixel();
 	if (Renderer::isDDGIEnabled())
 		frame_constants.ddgi_volume = ddgi_renderer.getVolume();
 	gDynamicRHI->setConstantBufferDataPerFrame(32, &frame_constants, sizeof(frame_constants));

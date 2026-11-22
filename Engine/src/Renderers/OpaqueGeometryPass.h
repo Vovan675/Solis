@@ -14,7 +14,7 @@ public:
 		RHIShaderRef meshlet_vertex_shader;
 		RHIShaderRef traditional_vertex_shader;
 		RHIShaderRef pixel_shader;
-		static ShaderSet fromFile(const wchar_t *file);
+		static ShaderSet fromFile(const wchar_t *file, eastl::vector<eastl::pair<const char *, const char *>> defines = {});
 	};
 
 	struct RenderView
@@ -32,6 +32,7 @@ public:
 		CompareFunc depth_func = CompareFunc::GREATER;
 		BlendState blend{};
 		CullMode cull_mode = CullMode::BACK;
+		bool pick = false;
 		ShaderSet shaders;
 
 		bool isReverseZ() const { return depth_func == CompareFunc::GREATER || depth_func == CompareFunc::GREATER_EQUAL; }

@@ -115,6 +115,8 @@ cbuffer FrameConstants : register(b32) {
 	uint tlas_id;
 	uint lines_gpu_buffer_id;
 	uint soft_shadows;
+	uint pick_buffer_id;
+	uint2 pick_pixel;
 	DDGIVolume ddgi_volume;
 };
 
@@ -508,6 +510,15 @@ void addLine(float3 p0, float3 p1, float3 color, bool screen_space = false)
 	vertex_2.color = color;
 	gpu_lines.Store(4 + index * 2 * sizeof(GpuLine), vertex_1);
 	gpu_lines.Store(4 + (index * 2 + 1) * sizeof(GpuLine), vertex_2);
+}
+
+void writePickId(uint2 pixel, float depth, uint instance_id)
+{
+	if (any(pixel != pick_pixel))
+		return;
+
+	RWStructuredBuffer<uint64_t> pick_buffer = ResourceDescriptorHeap[pick_buffer_id];
+	InterlockedMax(pick_buffer[0], uint64_t(asuint(depth)) << 32 | instance_id);
 }
 
 void addScreenQuad(float2 p0, float2 p1, float3 color)

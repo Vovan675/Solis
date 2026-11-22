@@ -248,6 +248,8 @@ struct FrameConstants
 	uint32_t tlas_id = 0;
 	uint32_t lines_gpu_buffer_id = 0;
 	uint32_t soft_shadows = 0;
+	uint32_t pick_buffer_id = 0;
+	glm::uvec2 pick_pixel{};
 	DDGIVolumeGPU ddgi_volume{};
 };
 

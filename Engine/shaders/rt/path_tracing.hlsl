@@ -395,7 +395,15 @@ void CSMain(uint2 pixel : SV_DispatchThreadID)
 			radiance += bounce > 0 ? FireflyFilter(env, BASE_FIREFLY_THRESHOLD, fireflyFilterK) : env;
 			break;
 		}
-		
+
+		#if PICKING
+			if (bounce == 0)
+			{
+				float4 clip_position = mul(view_projection, float4(hit.position, 1.0));
+				writePickId(pixel, clip_position.z / clip_position.w, hit.instance_id);
+			}
+		#endif
+
 		SurfaceProperties surface = EvaluateMaterial(hit.material, hit.uv);
 		ApplyDecals(tlas, surface, hit.position, ray.Direction);
 		

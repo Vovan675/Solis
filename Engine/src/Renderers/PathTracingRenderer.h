@@ -5,5 +5,5 @@
 class PathTracingRenderer
 {
 public:
-	void addPass(FrameGraph &fg, Ref<RayTracingScene> rt_scene, uint32_t sun_light_index);
+	void addPass(FrameGraph &fg, Ref<RayTracingScene> rt_scene, uint32_t sun_light_index, bool pick);
 };

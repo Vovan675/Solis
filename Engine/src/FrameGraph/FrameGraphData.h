@@ -119,6 +119,8 @@
 #define DebugLinesBuffer
 #define DebugLinesDrawArgsBuffer
 
+#define PickBuffer
+
 struct ShadowPasses
 {
 	eastl::vector<GraphicsResourceName> shadow_maps;

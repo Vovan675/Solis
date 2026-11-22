@@ -29,6 +29,9 @@ struct PixelInput
 	#if VISUALIZE_TRIANGLES || VISUALIZE_MESHLETS || VISUALIZE_MESHLETS_GROUPS
 		nointerpolation uint meshlet_id : MESHLET_ID;
 	#endif
+	#if PICKING
+		nointerpolation uint instance_id : INSTANCE_ID;
+	#endif
 };
 
 PixelInput transformVertex(RawVertexData raw_vertex, Instance instance, uint attribute_flags)
@@ -81,6 +84,9 @@ void MSMainMeshlet(uint group_index : SV_GroupIndex, uint group_id : SV_GroupID,
 		#elif VISUALIZE_MESHLETS_GROUPS
 			vert.meshlet_id = draw.meshlet.group_id;
 		#endif
+		#if PICKING
+			vert.instance_id = draw.candidate.instance_id;
+		#endif
 		verts[i] = vert;
 	}
 
@@ -103,6 +109,9 @@ PixelInput VSMainMeshlet(VertexInput IN)
 	#elif VISUALIZE_MESHLETS_GROUPS
 		output.meshlet_id = draw.meshlet.group_id;
 	#endif
+	#if PICKING
+		output.instance_id = draw.candidate.instance_id;
+	#endif
 	return output;
 }
 
@@ -122,7 +131,11 @@ PixelInput VSMainTraditional(uint instance_id : INSTANCE_ID, uint vertex_id : SV
 	float tangent_sign = GetMeshVertexData<float>(mesh.vertex_buffer_id, mesh.tangents_offset + 12, index, mesh.vertex_stride);
 	vertex.tangent = float4(tangent, tangent_sign);
 
-	return transformVertex(vertex, instance, mesh.attribute_flags);
+	PixelInput output = transformVertex(vertex, instance, mesh.attribute_flags);
+	#if PICKING
+		output.instance_id = instance_id;
+	#endif
+	return output;
 }
 
 
@@ -146,6 +159,9 @@ PixelOutput PSMain(PixelInput IN, bool is_front_face : SV_IsFrontFace)
 
 	if (material.alpha_tex_id != 0 && material.albedo.a * SampleTexture(material.alpha_tex_id, IN.uv).a < material.alpha_cutoff)
 		discard;
+	#if PICKING
+		writePickId(uint2(IN.position.xy), IN.position.z, IN.instance_id);
+	#endif
 
 	float3 world_normal = normalize(IN.world_normal);
 	float3x3 tbn;
@@ -212,7 +228,11 @@ DecalOutput PSMainDecal(PixelInput IN)
 	if (material.albedo_tex_id > 0)
 		albedo *= SampleTexture(material.albedo_tex_id, IN.uv);
 	output.color = float4(albedo.rgb, write_albedo ? albedo.a : 0.0);
-	
+	#if PICKING
+		if (albedo.a >= 0.5)
+			writePickId(uint2(IN.position.xy), asfloat(asuint(IN.position.z) + 1), IN.instance_id);
+	#endif
+
 	output.shading = 0.0;
 	if (write_shading)
 	{

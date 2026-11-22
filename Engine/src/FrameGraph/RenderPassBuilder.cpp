@@ -118,6 +118,11 @@ FrameGraphBufferId RenderPassBuilder::readBuffer(GraphicsResourceName name)
 	return declare_buffer_read(buffer, ResourceState::SHADER_RESOURCE);
 }
 
+FrameGraphBufferId RenderPassBuilder::readCopyBuffer(GraphicsResourceName name)
+{
+	return declare_buffer_read(frameGraph.buffer_name_to_id[name], ResourceState::COPY_SRC);
+}
+
 FrameGraphBufferId RenderPassBuilder::readIndirectArgsBuffer(GraphicsResourceName name)
 {
 	FrameGraphBufferId buffer = frameGraph.buffer_name_to_id[name];

@@ -7,7 +7,7 @@
 
 static uint32_t accumulation_frame = 0;
 
-void PathTracingRenderer::addPass(FrameGraph &fg, Ref<RayTracingScene> rt_scene, uint32_t sun_light_index)
+void PathTracingRenderer::addPass(FrameGraph &fg, Ref<RayTracingScene> rt_scene, uint32_t sun_light_index, bool pick)
 {
 	accumulation_frame++;
 
@@ -24,10 +24,12 @@ void PathTracingRenderer::addPass(FrameGraph &fg, Ref<RayTracingScene> rt_scene,
 		builder.writeUAVTexture(GFXRID(FinalNoPostTexture));
 		builder.writeUAVTexture(GFXRID(PathTraceAccumulation));
 		builder.readTexture(GFXRID(Sky));
+		if (pick)
+			builder.writeBuffer(GFXRID(PickBuffer));
 	},
 	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/rt/path_tracing.hlsl", ShaderType::COMPUTE, "CSMain"));
+		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/rt/path_tracing.hlsl", ShaderType::COMPUTE, "CSMain", {{"PICKING", pick ? "1" : "0"}}));
 		gGlobalPipeline->flushAndBind(cmd_list);
 
 		struct Constants

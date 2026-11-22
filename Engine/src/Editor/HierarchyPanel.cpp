@@ -73,19 +73,6 @@ void HierarchyPanel::renderImGui(EditorContext &context)
 		context.selected_entities.push_back(clicked);
 	};
 
-	auto toggle_selected = [&](entt::entity entity)
-	{
-		for (int i = 0; i < context.selected_entities.size(); i++)
-		{
-			if (context.selected_entities[i] == entity)
-			{
-				context.selected_entities.erase(context.selected_entities.begin() + i);
-				return;
-			}
-		}
-		context.selected_entities.push_back(entity);
-	};
-
 	auto draw_create_menu = [&](entt::entity parent_id)
 	{
 		if (!ImGui::BeginMenu("Create"))
@@ -194,7 +181,7 @@ void HierarchyPanel::renderImGui(EditorContext &context)
 				select_range(transform.owner);
 			} else if (io.KeyCtrl)
 			{
-				toggle_selected(transform.owner);
+				context.toggleSelected(transform.owner);
 				start_entity = transform.owner;
 			} else
 			{

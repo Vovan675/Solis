@@ -4,7 +4,7 @@
 #include "OpaqueGeometryPass.h"
 #include "FrameGraph/FrameGraphData.h"
 
-void GBufferPass::addPass(FrameGraph &fg, uint32_t view_id, uint32_t max_draw_calls)
+void GBufferPass::addPass(FrameGraph &fg, uint32_t view_id, uint32_t max_draw_calls, bool pick)
 {
 	OpaqueGeometryPass opaque;
 
@@ -18,7 +18,8 @@ void GBufferPass::addPass(FrameGraph &fg, uint32_t view_id, uint32_t max_draw_ca
 	view.layer = 0;
 	view.use_two_pass_occlusion = true;
 	view.cull_mode = CullMode::NONE;
-	view.shaders = OpaqueGeometryPass::ShaderSet::fromFile(L"shaders/gbuffer.hlsl");
+	view.pick = pick;
+	view.shaders = OpaqueGeometryPass::ShaderSet::fromFile(L"shaders/gbuffer.hlsl", {{"PICKING", pick ? "1" : "0"}});
 
 	OpaqueGeometryPass::GBufferOutput output;
 	output.albedo = GFXRID(GBufferAlbedo);
@@ -31,7 +32,7 @@ void GBufferPass::addPass(FrameGraph &fg, uint32_t view_id, uint32_t max_draw_ca
 	opaque.renderGBuffer(fg, view, output);
 }
 
-void GBufferPass::addDecalPass(FrameGraph &fg, uint32_t view_id, uint32_t max_draw_calls)
+void GBufferPass::addDecalPass(FrameGraph &fg, uint32_t view_id, uint32_t max_draw_calls, bool pick)
 {
 	OpaqueGeometryPass opaque;
 
@@ -44,8 +45,9 @@ void GBufferPass::addDecalPass(FrameGraph &fg, uint32_t view_id, uint32_t max_dr
 	view.depth_func = CompareFunc::GREATER_EQUAL;
 	view.blend.enabled = true;
 	view.cull_mode = CullMode::NONE;
-	view.shaders.traditional_vertex_shader = gDynamicRHI->createShader(L"shaders/gbuffer.hlsl", ShaderType::VERTEX, "VSMainTraditional");
-	view.shaders.pixel_shader = gDynamicRHI->createShader(L"shaders/gbuffer.hlsl", ShaderType::FRAGMENT, "PSMainDecal");
+	view.pick = pick;
+	view.shaders.traditional_vertex_shader = gDynamicRHI->createShader(L"shaders/gbuffer.hlsl", ShaderType::VERTEX, "VSMainTraditional", {{"PICKING", pick ? "1" : "0"}});
+	view.shaders.pixel_shader = gDynamicRHI->createShader(L"shaders/gbuffer.hlsl", ShaderType::FRAGMENT, "PSMainDecal", {{"PICKING", pick ? "1" : "0"}});
 
 	OpaqueGeometryPass::DecalOutput output;
 	output.albedo = GFXRID(GBufferAlbedo);

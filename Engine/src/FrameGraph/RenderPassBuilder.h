@@ -26,6 +26,7 @@ public:
 	FrameGraphBufferId writeBuffer(GraphicsResourceName name);
 	FrameGraphBufferId writeCopyBuffer(GraphicsResourceName name);
 	FrameGraphBufferId readBuffer(GraphicsResourceName name);
+	FrameGraphBufferId readCopyBuffer(GraphicsResourceName name);
 	FrameGraphBufferId readIndirectArgsBuffer(GraphicsResourceName name);
 	FrameGraphBufferId readVertexBuffer(GraphicsResourceName name);
 

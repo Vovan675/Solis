@@ -369,6 +369,25 @@ void EditorApplication::update(float delta_time)
 
 	// Viewport
 	bool is_viewport_hovered = viewport_panel.renderImGui(context, delta_time, viewport_fullscreen);
+	if (viewport_panel.clicked_uv.x >= 0.0f)
+	{
+		bool toggle = ImGui::GetIO().KeyCtrl;
+		scene_renderer->pick(viewport_panel.clicked_uv, [this, toggle](entt::entity entity)
+		{
+			if (!toggle)
+				context.selected_entities.clear();
+
+			Ref<Scene> scene = Scene::getCurrentScene();
+			if (!scene->isValid(entity))
+				return;
+
+			if (toggle)
+				context.toggleSelected(entity);
+			else
+				context.selected_entities.push_back(entity);
+			context.selection_type = EditorSelectionType::Entity;
+		});
+	}
 
 	if (!viewport_fullscreen)
 	{

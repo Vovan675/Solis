@@ -11,15 +11,15 @@ constexpr uint32_t MAX_MESHLETS_PER_FRAME = 1 << 23;
 constexpr uint32_t TRADITIONAL_CULLING_THREADGROUP_SIZE = 32;
 }
 
-OpaqueGeometryPass::ShaderSet OpaqueGeometryPass::ShaderSet::fromFile(const wchar_t *file)
+OpaqueGeometryPass::ShaderSet OpaqueGeometryPass::ShaderSet::fromFile(const wchar_t *file, eastl::vector<eastl::pair<const char *, const char *>> defines)
 {
 	ShaderSet shaders;
 	if (render_meshlets_mesh_shaders)
-		shaders.meshlet_mesh_shader = gDynamicRHI->createShader(file, ShaderType::MESH, "MSMainMeshlet");
+		shaders.meshlet_mesh_shader = gDynamicRHI->createShader(file, ShaderType::MESH, "MSMainMeshlet", defines);
 	else
-		shaders.meshlet_vertex_shader = gDynamicRHI->createShader(file, ShaderType::VERTEX, "VSMainMeshlet");
-	shaders.traditional_vertex_shader = gDynamicRHI->createShader(file, ShaderType::VERTEX, "VSMainTraditional");
-	shaders.pixel_shader = gDynamicRHI->createShader(file, ShaderType::FRAGMENT);
+		shaders.meshlet_vertex_shader = gDynamicRHI->createShader(file, ShaderType::VERTEX, "VSMainMeshlet", defines);
+	shaders.traditional_vertex_shader = gDynamicRHI->createShader(file, ShaderType::VERTEX, "VSMainTraditional", defines);
+	shaders.pixel_shader = gDynamicRHI->createShader(file, ShaderType::FRAGMENT, "", defines);
 	return shaders;
 }
 
@@ -105,6 +105,8 @@ void OpaqueGeometryPass::render_meshlets(FrameGraph &fg, const RenderView &view,
 		builder.readBuffer(GFXRID_ID(VisibleMeshlets, view.view_id));
 		builder.readBuffer(GFXRID(PageTableBuffer));
 		builder.readBuffer(GFXRID(CullViews));
+		if (view.pick)
+			builder.writeBuffer(GFXRID(PickBuffer));
 
 		if (render_meshlets_mesh_shaders)
 			builder.readIndirectArgsBuffer(GFXRID_ID(DispatchMeshIndirectArgs, view.view_id));
@@ -227,6 +229,8 @@ void OpaqueGeometryPass::render_traditional(FrameGraph &fg, const RenderView &vi
 		builder.readIndirectArgsBuffer(GFXRID_ID(TraditionalDrawCount, view.getViewPassId()));
 		builder.readVertexBuffer(GFXRID_ID(TraditionalDrawInstances, view.getViewPassId()));
 		builder.readBuffer(GFXRID(CullViews));
+		if (view.pick)
+			builder.writeBuffer(GFXRID(PickBuffer));
 	},
 	[view, targets](const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
