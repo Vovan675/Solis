@@ -1,4 +1,4 @@
-# Solis
+<h1 align="center"><img src=".github/images/hero.jpg" alt="Solis" width="100%"></h1>
 
 > A Vulkan / DirectX 12 engine with GPU-driven, Nanite-style geometry and hardware ray-traced global illumination.
 
