@@ -53,15 +53,13 @@ Meshlet data streams in on demand: the GPU asks for what it needs while traversi
 
 Real-time global illumination via a grid of light probes. Each frame a budget of probes shoots rays against the scene with hardware ray tracing, samples direct lighting at the hits, and writes the result into per-probe irradiance and depth atlases.
 
-| DDGI on | DDGI off |
-|---------|----------|
-| ![DDGI on](.github/images/ddgi-on.png) | ![DDGI off](.github/images/ddgi-off.png) |
+![Static ambient, DDGI probes and the path traced reference from the same camera](.github/images/ddgi-comparison.png)
 
 ### Cascades
 
 Probes aren't a single grid - they're arranged in nested cascades around the camera. The innermost cascade is dense for fine GI near the viewer, outer cascades are progressively sparser and bigger, so the same probe budget reaches the whole scene without wasting density where it doesn't matter.
 
-![DDGI cascades](.github/images/ddgi-cascades.jpg)
+![DDGI probe irradiance and probe cascades](.github/images/ddgi-probes.png)
 
 Additional probes passes:
 
