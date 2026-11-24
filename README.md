@@ -19,7 +19,7 @@ Geometry goes through a meshlet pipeline. Meshes are split into clusters of ~64 
 
 Each mesh is preprocessed into a DAG of meshlet groups by iterative simplification. At runtime each group picks its own LOD based on screen-space error.
 
-![Meshlet LOD hierarchy](.github/images/meshlet-hierarchy-bbox.jpg)
+![Meshlet LOD](.github/images/meshlet-lod.png)
 
 ### GPU-driven culling
 
@@ -39,15 +39,13 @@ flowchart LR
     classDef hiz fill:#7c2d12,stroke:#ea580c,color:#fed7aa,stroke-width:2px
 ```
 
-| Scene | Occlusion debug |
-|-------|-----------------|
-| ![Scene](.github/images/occlusion-scene.png) | ![Occlusion debug](.github/images/occlusion-debug.png) |
+![Occlusion culling](.github/images/occlusion-culling.png)
 
 ### Geometry streaming
 
-Meshlet data streams in on demand: the GPU asks for what it needs while traversing the LOD hierarchy, the CPU uploads it, and groups that haven't been used in a while get evicted. A coarse root group per mesh stays pinned as a fallback, so the scene always renders even when finer detail hasn't streamed in yet. This is how the engine handles scenes far larger than VRAM. One copy of NVIDIA's Zorah scene is ~10 GB as glTF and ~70 GB once baked into meshlets and LODs - the engine packs 25 copies into a single world and renders it using up to 1 GB of VRAM, streaming the rest in and out as the camera moves.
+Meshlet data streams in on demand: the GPU asks for what it needs while traversing the LOD hierarchy, the CPU uploads it, and groups that haven't been used in a while get evicted. A coarse root group per mesh stays pinned as a fallback, so the scene always renders even when finer detail hasn't streamed in yet. This is how the engine handles scenes far larger than VRAM. One copy of NVIDIA's Zorah scene is ~10 GB as glTF and ~70 GB once baked into meshlets and LODs - the engine packs 36 copies into a single world and renders it using up to 1 GB of VRAM, streaming the rest in and out as the camera moves.
 
-![Zorah streaming](.github/images/zorah-streaming.png)
+![Zorah copies](.github/images/zorah-copies.png)
 
 ## DDGI
 
