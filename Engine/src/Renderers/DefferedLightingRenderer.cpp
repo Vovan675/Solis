@@ -14,7 +14,7 @@ void DefferedLightingRenderer::renderLights(FrameGraph &fg, uint32_t lights_coun
 {
 	auto *shadow_passes_data = fg.getBlackboard().tryGet<ShadowPasses>();
 
-	fg.addCallbackPass("Deffered Lighting Pass",
+	fg.addCallbackPass("Deferred Lighting Pass",
 	[&](RenderPassBuilder &builder)
 	{
 		builder.createTexture(GFXRID(DiffuseLight), Renderer::getRenderWidth(), Renderer::getRenderHeight(), Format::R16G16B16A16_SFLOAT);

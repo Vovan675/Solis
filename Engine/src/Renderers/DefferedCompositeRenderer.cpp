@@ -94,7 +94,7 @@ void DefferedCompositeRenderer::addPasses(FrameGraph &fg)
 		cmd_list->resetRenderTargets();
 	});
 
-	fg.addCallbackPass("Deffered Composite Pass",
+	fg.addCallbackPass("Deferred Composite Pass",
 	[&](RenderPassBuilder &builder)
 	{
 		builder.createTexture(GFXRID(FinalNoPostTexture), Renderer::getRenderWidth(),  Renderer::getRenderHeight(), Format::R32G32B32A32_SFLOAT);

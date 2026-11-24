@@ -87,9 +87,7 @@ Entity Model::create_entity_node(Model *model, MeshNode *node, Scene *scene)
 	for (int i = 0; i < node->children.size(); i++)
 	{
 		Entity child = create_entity_node(model, node->children[i], scene);
-		auto &child_transform_component = child.getComponent<TransformComponent>();
-		child_transform_component.parent = entity;
-		transform_component.children.push_back(child);
+		child.getTransform().setParent(entity);
 	}
 	return entity;
 }
