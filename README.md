@@ -8,6 +8,12 @@ An experimental Vulkan / DirectX 12 renderer exploring cutting-edge rendering te
 
 ![Editor](.github/images/editor.png)
 
+## Many lights: RTXDI + NRD
+
+Direct lighting from thousands of shadow-casting lights through ReSTIR DI (NVIDIA RTXDI), denoised with NVIDIA NRD RELAX.
+
+![RTXDI and NRD RELAX](.github/images/rtxdi-nrd.png)
+
 ## Meshlet geometry
 
 Geometry goes through a meshlet pipeline. Meshes are split into clusters of ~64 vertices / ~124 triangles using [meshoptimizer](https://github.com/zeux/meshoptimizer) at import time and baked into a binary `.mesh` file along with their LOD hierarchy.
@@ -63,7 +69,6 @@ Additional probes passes:
 
 - **Relocation** - probes that land inside walls get nudged into open space so they sample something useful.
 - **Classification** - probes trapped in solid geometry or floating in empty space are flagged inactive and skipped, saving a big share of the ray budget.
-- **Ray modes** - fixed directions per probe for stable convergence, or randomized each frame for faster response to dynamic lighting.
 
 Per-frame cost is bounded by `probes_per_frame` × `rays_per_probe`, so the GI stays at a fixed budget regardless of volume size.
 
@@ -77,6 +82,8 @@ Every frame is described as a graph of passes and resources. The engine schedule
 
 - **Lighting** - deferred PBR with directional and point lights, IBL (prefiltered specular + diffuse irradiance + BRDF LUT)
 - **Shadows** - directional lights (cascaded shadow maps), point lights (cube shadow maps), with optional ray-traced shadows
+- **Ambient occlusion** - SSAO, GTAO, RTAO with custom temporal and spatial denoisers
+- **Post-processing** - bloom, tonemapping (ACES, AgX, PBR Neutral, GT), 3D LUT color grading
 - **Path tracer** - reference path tracer, used as ground truth
 - **Mitsuba bridge** - export the scene to Mitsuba 3 and compare the frame against an external ground truth render
 - **RHI** - single abstraction over Vulkan and DX12 with bindless resources
@@ -84,7 +91,7 @@ Every frame is described as a graph of passes and resources. The engine schedule
 - **Tooling** - Tracy CPU + GPU profiling, console variables, debug visualizations
 - **Physics** - PhysX integration
 
-Plus SSAO, SSR, FXAA, procedural atmospheric sky, and a post-processing effects.
+Plus FXAA and a procedural atmospheric sky.
 
 The same scene rendered by the engine (left) and by Mitsuba 3 straight from the editor (right):
 
@@ -110,7 +117,13 @@ download_assets.bat
 
 - **RTX Mega Geometry** - use meshlet cluster data in ray tracing
 - **Per-pixel ray-traced GI** - per-pixel ray-traced indirect lighting on top of DDGI
-- **Path tracer improvements** - expand material support and integrate NVIDIA NRD denoisers
+- **Path tracer improvements** - expand material support and use ray reconstruction or other denoiser
 - **Upscalers** - FSR and XeSS
 - **MaterialX** - basic support of the MaterialX standard
 - **macOS support** - Metal 4 backend
+
+## Credits
+
+- [Amazon Lumberyard Bistro](https://developer.nvidia.com/orca/amazon-lumberyard-bistro)
+- [Intel Sponza](https://www.intel.com/content/www/us/en/developer/topic-technology/graphics-research/samples.html)
+- [nvpro-samples/vk_lod_clusters](https://github.com/nvpro-samples/vk_lod_clusters)
