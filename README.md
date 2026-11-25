@@ -35,15 +35,7 @@ Culling happens on the GPU. Instances are expanded into per-meshlet work items, 
 
 The previous frame's HiZ is a great occluder for most of the scene but misses anything that just became visible this frame. Two passes solve it:
 
-```mermaid
-flowchart LR
-    A[Early cull<br/>vs prev HiZ]:::early --> B[Draw<br/>survivors]:::early --> C[Rebuild<br/>HiZ]:::hiz --> D[Late cull<br/>vs new HiZ]:::late --> E[Draw<br/>newcomers]:::late --> F[Rebuild<br/>HiZ]:::hiz
-    F -. next frame .-> A
-
-    classDef early fill:#0c4a6e,stroke:#0284c7,color:#e0f2fe
-    classDef late fill:#14532d,stroke:#16a34a,color:#dcfce7
-    classDef hiz fill:#7c2d12,stroke:#ea580c,color:#fed7aa,stroke-width:2px
-```
+![Two-pass HiZ occlusion](.github/images/two-pass-hiz.png)
 
 ![Occlusion culling](.github/images/occlusion-culling.png)
 
