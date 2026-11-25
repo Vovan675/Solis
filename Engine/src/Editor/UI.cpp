@@ -149,38 +149,60 @@ bool UI::checkbox(const char *label, bool *value, const char *tooltip)
 	return property(label, [&] { return ImGui::Checkbox("##value", value); }, tooltip);
 }
 
-bool UI::toggleButtonPopup(const char *label, bool *value, const eastl::function<void()> &popup_content, const char *tooltip)
+bool UI::topBarButton(const char *label, bool highlighted, ImDrawFlags corners, const char *tooltip)
 {
-	float height = ImGui::GetFrameHeight();
-	auto button = [height](const char *id, const char *text, bool highlighted, ImDrawFlags corners)
-	{
-		ImVec2 text_size = ImGui::CalcTextSize(text);
-		bool clicked = ImGui::InvisibleButton(id, ImVec2(text_size.x + ImGui::GetStyle().FramePadding.x * 2.0f, height));
-
-		ImU32 color = ImGui::GetColorU32(highlighted ? active_color : ImGui::GetStyleColorVec4(ImGuiCol_Button));
-		if (ImGui::IsItemHovered())
-			color = ImGui::GetColorU32(ImGui::IsItemActive() ? ImGuiCol_ButtonActive : ImGuiCol_ButtonHovered);
-
-		ImVec2 min = ImGui::GetItemRectMin();
-		ImVec2 max = ImGui::GetItemRectMax();
-		ImDrawList *draw_list = ImGui::GetWindowDrawList();
-		draw_list->AddRectFilled(min, max, color, ImGui::GetStyle().FrameRounding, corners);
-		draw_list->AddText(ImVec2((min.x + max.x - text_size.x) * 0.5f, (min.y + max.y - text_size.y) * 0.5f), ImGui::GetColorU32(ImGuiCol_Text), text);
-		return clicked;
-	};
-
-	ImGui::PushID(label);
-	bool clicked = button("##toggle", label, *value, ImDrawFlags_RoundCornersLeft);
-	if (clicked)
-		*value = !*value;
+	ImVec2 text_size = ImGui::CalcTextSize(label);
+	bool clicked = ImGui::InvisibleButton(label, ImVec2(text_size.x + ImGui::GetStyle().FramePadding.x * 2.0f, ImGui::GetFrameHeight()));
 	if (tooltip)
 		ImGui::SetItemTooltip("%s", tooltip);
 
-	ImGui::SameLine(0, 0);
-	ImGui::PushFont(font_small);
-	if (button("##arrow", ICON_FA_ANGLE_DOWN, false, ImDrawFlags_RoundCornersRight))
+	ImU32 color = ImGui::GetColorU32(highlighted ? active_color : ImGui::GetStyleColorVec4(ImGuiCol_Button));
+	if (ImGui::IsItemHovered())
+		color = ImGui::GetColorU32(ImGui::IsItemActive() ? ImGuiCol_ButtonActive : ImGuiCol_ButtonHovered);
+
+	ImVec2 min = ImGui::GetItemRectMin();
+	ImVec2 max = ImGui::GetItemRectMax();
+	ImDrawList *draw_list = ImGui::GetWindowDrawList();
+	draw_list->AddRectFilled(min, max, color, ImGui::GetStyle().FrameRounding, corners);
+	draw_list->AddText(ImVec2((min.x + max.x - text_size.x) * 0.5f, (min.y + max.y - text_size.y) * 0.5f), ImGui::GetColorU32(ImGuiCol_Text), label);
+	return clicked;
+}
+
+bool UI::comboButton(const char *label, int *value, const char *const items[], int count, const char *tooltip)
+{
+	ImGui::PushID(label);
+	eastl::string text = eastl::string(items[*value]) + " " ICON_FA_ANGLE_DOWN;
+	if (topBarButton(text.c_str(), false, ImDrawFlags_RoundCornersAll, tooltip))
 		ImGui::OpenPopup("##popup");
-	ImGui::PopFont();
+
+	bool changed = false;
+	ImGui::SetNextWindowPos(ImVec2(ImGui::GetItemRectMin().x, ImGui::GetItemRectMax().y));
+	if (ImGui::BeginPopup("##popup"))
+	{
+		for (int i = 0; i < count; i++)
+		{
+			if (ImGui::Selectable(items[i], i == *value))
+			{
+				*value = i;
+				changed = true;
+			}
+		}
+		ImGui::EndPopup();
+	}
+	ImGui::PopID();
+	return changed;
+}
+
+bool UI::toggleButtonPopup(const char *label, bool *value, const eastl::function<void()> &popup_content, const char *tooltip)
+{
+	ImGui::PushID(label);
+	bool clicked = topBarButton(label, *value, ImDrawFlags_RoundCornersLeft, tooltip);
+	if (clicked)
+		*value = !*value;
+
+	ImGui::SameLine(0, 0);
+	if (topBarButton(ICON_FA_ANGLE_DOWN, false, ImDrawFlags_RoundCornersRight))
+		ImGui::OpenPopup("##popup");
 
 	ImGui::SetNextWindowPos(ImVec2((ImGui::GetItemRectMin().x + ImGui::GetItemRectMax().x) * 0.5f, ImGui::GetItemRectMax().y), ImGuiCond_Always, ImVec2(0.5f, 0.0f));
 	if (ImGui::BeginPopup("##popup"))

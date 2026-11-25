@@ -135,6 +135,7 @@ cbuffer PassConstants : register(b33) {
 	float4x4 old_view_projection_unjittered;
 	float4 camera_position;
 	float4 old_camera_position;
+	float4 culling_camera_position;
 	float4 render_resolution; // (width, height, 1/width, 1/height)
 	float4 output_resolution; // (width, height, 1/width, 1/height)
 	float2 jitter;

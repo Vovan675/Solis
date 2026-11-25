@@ -231,6 +231,7 @@ void MeshletPass::add_traversal_pass(FrameGraph &fg, const MeshletCullDesc &desc
 												  {"IS_FIX", is_fix ? "1" : "0"},
 												  {"REVERSE_Z", desc.reverse_z ? "1" : "0"},
 												  {"USE_OCCLUSION", desc.use_occlusion ? "1" : "0"},
+												  {"LOD_ERROR_PIXELS", std::to_string(render_meshlets_lod_error_pixels.get()).c_str()},
 												  {"THREADGROUP_SIZE", std::to_string(MESHLET_CULLING_THREADGROUP_SIZE).c_str()}
 											  }));
 		gGlobalPipeline->flushAndBind(cmd_list);

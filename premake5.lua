@@ -225,7 +225,11 @@ project "Engine"
 		copy_file_to_target_dir("%{wks.location}%{IncludeDir.WinPixRuntime}/dlls/", "/", "WinPixEventRuntime.dll")
 		-- Streamline, optional
 		if os.isdir("vendor/streamline/bin/x64/development") then
-			copy_dir_to_target_dir("%{wks.location}vendor/streamline/bin/x64/development", "NVStreamline/")
+			filter { "system:windows", "configurations:not Release" }
+				copy_dir_to_target_dir("%{wks.location}vendor/streamline/bin/x64/development", "NVStreamline/")
+			filter { "system:windows", "configurations:Release" }
+				copy_dir_to_target_dir("%{wks.location}vendor/streamline/bin/x64/production", "NVStreamline/")
+			filter "system:windows"
 		else
 			print("Streamline binaries not found in vendor/streamline/bin/x64/development, DLSS will be unavailable")
 		end

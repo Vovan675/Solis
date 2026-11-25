@@ -271,6 +271,7 @@ struct PassConstants
 	glm::mat4 old_view_projection_unjittered;
 	glm::vec4 camera_position;
 	glm::vec4 old_camera_position;
+	glm::vec4 culling_camera_position;
 	glm::vec4 render_resolution; // (w, h, 1/w, 1/h)
 	glm::vec4 output_resolution; // (w, h, 1/w, 1/h)
 	glm::vec2 jitter;

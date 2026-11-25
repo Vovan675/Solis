@@ -168,6 +168,7 @@ void DebugPanel::renderImGui(EditorContext &context)
 		UI::convar(render_lighting_only.getDescription());
 		UI::convar(render_culling_freeze.getDescription());
 		UI::convar(render_culling_hiz_debug.getDescription());
+		UI::convar(render_meshlets_lod_error_pixels.getDescription());
 		UI::convar(render_meshlets_bvh_visualize.getDescription());
 		ImGui::BeginDisabled(!render_meshlets_bvh_visualize);
 		UI::convar(render_meshlets_bvh_visualize_depth.getDescription());

@@ -2,7 +2,10 @@
 #include "../bindless.h"
 #include "culling.h"
 
-static const float error_threshold_pixels = 1.0;
+#ifndef LOD_ERROR_PIXELS
+	#define LOD_ERROR_PIXELS 1.0
+#endif
+static const float error_threshold_pixels = LOD_ERROR_PIXELS;
 // projection[1][1] = 1 / tan(fov_y / 2)
 static const float error_threshold = 2.0 * error_threshold_pixels / (projection_unjittered[1][1] * render_resolution.y);
 
@@ -27,7 +30,7 @@ bool isResident(ByteAddressBuffer page_table, uint page_table_offset, LODGroup g
 
 float getError(float3 center, float radius, float error)
 {
-	float dist = distance(center, camera_position.xyz) - radius;
+	float dist = distance(center, culling_camera_position.xyz) - radius;
 	dist = max(dist, z_near);
 	return error / dist;
 }

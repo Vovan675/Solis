@@ -27,6 +27,7 @@ public:
 		TextureDescription hiz_description{};
 		uint32_t layer = 0;
 		bool use_two_pass_occlusion = true;
+		bool freeze_occlusion = false;
 		bool depth_clip = true;
 		bool depth_write = true;
 		CompareFunc depth_func = CompareFunc::GREATER;

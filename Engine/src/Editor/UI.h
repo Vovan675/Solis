@@ -28,6 +28,8 @@ namespace UI
 	void text(const char *label, const char *format, ...);
 
 	bool checkbox(const char *label, bool *value, const char *tooltip = nullptr);
+	bool topBarButton(const char *label, bool highlighted, ImDrawFlags corners = ImDrawFlags_RoundCornersAll, const char *tooltip = nullptr);
+	bool comboButton(const char *label, int *value, const char *const items[], int count, const char *tooltip = nullptr);
 	bool toggleButtonPopup(const char *label, bool *value, const eastl::function<void()> &popup_content, const char *tooltip = nullptr);
 
 	bool sliderFloat(const char *label, float *value, float min_value, float max_value, const char *format = "%.3f", bool logarithmic = false, const char *tooltip = nullptr);

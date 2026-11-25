@@ -73,15 +73,12 @@ void OpaqueGeometryPass::render(FrameGraph &fg, const RenderView &view, const Re
 	cull_traditional(fg, view);
 	render_traditional(fg, view, targets);
 
-	if (view.use_two_pass_occlusion)
+	if (view.use_two_pass_occlusion && !view.freeze_occlusion)
 	{
 		HiZ::build(fg, view.hiz, targets.depth.name, view.layer, view.isReverseZ());
-		if (!render_culling_freeze)
-		{
-			meshlet_pass.addFixCullingPasses(fg, cull);
-			render_meshlets(fg, view, targets, false);
-			HiZ::build(fg, view.hiz, targets.depth.name, view.layer, view.isReverseZ());
-		}
+		meshlet_pass.addFixCullingPasses(fg, cull);
+		render_meshlets(fg, view, targets, false);
+		HiZ::build(fg, view.hiz, targets.depth.name, view.layer, view.isReverseZ());
 	}
 }
 

@@ -28,6 +28,7 @@ AutoConVarBool render_first_frame("render.first_frame", "Is First Frame", true, 
 AutoConVarBool render_culling_hiz_debug("render.culling.hiz_debug", "Culling HiZ Debug", false);
 AutoConVarBool render_culling_freeze("render.culling.freeze", "Freeze Culling", false);
 AutoConVarBool render_meshlets_mesh_shaders("render.meshlets.mesh_shaders", "Mesh Shaders", true);
+AutoConVarFloat render_meshlets_lod_error_pixels("render.meshlets.lod_error_pixels", "LOD Error (pixels)", 1.0f);
 AutoConVarBool render_meshlets_bvh_visualize("render.meshlets.bvh_visualize", "Draw BVH Spheres", false);
 AutoConVarInt render_meshlets_bvh_visualize_depth("render.meshlets.bvh_visualize_depth", "BVH Depth", -1);
 

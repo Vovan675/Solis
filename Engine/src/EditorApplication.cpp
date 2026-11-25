@@ -315,6 +315,7 @@ void EditorApplication::update(float delta_time)
 	if (toggle_fullscreen)
 	{
 		viewport_fullscreen = !viewport_fullscreen;
+		context.settings.view_settings.overlays.enabled = !viewport_fullscreen;
 		Platform::setTitleBarDragRect(0, 0, 0);
 		Platform::setMaximizeButtonRect(0, 0, 0, 0);
 	}
@@ -427,6 +428,9 @@ void EditorApplication::update(float delta_time)
 	if (ImGui::IsKeyPressed(ImGuiKey_Z, false) && !ImGui::GetIO().WantTextInput)
 		context.settings.view_settings.overlays.enabled = !context.settings.view_settings.overlays.enabled;
 
+	if (ImGui::IsKeyPressed(ImGuiKey_C, false) && !ImGui::GetIO().WantTextInput)
+		render_culling_freeze = !render_culling_freeze;
+
 	if (gInput.isKeyPressed(GLFW_KEY_F11))
 		render_screenshot = true;
 
@@ -455,10 +459,7 @@ void EditorApplication::update(float delta_time)
 void EditorApplication::recordCommands(RHICommandList *cmd_list)
 {
 	scene_renderer->setScene(Scene::getCurrentScene());
-	ViewSettings view_settings = context.settings.view_settings;
-	if (viewport_fullscreen)
-		view_settings.overlays.enabled = false;
-	scene_renderer->render(&context.editor_camera, viewport_panel.viewport_texture, view_settings);
+	scene_renderer->render(&context.editor_camera, viewport_panel.viewport_texture, context.settings.view_settings);
 
 	FrameGraph frameGraph(scene_renderer->persistent_resources, scene_renderer->transient_resources);
 

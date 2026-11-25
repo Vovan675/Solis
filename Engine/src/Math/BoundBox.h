@@ -9,6 +9,7 @@ struct BoundBox
 
 	glm::vec3 getSize() const { return max - min; }
 	glm::vec3 getCenter() const { return (max + min) / 2.0f; }
+	bool isEmpty() const { return min.x > max.x; }
 
 	void extend(const BoundBox& bound_box)
 	{

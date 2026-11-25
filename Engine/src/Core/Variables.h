@@ -578,6 +578,7 @@ extern AutoConVarBool render_first_frame;
 extern AutoConVarBool render_culling_hiz_debug;
 extern AutoConVarBool render_culling_freeze;
 extern AutoConVarBool render_meshlets_mesh_shaders;
+extern AutoConVarFloat render_meshlets_lod_error_pixels;
 extern AutoConVarBool render_meshlets_bvh_visualize;
 extern AutoConVarInt render_meshlets_bvh_visualize_depth;
 

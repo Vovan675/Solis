@@ -13,8 +13,7 @@
 static void drawStatsBar(float delta_time, ImVec2 pos)
 {
 	ImVec4 background(22.0f / 255.0f, 22.0f / 255.0f, 22.0f / 255.0f, 0.5f);
-	ImGui::SetNextWindowPos(pos);
-	ImGui::Begin("Stats Bar", NULL, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoFocusOnAppearing);
+	ImGui::SetCursorScreenPos(ImVec2(pos.x + ImGui::GetStyle().WindowPadding.x, pos.y + ImGui::GetStyle().WindowPadding.y));
 
 	ImGui::PushFont(UI::font_small);
 	ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 4);
@@ -49,17 +48,52 @@ static void drawStatsBar(float delta_time, ImVec2 pos)
 	ImGui::PopStyleColor();
 	ImGui::PopStyleVar(3);
 	ImGui::PopFont();
+}
 
+static void draw_top_bar(ImGuizmo::OPERATION &tool_type, int &orientation, int &pivot_mode, OverlaySettings &overlays, ImVec2 top_right)
+{
+	ImGui::SetNextWindowPos(top_right, ImGuiCond_Always, ImVec2(1.0f, 0.0f));
+	ImGui::Begin("Viewport Top Bar", NULL, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings);
+
+	auto tool_button = [&](const char *icon, ImGuizmo::OPERATION type, ImDrawFlags corners, const char *tooltip)
+	{
+		if (UI::topBarButton(icon, tool_type == type, corners, tooltip))
+			tool_type = type;
+	};
+	tool_button(ICON_FA_ARROWS_UP_DOWN_LEFT_RIGHT, ImGuizmo::TRANSLATE, ImDrawFlags_RoundCornersLeft, "Translate (T)");
+	ImGui::SameLine(0, 0);
+	tool_button(ICON_FA_ROTATE, ImGuizmo::ROTATE, ImDrawFlags_RoundCornersNone, "Rotate (R)");
+	ImGui::SameLine(0, 0);
+	tool_button(ICON_FA_UP_RIGHT_AND_DOWN_LEFT_FROM_CENTER, ImGuizmo::SCALE, ImDrawFlags_RoundCornersRight, "Scale (Y)");
+
+	ImGui::SameLine();
+	const char *orientations[] = {ICON_FA_CUBE " Local", ICON_FA_GLOBE " World"};
+	int scale_orientation = ImGuizmo::LOCAL;
+	ImGui::BeginDisabled(tool_type == ImGuizmo::SCALE);
+	UI::comboButton("Orientation", tool_type == ImGuizmo::SCALE ? &scale_orientation : &orientation, orientations, 2, "Orientation");
+	ImGui::EndDisabled();
+
+	ImGui::SameLine();
+	const char *pivot_modes[] = {ICON_FA_VECTOR_SQUARE " Center", ICON_FA_ANCHOR " Pivot"};
+	UI::comboButton("Pivot", &pivot_mode, pivot_modes, 2, "Gizmo position");
+
+	ImGui::SameLine();
+	UI::toggleButtonPopup(ICON_FA_LAYER_GROUP, &overlays.enabled, [&] { UI::drawStructCompact(overlays); }, "Overlays (Z)");
 	ImGui::End();
 }
 
-static void draw_overlays_bar(OverlaySettings &overlays, ImVec2 top_right)
+static void get_entity_mesh_bounds(BoundBox &bound_box, Entity entity)
 {
-	ImGui::SetNextWindowPos(top_right, ImGuiCond_Always, ImVec2(1.0f, 0.0f));
-	ImGui::Begin("Overlays Bar", NULL, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings);
-
-	UI::toggleButtonPopup(ICON_FA_LAYER_GROUP, &overlays.enabled, [&] { UI::drawStructCompact(overlays); }, "Overlays (Z)");
-	ImGui::End();
+	if (entity.hasComponent<MeshRendererComponent>())
+	{
+		for (MeshRendererComponent::MeshId &mesh_id : entity.getComponent<MeshRendererComponent>().meshes)
+		{
+			if (Engine::Mesh *mesh = mesh_id.getMesh())
+				bound_box.extend(BoundBox(mesh->bound_box) * entity.getWorldTransformMatrix());
+		}
+	}
+	for (entt::entity child : entity.getChildren())
+		get_entity_mesh_bounds(bound_box, Entity(child));
 }
 
 bool ViewportPanel::renderImGui(EditorContext &context, float delta_time, bool fullscreen)
@@ -148,11 +182,18 @@ bool ViewportPanel::renderImGui(EditorContext &context, float delta_time, bool f
 		bool was_using = ImGuizmo::IsUsing();
 		if (!was_using)
 		{
-			// Use center as pivot point
+			// Pivot
+			BoundBox bound_box;
 			glm::vec3 center = glm::vec3(0.0f);
 			for (entt::entity id : roots)
+			{
+				if (guizmo_pivot_mode == PIVOT_MODE_CENTER)
+					get_entity_mesh_bounds(bound_box, Entity(id));
 				center += glm::vec3(Entity(id).getWorldTransformMatrix()[3]);
+			}
 			center /= (float)roots.size();
+			if (!bound_box.isEmpty())
+				center = bound_box.getCenter();
 
 			glm::vec3 position;
 			glm::vec3 scale;
@@ -163,7 +204,7 @@ bool ViewportPanel::renderImGui(EditorContext &context, float delta_time, bool f
 		glm::mat4 old_pivot = guizmo_pivot;
 
 		ImGuizmo::SetOrthographic(false);
-		ImGuizmo::MODE mode = guizmo_tool_type == ImGuizmo::SCALE ? ImGuizmo::LOCAL : ImGuizmo::WORLD;
+		ImGuizmo::MODE mode = guizmo_tool_type == ImGuizmo::SCALE ? ImGuizmo::LOCAL : (ImGuizmo::MODE)guizmo_orientation;
 		bool changed = ImGuizmo::Manipulate(glm::value_ptr(camera.getView()), glm::value_ptr(projection), guizmo_tool_type, mode, glm::value_ptr(guizmo_pivot), nullptr, snap ? glm::value_ptr(snap_values) : nullptr);
 		is_gizmo_hovered = ImGuizmo::IsOver() || ImGuizmo::IsUsing();
 
@@ -212,13 +253,11 @@ bool ViewportPanel::renderImGui(EditorContext &context, float delta_time, bool f
 		ImGui::EndDragDropTarget();
 	}
 
+	OverlaySettings &overlays = context.settings.view_settings.overlays;
+	if (overlays.enabled && overlays.stats)
+		drawStatsBar(delta_time, viewport_pos);
 	if (!fullscreen)
-	{
-		OverlaySettings &overlays = context.settings.view_settings.overlays;
-		if (overlays.enabled && overlays.stats)
-			drawStatsBar(delta_time, viewport_pos);
-		draw_overlays_bar(overlays, ImVec2(viewport_pos.x + viewport_size.x, viewport_pos.y));
-	}
+		draw_top_bar(guizmo_tool_type, guizmo_orientation, guizmo_pivot_mode, overlays, ImVec2(viewport_pos.x + viewport_size.x, viewport_pos.y));
 	ImGui::End();
 	return is_hovered;
 }

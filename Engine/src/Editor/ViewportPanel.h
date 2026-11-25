@@ -13,6 +13,10 @@ public:
 	glm::vec2 clicked_uv = glm::vec2(-1.0f);
 
 private:
+	enum PivotMode { PIVOT_MODE_CENTER, PIVOT_MODE_PIVOT };
+
 	ImGuizmo::OPERATION guizmo_tool_type = ImGuizmo::TRANSLATE;
+	int guizmo_orientation = ImGuizmo::WORLD;
+	int guizmo_pivot_mode = PIVOT_MODE_CENTER;
 	glm::mat4 guizmo_pivot = glm::mat4(1.0f);
 };

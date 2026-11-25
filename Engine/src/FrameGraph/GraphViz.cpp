@@ -1,16 +1,23 @@
 #include "pch.h"
 #include "GraphViz.h"
-#include <algorithm>
-#include <regex>
+
+static const char *PASS_COLOR = "#f55938";
+static const char *PASS_FILL = "#3a1d15";
+static const char *PASS_TEXT = "#f0f3f6";
+static const char *READ_COLOR = "#3fb9a0";
+static const char *TEXT_COLOR = "#c9d1d9";
+static const char *MUTED_COLOR = "#8b949e";
+static const char *TEXTURE_COLOR = "#58a6ff";
+static const char *TEXTURE_FILL = "#16233a";
+static const char *BUFFER_COLOR = "#6e7681";
+static const char *BUFFER_FILL = "#1c2128";
 
 struct Node
 {
 	std::string key;
 	std::string label;
-	std::string cluster_name;
-	std::string color = "orange";
-	bool is_rounded = true;
-	eastl::vector<std::string> cluster_keys;
+	std::string style;
+	eastl::vector<std::string> output_keys;
 };
 
 // Connects one to many
@@ -18,7 +25,7 @@ struct Edge
 {
 	std::string start;
 	eastl::vector<std::string> ends;
-	std::string color = "yellowgreen";
+	std::string color = READ_COLOR;
 };
 
 struct Graph
@@ -30,28 +37,22 @@ struct Graph
 std::ostream &operator <<(std::ostream &os, const Graph &graph)
 {
 	os << "digraph G {\n";
-	os << "rankdir=LR;\n";
-	os << "node [style=filled shape=record]\n";
+	os << "rankdir=TB bgcolor=\"#0d1117\" pad=0.4 nodesep=0.25 ranksep=0.45 newrank=true fontname=\"Roboto\"\n";
+	os << "node [shape=box fontname=\"Roboto\" fontsize=16 fontcolor=\"" << TEXT_COLOR << "\" penwidth=1.6]\n";
+	os << "edge [fontname=\"Roboto\" fontsize=15 penwidth=1.3 arrowsize=0.6]\n";
 
 	// Nodes
 	os << "// Nodes\n";
 	for (const Node &node : graph.nodes)
 	{
-		os << node.key << "[label=<" << node.label << ">" << " fillcolor=" << node.color << 
-			(node.is_rounded ? " style=<filled,rounded>" : "") << 
-			"]\n";
+		os << node.key << "[label=<" << node.label << "> " << node.style << "]\n";
 
-		if (!node.cluster_keys.empty())
+		// Outputs of a pass in one row right under it
+		if (!node.output_keys.empty())
 		{
-			os << "subgraph cluster_" << node.key << " {\n" << node.key << "\n";
-
-			if (!node.cluster_name.empty())
-				os << "label = " << "<" << node.cluster_name << ">\n";
-
-			for (const auto &key : node.cluster_keys)
-			{
-				os << key << "\n";
-			}
+			os << "{ rank=same; ";
+			for (const auto &key : node.output_keys)
+				os << key << " ";
 			os << "}\n";
 		}
 	}
@@ -65,8 +66,19 @@ std::ostream &operator <<(std::ostream &os, const Graph &graph)
 		{
 			os << end << " ";
 		}
-		os << "} [" << "color=" << edge.color << "]\n";
+		os << "} [" << "color=\"" << edge.color << "\"]\n";
 	}
+
+	// Legend
+	os << "labelloc=t labeljust=r label=<<TABLE BORDER=\"1\" COLOR=\"#30363d\" STYLE=\"rounded\" CELLSPACING=\"8\" CELLPADDING=\"6\">";
+	os << "<TR><TD COLSPAN=\"2\" BORDER=\"0\"><FONT COLOR=\"" << TEXT_COLOR << "\" POINT-SIZE=\"18\"><B>Legend</B></FONT></TD></TR>";
+	os << "<TR><TD COLSPAN=\"2\" BORDER=\"1\" STYLE=\"rounded\" BGCOLOR=\"" << PASS_FILL << "\" COLOR=\"" << PASS_COLOR << "\"><FONT COLOR=\"" << PASS_TEXT << "\"><B>Pass</B></FONT></TD></TR>";
+	os << "<TR><TD BORDER=\"1\" STYLE=\"rounded\" BGCOLOR=\"" << TEXTURE_FILL << "\" COLOR=\"" << TEXTURE_COLOR << "\"><FONT COLOR=\"" << TEXT_COLOR << "\">Texture</FONT></TD>";
+	os << "<TD BORDER=\"1\" STYLE=\"rounded\" BGCOLOR=\"" << BUFFER_FILL << "\" COLOR=\"" << BUFFER_COLOR << "\"><FONT COLOR=\"" << TEXT_COLOR << "\">Buffer</FONT></TD></TR>";
+	os << "<TR><TD BORDER=\"1\" STYLE=\"rounded,dashed\" BGCOLOR=\"" << BUFFER_FILL << "\" COLOR=\"" << BUFFER_COLOR << "\"><FONT COLOR=\"" << TEXT_COLOR << "\">Transient</FONT></TD>";
+	os << "<TD BORDER=\"1\" STYLE=\"rounded\" BGCOLOR=\"" << BUFFER_FILL << "\" COLOR=\"" << BUFFER_COLOR << "\"><FONT COLOR=\"" << TEXT_COLOR << "\">Imported</FONT></TD></TR>";
+	os << "<TR><TD BORDER=\"0\"><FONT COLOR=\"" << PASS_COLOR << "\">write</FONT></TD><TD BORDER=\"0\"><FONT COLOR=\"" << READ_COLOR << "\">read</FONT></TD></TR>";
+	os << "</TABLE>>\n";
 
 	os << "}\n";
 	return os;
@@ -97,44 +109,40 @@ void GraphViz::createGraph(std::ostream &os, FrameGraph &fg)
 	std::string declarations;
 	std::string dependencies;
 
-	auto addTextureNode = [&graph](FrameGraphTexture *texture)
+	auto addResourceNode = [&graph](const std::string &node_key, const eastl::string &name, const eastl::string &details, bool is_texture, bool is_transient)
 	{
-		auto node_key = get_key(texture);
-		const char *color = "skyblue";
-
 		std::ostringstream title;
-		title << "{" << texture->name.c_str() << " (" << texture->version << ")} | {Refs: " << texture->ref_count << "<BR/>Index: " << texture->resource_id << "<BR/>" << texture->toString().c_str() << "}";
+		title << name.c_str() << "<BR/><FONT POINT-SIZE=\"13\" COLOR=\"" << MUTED_COLOR << "\">" << details.c_str() << "</FONT>";
 
-		graph.nodes.emplace_back(Node{node_key, title.str(), "", color, false});
+		std::ostringstream style;
+		style << "style=\"rounded,filled" << (is_transient ? ",dashed" : "") << "\" "
+			<< "fillcolor=\"" << (is_texture ? TEXTURE_FILL : BUFFER_FILL)
+			<< "\" color=\"" << (is_texture ? TEXTURE_COLOR : BUFFER_COLOR) << "\"";
+
+		graph.nodes.emplace_back(Node{node_key, title.str(), style.str()});
 	};
 
-	auto addBufferNode = [&graph](FrameGraphBuffer *buffer)
+	auto addTextureNode = [&](FrameGraphTexture *texture)
 	{
-		auto node_key = get_key(buffer);
-		const char *color = "skyblue";
+		addResourceNode(get_key(texture), texture->name, texture->toString(), true, texture->is_transient);
+	};
 
-		std::ostringstream title;
-		title << "{" << buffer->name.c_str() << " (" << buffer->version << ")} | {Refs: " << buffer->ref_count << "<BR/>Index: " << buffer->resource_id << "<BR/>" << buffer->toString().c_str() << "}";
-
-		graph.nodes.emplace_back(Node{node_key, title.str(), "", color, false});
+	auto addBufferNode = [&](FrameGraphBuffer *buffer)
+	{
+		addResourceNode(get_key(buffer), buffer->name, buffer->toString(), false, buffer->is_transient);
 	};
 
 	for (const auto &pass : fg.renderpass_nodes)
 	{
 		auto pass_key = get_key(pass);
-		const char *node_color = (pass.getRefCount() > 0 || pass.hasSideEffect()) ? "orange" : "orangered4";
-		const char *edge_color = (pass.getRefCount() > 0 || pass.hasSideEffect()) ? "red" : "red4";
+		bool is_culled = pass.getRefCount() == 0 && !pass.hasSideEffect();
+		const char *edge_color = is_culled ? MUTED_COLOR : PASS_COLOR;
+
+		std::ostringstream style;
+		style << "style=\"rounded,filled\" fontsize=19 fontcolor=\"" << PASS_TEXT << "\" fillcolor=\"" << (is_culled ? BUFFER_FILL : PASS_FILL) << "\" color=\"" << edge_color << "\"";
 
 		std::ostringstream title;
-		title << "{" << pass.getName().c_str() << "} | {Refs: " << pass.getRefCount() << "<BR/>Index: " << pass.getId() << "}";
-
-		std::string cluster_name;
-		// if big cluster, then name it
-		if ((pass.getTextureWrites().size() + pass.getBufferWrites().size()) > 1)
-		{
-			cluster_name = pass.getName().c_str();
-			cluster_name = std::regex_replace(cluster_name, std::regex("\\Pass"), "");
-		}
+		title << "<B>" << pass.getName().c_str() << "</B>";
 
 		// Add edges
 
@@ -178,47 +186,21 @@ void GraphViz::createGraph(std::ostream &os, FrameGraph &fg)
 			}
 		}
 
-		auto &new_node = graph.nodes.emplace_back(Node{pass_key, title.str(), cluster_name, node_color});
+		auto &new_node = graph.nodes.emplace_back(Node{pass_key, title.str(), style.str()});
 
-		// Cluster producer with its resources (for example GBuffer with all its outputs)
+		// Producer with its resources in one row (for example GBuffer with all its outputs)
 		for (const auto &write : pass.getTextureWrites())
 		{
 			FrameGraphTexture *resource_node = fg.getFrameGraphTexture(write);
-			new_node.cluster_keys.emplace_back(get_key(resource_node));
+			new_node.output_keys.emplace_back(get_key(resource_node));
 		}
 
 		for (const auto &write : pass.getBufferWrites())
 		{
 			FrameGraphBuffer *resource_node = fg.getFrameGraphBuffer(write);
-			new_node.cluster_keys.emplace_back(get_key(resource_node));
+			new_node.output_keys.emplace_back(get_key(resource_node));
 		}
 	}
-
-	/*
-	for (const auto &resource : fg.all_textures)
-	{
-		auto resource_key = get_key(&resource);
-		const char *color = "skyblue";
-
-		//auto &entry = fg.getResourceEntry(resource);
-
-
-		std::ostringstream title;
-		title << "{" << resource.name.c_str() << " (" << resource.version << ")} | {Refs: " << resource.ref_count << "<BR/>Index: " << resource.resource_id << "<BR/>" << resource.toString().c_str() << "}";
-
-		graph.nodes.emplace_back(Node{resource_key, title.str(), "", color, false});
-
-		// Add edge where this resource will be read
-		auto &edge = graph.edges.emplace_back(Edge{resource_key, {}});
-		for (const auto &pass : fg.renderpass_nodes)
-		{
-			if (pass.isReading(resource.resource_id))
-			{
-				edge.ends.emplace_back(get_key(pass));
-			}
-		}
-	}
-	*/
 
 	os << graph;
 }

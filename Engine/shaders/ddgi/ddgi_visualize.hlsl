@@ -72,13 +72,14 @@ float4 PSMain(VertexOutput IN) : SV_TARGET {
 		float3 cascade_color;
 		switch (IN.probe_cascade)
 		{
-			case 0: cascade_color = float3(1, 0, 0); break;
-			case 1: cascade_color = float3(0, 1, 0); break;
-			case 2: cascade_color = float3(0, 0, 1); break;
-			case 3: cascade_color = float3(1, 1, 0); break;
-			default: cascade_color = float3(0, 1, 1); break;
+			case 0: cascade_color = float3(1.00, 0.16, 0.24); break;
+			case 1: cascade_color = float3(1.00, 0.80, 0.10); break;
+			case 2: cascade_color = float3(0.10, 0.85, 0.95); break;
+			case 3: cascade_color = float3(0.52, 0.36, 1.00); break;
+			default: cascade_color = float3(0.80, 0.80, 0.80); break;
 		}
-		return float4(cascade_color, 1.0);
+		float shading = 0.7 + 0.3 * saturate(dot(normalize(IN.direction), normalize(float3(0.4, 0.8, 0.3))));
+		return float4(cascade_color * shading, 1.0);
 	} else if (mode == 5)
 	{
 		float3 offset = GetProbeWorldPosition(volume, probe_coords, IN.probe_cascade) - GetProbeWorldBasePosition(volume, probe_coords, IN.probe_cascade);

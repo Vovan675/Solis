@@ -552,8 +552,10 @@ void SceneRenderer::update(Camera *camera)
 
 		cull_views_table.reset();
 
+		if (!render_culling_freeze)
+			culling_view_projection = camera->getViewProj();
 		CullViewGPU main_view{};
-		main_view.view_projection = camera->getViewProj();
+		main_view.view_projection = culling_view_projection;
 		main_view.pass_mask = PASS_MASK_GBUFFER | PASS_MASK_DECAL;
 		main_view_id = cull_views_table.add(main_view);
 
@@ -806,6 +808,8 @@ void SceneRenderer::update(Camera *camera)
 	pass_constants.view_projection = projection * pass_constants.view;
 	pass_constants.view_projection_unjittered = camera->getViewProj();
 	pass_constants.camera_position = glm::vec4(camera->getPosition(), 1.0f);
+	if (!render_culling_freeze)
+		pass_constants.culling_camera_position = pass_constants.camera_position;
 	pass_constants.render_resolution = glm::vec4(Renderer::getRenderResolution(), 1.0f / glm::vec2(Renderer::getRenderResolution()));
 	pass_constants.output_resolution = glm::vec4(Renderer::getOutputResolution(), 1.0f / glm::vec2(Renderer::getOutputResolution()));
 	pass_constants.jitter = jitter;
@@ -840,9 +844,6 @@ void SceneRenderer::gpu_frame_cull(FrameGraph &frame_graph)
 	},
 	[=](const RenderPassResources &resources, RHICommandList *cmd_list)
 	{
-		if (render_culling_freeze)
-			return;
-
 		gGlobalPipeline->setupComputePipeline(gDynamicRHI->createShader(L"shaders/gpu_driven/frame_cull_instances.hlsl", ShaderType::COMPUTE, "CS_CullInstances"));
 		gGlobalPipeline->flushAndBind(cmd_list);
 

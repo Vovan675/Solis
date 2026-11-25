@@ -77,6 +77,7 @@ public:
 	uint64_t last_update_frame = UINT64_MAX;
 
 	uint32_t main_view_id = 0;
+	glm::mat4 culling_view_projection = glm::mat4(1.0f);
 	uint32_t outline_view_id = 0;
 	eastl::vector<entt::entity> outlined_entities;
 	eastl::vector<LightGPU> lights;
