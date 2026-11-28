@@ -75,6 +75,9 @@ public:
 		return scene->registry.all_of<T>(entity_id);
 	}
 
+	ReflectedObject findComponent(const char *name) const;
+	static int getComponentIndex(const char *name);
+
 	operator bool() const;
 	operator entt::entity() const { return entity_id; };
 

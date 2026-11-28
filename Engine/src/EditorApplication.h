@@ -22,6 +22,7 @@
 #include "Editor/HierarchyPanel.h"
 #include "Editor/DebugPanel.h"
 #include "Editor/RenderSettingsPanel.h"
+#include "Editor/SequencerPanel.h"
 #include "Application.h"
 #include "imgui.h"
 #include "ImGuizmo.h"
@@ -66,6 +67,7 @@ private:
 	HierarchyPanel hierarchy_panel;
 	DebugPanel debug_panel;
 	RenderSettingsPanel render_settings_panel;
+	SequencerPanel sequencer_panel;
 	MitsubaBridge mitsuba_bridge;
 
 	Ref<SceneRenderer> scene_renderer;

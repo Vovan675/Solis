@@ -76,12 +76,27 @@ namespace UI
 		return addDrawer(Reflected<T>::getInfo().findField(field_name), drawer);
 	}
 
-	bool drawStruct(const StructInfo &info, void *object);
+	enum class KeyState
+	{
+		NONE,
+		ANIMATED,
+		KEYED,
+	};
+
+	bool keyButton(KeyState state);
+
+	struct FieldButtons
+	{
+		int count = 0;
+		eastl::function<void(const StructInfo &info, const FieldInfo &field, void *owner)> draw;
+	};
+
+	bool drawStruct(const StructInfo &info, void *object, const FieldButtons &field_buttons = {});
 
 	template <typename T>
-	bool drawStruct(T &object)
+	bool drawStruct(T &object, const FieldButtons &field_buttons = {})
 	{
-		return drawStruct(Reflected<T>::getInfo(), &object);
+		return drawStruct(Reflected<T>::getInfo(), &object, field_buttons);
 	}
 
 	bool drawStructCompact(const StructInfo &info, void *object);

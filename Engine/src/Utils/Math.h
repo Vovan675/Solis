@@ -89,6 +89,22 @@ namespace Math
 		rotation = glm::quat_cast(glm::mat3(basis[0] / scale.x, basis[1] / scale.y, basis[2] / scale.z));
 	}
 
+	inline glm::vec3 calcClosestEulerAngles(glm::quat rotation, glm::vec3 current_angles)
+	{
+		const float HALF_TURN = glm::pi<float>();
+		const float FULL_TURN = glm::two_pi<float>();
+
+		glm::vec3 angles = glm::eulerAngles(rotation);
+		glm::vec3 equivalent_angles(angles.x + HALF_TURN, HALF_TURN - angles.y, angles.z + HALF_TURN);
+
+		// Whole turns
+		angles += FULL_TURN * glm::round((current_angles - angles) / FULL_TURN);
+		equivalent_angles += FULL_TURN * glm::round((current_angles - equivalent_angles) / FULL_TURN);
+
+		bool is_equivalent_closer = glm::distance(equivalent_angles, current_angles) < glm::distance(angles, current_angles);
+		return is_equivalent_closer ? equivalent_angles : angles;
+	}
+
 	// Get how much nits would be WHITE on current "camera" when EV100 = 0
 	inline float getLuminanceMax()
 	{

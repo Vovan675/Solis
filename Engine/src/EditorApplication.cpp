@@ -359,6 +359,7 @@ void EditorApplication::update(float delta_time)
 		ImGui::DockBuilderDockWindow("###Parameters", left_bottom);
 		ImGui::DockBuilderDockWindow("###Viewport", center);
 		ImGui::DockBuilderDockWindow("###Asset Browser", bottom);
+		ImGui::DockBuilderDockWindow("###Sequencer", bottom);
 		ImGui::DockBuilderDockWindow("###Render Settings", right);
 		ImGui::DockBuilderDockWindow("###Debug Window", right);
 		ImGui::DockBuilderFinish(dockspace_id);
@@ -406,6 +407,7 @@ void EditorApplication::update(float delta_time)
 
 		// Asset browser
 		asset_browser_panel.renderImGui(context);
+		sequencer_panel.renderImGui();
 	}
 
 	if (gInput.isKeyPressed(GLFW_KEY_ESCAPE) && !toggle_fullscreen && !ImGui::GetIO().WantTextInput)
@@ -437,6 +439,7 @@ void EditorApplication::update(float delta_time)
 	draw_screenshot_popup();
 
 	viewport_panel.update();
+	sequencer_panel.update(delta_time);
 
 	bool can_start_drag = is_viewport_hovered && !ImGuizmo::IsUsing();
 	is_camera_look = gInput.isMouseKeyDown(GLFW_MOUSE_BUTTON_RIGHT) && (is_camera_look || (can_start_drag && gInput.isMouseKeyPressed(GLFW_MOUSE_BUTTON_RIGHT)));

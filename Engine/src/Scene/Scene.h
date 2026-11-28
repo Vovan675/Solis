@@ -1,6 +1,7 @@
 #pragma once
 #include "entt/entt.hpp"
 #include "Physics/PhysicsScene.h"
+#include "Sequence.h"
 
 class Entity;
 
@@ -63,6 +64,8 @@ private:
 	eastl::vector<entt::entity> dirty_list;
 public:
 	Ref<PhysicsScene> physics_scene;
+	Sequence sequence;
+	SequencePlayer sequence_player;
 
 	static Ref<Scene> current_scene;
 };

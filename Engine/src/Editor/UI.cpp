@@ -107,6 +107,7 @@ void UI::endSection()
 
 static const float property_label_fraction = 0.45f;
 static const float property_label_min_width = 110.0f;
+static float property_buttons_width = 0.0f;
 
 bool UI::beginProperty(const char *label, const char *tooltip, bool can_expand)
 {
@@ -125,7 +126,7 @@ bool UI::beginProperty(const char *label, const char *tooltip, bool can_expand)
 		ImGui::SetItemTooltip("%s", tooltip);
 
 	ImGui::SameLine(value_start_x);
-	ImGui::SetNextItemWidth(-FLT_MIN);
+	ImGui::SetNextItemWidth(property_buttons_width > 0.0f ? -property_buttons_width : -FLT_MIN);
 	return is_open;
 }
 
@@ -392,7 +393,7 @@ static bool draw_asset_reference(AssetReference *reference, const AssetTypeInfo 
 	std::filesystem::path current_path = AssetManager::getPath(*reference);
 	std::filesystem::path picked_path = current_path;
 
-	float browse_width = ImGui::GetFrameHeight() + ImGui::GetStyle().ItemSpacing.x;
+	float browse_width = ImGui::GetFrameHeight() + ImGui::GetStyle().ItemSpacing.x + property_buttons_width;
 	ImGui::SetNextItemWidth(-browse_width);
 
 	std::string asset_name = current_path.empty() ? "None" : current_path.filename().string();
@@ -529,13 +530,13 @@ static const char *calc_field_format(const FieldInfo &field, const char *fallbac
 	return field.valueFormat ? field.valueFormat : fallback;
 }
 
-static bool drawField(const FieldInfo &field, const char *label, void *value, void *owner)
+static UI::PropertyDrawer find_drawer(const FieldInfo &field)
 {
 	// Find per field drawer
 	for (const DrawerEntry &entry : getDrawers())
 	{
 		if (entry.key == &field)
-			return entry.drawer(field, label, value, owner);
+			return entry.drawer;
 	}
 
 	// Find per type drawer
@@ -543,8 +544,16 @@ static bool drawField(const FieldInfo &field, const char *label, void *value, vo
 	for (const DrawerEntry &entry : getDrawers())
 	{
 		if (type && entry.key == type)
-			return entry.drawer(field, label, value, owner);
+			return entry.drawer;
 	}
+	return nullptr;
+}
+
+static bool drawField(const FieldInfo &field, const char *label, void *value, void *owner)
+{
+	UI::PropertyDrawer drawer = find_drawer(field);
+	if (drawer)
+		return drawer(field, label, value, owner);
 
 	const char *tooltip = field.tooltipText;
 
@@ -611,7 +620,27 @@ static bool is_inside_category(const char *name, const char *outer)
 	return strncmp(name, outer, length) == 0 && (name[length] == 0 || name[length] == ' ');
 }
 
-bool UI::drawStruct(const StructInfo &info, void *object)
+bool UI::keyButton(KeyState state)
+{
+	bool clicked = ImGui::Button("##key", ImVec2(ImGui::GetFrameHeight(), 0));
+	ImGui::SetItemTooltip(state == KeyState::KEYED ? "Remove key" : "Add key");
+
+	const float KEY_RADIUS = 5.0f;
+	const float DOT_RADIUS = 2.0f;
+	ImVec2 min = ImGui::GetItemRectMin();
+	ImVec2 max = ImGui::GetItemRectMax();
+	ImVec2 center(floorf((min.x + max.x) * 0.5f), floorf((min.y + max.y) * 0.5f));
+	ImDrawList *draw_list = ImGui::GetWindowDrawList();
+	if (state == KeyState::NONE)
+		draw_list->AddCircleFilled(center, DOT_RADIUS, ImGui::GetColorU32(ImGuiCol_TextDisabled));
+	else if (state == KeyState::ANIMATED)
+		draw_list->AddNgon(center, KEY_RADIUS, ImGui::GetColorU32(ImGuiCol_CheckMark), 4);
+	else
+		draw_list->AddNgonFilled(center, KEY_RADIUS, ImGui::GetColorU32(ImGuiCol_CheckMark), 4);
+	return clicked;
+}
+
+bool UI::drawStruct(const StructInfo &info, void *object, const FieldButtons &field_buttons)
 {
 	eastl::vector<const char *> open_categories;
 	const char *hidden_by_category = nullptr;
@@ -654,11 +683,57 @@ bool UI::drawStruct(const StructInfo &info, void *object)
 		bool is_active = field.isActive(object);
 		if (!is_active)
 			ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().DisabledAlpha);
+		void *value = field.getAddress(object);
+
+		bool is_section = field.arrayInfo || (field.structInfo && !field.isStruct<AssetReference>() && !find_drawer(field));
+		int button_count = is_section || field.isReadOnly ? 0 : 1 + field_buttons.count;
+
+		float buttons_spacing = ImGui::GetStyle().ItemSpacing.x;
+		float button_size = ImGui::GetFrameHeight();
+		float buttons_width = button_count * (button_size + buttons_spacing);
+
+		property_buttons_width = buttons_width;
 		ImGui::BeginDisabled(field.isReadOnly);
-		changed |= drawField(field, label.c_str(), field.getAddress(object), object);
+		bool field_changed = drawField(field, label.c_str(), value, object);
 		ImGui::EndDisabled();
+		property_buttons_width = 0.0f;
+
+		// Utility buttons on the right
+		if (button_count > 0)
+		{
+			const void *default_value = field.getAddress(info.defaults);
+			bool is_default = field.isDefault(value, default_value);
+
+			ImGui::PushID(field.name);
+			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
+			ImGui::SameLine(ImGui::GetContentRegionMax().x - buttons_width + buttons_spacing);
+
+			// Reset button
+			ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(is_default ? ImGuiCol_TextDisabled : ImGuiCol_CheckMark));
+			if (ImGui::Button(ICON_FA_ARROW_ROTATE_LEFT, ImVec2(button_size, 0)) && !is_default)
+			{
+				field.assign(value, default_value);
+				field_changed = true;
+			}
+			ImGui::PopStyleColor();
+
+			// Other buttons
+			if (field_buttons.draw)
+			{
+				ImGui::SameLine();
+				ImGui::BeginGroup();
+				field_buttons.draw(info, field, object);
+				ImGui::EndGroup();
+			}
+			ImGui::PopStyleColor();
+			ImGui::PopID();
+		}
 		if (!is_active)
 			ImGui::PopStyleVar();
+
+		if (field_changed)
+			field.notifyChanged(object);
+		changed |= field_changed;
 	}
 
 	while (!open_categories.empty())

@@ -34,7 +34,11 @@ bool AssetBrowserPanel::renderImGui(EditorContext &context)
 	auto &folder_tex = AssetManager::getTextureAsset("assets/textures/icons/folder.png");
 
 	// Asset browser
-	ImGui::Begin((eastl::string(ICON_FA_FOLDER) + " Asset Browser###Asset Browser").c_str());
+	if (!ImGui::Begin((eastl::string(ICON_FA_FOLDER) + " Asset Browser###Asset Browser").c_str()))
+	{
+		ImGui::End();
+		return false;
+	}
 	bool is_used = ImGui::IsWindowFocused();
 
 	ImGui::BeginChild("hierarchy view", ImVec2(150, 0), ImGuiChildFlags_Border | ImGuiChildFlags_ResizeX);

@@ -147,6 +147,7 @@ Ref<Scene> Scene::copy()
 		scene->createEntity(transform.name, e);
 
 	copy_component<ALL_COMPONENTS>(registry, scene->registry);
+	scene->sequence = sequence;
 	return scene;
 }
 
@@ -217,6 +218,13 @@ void Scene::saveFile(const eastl::string &filename)
 	ReflectionYaml::writeFields(out, render_settings_info, &gRenderSettings, render_settings_info.defaults);
 	out << YAML::EndMap << YAML::EndMap;
 
+	if (!sequence.bindings.empty())
+	{
+		out << YAML::Key << "Sequence" << YAML::Value << YAML::BeginMap;
+		ReflectionYaml::writeFields(out, Reflected<Sequence>::getInfo(), &sequence, nullptr);
+		out << YAML::EndMap;
+	}
+
 	out << YAML::EndMap;
 }
 
@@ -253,6 +261,7 @@ void Scene::loadFile(const eastl::string &filename)
 
 	gRenderSettings = RenderSettings();
 	ReflectionYaml::readFields(root["Settings"]["Render"], Reflected<RenderSettings>::getInfo(), &gRenderSettings);
+	ReflectionYaml::readFields(root["Sequence"], Reflected<Sequence>::getInfo(), &sequence);
 }
 
 Ref<Scene> Scene::loadScene(const eastl::string &filename)

@@ -79,6 +79,49 @@ static void draw_texture_preview(RHITextureRef texture, int mip, int layer)
 	ImGui::Image(ImGuiWrapper::getTextureId(texture, mip, layer), ImVec2(width, width / aspect));
 }
 
+static bool draw_transform_vector(const FieldInfo &field, const char *label, void *value, void *owner)
+{
+	return UI::dragFloat3(label, (float *)value, 0.01f);
+}
+
+static bool draw_transform_rotation(const FieldInfo &field, const char *label, void *value, void *owner)
+{
+	glm::vec3 &rotation = *(glm::vec3 *)value;
+	glm::vec3 degrees = glm::degrees(rotation);
+	if (!UI::dragFloat3(label, &degrees.x, 0.5f))
+		return false;
+
+	rotation = glm::radians(degrees);
+	return true;
+}
+
+static const bool transform_position_drawer_registered = UI::registerFieldDrawer<TransformComponent>("local_position", draw_transform_vector);
+static const bool transform_rotation_drawer_registered = UI::registerFieldDrawer<TransformComponent>("local_rotation_euler", draw_transform_rotation);
+static const bool transform_scale_drawer_registered = UI::registerFieldDrawer<TransformComponent>("local_scale", draw_transform_vector);
+
+static void draw_field_key_button(Entity entity, int sequence_frame, const StructInfo &info, const FieldInfo &field, void *owner)
+{
+	if (!PropertyTrack::isAnimatable(field))
+		return;
+
+	Sequence &sequence = Scene::getCurrentScene()->sequence;
+	SequenceBinding *binding = sequence.findBinding(entity);
+	PropertyTrack *track = binding ? binding->findTrack(info.name, field.name) : nullptr;
+	bool is_keyed = track && track->hasKey(sequence_frame);
+
+	bool clicked = UI::keyButton(is_keyed ? UI::KeyState::KEYED : (track ? UI::KeyState::ANIMATED : UI::KeyState::NONE));
+	if (clicked && is_keyed)
+	{
+		track->removeKeys(sequence_frame);
+		sequence.removeEmptyTracks();
+	} else if (clicked)
+	{
+		SequenceBinding &entity_binding = sequence.findOrAddBinding(entity);
+		entity_binding.findOrAddTrack(info.name, field.name).setKey(field, owner, sequence_frame);
+		SequencePlayer::sortTracks(entity_binding);
+	}
+}
+
 bool ParametersPanel::renderImGui(EditorContext &context, DebugRenderer &debug_renderer, AssetBrowserPanel &asset_browser)
 {
 	ImGui::Begin((eastl::string(ICON_FA_PEN) + " Parameters###Parameters").c_str());
@@ -89,18 +132,14 @@ bool ParametersPanel::renderImGui(EditorContext &context, DebugRenderer &debug_r
 	bool prefer_asset = context.selection_type == EditorSelectionType::Asset && !selected_path.empty();
 	if (entity && !prefer_asset)
 	{
+		int sequence_frame = (int)roundf(Scene::getCurrentScene()->sequence_player.frame);
+
+		UI::FieldButtons field_buttons;
+		field_buttons.count = 1;
+		field_buttons.draw = [=](const StructInfo &info, const FieldInfo &field, void *owner) { draw_field_key_button(entity, sequence_frame, info, field, owner); };
+
 		drawComponent<TransformComponent>(entity, [&](TransformComponent &transform_component) {
-			glm::vec3 position = transform_component.getLocalPosition();
-			if (UI::dragFloat3("Position", position.data.data, 0.01f))
-				transform_component.setPosition(position);
-
-			glm::vec3 rotation = glm::degrees(transform_component.getLocalRotationEuler());
-			if (UI::dragFloat3("Rotation", rotation.data.data, 0.5f))
-				transform_component.setLocalRotationEuler(glm::radians(rotation));
-
-			glm::vec3 scale = transform_component.getLocalScale();
-			if (UI::dragFloat3("Scale", scale.data.data, 0.01f))
-				transform_component.setLocalScale(scale);
+			UI::drawStruct(transform_component, field_buttons);
 		});
 
 		drawComponent<MeshRendererComponent>(entity, [&](MeshRendererComponent &mesh_renderer)
@@ -174,8 +213,8 @@ bool ParametersPanel::renderImGui(EditorContext &context, DebugRenderer &debug_r
 			}
 		});
 
-		drawComponent<LightComponent>(entity, [](LightComponent &light) {
-			UI::drawStruct(light);
+		drawComponent<LightComponent>(entity, [&](LightComponent &light) {
+			UI::drawStruct(light, field_buttons);
 
 			RHITextureRef texture = light.getShadowMap();
 			if (!texture)
@@ -187,12 +226,12 @@ bool ParametersPanel::renderImGui(EditorContext &context, DebugRenderer &debug_r
 			draw_texture_preview(texture, 0, layer_index);
 		});
 
-		drawComponent<RigidBodyComponent>(entity, [](RigidBodyComponent &rigid_body) {
-			UI::drawStruct(rigid_body);
+		drawComponent<RigidBodyComponent>(entity, [&](RigidBodyComponent &rigid_body) {
+			UI::drawStruct(rigid_body, field_buttons);
 		});
 
 		drawComponent<BoxColliderComponent>(entity, [&](BoxColliderComponent &collider) {
-			UI::drawStruct(collider);
+			UI::drawStruct(collider, field_buttons);
 			if (ImGui::Button("Extent to Bounds", ImVec2(-FLT_MIN, 0)))
 			{
 				MeshRendererComponent &mesh_renderer = entity.getComponent<MeshRendererComponent>();

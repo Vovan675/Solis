@@ -20,6 +20,7 @@ struct FieldInfo
 	const ValueInfo *valueInfo = nullptr;
 	const StructInfo *structInfo = nullptr;
 	const ArrayInfo *arrayInfo = nullptr;
+	void (*assign)(void *dst, const void *src) = nullptr;
 
 	bool isSerialized = true;
 
@@ -42,6 +43,7 @@ struct FieldInfo
 	bool isHidden = false;
 	bool (*editCondition)(const void *owner) = nullptr;
 	bool (*visibleCondition)(const void *owner) = nullptr;
+	void (*changeCallback)(void *owner) = nullptr;
 
 	constexpr FieldInfo label(const char *text) const { FieldInfo field = *this; field.displayLabel = text; return field; }
 	constexpr FieldInfo tooltip(const char *text) const { FieldInfo field = *this; field.tooltipText = text; return field; }
@@ -67,11 +69,13 @@ struct FieldInfo
 	constexpr FieldInfo hidden() const { FieldInfo field = *this; field.isHidden = true; return field; }
 	constexpr FieldInfo editIf(bool (*condition)(const void *owner)) const { FieldInfo field = *this; field.editCondition = condition; return field; }
 	constexpr FieldInfo visibleIf(bool (*condition)(const void *owner)) const { FieldInfo field = *this; field.visibleCondition = condition; return field; }
+	constexpr FieldInfo onChanged(void (*callback)(void *owner)) const { FieldInfo field = *this; field.changeCallback = callback; return field; }
 
 	template<typename T>
 	static FieldInfo make(const char *name, size_t offset)
 	{
 		FieldInfo field{name, offset};
+		field.assign = [](void *dst, const void *src) { *(T *)dst = *(const T *)src; };
 		if constexpr (IsVector<T>::value)
 			field.arrayInfo = ArrayInfo::get<T>();
 		else if constexpr (Reflected<T>::isReflected)
@@ -94,6 +98,7 @@ struct FieldInfo
 	bool hasRange() const { return minValue != maxValue; }
 	bool isActive(const void *owner) const { return !editCondition || editCondition(owner); }
 	bool isVisible(const void *owner) const { return !isHidden && (!visibleCondition || visibleCondition(owner)); }
+	void notifyChanged(void *owner) const { if (changeCallback) changeCallback(owner); }
 	bool isCategory() const { return !valueInfo && !structInfo && !arrayInfo; }
 	bool isDefault(const void *value, const void *default_value) const;
 };
@@ -158,6 +163,18 @@ struct StructInfo
 				return &fields[i];
 		return nullptr;
 	}
+};
+
+struct ReflectedObject
+{
+	void *object = nullptr;
+	const StructInfo *info = nullptr;
+};
+
+struct ReflectedField
+{
+	void *owner = nullptr;
+	const FieldInfo *info = nullptr;
 };
 
 template<typename T>
@@ -255,6 +272,7 @@ inline bool StructInfo::isDefault(const void *object, const void *default_object
 #define REFLECT_CATEGORY(title) FieldInfo{title}
 #define EDIT_IF(expression) editIf([](const void *pointer) { const Type &owner = *(const Type *)pointer; return expression; })
 #define VISIBLE_IF(expression) visibleIf([](const void *pointer) { const Type &owner = *(const Type *)pointer; return expression; })
+#define ON_CHANGED(expression) onChanged([](void *pointer) { Type &owner = *(Type *)pointer; expression; })
 
 #define REFLECT_END() \
 			}; \

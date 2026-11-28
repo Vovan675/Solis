@@ -43,7 +43,7 @@ public:
 	void setLocalTransform(glm::mat4 transform)
 	{
 		Math::decomposeTransform(transform, local_position, local_rotation, local_scale);
-		local_rotation_euler = glm::eulerAngles(local_rotation);
+		local_rotation_euler = Math::calcClosestEulerAngles(local_rotation, local_rotation_euler);
 		Scene::propagate_local_transforms_update(owner);
 	}
 
@@ -64,7 +64,7 @@ public:
 	glm::quat getLocalRotation() const { return local_rotation; }
 	void setLocalRotation(glm::quat rot)
 	{
-		local_rotation_euler = glm::eulerAngles(rot);
+		local_rotation_euler = Math::calcClosestEulerAngles(rot, local_rotation_euler);
 		local_rotation = rot;
 		Scene::propagate_local_transforms_update(owner);
 	}
@@ -116,14 +116,14 @@ protected:
 };
 
 REFLECT_BEGIN(TransformComponent)
-	REFLECT_FIELD(name),
-	REFLECT_FIELD(is_enabled),
-	REFLECT_FIELD(local_position),
-	REFLECT_FIELD(local_rotation),
-	REFLECT_FIELD(local_rotation_euler),
-	REFLECT_FIELD(local_scale),
-	REFLECT_FIELD(parent),
-	REFLECT_FIELD(children).notSerialized(),
+	REFLECT_FIELD(name).hidden(),
+	REFLECT_FIELD(is_enabled).hidden(),
+	REFLECT_FIELD(local_position).label("Position").ON_CHANGED(owner.setPosition(owner.local_position)),
+	REFLECT_FIELD(local_rotation).hidden(),
+	REFLECT_FIELD(local_rotation_euler).label("Rotation").ON_CHANGED(owner.setLocalRotationEuler(owner.local_rotation_euler)),
+	REFLECT_FIELD(local_scale).label("Scale").ON_CHANGED(owner.setLocalScale(owner.local_scale)),
+	REFLECT_FIELD(parent).hidden(),
+	REFLECT_FIELD(children).notSerialized().hidden(),
 REFLECT_END()
 
 struct MeshRendererComponent
