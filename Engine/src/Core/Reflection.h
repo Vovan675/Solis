@@ -165,18 +165,6 @@ struct StructInfo
 	}
 };
 
-struct ReflectedObject
-{
-	void *object = nullptr;
-	const StructInfo *info = nullptr;
-};
-
-struct ReflectedField
-{
-	void *owner = nullptr;
-	const FieldInfo *info = nullptr;
-};
-
 template<typename T>
 struct IsVector: std::false_type {};
 
@@ -190,6 +178,7 @@ struct IsVector<eastl::vector<T, A>>: std::true_type
 struct ArrayInfo
 {
 	FieldInfo element;
+	const void *elementDefault;
 	int (*size)(const void *array);
 	void *(*at)(const void *array, int index);
 	void (*resize)(void *array, int count);
@@ -199,8 +188,11 @@ struct ArrayInfo
 	static const ArrayInfo *get()
 	{
 		using Array = typename IsVector<T>::Array;
+		using Element = typename IsVector<T>::Element;
+		static const Element element_default{};
 		static const ArrayInfo info{
-			FieldInfo::make<typename IsVector<T>::Element>("Element", 0),
+			FieldInfo::make<Element>("Element", 0),
+			&element_default,
 			[](const void *array) { return (int)((const Array *)array)->size(); },
 			[](const void *array, int index) { return (void *)&(*(Array *)array)[index]; },
 			[](void *array, int count) { ((Array *)array)->resize(count); },

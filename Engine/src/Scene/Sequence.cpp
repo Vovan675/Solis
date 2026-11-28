@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "Sequence.h"
 #include "Entity.h"
+#include "Core/ReflectionSerialization.h"
 
 ////////////
 // SequenceChannel
@@ -36,9 +37,14 @@ static float hermite(float left_value, float left_tangent, float right_value, fl
 	return (2.0f * t3 - 3.0f * t2 + 1.0f) * left_value + (t3 - 2.0f * t2 + t) * left_tangent + (3.0f * t2 - 2.0f * t3) * right_value + (t3 - t2) * right_tangent;
 }
 
+static int find_key_index_after(const eastl::vector<SequenceKey> &keys, float frame)
+{
+	return (int)(eastl::upper_bound(keys.begin(), keys.end(), frame, [](float search_frame, const SequenceKey &key) { return search_frame < key.frame; }) - keys.begin());
+}
+
 float SequenceChannel::evaluate(float frame) const
 {
-	int right_index = (int)(eastl::upper_bound(keys.begin(), keys.end(), frame, [](float search_frame, const SequenceKey &key) { return search_frame < key.frame; }) - keys.begin());
+	int right_index = find_key_index_after(keys, frame);
 
 	// Before first key
 	if (right_index == 0)
@@ -66,6 +72,12 @@ float SequenceChannel::evaluate(float frame) const
 	float left_tangent = calc_auto_slope(keys, right_index - 1) * length;
 	float right_tangent = calc_auto_slope(keys, right_index) * length;
 	return hermite(left_key.value, left_tangent, right_key.value, right_tangent, t);
+}
+
+const eastl::string &SequenceChannel::evaluateSerialized(float frame) const
+{
+	int left_index = glm::max(find_key_index_after(keys, frame) - 1, 0);
+	return keys[left_index].serialized_value;
 }
 
 static int find_key_index_at_or_after(const eastl::vector<SequenceKey> &keys, int frame)
@@ -172,7 +184,7 @@ static void write_scalar(const FieldInfo &field, void *owner, int index, float s
 	ENGINE_ASSERT(false);
 }
 
-bool PropertyTrack::isAnimatable(const FieldInfo &field)
+static bool is_numeric(const FieldInfo &field)
 {
 	if (field.valueInfo)
 	{
@@ -184,7 +196,7 @@ bool PropertyTrack::isAnimatable(const FieldInfo &field)
 		for (int i = 0; i < field.structInfo->fieldsCount; i++)
 		{
 			const FieldInfo &member = field.structInfo->fields[i];
-			if (!member.valueInfo || !isAnimatable(member))
+			if (!member.valueInfo || !is_numeric(member))
 				return false;
 		}
 		return true;
@@ -194,7 +206,7 @@ bool PropertyTrack::isAnimatable(const FieldInfo &field)
 
 bool PropertyTrack::canInterpolate(const FieldInfo &field)
 {
-	if (!isAnimatable(field))
+	if (!is_numeric(field))
 		return false;
 
 	for (int i = 0; i < get_scalar_count(field); i++)
@@ -205,8 +217,22 @@ bool PropertyTrack::canInterpolate(const FieldInfo &field)
 	return true;
 }
 
-void PropertyTrack::apply(const FieldInfo &field, void *owner, float frame) const
+bool PropertyTrack::apply(const FieldInfo &field, void *owner, float frame) const
 {
+	if (!is_numeric(field))
+	{
+		if (channels.empty() || channels[0].keys.empty())
+			return false;
+
+		void *value = field.getAddress(owner);
+		const eastl::string &serialized_value = channels[0].evaluateSerialized(frame);
+		if (ReflectionYaml::saveToString(field, value) == serialized_value)
+			return false;
+
+		ReflectionYaml::loadFromString(field, value, serialized_value);
+		return true;
+	}
+
 	bool is_changed = false;
 	int scalar_count = glm::min((int)channels.size(), get_scalar_count(field));
 	for (int i = 0; i < scalar_count; i++)
@@ -221,14 +247,13 @@ void PropertyTrack::apply(const FieldInfo &field, void *owner, float frame) cons
 		write_scalar(field, owner, i, evaluated_value);
 		is_changed = true;
 	}
-
-	if (is_changed)
-		field.notifyChanged(owner);
+	return is_changed;
 }
 
 void PropertyTrack::setKey(const FieldInfo &field, const void *owner, int frame)
 {
-	channels.resize(get_scalar_count(field));
+	bool is_field_numeric = is_numeric(field);
+	channels.resize(is_field_numeric ? get_scalar_count(field) : 1);
 	for (int i = 0; i < channels.size(); i++)
 	{
 		SequenceKey *key = channels[i].findKey(frame);
@@ -237,7 +262,11 @@ void PropertyTrack::setKey(const FieldInfo &field, const void *owner, int frame)
 			key = &channels[i].addKey(frame);
 			key->interpolation = canInterpolate(field) ? SequenceInterpolation::CUBIC : SequenceInterpolation::CONSTANT;
 		}
-		key->value = read_scalar(field, owner, i);
+
+		if (is_field_numeric)
+			key->value = read_scalar(field, owner, i);
+		else
+			key->serialized_value = ReflectionYaml::saveToString(field, field.getAddress(owner));
 	}
 }
 
@@ -390,35 +419,42 @@ void SequencePlayer::apply(const Sequence &sequence)
 		for (const PropertyTrack &track : binding.property_tracks)
 		{
 			// Find field from track field name, and apply track frames to it
-			ReflectedField field = findField(binding, track);
-			if (field.info && PropertyTrack::isAnimatable(*field.info))
-				track.apply(*field.info, field.owner, frame);
+			eastl::vector<ReflectedField> steps = findFieldSteps(binding, track);
+			if (steps.empty())
+				continue;
+
+			if (!track.apply(*steps.back().info, steps.back().owner, frame))
+				continue;
+
+			// Apply notifyChanged from leaf to root. Root may have onChange event on its struct for example
+			for (int i = steps.size() - 1; i >= 0; i--)
+				steps[i].info->notifyChanged(steps[i].owner);
 		}
 	}
 	applied_frame = frame;
 }
 
+static ReflectedObject find_component(const SequenceBinding &binding, const PropertyTrack &track)
+{
+	Entity entity(binding.entity);
+	return entity ? entity.findComponent(track.target.c_str()) : ReflectedObject{};
+}
+
+eastl::vector<ReflectedField> SequencePlayer::findFieldSteps(const SequenceBinding &binding, const PropertyTrack &track)
+{
+	return find_component(binding, track).findFieldSteps(track.field_name.c_str());
+}
+
 ReflectedField SequencePlayer::findField(const SequenceBinding &binding, const PropertyTrack &track)
 {
-	ReflectedField field;
-	Entity entity(binding.entity);
-	if (!entity)
-		return field;
-
-	ReflectedObject component = entity.findComponent(track.target.c_str());
-	if (!component.object)
-		return field;
-
-	field.owner = component.object;
-	field.info = component.info->findField(track.field_name.c_str());
-	return field;
+	return find_component(binding, track).findField(track.field_name.c_str());
 }
 
 void SequencePlayer::sortTracks(SequenceBinding &binding)
 {
 	auto get_order = [&](const PropertyTrack &track)
 	{
-		return eastl::make_pair(Entity::getComponentIndex(track.target.c_str()), findField(binding, track).info);
+		return eastl::make_pair(Entity::getComponentIndex(track.target.c_str()), findFieldSteps(binding, track));
 	};
 	eastl::sort(binding.property_tracks.begin(), binding.property_tracks.end(), [&](const PropertyTrack &left, const PropertyTrack &right) { return get_order(left) < get_order(right); });
 }

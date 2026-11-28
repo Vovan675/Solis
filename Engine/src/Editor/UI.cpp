@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "UI.h"
+#include "Core/ReflectionUtils.h"
 #include "EditorContext.h"
 #include "Assets/AssetManager.h"
 #include "Core/Filesystem.h"
@@ -107,7 +108,15 @@ void UI::endSection()
 
 static const float property_label_fraction = 0.45f;
 static const float property_label_min_width = 110.0f;
+struct DrawContext
+{
+	const StructInfo &root;
+	const UI::FieldButtons &field_buttons;
+	eastl::string path;
+};
+
 static float property_buttons_width = 0.0f;
+static const DrawContext *property_context = nullptr;
 
 bool UI::beginProperty(const char *label, const char *tooltip, bool can_expand)
 {
@@ -124,6 +133,8 @@ bool UI::beginProperty(const char *label, const char *tooltip, bool can_expand)
 	bool is_open = ImGui::TreeNodeEx("##label", flags, "%s", label) && can_expand;
 	if (tooltip)
 		ImGui::SetItemTooltip("%s", tooltip);
+	if (property_context && ImGui::GetIO().KeyCtrl)
+		ImGui::SetItemTooltip("%s.%s", property_context->root.name, property_context->path.c_str());
 
 	ImGui::SameLine(value_start_x);
 	ImGui::SetNextItemWidth(property_buttons_width > 0.0f ? -property_buttons_width : -FLT_MIN);
@@ -472,9 +483,9 @@ bool UI::addDrawer(const void *key, PropertyDrawer drawer)
 	return true;
 }
 
-static bool drawField(const FieldInfo &field, const char *label, void *value, void *owner);
+static bool draw_field_row(const FieldInfo &field, const char *label, void *value, void *owner, const void *default_value, const DrawContext &context);
 
-static bool drawArray(const FieldInfo &field, const char *label, void *value)
+static bool drawArray(const FieldInfo &field, const char *label, void *value, const DrawContext &context)
 {
 	const ArrayInfo &array = *field.arrayInfo;
 	int count = array.size(value);
@@ -510,7 +521,8 @@ static bool drawArray(const FieldInfo &field, const char *label, void *value)
 			ImGui::SameLine();
 
 			void *element = array.at(value, i);
-			changed |= drawField(element_field, element_label.c_str(), element, nullptr);
+			DrawContext element_context{context.root, context.field_buttons, makeIndexPath(context.path, i)};
+			changed |= draw_field_row(element_field, element_label.c_str(), element, element, array.elementDefault, element_context);
 			ImGui::PopID();
 		}
 
@@ -549,7 +561,9 @@ static UI::PropertyDrawer find_drawer(const FieldInfo &field)
 	return nullptr;
 }
 
-static bool drawField(const FieldInfo &field, const char *label, void *value, void *owner)
+static bool draw_struct(const StructInfo &info, void *object, const DrawContext &context);
+
+static bool drawField(const FieldInfo &field, const char *label, void *value, void *owner, const DrawContext &context)
 {
 	UI::PropertyDrawer drawer = find_drawer(field);
 	if (drawer)
@@ -566,7 +580,7 @@ static bool drawField(const FieldInfo &field, const char *label, void *value, vo
 		bool changed = false;
 		if (UI::beginSection(label))
 		{
-			changed = UI::drawStruct(*field.structInfo, value);
+			changed = draw_struct(*field.structInfo, value, context);
 			UI::endSection();
 		}
 		ImGui::PopID();
@@ -574,7 +588,7 @@ static bool drawField(const FieldInfo &field, const char *label, void *value, vo
 	}
 
 	if (field.arrayInfo)
-		return drawArray(field, label, value);
+		return drawArray(field, label, value, context);
 
 	if (field.enumItems)
 	{
@@ -604,6 +618,64 @@ static bool drawField(const FieldInfo &field, const char *label, void *value, vo
 		return UI::inputText(label, (eastl::string *)value, tooltip);
 
 	return false;
+}
+
+static bool draw_field_row(const FieldInfo &field, const char *label, void *value, void *owner, const void *default_value, const DrawContext &context)
+{
+	bool is_active = field.isActive(owner);
+	if (!is_active)
+		ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().DisabledAlpha);
+
+	bool is_section = field.arrayInfo || (field.structInfo && !field.isStruct<AssetReference>() && !find_drawer(field));
+	int button_count = is_section || field.isReadOnly ? 0 : 1 + context.field_buttons.count;
+
+	float buttons_spacing = ImGui::GetStyle().ItemSpacing.x;
+	float button_size = ImGui::GetFrameHeight();
+	float buttons_width = button_count * (button_size + buttons_spacing);
+
+	property_buttons_width = buttons_width;
+	property_context = &context;
+	ImGui::BeginDisabled(field.isReadOnly);
+	bool changed = drawField(field, label, value, owner, context);
+	ImGui::EndDisabled();
+	property_buttons_width = 0.0f;
+	property_context = nullptr;
+
+	// Utility buttons on the right
+	if (button_count > 0)
+	{
+		bool is_default = field.isDefault(value, default_value);
+
+		ImGui::PushID(field.name);
+		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
+		ImGui::SameLine(ImGui::GetContentRegionMax().x - buttons_width + buttons_spacing);
+
+		// Reset button
+		ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(is_default ? ImGuiCol_TextDisabled : ImGuiCol_CheckMark));
+		if (ImGui::Button(ICON_FA_ARROW_ROTATE_LEFT, ImVec2(button_size, 0)) && !is_default)
+		{
+			field.assign(value, default_value);
+			changed = true;
+		}
+		ImGui::PopStyleColor();
+
+		// Other buttons
+		if (context.field_buttons.draw)
+		{
+			ImGui::SameLine();
+			ImGui::BeginGroup();
+			context.field_buttons.draw(context.root, context.path.c_str(), field, owner);
+			ImGui::EndGroup();
+		}
+		ImGui::PopStyleColor();
+		ImGui::PopID();
+	}
+	if (!is_active)
+		ImGui::PopStyleVar();
+
+	if (changed)
+		field.notifyChanged(owner);
+	return changed;
 }
 
 static const char *calc_category_title(const char *name)
@@ -640,7 +712,7 @@ bool UI::keyButton(KeyState state)
 	return clicked;
 }
 
-bool UI::drawStruct(const StructInfo &info, void *object, const FieldButtons &field_buttons)
+static bool draw_struct(const StructInfo &info, void *object, const DrawContext &context)
 {
 	eastl::vector<const char *> open_categories;
 	const char *hidden_by_category = nullptr;
@@ -657,7 +729,7 @@ bool UI::drawStruct(const StructInfo &info, void *object, const FieldButtons &fi
 
 			while (!open_categories.empty() && !is_inside_category(field.name, open_categories.back()))
 			{
-				endSection();
+				UI::endSection();
 				open_categories.pop_back();
 			}
 
@@ -665,7 +737,7 @@ bool UI::drawStruct(const StructInfo &info, void *object, const FieldButtons &fi
 				continue;
 
 			ImGui::PushID(field.name);
-			bool is_open = beginSection(calc_category_title(field.name), true);
+			bool is_open = UI::beginSection(calc_category_title(field.name), true);
 			ImGui::PopID();
 
 			if (is_open)
@@ -679,73 +751,28 @@ bool UI::drawStruct(const StructInfo &info, void *object, const FieldButtons &fi
 			continue;
 
 		eastl::string label = field.displayLabel ? field.displayLabel : prettifyName(field.name);
-
-		bool is_active = field.isActive(object);
-		if (!is_active)
-			ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().DisabledAlpha);
-		void *value = field.getAddress(object);
-
-		bool is_section = field.arrayInfo || (field.structInfo && !field.isStruct<AssetReference>() && !find_drawer(field));
-		int button_count = is_section || field.isReadOnly ? 0 : 1 + field_buttons.count;
-
-		float buttons_spacing = ImGui::GetStyle().ItemSpacing.x;
-		float button_size = ImGui::GetFrameHeight();
-		float buttons_width = button_count * (button_size + buttons_spacing);
-
-		property_buttons_width = buttons_width;
-		ImGui::BeginDisabled(field.isReadOnly);
-		bool field_changed = drawField(field, label.c_str(), value, object);
-		ImGui::EndDisabled();
-		property_buttons_width = 0.0f;
-
-		// Utility buttons on the right
-		if (button_count > 0)
-		{
-			const void *default_value = field.getAddress(info.defaults);
-			bool is_default = field.isDefault(value, default_value);
-
-			ImGui::PushID(field.name);
-			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
-			ImGui::SameLine(ImGui::GetContentRegionMax().x - buttons_width + buttons_spacing);
-
-			// Reset button
-			ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(is_default ? ImGuiCol_TextDisabled : ImGuiCol_CheckMark));
-			if (ImGui::Button(ICON_FA_ARROW_ROTATE_LEFT, ImVec2(button_size, 0)) && !is_default)
-			{
-				field.assign(value, default_value);
-				field_changed = true;
-			}
-			ImGui::PopStyleColor();
-
-			// Other buttons
-			if (field_buttons.draw)
-			{
-				ImGui::SameLine();
-				ImGui::BeginGroup();
-				field_buttons.draw(info, field, object);
-				ImGui::EndGroup();
-			}
-			ImGui::PopStyleColor();
-			ImGui::PopID();
-		}
-		if (!is_active)
-			ImGui::PopStyleVar();
-
-		if (field_changed)
-			field.notifyChanged(object);
-		changed |= field_changed;
+		DrawContext field_context{context.root, context.field_buttons, makeMemberPath(context.path, field.name)};
+		changed |= draw_field_row(field, label.c_str(), field.getAddress(object), object, field.getAddress(info.defaults), field_context);
 	}
 
 	while (!open_categories.empty())
 	{
-		endSection();
+		UI::endSection();
 		open_categories.pop_back();
 	}
 	return changed;
 }
 
+bool UI::drawStruct(const StructInfo &info, void *object, const FieldButtons &field_buttons)
+{
+	return draw_struct(info, object, DrawContext{info, field_buttons, ""});
+}
+
 bool UI::drawStructCompact(const StructInfo &info, void *object)
 {
+	FieldButtons no_buttons;
+	DrawContext context{info, no_buttons, ""};
+
 	bool changed = false;
 	for (int i = 0; i < info.fieldsCount; i++)
 	{
@@ -758,7 +785,7 @@ bool UI::drawStructCompact(const StructInfo &info, void *object)
 		if (field.valueInfo && field.valueInfo->type == VALUE_TYPE_BOOL)
 			changed |= ImGui::Checkbox(label.c_str(), (bool *)field.getAddress(object));
 		else
-			changed |= drawField(field, label.c_str(), field.getAddress(object), object);
+			changed |= drawField(field, label.c_str(), field.getAddress(object), object, context);
 		ImGui::EndDisabled();
 	}
 	return changed;

@@ -23,7 +23,7 @@ void SequencerPanel::update(float delta_time)
 					continue;
 
 				ReflectedField field = SequencePlayer::findField(binding, track);
-				if (field.info && PropertyTrack::isAnimatable(*field.info))
+				if (field.info)
 					track.setKey(*field.info, field.owner, frame);
 			}
 		}
@@ -224,7 +224,11 @@ eastl::vector<SequencerPanel::Row> SequencerPanel::draw_track_list(const Sequenc
 			{
 				const PropertyTrack &track = binding.property_tracks[i];
 				ReflectedField field = SequencePlayer::findField(binding, track);
-				eastl::string label = field.info && field.info->displayLabel ? field.info->displayLabel : prettifyName(track.field_name.c_str());
+				eastl::string label;
+				if (field.info && field.info->displayLabel && track.field_name == field.info->name)
+					label = eastl::string(field.info->displayLabel);
+				else
+					label = prettifyName(track.field_name.c_str());
 
 				ImGui::PushID(i);
 				add_row(first_track + i, 1);

@@ -302,4 +302,79 @@ REFLECT_BEGIN(BoxColliderComponent)
 	REFLECT_FIELD(half_extent),
 REFLECT_END()
 
-#define ALL_COMPONENTS TransformComponent, MeshRendererComponent, LightComponent, RigidBodyComponent, BoxColliderComponent
+
+enum class TestMode
+{
+	FIRST,
+	SECOND,
+	THIRD,
+};
+
+inline const char *const test_mode_items[] = {"First", "Second", "Third"};
+
+struct TestComponent
+{
+	struct Item
+	{
+		eastl::string name = "";
+		float weight = 1.0f;
+		glm::vec3 color = glm::vec3(1, 1, 1);
+		AssetReference material_asset;
+	};
+
+	bool enabled = true;
+	int count = 4;
+	uint32_t mask = 0;
+	float intensity = 1.0f;
+	float speed = 0.0f;
+	TestMode mode = TestMode::FIRST;
+	glm::vec3 offset = glm::vec3(0, 0, 0);
+	glm::vec4 color = glm::vec4(1, 1, 1, 1);
+	eastl::string label = "";
+
+	AssetReference model_asset;
+	AssetReference material_asset;
+	AssetReference texture_asset;
+
+	Item item;
+	eastl::vector<Item> items;
+	eastl::vector<float> values;
+	eastl::vector<AssetReference> materials;
+
+	float hooked_value = 0.0f;
+	int change_count = 0;
+};
+
+REFLECT_BEGIN(TestComponent::Item)
+	REFLECT_FIELD(name),
+	REFLECT_FIELD(weight).range(0.0f, 1.0f),
+	REFLECT_FIELD(color).color(),
+	REFLECT_FIELD(material_asset).asset<Material>(),
+REFLECT_END()
+
+REFLECT_BEGIN(TestComponent)
+	REFLECT_CATEGORY("Values"),
+	REFLECT_FIELD(enabled),
+	REFLECT_FIELD(count).range(0.0f, 16.0f).EDIT_IF(owner.enabled),
+	REFLECT_FIELD(mask),
+	REFLECT_FIELD(intensity).range(0.0f, 10.0f),
+	REFLECT_FIELD(speed),
+	REFLECT_FIELD(mode).items(test_mode_items),
+	REFLECT_FIELD(offset),
+	REFLECT_FIELD(color).color(),
+	REFLECT_FIELD(label),
+	REFLECT_CATEGORY("Assets"),
+	REFLECT_FIELD(model_asset).asset<Model>(),
+	REFLECT_FIELD(material_asset).asset<Material>(),
+	REFLECT_FIELD(texture_asset).asset<RHITexture>(),
+	REFLECT_CATEGORY("Containers"),
+	REFLECT_FIELD(item),
+	REFLECT_FIELD(items),
+	REFLECT_FIELD(values),
+	REFLECT_FIELD(materials).asset<Material>(),
+	REFLECT_CATEGORY("Hook"),
+	REFLECT_FIELD(hooked_value).ON_CHANGED(owner.change_count++),
+	REFLECT_FIELD(change_count).readOnly().notSerialized(),
+REFLECT_END()
+
+#define ALL_COMPONENTS TransformComponent, MeshRendererComponent, LightComponent, RigidBodyComponent, BoxColliderComponent, TestComponent

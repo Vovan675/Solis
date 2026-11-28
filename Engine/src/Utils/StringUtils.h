@@ -10,7 +10,7 @@ inline eastl::string prettifyName(const char *name, const char *word_separator =
 	for (int i = 0; name[i]; i++)
 	{
 		char character = name[i];
-		if (character == '_')
+		if (character == '_' || character == '.')
 		{
 			is_after_separator = true;
 			continue;

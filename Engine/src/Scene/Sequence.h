@@ -1,6 +1,6 @@
 #pragma once
 #include <entt/entt.hpp>
-#include "Core/Reflection.h"
+#include "Core/ReflectionUtils.h"
 
 //////
 // Sequence (holds lots of bindings):
@@ -29,6 +29,7 @@ struct SequenceKey
 {
 	int frame = 0;
 	float value = 0.0f;
+	eastl::string serialized_value; // for all not numeric fields
 	SequenceInterpolation interpolation = SequenceInterpolation::CUBIC; // from this to next key
 };
 
@@ -38,6 +39,7 @@ struct SequenceChannel
 	eastl::vector<SequenceKey> keys;
 
 	float evaluate(float frame) const;
+	const eastl::string &evaluateSerialized(float frame) const;
 
 	bool hasKey(int frame) const;
 	SequenceKey *findKey(int frame);
@@ -51,12 +53,11 @@ struct SequenceChannel
 struct PropertyTrack
 {
 	eastl::string target; // example: "LightComponent"
-	eastl::string field_name; // example: "intensity"
+	eastl::string field_name; // path from the target, example: "intensity", "item.color", "items[1].weight"
 	eastl::vector<SequenceChannel> channels; // example: one scalar element (because its just float), or three for vec3
 
-	static bool isAnimatable(const FieldInfo &field);
 	static bool canInterpolate(const FieldInfo &field);
-	void apply(const FieldInfo &field, void *owner, float frame) const;
+	bool apply(const FieldInfo &field, void *owner, float frame) const;
 
 	void setKey(const FieldInfo &field, const void *owner, int frame);
 	bool hasKey(int frame) const;
@@ -100,6 +101,7 @@ struct SequencePlayer
 	void update(const Sequence &sequence, float delta_time);
 	void apply(const Sequence &sequence);
 
+	static eastl::vector<ReflectedField> findFieldSteps(const SequenceBinding &binding, const PropertyTrack &track);
 	static ReflectedField findField(const SequenceBinding &binding, const PropertyTrack &track);
 	static void sortTracks(SequenceBinding &binding);
 
@@ -110,6 +112,7 @@ private:
 REFLECT_BEGIN(SequenceKey)
 	REFLECT_FIELD(frame),
 	REFLECT_FIELD(value),
+	REFLECT_FIELD(serialized_value),
 	REFLECT_FIELD(interpolation),
 REFLECT_END()
 

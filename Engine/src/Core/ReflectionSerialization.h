@@ -20,20 +20,7 @@ public:
 				continue;
 
 			out << YAML::Key << prettifyName(field.name, "").c_str() << YAML::Value;
-			if (field.valueInfo)
-			{
-				write_value(out, *field.valueInfo, value);
-			} else if (field.arrayInfo)
-			{
-				write_array(out, *field.arrayInfo, value);
-			} else
-			{
-				if (is_flow(*field.structInfo))
-					out << YAML::Flow;
-				out << YAML::BeginMap;
-				writeFields(out, *field.structInfo, value, default_value);
-				out << YAML::EndMap;
-			}
+			write_field(out, field, value, default_value);
 		}
 	}
 
@@ -52,12 +39,7 @@ public:
 			const void *default_value = field.getAddress(default_object);
 
 			YAML::Node child = node[prettifyName(field.name, "").c_str()];
-			if (field.valueInfo)
-				read_value(child, *field.valueInfo, value, default_value);
-			else if (child && field.structInfo)
-				readFields(child, *field.structInfo, value, default_value);
-			else if (child)
-				read_array(child, *field.arrayInfo, value);
+			read_field(child, field, value, default_value);
 		}
 	}
 
@@ -96,7 +78,49 @@ public:
 		return true;
 	}
 
+	static eastl::string saveToString(const FieldInfo &field, const void *value)
+	{
+		YAML::Emitter out;
+		write_field(out, field, value, nullptr);
+		return out.c_str();
+	}
+
+	static void loadFromString(const FieldInfo &field, void *value, const eastl::string &text)
+	{
+		read_field(YAML::Load(text.c_str()), field, value, value);
+	}
+
 private:
+	static void write_field(YAML::Emitter &out, const FieldInfo &field, const void *value, const void *default_value)
+	{
+		if (field.valueInfo)
+		{
+			write_value(out, *field.valueInfo, value);
+		} else if (field.arrayInfo)
+		{
+			write_array(out, *field.arrayInfo, value);
+		} else
+		{
+			if (is_flow(*field.structInfo))
+				out << YAML::Flow;
+			out << YAML::BeginMap;
+			writeFields(out, *field.structInfo, value, default_value);
+			out << YAML::EndMap;
+		}
+	}
+
+	static void read_field(const YAML::Node &node, const FieldInfo &field, void *value, const void *default_value)
+	{
+		if (field.valueInfo)
+			read_value(node, *field.valueInfo, value, default_value);
+		else if (!node)
+			field.assign(value, default_value);
+		else if (field.structInfo)
+			readFields(node, *field.structInfo, value, default_value);
+		else
+			read_array(node, *field.arrayInfo, value);
+	}
+
 	static void write_value(YAML::Emitter &out, const ValueInfo &info, const void *value)
 	{
 		switch (info.type)
@@ -138,7 +162,7 @@ private:
 			if (is_flow(*info.element.structInfo))
 				out << YAML::Flow;
 			out << YAML::BeginMap;
-			writeFields(out, *info.element.structInfo, element, nullptr);
+			writeFields(out, *info.element.structInfo, element, info.elementDefault);
 			out << YAML::EndMap;
 		}
 		out << YAML::EndSeq;

@@ -88,7 +88,7 @@ namespace UI
 	struct FieldButtons
 	{
 		int count = 0;
-		eastl::function<void(const StructInfo &info, const FieldInfo &field, void *owner)> draw;
+		eastl::function<void(const StructInfo &root, const char *path, const FieldInfo &field, void *owner)> draw;
 	};
 
 	bool drawStruct(const StructInfo &info, void *object, const FieldButtons &field_buttons = {});

@@ -99,14 +99,11 @@ static const bool transform_position_drawer_registered = UI::registerFieldDrawer
 static const bool transform_rotation_drawer_registered = UI::registerFieldDrawer<TransformComponent>("local_rotation_euler", draw_transform_rotation);
 static const bool transform_scale_drawer_registered = UI::registerFieldDrawer<TransformComponent>("local_scale", draw_transform_vector);
 
-static void draw_field_key_button(Entity entity, int sequence_frame, const StructInfo &info, const FieldInfo &field, void *owner)
+static void draw_field_key_button(Entity entity, int sequence_frame, const StructInfo &component, const char *path, const FieldInfo &field, void *owner)
 {
-	if (!PropertyTrack::isAnimatable(field))
-		return;
-
 	Sequence &sequence = Scene::getCurrentScene()->sequence;
 	SequenceBinding *binding = sequence.findBinding(entity);
-	PropertyTrack *track = binding ? binding->findTrack(info.name, field.name) : nullptr;
+	PropertyTrack *track = binding ? binding->findTrack(component.name, path) : nullptr;
 	bool is_keyed = track && track->hasKey(sequence_frame);
 
 	bool clicked = UI::keyButton(is_keyed ? UI::KeyState::KEYED : (track ? UI::KeyState::ANIMATED : UI::KeyState::NONE));
@@ -117,7 +114,7 @@ static void draw_field_key_button(Entity entity, int sequence_frame, const Struc
 	} else if (clicked)
 	{
 		SequenceBinding &entity_binding = sequence.findOrAddBinding(entity);
-		entity_binding.findOrAddTrack(info.name, field.name).setKey(field, owner, sequence_frame);
+		entity_binding.findOrAddTrack(component.name, path).setKey(field, owner, sequence_frame);
 		SequencePlayer::sortTracks(entity_binding);
 	}
 }
@@ -136,7 +133,7 @@ bool ParametersPanel::renderImGui(EditorContext &context, DebugRenderer &debug_r
 
 		UI::FieldButtons field_buttons;
 		field_buttons.count = 1;
-		field_buttons.draw = [=](const StructInfo &info, const FieldInfo &field, void *owner) { draw_field_key_button(entity, sequence_frame, info, field, owner); };
+		field_buttons.draw = [=](const StructInfo &root, const char *path, const FieldInfo &field, void *owner) { draw_field_key_button(entity, sequence_frame, root, path, field, owner); };
 
 		drawComponent<TransformComponent>(entity, [&](TransformComponent &transform_component) {
 			UI::drawStruct(transform_component, field_buttons);
@@ -245,6 +242,10 @@ bool ParametersPanel::renderImGui(EditorContext &context, DebugRenderer &debug_r
 				TransformComponent &transform = entity.getComponent<TransformComponent>();
 				collider.half_extent = bbox.getSize() * transform.getLocalScale() / 2.0f;
 			}
+		});
+
+		drawComponent<TestComponent>(entity, [&](TestComponent &test) {
+			UI::drawStruct(test, field_buttons);
 		});
 
 		ImGui::Spacing();
